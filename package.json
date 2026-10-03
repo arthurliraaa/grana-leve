@@ -1,0 +1,9 @@
+{
+  "name": "grana-leve",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ferramenta de controle financeiro pessoal para jovens e famílias (projeto de Atividade Extensionista).",
+  "scripts": {
+    "dev": "npx --yes serve -l 5500 ."
+  }
+}
