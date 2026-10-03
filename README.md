@@ -1,4 +1,4 @@
-# Grana Leve
+# Grana Leve 💸
 
 Ferramenta de controle financeiro pessoal para jovens e famílias. Nasceu do projeto
 de Atividade Extensionista (Engenharia de Software), a partir de uma pesquisa com 48
