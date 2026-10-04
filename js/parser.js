@@ -65,6 +65,17 @@
     return dateKey(d);
   }
 
+  // "em 3x" (valor total) ou "3x de 100" (valor de cada parcela). Retorna o texto sem esse trecho.
+  var INSTALL_RE = /(?:\bem\s+)?\b(\d{1,2})\s*x\b(?:\s+de\s+(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?))?/;
+  function findInstallments(text){
+    var m = INSTALL_RE.exec(text);
+    if (!m) return null;
+    var n = Number(m[1]);
+    if (n < 2 || n > 24) return null;
+    var per = m[2] ? parseAmount(m[2]) : null;
+    return {count: n, perInstallment: per ? per.value : null, rest: text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length)};
+  }
+
   function findCategory(text, table){
     var best = null;
     table.forEach(function(entry){
@@ -78,7 +89,7 @@
   }
 
   function findPayment(text){
-    if (/\b(no |do |com o |pelo )?cart[aã]o\b|\bcr[eé]dito\b|\bparcel/.test(text)) return 'cartao';
+    if (/\b(no |do |com o |pelo )?cart[aã]o\b|\bcr[eé]dito\b|\bparcel|\b\d{1,2}\s*x\b/.test(text)) return 'cartao';
     if (/\b(vale|vr|va|ticket|alelo|sodexo|flash)\b/.test(text)) return 'vale';
     if (/\b(pix|d[eé]bito|dinheiro|esp[eé]cie)\b/.test(text)) return 'conta';
     return null;
@@ -135,12 +146,18 @@
     var lastType = null, lastPayment = null, items = [];
     var globalDate = parseDate(text, today);
     chunks.forEach(function(chunk){
+      var inst = findInstallments(chunk);
+      var payText = chunk;
+      if (inst) chunk = inst.rest;
       var amount = parseAmount(chunk);
+      if (!amount && inst && inst.perInstallment) amount = {value: 0, index: chunk.length, length: 0};
+      if (!amount) return;
+      if (inst && inst.perInstallment) amount.value = Math.round(inst.perInstallment * inst.count * 100) / 100;
       var isIncome = INCOME_WORDS.test(chunk), isExpense = EXPENSE_WORDS.test(chunk);
       var type = isIncome && !isExpense ? 'income' : isExpense ? 'expense' : (lastType || (INCOME_WORDS.test(text) && !EXPENSE_WORDS.test(text) ? 'income' : 'expense'));
       lastType = type;
       var cat = findCategory(chunk, type === 'income' ? INCOME_KEYWORDS : EXPENSE_KEYWORDS);
-      var payment = type === 'expense' ? (findPayment(chunk) || lastPayment) : null;
+      var payment = type === 'expense' ? (findPayment(payText) || lastPayment) : null;
       if (type === 'expense') lastPayment = payment;
       var hasOwnDate = /\b(hoje|ontem|anteontem|dia \d{1,2})\b/.test(chunk);
       items.push({
@@ -149,9 +166,11 @@
         category: cat ? cat.id : (type === 'income' ? 'outros_receita' : 'outros'),
         description: describe(chunk, amount) || (cat ? cat.word.charAt(0).toUpperCase() + cat.word.slice(1) : ''),
         date: hasOwnDate ? parseDate(chunk, today) : globalDate,
-        paymentMethod: payment
+        paymentMethod: payment,
+        installments: inst && type === 'expense' ? inst.count : 1
       });
     });
+    if (!items.length) return {error: 'Não encontrei o valor. Tente algo como “gastei 25 no almoço” ou “recebi 1.500 de salário”.'};
     return {items: items};
   }
 

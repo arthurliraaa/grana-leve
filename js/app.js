@@ -680,7 +680,8 @@
     var t = monthTotals(cur.key);
     var pendingForecast = sum(forecastOccurrences(cur.key).filter(function(o){ return o.received === undefined; }), function(o){ return o.f.amount; });
     var savedInGoals = sum(State.goals.filter(function(g){ return !g.deletedAt; }), function(g){ return g.currentAmount; });
-    var debtRemaining = sum(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); });
+    var debtRemaining = sum(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); }) +
+      sum(installmentGroups(), function(g){ return g.remaining; });
     var toReceive = sum(State.receivables, function(r){ return Math.max(0, Number(r.totalAmount||0)-Number(r.receivedAmount||0)); });
     function tile(label, value, cls, sub){
       return '<div class="tile"><span class="tile-lbl">' + label + '</span><span class="tile-val tabular ' + (cls||'') + '">' + fmtMoney(value) + '</span>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>';
@@ -865,7 +866,8 @@
 
   function renderRecentTx(){
     var list = document.getElementById('recentTxList');
-    var recent = State.transactions.slice(0,5);
+    var today = todayKey();
+    var recent = State.transactions.filter(function(t){ return t.date <= today; }).slice(0,5);
     if (!recent.length){ list.innerHTML = '<p class="empty-state">Nenhum lançamento ainda. Toque no botão “+” para começar.</p>'; return; }
     list.innerHTML = recent.map(txRowHtml).join('');
   }
@@ -916,9 +918,23 @@
     if (!State.cards.length) opts.push({id:'card:none', label:'Cartão de crédito (cadastre na aba Cartões)'});
     sel.innerHTML = optionsHtml(opts, prev);
     if (!findById(opts, prev)) sel.value = 'conta';
+    syncTxFormVisibility();
+  }
+  function populateInstallSelect(){
+    var sel = document.getElementById('txInstall');
+    var amount = money(document.getElementById('txAmount').value);
+    var prev = sel.value || '1';
+    var opts = [];
+    for (var i=1;i<=24;i++){
+      opts.push({id:String(i), label: i === 1 ? 'À vista (1x)' : i + 'x' + (amount > 0 ? ' de ' + fmtMoney(Math.floor(amount*100/i)/100) : '')});
+    }
+    sel.innerHTML = optionsHtml(opts, prev);
   }
   function syncTxFormVisibility(){
     var isExpense = currentTxType() === 'expense';
+    var onCard = isExpense && document.getElementById('txPayment').value.indexOf('card:') === 0 && document.getElementById('txPayment').value !== 'card:none';
+    document.getElementById('txInstallField').hidden = !onCard;
+    if (!onCard) document.getElementById('txInstall').value = '1';
     document.getElementById('txPaymentField').hidden = !isExpense;
     document.getElementById('txForOtherField').hidden = !isExpense;
     var other = document.getElementById('txForOther').checked;
@@ -926,10 +942,17 @@
     document.getElementById('txOtherHint').hidden = !other;
   }
 
+  // Até quantos meses à frente existem lançamentos (parcelas futuras).
+  function maxTxMonthOffset(){
+    var cur = monthBounds(0).key, max = 0;
+    State.transactions.forEach(function(t){ var d = monthsBetween(cur, monthKeyOf(t.date)); if (d > max) max = d; });
+    return max;
+  }
+
   function renderTransactionsTab(){
     var mb = monthBounds(State.txMonthOffset);
     document.getElementById('txMonthLabel').textContent = mb.label;
-    document.getElementById('nextMonth').disabled = State.txMonthOffset >= 0;
+    document.getElementById('nextMonth').disabled = State.txMonthOffset >= maxTxMonthOffset();
     var tx = txForMonth(mb.key);
     var income = sum(tx.filter(function(t){ return t.type==='income'; }), function(t){ return t.amount; });
     var expenseTx = tx.filter(function(t){ return t.type==='expense'; });
@@ -987,6 +1010,193 @@
           populateCategorySelect();
           renderAll();
         });
+      }
+    });
+  }
+
+  /* ---------- Compras parceladas ---------- */
+  function addMonthsIso(iso, n){
+    var d = parseDate(iso);
+    var y = d.getFullYear(), m = d.getMonth() + n;
+    var first = new Date(y, m, 1);
+    return toDateKey(new Date(first.getFullYear(), first.getMonth(), Math.min(d.getDate(), daysInMonth(first.getFullYear(), first.getMonth()))));
+  }
+  // Divide uma compra no cartão em N lançamentos, um por mês. Os centavos que sobram ficam na 1ª parcela.
+  function expandInstallments(tx, n){
+    if (!(n > 1) || tx.paymentMethod !== 'cartao') return [tx];
+    var group = uid();
+    var cents = Math.round(tx.amount * 100);
+    var base = Math.floor(cents / n), first = cents - base * (n - 1);
+    var name = tx.description || catLabel(tx.category, tx.type);
+    var out = [];
+    for (var i=0;i<n;i++){
+      out.push(Object.assign({}, tx, {
+        amount: (i === 0 ? first : base) / 100,
+        date: addMonthsIso(tx.date, i),
+        description: name + ' (' + (i+1) + '/' + n + ')',
+        installment: {group: group, n: i+1, total: n, totalAmount: tx.amount, baseDescription: name},
+        createdAt: tx.createdAt + i
+      }));
+    }
+    return out;
+  }
+  async function saveTransactions(list){
+    var saved = [];
+    for (var i=0;i<list.length;i++){
+      var s = await Store.add(k(), 'transactions', list[i]);
+      State.transactions.unshift(s);
+      saved.push(s);
+    }
+    sortTransactions();
+    return saved;
+  }
+  // Agrupa as parcelas de cada compra. "Pagas" = parcelas com data até hoje (já entraram em fatura).
+  function installmentGroups(){
+    var map = {}, today = todayKey();
+    State.transactions.forEach(function(t){
+      if (!t.installment) return;
+      var g = map[t.installment.group];
+      if (!g) g = map[t.installment.group] = {id: t.installment.group, name: t.installment.baseDescription, total: t.installment.total,
+        totalAmount: Number(t.installment.totalAmount), cardId: t.cardId, category: t.category, items: []};
+      g.items.push(t);
+    });
+    return Object.keys(map).map(function(key){
+      var g = map[key];
+      g.items.sort(function(a,b){ return a.installment.n - b.installment.n; });
+      g.paid = g.items.filter(function(t){ return t.date <= today; });
+      g.future = g.items.filter(function(t){ return t.date > today; });
+      g.advanced = g.total - g.items.length;
+      g.remaining = sum(g.future, function(t){ return t.amount; });
+      g.perInstallment = g.items.length ? g.items[g.items.length-1].amount : 0;
+      g.lastDate = g.items.length ? g.items[g.items.length-1].date : '';
+      g.card = findById(State.cards, g.cardId);
+      return g;
+    }).sort(function(a,b){ return a.lastDate.localeCompare(b.lastDate); });
+  }
+  function installmentRowHtml(g, withCard){
+    var pct = g.total > 0 ? (g.paid.length + g.advanced) / g.total : 0;
+    return '<div class="debt-card">' +
+      '<div class="budget-top"><h4>' + escapeHtml(g.name) + '</h4><span class="pill">' + g.total + 'x' + (withCard && g.card ? ' · ' + escapeHtml(g.card.name) : '') + '</span></div>' +
+      '<div class="progress"><span style="width:' + (pct*100) + '%; background:var(--good)"></span></div>' +
+      '<div class="debt-figs"><span class="tabular">Parcela ' + Math.min(g.total, g.paid.length + g.advanced) + ' de ' + g.total + ' · ' + fmtMoney(g.perInstallment) + '</span><span class="tabular">Falta: ' + fmtMoney(g.remaining) + '</span></div>' +
+      '<span class="tx-meta">Compra de ' + fmtMoney(g.totalAmount) + (g.advanced ? ' · ' + g.advanced + ' parcela(s) adiantada(s)' : '') + (g.future.length ? ' · última parcela em ' + formatDateFull(g.lastDate) : '') + '</span>' +
+      '<div class="card-actions">' + (g.future.length ? '<button class="btn btn-ghost btn-sm" type="button" data-adv-group="' + escapeHtml(g.id) + '">Adiantar pagamento</button>' : '<span class="status-pill good">Quitada</span>') + '</div>' +
+      '</div>';
+  }
+
+  async function advanceInstallments(groupId){
+    var g = installmentGroups().filter(function(x){ return x.id === groupId; })[0];
+    if (!g || !g.future.length) return;
+    var R = g.future.length;
+    var counts = [];
+    for (var i=R;i>=1;i--) counts.push({id: String(i), label: i === R ? 'Todas as ' + R + ' restantes' : i + ' parcela(s)'});
+    function totalFor(n){ return sum(g.future.slice(R - n), function(t){ return t.amount; }); }
+    var r = await openModal({
+      title: 'Adiantar pagamento',
+      body: '<p>“' + escapeHtml(g.name) + '”: faltam ' + R + ' parcela(s) de ' + fmtMoney(g.perInstallment) + ', total de ' + fmtMoney(g.remaining) + '. As últimas parcelas são as adiantadas.</p>' +
+        '<div class="field"><label for="advCount">Quantas parcelas quer adiantar?</label><select id="advCount" name="count">' + optionsHtml(counts, String(R)) + '</select></div>' +
+        '<p>Valor sem desconto: <strong id="advTotal" class="tabular">' + fmtMoney(g.remaining) + '</strong></p>' +
+        '<fieldset class="radio-group"><legend>Teve desconto adiantando o pagamento?</legend>' +
+          '<label class="check"><input type="radio" name="disc" value="sim"> Sim</label>' +
+          '<label class="check"><input type="radio" name="disc" value="nao" checked> Não</label>' +
+        '</fieldset>' +
+        '<div class="field" id="advPaidField" hidden><label for="advPaid">Quanto você pagou?</label><span class="money-input"><span>R$</span><input id="advPaid" name="paid" type="number" step="0.01" min="0.01" max="99999999"></span></div>' +
+        '<div class="tip-box" id="advTip"><strong>Dica: veja se compensa.</strong> Sem desconto, adiantar não gera economia: o dinheiro sai antes e deixa de render até a data das parcelas. Costuma valer a pena só se você precisa liberar limite do cartão. Se a compra tem juros, peça o abatimento: o Código de Defesa do Consumidor (art. 52, §2º) garante a redução proporcional dos juros para quem antecipa o pagamento.</div>' +
+        '<p class="field-hint">O valor pago entra na fatura atual do cartão' + (g.card ? ' ' + escapeHtml(g.card.name) : '') + '.</p>',
+      submitLabel: 'Adiantar',
+      onOpen: function(modal){
+        function sync(){
+          var n = Number(qs('#advCount', modal).value);
+          qs('#advTotal', modal).textContent = fmtMoney(totalFor(n));
+          var yes = qs('input[name=disc][value=sim]', modal).checked;
+          qs('#advPaidField', modal).hidden = !yes;
+          qs('#advTip', modal).hidden = yes;
+        }
+        modal.addEventListener('change', sync);
+        sync();
+      },
+      onSubmit: function(form){
+        var n = Number(form.count.value);
+        var total = money(totalFor(n));
+        var yes = form.disc.value === 'sim';
+        var paid = yes ? money(form.paid.value) : total;
+        if (yes && !(paid > 0)) return {error:'Informe quanto você pagou com o desconto.'};
+        if (yes && paid >= total) return {error:'Com desconto, o valor pago precisa ser menor que ' + fmtMoney(total) + '. Se não teve desconto, marque “Não”.'};
+        return {n: n, total: total, paid: paid};
+      }
+    });
+    if (!r || !r.n) return;
+    var toRemove = g.future.slice(R - r.n);
+    for (var j=0;j<toRemove.length;j++){ await Store.remove(k(), 'transactions', toRemove[j].id); }
+    var ids = toRemove.map(function(t){ return t.id; });
+    State.transactions = State.transactions.filter(function(t){ return ids.indexOf(t.id) < 0; });
+    await saveTransactions([{type:'expense', amount: r.paid, category: g.category, categoryLabel: catLabel(g.category, 'expense'), date: todayKey(),
+      description: g.name + ' (adiantamento de ' + r.n + ' parcela' + (r.n > 1 ? 's' : '') + ')', paymentMethod:'cartao', cardId: g.cardId,
+      installmentAdvance: {group: g.id, count: r.n, original: r.total, discount: money(r.total - r.paid)}, createdAt: Date.now()}]);
+    renderAll();
+    toast(r.total > r.paid ? 'Adiantamento registrado. Você economizou ' + fmtMoney(r.total - r.paid) + '!' : 'Adiantamento de ' + fmtMoney(r.paid) + ' registrado.');
+  }
+
+  /* ---------- Relatório por cartão ---------- */
+  async function cardReport(cardId){
+    var c = findById(State.cards, cardId);
+    var cats = [{id:'all', label:'Todas as categorias'}].concat(expenseCats().map(function(x){ return {id:x.id, label:x.label}; }));
+    var periods = [{id:'1', label:'Fatura atual'}, {id:'3', label:'Últimas 3 faturas'}, {id:'6', label:'Últimas 6 faturas'}, {id:'12', label:'Últimas 12 faturas'}, {id:'next', label:'Próximas faturas (parcelas)'}];
+    var st = {period:'6', cat:'all'};
+    function keys(){
+      var base = invoiceKeyFor(todayKey(), c), out = [];
+      if (st.period === 'next'){ for (var i=1;i<=12;i++) out.push(shiftMonthKey(base, i)); return out; }
+      for (var j=Number(st.period)-1;j>=0;j--) out.push(shiftMonthKey(base, -j));
+      return out;
+    }
+    function data(){
+      var ks = keys();
+      var rows = ks.map(function(key){
+        var items = invoiceItems(c, key).filter(function(t){ return st.cat === 'all' || t.category === st.cat; });
+        return {key:key, items:items, total: sum(items, function(t){ return t.amount; })};
+      });
+      if (st.period === 'next') rows = rows.filter(function(r){ return r.total > 0; });
+      var byCat = {};
+      rows.forEach(function(r){ r.items.forEach(function(t){ byCat[t.category] = (byCat[t.category]||0) + Number(t.amount); }); });
+      var catRows = expenseCats().map(function(x){ return {label:x.label, color:x.color, value: byCat[x.id]||0}; }).filter(function(x){ return x.value > 0; }).sort(function(a,b){ return b.value - a.value; });
+      return {rows: rows, catRows: catRows, total: sum(rows, function(r){ return r.total; })};
+    }
+    function render(modal){
+      var d = data();
+      var max = Math.max(1, Math.max.apply(null, d.rows.map(function(r){ return r.total; }).concat([0])));
+      qs('#crBody', modal).innerHTML = !d.total ? '<p class="empty-state">Nenhuma compra neste período' + (st.cat !== 'all' ? ' nessa categoria' : '') + '.</p>' :
+        '<div class="tile"><span class="tile-lbl">Total no período</span><span class="tile-val tabular">' + fmtMoney(d.total) + '</span></div>' +
+        '<h4>Por fatura</h4><div class="report-bars">' + d.rows.map(function(r){
+          return '<div class="report-bar"><span>' + monthLabelOf(r.key) + '</span><span class="bar-track"><span style="width:' + (100*r.total/max) + '%"></span></span><strong class="tabular">' + fmtMoney(r.total) + '</strong></div>';
+        }).join('') + '</div>' +
+        '<h4>Por categoria</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>Categoria</th><th>Valor</th><th>%</th></tr></thead><tbody>' + d.catRows.map(function(x){
+          return '<tr><td><span class="legend-swatch" style="display:inline-block;margin-right:6px;background:' + resolveVar(x.color) + '"></span>' + escapeHtml(x.label) + '</td><td class="tabular">' + fmtMoney(x.value) + '</td><td class="tabular">' + Math.round(100*x.value/d.total) + '%</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+    function pdf(){
+      if (!pdfReady()) return;
+      var d = data();
+      var w = pdfWriter('Relatório do cartão ' + c.name, labelOf(periods, st.period) + '  ·  ' + labelOf(cats, st.cat));
+      w.section('Por fatura'); w.header(['Fatura', 'Total'], [220, 140]);
+      d.rows.forEach(function(r){ w.row([monthLabelOf(r.key), fmtMoney(r.total)], [220, 140]); });
+      w.row(['Total', fmtMoney(d.total)], [220, 140], {bold:true}); w.space(12);
+      w.section('Por categoria');
+      if (!d.catRows.length) w.text('Nenhuma compra no período.');
+      else { w.header(['Categoria', 'Valor', '%'], [220, 140, 80]); d.catRows.forEach(function(x){ w.row([x.label, fmtMoney(x.value), Math.round(100*x.value/d.total) + '%'], [220, 140, 80]); }); }
+      w.footer();
+      saveFile('grana-leve-relatorio-' + c.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '.pdf', w.doc.output('blob'), 'application/pdf').then(function(){ toast('Relatório baixado.'); });
+    }
+    await openModal({
+      title: 'Relatório · ' + c.name, wide: true, submitLabel: null, cancelLabel: 'Fechar',
+      body: '<div class="report-filters">' +
+          '<div class="field"><label for="crPeriod">Período</label><select id="crPeriod">' + optionsHtml(periods, st.period) + '</select></div>' +
+          '<div class="field"><label for="crCat">Categoria</label><select id="crCat">' + optionsHtml(cats, st.cat) + '</select></div>' +
+        '</div><div id="crBody" class="stack"></div>' +
+        '<div class="pdf-actions"><button type="button" class="btn btn-ghost btn-sm" data-cr-pdf>Baixar em PDF</button></div>',
+      onOpen: function(modal){
+        render(modal);
+        modal.addEventListener('change', function(){ st.period = qs('#crPeriod', modal).value; st.cat = qs('#crCat', modal).value; render(modal); });
+        qs('[data-cr-pdf]', modal).addEventListener('click', pdf);
       }
     });
   }
@@ -1066,9 +1276,14 @@
           '<div class="invoice-head"><span class="invoice-total tabular">' + fmtMoney(total) + '</span>' +
             '<span class="meta-line"><span>Fecha ' + formatDateFull(dates.closing) + '</span><span>Vence ' + formatDateFull(dates.due) + '</span></span></div>' +
           (items.length ? '<details class="budget-details"><summary>Ver ' + items.length + ' compra(s)</summary>' + items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
+          (function(){
+            var gs = installmentGroups().filter(function(g){ return g.cardId === c.id && g.future.length; });
+            return gs.length ? '<details class="budget-details" open><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '';
+          })() +
           '<div class="card-actions">' +
             '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Ver fatura em PDF</button>' +
             (total > 0 ? '<button class="btn btn-ghost btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? 'Desmarcar paga' : 'Marcar como paga') + '</button>' : '') +
+            '<button class="btn btn-ghost btn-sm" type="button" data-card-report="' + c.id + '">Relatório</button>' +
             '<button class="btn btn-ghost btn-sm" type="button" data-card-edit="' + c.id + '">Editar</button>' +
             '<button class="btn btn-danger btn-sm" type="button" data-card-del="' + c.id + '">Excluir</button>' +
           '</div>' +
@@ -1314,6 +1529,12 @@
     w.section('Dívidas');
     if (!State.debts.length) w.text('Nenhuma dívida cadastrada.');
     else { w.header(['Dívida', 'Pago', 'Falta', 'Total'], [180,110,110,80]); State.debts.forEach(function(d){ w.row([d.name, fmtMoney(d.paidAmount||0), fmtMoney(Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0))), fmtMoney(d.totalAmount)], [180,110,110,80]); }); }
+    var openGroups = installmentGroups().filter(function(g){ return g.future.length; });
+    if (openGroups.length){
+      w.space(8); w.section('Compras parceladas no cartão');
+      w.header(['Compra', 'Parcela', 'Falta', 'Total'], [180,110,110,80]);
+      openGroups.forEach(function(g){ w.row([g.name, (g.paid.length + g.advanced) + ' de ' + g.total, fmtMoney(g.remaining), fmtMoney(g.totalAmount)], [180,110,110,80]); });
+    }
     w.space(12);
 
     w.section('A receber');
@@ -1467,8 +1688,13 @@
 
   /* ---------- Dívidas ---------- */
   function renderDebts(){
+    var gs = installmentGroups().filter(function(g){ return g.future.length; });
+    document.getElementById('installDebtWrap').innerHTML = gs.length ?
+      '<div class="card"><div class="card-head"><h3>Compras parceladas no cartão</h3><span class="pill brand">automático</span></div>' +
+      '<p class="card-sub">Vêm das compras parceladas em “Ganhos e gastos”. Cada parcela entra sozinha na fatura do mês, então não precisa registrar pagamento. Se quiser quitar antes, use “Adiantar pagamento”.</p>' +
+      '<div class="debt-grid">' + gs.map(function(g){ return installmentRowHtml(g, true); }).join('') + '</div></div>' : '';
     var grid = document.getElementById('debtGrid');
-    if (!State.debts.length){ grid.innerHTML = '<p class="empty-state">Nenhuma dívida cadastrada. Se você não tem dívidas, ótimo: pode pular esta seção.</p>'; return; }
+    if (!State.debts.length){ grid.innerHTML = gs.length ? '' : '<p class="empty-state">Nenhuma dívida cadastrada. Se você não tem dívidas, ótimo: pode pular esta seção.</p>'; return; }
     grid.innerHTML = State.debts.map(function(d){
       var remaining = Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0));
       var pct = d.totalAmount > 0 ? Math.min(1, Number(d.paidAmount||0)/Number(d.totalAmount)) : 0;
@@ -1615,11 +1841,9 @@
         }
         if (tx.paymentMethod === 'vale' && State.vouchers.length) tx.voucherId = State.vouchers[0].id;
       }
-      var s = await Store.add(k(), 'transactions', tx);
-      State.transactions.unshift(s);
-      saved.push(s);
+      var list = await saveTransactions(expandInstallments(tx, it.installments || 1));
+      saved.push(list[0]);
     }
-    sortTransactions();
     renderAll();
     return saved;
   }
@@ -1629,8 +1853,9 @@
   function describeSaved(t){
     var cat = catLabel(t.category, t.type, t.categoryLabel);
     var pay = paymentLabel(t);
-    return '<strong>' + (t.type === 'income' ? 'Ganho' : 'Gasto') + ' de ' + fmtMoney(t.amount) + '</strong> em ' + escapeHtml(cat) +
-      (t.description && t.description.toLowerCase() !== cat.toLowerCase() ? ' (' + escapeHtml(t.description) + ')' : '') +
+    var inst = t.installment;
+    return '<strong>' + (t.type === 'income' ? 'Ganho' : 'Gasto') + ' de ' + fmtMoney(inst ? inst.totalAmount : t.amount) + (inst ? ' em ' + inst.total + 'x' : '') + '</strong> em ' + escapeHtml(cat) +
+      (inst ? ' (' + escapeHtml(inst.baseDescription) + ')' : (t.description && t.description.toLowerCase() !== cat.toLowerCase() ? ' (' + escapeHtml(t.description) + ')' : '')) +
       (pay ? ' · ' + escapeHtml(pay) : '') + (t.date !== todayKey() ? ' · ' + formatDateFull(t.date) : '') +
       ' <button type="button" class="linklike" data-undo-tx="' + escapeHtml(t.id) + '">Desfazer</button>';
   }
@@ -1785,8 +2010,9 @@
     document.getElementById('txDate').value = todayKey();
     document.getElementById('fcDate').value = todayKey();
     populateCategorySelect();
-    syncTxFormVisibility();
+    populateInstallSelect();
     renderAll();
+    syncTxFormVisibility();
     showTab('dashboard');
     maybeWelcome();
   }
@@ -1841,10 +2067,16 @@
       var id = el.getAttribute('data-del-tx');
       var tx = findById(State.transactions, id);
       if (!tx) return;
-      var ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?', skipKey:'deleteTx'});
+      var ok, ids = [id];
+      if (tx.installment){
+        ids = State.transactions.filter(function(x){ return x.installment && x.installment.group === tx.installment.group; }).map(function(x){ return x.id; });
+        ok = await confirmAction({title:'Excluir compra parcelada?', message:'“' + tx.installment.baseDescription + '” foi parcelada em ' + tx.installment.total + 'x. Excluir apaga as ' + ids.length + ' parcelas desta compra.'});
+      } else {
+        ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?', skipKey:'deleteTx'});
+      }
       if (!ok) return;
-      await Store.remove(k(), 'transactions', id);
-      State.transactions = State.transactions.filter(function(x){ return x.id !== id; });
+      for (var di=0;di<ids.length;di++){ await Store.remove(k(), 'transactions', ids[di]); }
+      State.transactions = State.transactions.filter(function(x){ return ids.indexOf(x.id) < 0; });
       renderAll();
       toast('Lançamento excluído.');
       return;
@@ -1885,6 +2117,8 @@
       return;
     }
     if ((el = t.closest('[data-card-edit]'))){ editCard(el.getAttribute('data-card-edit')); return; }
+    if ((el = t.closest('[data-card-report]'))){ cardReport(el.getAttribute('data-card-report')); return; }
+    if ((el = t.closest('[data-adv-group]'))){ advanceInstallments(el.getAttribute('data-adv-group')); return; }
     if ((el = t.closest('[data-voucher-edit]'))){ editVoucher(el.getAttribute('data-voucher-edit')); return; }
     if ((el = t.closest('[data-voucher-del]'))){
       var vd = findById(State.vouchers, el.getAttribute('data-voucher-del'));
@@ -2009,7 +2243,9 @@
   // Pagou com vale: já sugere a categoria Alimentação.
   document.getElementById('txPayment').addEventListener('change', function(e){
     if (e.target.value.indexOf('vale') === 0 && currentTxType() === 'expense') document.getElementById('txCategory').value = 'alimentacao';
+    syncTxFormVisibility();
   });
+  document.getElementById('txAmount').addEventListener('input', populateInstallSelect);
   document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
 
   document.getElementById('tabbar').addEventListener('click', function(e){
@@ -2020,7 +2256,7 @@
   document.getElementById('fabAdd').addEventListener('click', function(){ openQuickEntry(false); });
 
   document.getElementById('prevMonth').addEventListener('click', function(){ State.txMonthOffset--; renderTransactionsTab(); });
-  document.getElementById('nextMonth').addEventListener('click', function(){ if (State.txMonthOffset < 0){ State.txMonthOffset++; renderTransactionsTab(); } });
+  document.getElementById('nextMonth').addEventListener('click', function(){ if (State.txMonthOffset < maxTxMonthOffset()){ State.txMonthOffset++; renderTransactionsTab(); } });
   document.getElementById('budgetPrev').addEventListener('click', function(){ State.budgetMonthOffset--; renderBudgets(); });
   document.getElementById('budgetNext').addEventListener('click', function(){ if (State.budgetMonthOffset < 0){ State.budgetMonthOffset++; renderBudgets(); } });
   document.getElementById('barPeriod').addEventListener('change', function(e){ State.barMonths = Number(e.target.value); renderBarChart(); });
@@ -2096,8 +2332,8 @@
         if (!forOther){ toast('Informe quem vai te devolver o valor.'); return; }
       }
     }
-    var saved = await Store.add(k(), 'transactions', tx);
-    State.transactions.unshift(saved); sortTransactions();
+    var n = tx.paymentMethod === 'cartao' ? Number(document.getElementById('txInstall').value) || 1 : 1;
+    await saveTransactions(expandInstallments(tx, n));
     if (forOther){
       var recv = await Store.add(k(), 'receivables', {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: amount, receivedAmount: 0, dueDate: null, createdAt: Date.now()});
       State.receivables.push(recv);
@@ -2107,8 +2343,10 @@
     }
     document.getElementById('txAmount').value = '';
     document.getElementById('txDesc').value = '';
+    document.getElementById('txInstall').value = '1';
+    populateInstallSelect();
     renderAll();
-    toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(amount) + ' registrado.' + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
+    toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(amount) + (n > 1 ? ' em ' + n + 'x' : '') + ' registrado.' + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
   });
 
   document.getElementById('forecastForm').addEventListener('submit', async function(e){
