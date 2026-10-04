@@ -225,6 +225,7 @@
         <button type="button" data-tab="dividas">Dívidas</button>
         <button type="button" data-tab="receber">A receber</button>
         <button type="button" data-tab="aprenda">Aprenda</button>
+        <button type="button" data-tab="conexoes">Conexões</button>
       </nav>
 
       <!-- Painel -->
@@ -294,7 +295,10 @@
         <div class="card">
           <div class="card-head">
             <h3>Novo lançamento</h3>
-            <button class="linklike" type="button" id="manageCatsBtn">Minhas categorias</button>
+            <div class="card-head-tools">
+              <button class="linklike" type="button" id="quickEntryBtn">Lançar por mensagem</button>
+              <button class="linklike" type="button" id="manageCatsBtn">Minhas categorias</button>
+            </div>
           </div>
           <form id="txForm" class="add-tx-form">
             <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
@@ -419,6 +423,12 @@
         <p class="tab-intro">Conteúdos curtos para organizar o dinheiro, fazer ele render e tirar o melhor do Grana Leve.</p>
         <div id="learnWrap" class="stack-lg"></div>
       </div>
+
+      <!-- Conexões -->
+      <div id="tab-conexoes" class="tab-panel" hidden>
+        <p class="tab-intro">Ligue o Grana Leve a outros serviços para anotar menos na mão. Algumas conexões ainda estão em preparação e chegam nas próximas versões.</p>
+        <div id="connWrap" class="conn-grid"></div>
+      </div>
     </div>
   </section>
 </main>
@@ -443,6 +453,7 @@
 <button class="fab" id="fabAdd" type="button" aria-label="Novo lançamento" title="Novo lançamento" hidden><svg class="ico"><use href="#i-plus"/></svg></button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="js/parser.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
