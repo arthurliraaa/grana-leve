@@ -10,6 +10,7 @@
     {id:'saude', label:'Saúde', color:'var(--cat-5)'},
     {id:'educacao', label:'Educação', color:'var(--cat-6)'},
     {id:'compras', label:'Compras', color:'var(--cat-7)'},
+    {id:'dividas', label:'Dívidas', color:'var(--cat-9)'},
     {id:'outros', label:'Outros', color:'var(--cat-8)'}
   ];
   var DEFAULT_INCOME_CATS = [
@@ -60,14 +61,13 @@
   ];
   var HOW_TO = [
     ['Painel', 'mostra o resumo do mês: saldo, ganhos, gastos, previsões de entrada e gráficos. O botão “Relatório em PDF” gera um resumo para guardar ou compartilhar.'],
-    ['Ganhos e gastos', 'é onde você anota o que entra e o que sai. Escolha a forma de pagamento (dinheiro/Pix, vale ou cartão) e crie categorias próprias em “Minhas categorias”.'],
-    ['Cartões', 'cadastre o cartão com limite, fechamento e vencimento. Os gastos no cartão entram sozinhos na fatura do mês certo, que pode ser vista em PDF.'],
-    ['Limites', 'defina quanto quer gastar por categoria. A barra fica amarela perto do limite e vermelha quando estoura.'],
-    ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e adicione lembretes na sua agenda.'],
+    ['Ganhos e gastos', 'é onde você anota o que entra e o que sai e deixa previsto o que ainda vai receber. Escolha a forma de pagamento (dinheiro/Pix, vale ou cartão) e crie categorias próprias em “Minhas categorias”.'],
+    ['Cartões e vale', 'cadastre o cartão com limite, fechamento e vencimento e o seu vale-alimentação. Os gastos no cartão entram sozinhos na fatura do mês certo, e os do vale descontam do saldo.'],
+    ['Planejar gastos', 'defina quanto quer gastar por categoria. A barra fica amarela perto do valor planejado e vermelha quando passa.'],
+    ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e escolha em “Me avise em” quando quer um lembrete na sua agenda.'],
     ['Dívidas', 'registre o que você deve, para banco ou para pessoas, e marque cada parcela paga.'],
     ['A receber', 'anote o que te devem e use “Cobrar” para enviar uma mensagem pronta.'],
-    ['Botão +', 'fica sempre no canto da tela para lançar um gasto rapidinho.'],
-    ['Chat de lançamento', 'aparece ao entrar (uma vez por dia) e também em “Lançar por mensagem”. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”.'],
+    ['Botão +', 'fica sempre no canto da tela e abre o chat de lançamento. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”. O chat também aparece ao entrar, uma vez por dia.'],
     ['Conexões', 'mostra as integrações: Google Agenda (já disponível), WhatsApp e Open Finance (em preparação).']
   ];
   var OPEN_FINANCE_BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Mercado Pago','PicPay'];
@@ -222,7 +222,7 @@
   }
 
   /* ============ Store (cloud via db capability, local fallback) ============ */
-  var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories'];
+  var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers'];
 
   var Store = {
     mode: 'local',
@@ -349,6 +349,7 @@
     receivables: [],
     forecasts: [],
     categories: [],
+    vouchers: [],
     txMonthOffset: 0,
     budgetMonthOffset: 0,
     invoiceOffsets: {},
@@ -460,6 +461,7 @@
         } catch(ex){ err.textContent = 'Algo deu errado. Tente novamente.'; }
       });
       // Os ouvintes vão no elemento .modal, que é recriado a cada abertura (o #modalRoot é reaproveitado).
+      attachCounters(root);
       if (opts.onOpen) opts.onOpen(root.querySelector('.modal'), close);
       // Em confirmações de exclusão o foco começa no “Cancelar”, para um Enter acidental não apagar nada.
       var first = opts.danger ? form.querySelector('.modal-actions [data-modal-close]') : form.querySelector('input:not([type=checkbox]), select, textarea, button[type=submit]');
@@ -507,6 +509,34 @@
     return r && r.amount ? r : null;
   }
 
+  /* ============ Contador de caracteres ============ */
+  function counterText(el){ var left = Number(el.maxLength) - el.value.length; return left + (left === 1 ? ' caractere restante' : ' caracteres restantes'); }
+  function attachCounters(root){
+    qsa('textarea[maxlength]', root || document).forEach(function(el){
+      if (el.getAttribute('data-counted')) return;
+      el.setAttribute('data-counted', '1');
+      var span = document.createElement('span');
+      span.className = 'field-hint char-count';
+      span.setAttribute('aria-live', 'polite');
+      span.textContent = counterText(el);
+      el.insertAdjacentElement('afterend', span);
+    });
+  }
+  document.addEventListener('input', function(e){
+    var el = e.target;
+    if (el.tagName === 'TEXTAREA' && el.getAttribute('data-counted')){
+      var span = el.nextElementSibling;
+      if (span && span.classList.contains('char-count')){
+        span.textContent = counterText(el);
+        span.classList.toggle('low', Number(el.maxLength) - el.value.length <= 20);
+      }
+    }
+  });
+  // Ao limpar um formulário (reset), o contador volta ao máximo.
+  document.addEventListener('reset', function(e){
+    setTimeout(function(){ qsa('textarea[data-counted]', e.target).forEach(function(el){ el.nextElementSibling.textContent = counterText(el); el.nextElementSibling.classList.remove('low'); }); }, 0);
+  });
+
   /* ============ Rendering ============ */
   function qs(sel, root){ return (root||document).querySelector(sel); }
   function qsa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
@@ -552,6 +582,7 @@
     State.receivables = byName.receivables;
     State.forecasts = byName.forecasts;
     State.categories = byName.categories;
+    State.vouchers = byName.vouchers;
   }
   function sortTransactions(){
     State.transactions.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0); });
@@ -655,9 +686,9 @@
       return '<div class="tile"><span class="tile-lbl">' + label + '</span><span class="tile-val tabular ' + (cls||'') + '">' + fmtMoney(value) + '</span>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>';
     }
     document.getElementById('statTiles').innerHTML =
-      tile('Saldo do mês', t.saldo, t.saldo < 0 ? 'neg' : 'pos') +
       tile('Ganhos do mês', t.income, '', pendingForecast > 0 ? 'Previsto: ' + fmtMoney(t.income + pendingForecast) : '') +
       tile('Gastos do mês', t.expense) +
+      tile('Saldo do mês', t.saldo, t.saldo < 0 ? 'neg' : 'pos') +
       tile('Guardado nas metas', savedInGoals) +
       tile('Dívida restante', debtRemaining) +
       tile('A receber', toReceive);
@@ -845,7 +876,11 @@
       var c = findById(State.cards, t.cardId);
       return c ? 'Cartão ' + c.name : 'Cartão de crédito';
     }
-    return t.paymentMethod === 'vale' ? 'Vale' : '';
+    if (t.paymentMethod === 'vale'){
+      var v = voucherOf(t);
+      return v ? 'Vale ' + v.name : 'Vale';
+    }
+    return '';
   }
 
   function txRowHtml(t){
@@ -874,7 +909,9 @@
   function populatePaymentSelect(){
     var sel = document.getElementById('txPayment');
     var prev = sel.value;
-    var opts = [{id:'conta', label: PAYMENT_LABELS.conta}, {id:'vale', label: PAYMENT_LABELS.vale}];
+    var opts = [{id:'conta', label: PAYMENT_LABELS.conta}];
+    if (State.vouchers.length) State.vouchers.forEach(function(v){ opts.push({id:'vale:' + v.id, label:'Vale · ' + v.name}); });
+    else opts.push({id:'vale', label: PAYMENT_LABELS.vale});
     State.cards.forEach(function(c){ opts.push({id:'card:' + c.id, label:'Cartão de crédito · ' + c.name}); });
     if (!State.cards.length) opts.push({id:'card:none', label:'Cartão de crédito (cadastre na aba Cartões)'});
     sel.innerHTML = optionsHtml(opts, prev);
@@ -884,7 +921,9 @@
     var isExpense = currentTxType() === 'expense';
     document.getElementById('txPaymentField').hidden = !isExpense;
     document.getElementById('txForOtherField').hidden = !isExpense;
-    document.getElementById('txOtherName').hidden = !document.getElementById('txForOther').checked;
+    var other = document.getElementById('txForOther').checked;
+    document.getElementById('txOtherName').hidden = !other;
+    document.getElementById('txOtherHint').hidden = !other;
   }
 
   function renderTransactionsTab(){
@@ -1068,6 +1107,81 @@
     });
   }
 
+  /* ---------- Vale-alimentação / refeição ---------- */
+  // Gastos antigos com "vale" sem vale cadastrado contam no primeiro vale.
+  function voucherOf(t){
+    if (t.voucherId) return findById(State.vouchers, t.voucherId);
+    return State.vouchers[0] || null;
+  }
+  function voucherTx(v){
+    return State.transactions.filter(function(t){ return t.type === 'expense' && t.paymentMethod === 'vale' && voucherOf(t) === v; });
+  }
+  function monthsBetween(fromKey, toKey){
+    return (Number(toKey.slice(0,4)) - Number(fromKey.slice(0,4))) * 12 + Number(toKey.slice(5,7)) - Number(fromKey.slice(5,7));
+  }
+  // Saldo: com acúmulo, parte do saldo informado (ou do primeiro crédito) e soma um crédito por mês;
+  // sem acúmulo, é o crédito do mês menos o que foi gasto no mês.
+  function voucherBalance(v){
+    var cur = monthBounds(0).key;
+    var all = voucherTx(v);
+    if (!v.carryOver){
+      return money(Number(v.amount) - sum(all.filter(function(t){ return monthKeyOf(t.date) === cur; }), function(t){ return t.amount; }));
+    }
+    var start = v.startDate || todayKey();
+    var base = v.initialBalance !== null && v.initialBalance !== undefined && v.initialBalance !== '' ? Number(v.initialBalance) : Number(v.amount);
+    var credits = base + Number(v.amount) * Math.max(0, monthsBetween(monthKeyOf(start), cur));
+    var spent = sum(all.filter(function(t){ return t.date >= start; }), function(t){ return t.amount; });
+    return money(credits - spent);
+  }
+
+  function renderVouchers(){
+    var wrap = document.getElementById('voucherList');
+    if (!State.vouchers.length){ wrap.innerHTML = ''; return; }
+    var cur = monthBounds(0).key;
+    wrap.innerHTML = State.vouchers.map(function(v){
+      var monthTx = voucherTx(v).filter(function(t){ return monthKeyOf(t.date) === cur; });
+      var spent = sum(monthTx, function(t){ return t.amount; });
+      var bal = voucherBalance(v);
+      var pct = Number(v.amount) > 0 ? Math.min(1, spent / Number(v.amount)) : 0;
+      return '<div class="goal-card">' +
+        '<div class="budget-top"><h4>' + escapeHtml(v.name) + '</h4><span class="pill">' + (v.carryOver ? 'saldo acumula' : 'saldo zera todo mês') + '</span></div>' +
+        '<div class="goal-figs"><span>Saldo disponível</span><strong class="tabular ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
+        '<div class="progress" title="Gasto do crédito deste mês"><span style="width:' + (pct*100) + '%; background:' + (pct >= 1 ? 'var(--critical)' : pct >= 0.8 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
+        '<div class="meta-line"><span>Cai por mês: ' + fmtMoney(v.amount) + '</span><span>Gasto em ' + monthLabelOf(cur) + ': ' + fmtMoney(spent) + '</span></div>' +
+        (monthTx.length ? '<details class="budget-details"><summary>Ver ' + monthTx.length + ' gasto(s) deste mês</summary>' + monthTx.map(txRowHtml).join('') + '</details>' : '') +
+        '<div class="card-actions">' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-voucher-edit="' + v.id + '">Editar</button>' +
+          '<button class="btn btn-danger btn-sm" type="button" data-voucher-del="' + v.id + '">Excluir</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  async function editVoucher(id){
+    var v = findById(State.vouchers, id);
+    await openModal({
+      title: 'Editar vale',
+      body: '<div class="field"><label for="evName">Nome</label><input id="evName" name="name" type="text" maxlength="30" value="' + escapeHtml(v.name) + '"></div>' +
+        '<div class="field"><label for="evAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="evAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" value="' + v.amount + '"></span></div>' +
+        '<div class="field"><label for="evBalance">Saldo atual</label><span class="money-input"><span>R$</span><input id="evBalance" name="balance" type="number" step="0.01" min="0" max="99999999" value="' + voucherBalance(v) + '"></span><span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do cartão.</span></div>' +
+        '<label class="check"><input type="checkbox" name="carry"' + (v.carryOver ? ' checked' : '') + '> Saldo acumula de um mês para o outro</label>',
+      onSubmit: async function(form){
+        var name = form.name.value.trim(), amount = money(form.amount.value);
+        if (!name || !(amount > 0)) return {error:'Informe o nome e o valor mensal do vale.'};
+        var patch = {name:name, amount:amount, carryOver: form.carry.checked};
+        var bal = money(form.balance.value);
+        if (form.carry.checked && bal !== voucherBalance(v)){ patch.initialBalance = bal; patch.startDate = todayKey(); patch.adjustedAt = Date.now(); }
+        // Ao reajustar o saldo, gastos de hoje já lançados não podem descontar de novo.
+        if (patch.startDate){
+          patch.initialBalance = money(bal + sum(voucherTx(v).filter(function(t){ return t.date >= patch.startDate; }), function(t){ return t.amount; }));
+        }
+        await Store.update(k(), 'vouchers', id, patch);
+        Object.assign(v, patch);
+        renderVouchers(); populatePaymentSelect();
+        toast('Vale atualizado.');
+      }
+    });
+  }
+
   /* ---------- PDF ---------- */
   function pdfWriter(title, subtitle){
     var doc = new window.jspdf.jsPDF({unit:'pt', format:'a4'});
@@ -1211,7 +1325,7 @@
     showPdf(w.doc, 'grana-leve-relatorio-' + cur.key + '.pdf', 'Relatório de ' + cur.label);
   }
 
-  /* ---------- Limites ---------- */
+  /* ---------- Planejar gastos (aba "limites") ---------- */
   function statusForPct(pct){
     if (pct >= 1) return 'critical';
     if (pct >= 0.8) return 'warning';
@@ -1235,12 +1349,12 @@
       return '<div class="budget-row">' +
         '<div class="budget-top">' +
           '<span class="budget-cat"><span class="legend-swatch" style="background:'+resolveVar(c.color, list)+'"></span>'+escapeHtml(c.label)+'</span>' +
-          '<span class="money-input sm"><span>R$</span><input class="tabular" type="number" min="0" step="10" max="99999999" data-budget-cat="'+escapeHtml(c.id)+'" value="'+(limit||'')+'" placeholder="Sem limite" aria-label="Limite para '+escapeHtml(c.label)+'"></span>' +
+          '<span class="money-input sm"><span>R$</span><input class="tabular" type="number" min="0" step="10" max="99999999" data-budget-cat="'+escapeHtml(c.id)+'" value="'+(limit||'')+'" placeholder="Sem limite" aria-label="Quanto quero gastar com '+escapeHtml(c.label)+'"></span>' +
         '</div>' +
         (limit > 0 ?
           '<div class="progress"><span style="width:'+Math.min(100,pct*100)+'%; background:'+barColor+'"></span></div>' +
           '<div class="budget-top"><span class="budget-figs tabular">'+fmtMoney(spent)+' de '+fmtMoney(limit)+(limit > spent ? ' · restam ' + fmtMoney(limit-spent) : '')+'</span><span class="status-pill '+status+'">'+statusLabel[status]+'</span></div>'
-          : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+' (defina um limite acima)</span>' : '')
+          : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+' (digite ao lado quanto quer gastar)</span>' : '')
         ) +
         (catTx.length ? '<details class="budget-details"><summary>Ver com o que gastou (' + catTx.length + ')</summary>' + catTx.map(txRowHtml).join('') + '</details>' : '') +
         '</div>';
@@ -1253,7 +1367,7 @@
         await Store.put(k(), 'budgets', cat, {limit: val});
         State.budgets[cat] = val;
         renderBudgets();
-        toast('Limite de ' + catLabel(cat,'expense') + ' atualizado.');
+        toast('Planejamento de ' + catLabel(cat,'expense') + ' atualizado.');
       });
     });
   }
@@ -1316,7 +1430,7 @@
         '<div class="goal-figs"><span class="tabular">'+fmtMoney(g.currentAmount||0)+' de '+fmtMoney(g.targetAmount)+'</span><span>'+Math.round(pct*100)+'%</span></div>' +
         '<div class="meta-line">' +
           (g.targetDate ? '<span>Prazo: '+formatDateFull(g.targetDate)+'</span>' : '<span>Sem prazo</span>') +
-          (g.reminderDate ? '<span>Lembrete: '+formatDateFull(g.reminderDate)+'</span>' : '') +
+          (g.reminderDate ? '<span>Me avise em: '+formatDateFull(g.reminderDate)+'</span>' : '') +
         '</div>' +
         (g.note ? '<div class="note">'+escapeHtml(g.note)+'</div>' : '') +
         '<div class="card-actions">' + actions + '</div></div>';
@@ -1328,7 +1442,7 @@
       '<div class="field"><label for="egTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="egTarget" name="target" type="number" step="0.01" min="1" max="99999999" value="' + g.targetAmount + '"></span></div>' +
       '<div class="field"><label for="egCurrent">Já guardado</label><span class="money-input"><span>R$</span><input id="egCurrent" name="current" type="number" step="0.01" min="0" max="99999999" value="' + (g.currentAmount||0) + '"></span></div>' +
       '<div class="field"><label for="egDate">Prazo</label><input id="egDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.targetDate||'') + '"></div>' +
-      '<div class="field"><label for="egReminder">Lembrete</label><input id="egReminder" name="reminder" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.reminderDate||'') + '"></div>' +
+      '<div class="field"><label for="egReminder">Me avise em</label><input id="egReminder" name="reminder" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.reminderDate||'') + '"></div>' +
       '<div class="field"><label for="egNote">Observação</label><textarea id="egNote" name="note" rows="3" maxlength="300">' + escapeHtml(g.note||'') + '</textarea></div>';
   }
 
@@ -1385,7 +1499,7 @@
     await Store.update(k(), 'debts', id, {paidAmount: newPaid});
     d.paidAmount = newPaid;
     if (r.extra){
-      var saved = await Store.add(k(), 'transactions', {type:'expense', amount:r.amount, category:'outros', date: todayKey(), description:'Pagamento: ' + d.name, paymentMethod:'conta', createdAt: Date.now()});
+      var saved = await Store.add(k(), 'transactions', {type:'expense', amount:r.amount, category:'dividas', date: todayKey(), description:'Pagamento: ' + d.name, paymentMethod:'conta', createdAt: Date.now()});
       State.transactions.unshift(saved); sortTransactions();
     }
     renderAll();
@@ -1499,6 +1613,7 @@
           if (State.cards.length) tx.cardId = State.cards[0].id;
           else tx.paymentMethod = 'conta';
         }
+        if (tx.paymentMethod === 'vale' && State.vouchers.length) tx.voucherId = State.vouchers[0].id;
       }
       var s = await Store.add(k(), 'transactions', tx);
       State.transactions.unshift(s);
@@ -1555,6 +1670,7 @@
           '<button type="button" class="chip" data-chip="recebi ">Recebi…</button>' +
         '</div>' +
         '<input id="chatInput" class="chat-input" name="msg" type="text" maxlength="200" autocomplete="off" placeholder="Ex: gastei 25 no almoço" aria-label="Mensagem">' +
+        '<button type="button" class="linklike" data-chat-form style="justify-self:start">Prefiro preencher o formulário completo</button>' +
         (welcome ? '<label class="check"><input type="checkbox" name="off"' + (getPrefs().quickEntryOff ? ' checked' : '') + '> Não perguntar ao entrar</label>' : ''),
       submitLabel: 'Enviar', cancelLabel: welcome ? 'Pular' : 'Fechar',
       onOpen: function(root, close){
@@ -1562,6 +1678,7 @@
         root.addEventListener('click', async function(e){
           var b;
           if ((b = e.target.closest('[data-chip-send]'))){ handle(b.getAttribute('data-chip-send')); return; }
+          if (e.target.closest('[data-chat-form]')){ close(null); showTab('lancamentos'); document.getElementById('txAmount').focus(); return; }
           if ((b = e.target.closest('[data-chip]'))){ var inp = qs('#chatInput', root); inp.value = b.getAttribute('data-chip'); inp.focus(); return; }
           if ((b = e.target.closest('[data-undo-tx]'))){
             var id = b.getAttribute('data-undo-tx');
@@ -1618,7 +1735,7 @@
       '</div>' +
       '<div class="conn-card">' +
         '<div class="conn-head"><span class="feature-icon">' + icon('calendar') + '</span><h3>Google Agenda</h3><span class="status-pill good">Disponível</span></div>' +
-        '<p>Crie lembretes das suas metas na sua agenda com um toque. É só definir uma data de lembrete ou prazo na meta e tocar em “Google Agenda”.</p>' +
+        '<p>Crie lembretes das suas metas na sua agenda com um toque. É só preencher “Me avise em” ou o prazo na meta e tocar em “Google Agenda”.</p>' +
         '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-conn="metas">Ir para Metas</button></div>' +
       '</div>';
   }
@@ -1631,6 +1748,7 @@
     renderDashboard();
     renderTransactionsTab();
     renderCards();
+    renderVouchers();
     renderBudgets();
     renderGoals();
     renderDebts();
@@ -1702,6 +1820,7 @@
 
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();
+  attachCounters(document);
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
   document.addEventListener('click', async function(e){
@@ -1766,6 +1885,15 @@
       return;
     }
     if ((el = t.closest('[data-card-edit]'))){ editCard(el.getAttribute('data-card-edit')); return; }
+    if ((el = t.closest('[data-voucher-edit]'))){ editVoucher(el.getAttribute('data-voucher-edit')); return; }
+    if ((el = t.closest('[data-voucher-del]'))){
+      var vd = findById(State.vouchers, el.getAttribute('data-voucher-del'));
+      if (!(await confirmAction({title:'Excluir vale?', message:'Excluir o vale “' + vd.name + '”? Os gastos feitos com ele continuam nos seus lançamentos.'}))) return;
+      await Store.remove(k(), 'vouchers', vd.id);
+      State.vouchers = State.vouchers.filter(function(x){ return x.id !== vd.id; });
+      renderAll();
+      return;
+    }
     if ((el = t.closest('[data-card-del]'))){
       var c = findById(State.cards, el.getAttribute('data-card-del'));
       if (!(await confirmAction({title:'Excluir cartão?', message:'Excluir o cartão “' + c.name + '”? As compras feitas nele continuam nos seus gastos.'}))) return;
@@ -1878,18 +2006,18 @@
     if (id){ renderBudgets(); }
   });
   document.getElementById('txForOther').addEventListener('change', syncTxFormVisibility);
+  // Pagou com vale: já sugere a categoria Alimentação.
+  document.getElementById('txPayment').addEventListener('change', function(e){
+    if (e.target.value.indexOf('vale') === 0 && currentTxType() === 'expense') document.getElementById('txCategory').value = 'alimentacao';
+  });
   document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
-  document.getElementById('quickEntryBtn').addEventListener('click', function(){ openQuickEntry(false); });
 
   document.getElementById('tabbar').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-tab]');
     if (btn) showTab(btn.getAttribute('data-tab'));
   });
 
-  document.getElementById('fabAdd').addEventListener('click', function(){
-    showTab('lancamentos');
-    document.getElementById('txAmount').focus();
-  });
+  document.getElementById('fabAdd').addEventListener('click', function(){ openQuickEntry(false); });
 
   document.getElementById('prevMonth').addEventListener('click', function(){ State.txMonthOffset--; renderTransactionsTab(); });
   document.getElementById('nextMonth').addEventListener('click', function(){ if (State.txMonthOffset < 0){ State.txMonthOffset++; renderTransactionsTab(); } });
@@ -1961,10 +2089,11 @@
       var pay = document.getElementById('txPayment').value;
       if (pay === 'card:none'){ toast('Cadastre um cartão na aba Cartões primeiro.'); showTab('cartoes'); return; }
       if (pay.indexOf('card:') === 0){ tx.paymentMethod = 'cartao'; tx.cardId = pay.slice(5); }
+      else if (pay.indexOf('vale:') === 0){ tx.paymentMethod = 'vale'; tx.voucherId = pay.slice(5); }
       else tx.paymentMethod = pay;
       if (document.getElementById('txForOther').checked){
         forOther = document.getElementById('txOtherName').value.trim();
-        if (!forOther){ toast('Informe o nome de quem vai te pagar.'); return; }
+        if (!forOther){ toast('Informe quem vai te devolver o valor.'); return; }
       }
     }
     var saved = await Store.add(k(), 'transactions', tx);
@@ -2008,6 +2137,21 @@
     e.target.reset();
     renderCards(); populatePaymentSelect();
     toast('Cartão “' + v.name + '” adicionado.');
+  });
+
+  document.getElementById('voucherForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var name = document.getElementById('vName').value.trim();
+    var amount = money(document.getElementById('vAmount').value);
+    var balRaw = document.getElementById('vBalance').value;
+    if (!name || !(amount > 0)){ toast('Informe o nome e quanto cai por mês no vale.'); return; }
+    var v = {name:name, amount:amount, carryOver: document.getElementById('vCarry').checked, initialBalance: balRaw === '' ? null : money(balRaw), startDate: todayKey(), createdAt: Date.now()};
+    var saved = await Store.add(k(), 'vouchers', v);
+    State.vouchers.push(saved);
+    e.target.reset();
+    document.getElementById('vCarry').checked = true;
+    renderVouchers(); populatePaymentSelect();
+    toast('Vale “' + name + '” adicionado.');
   });
 
   document.getElementById('goalForm').addEventListener('submit', async function(e){
