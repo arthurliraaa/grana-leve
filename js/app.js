@@ -66,8 +66,11 @@
     ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e adicione lembretes na sua agenda.'],
     ['Dívidas', 'registre o que você deve, para banco ou para pessoas, e marque cada parcela paga.'],
     ['A receber', 'anote o que te devem e use “Cobrar” para enviar uma mensagem pronta.'],
-    ['Botão +', 'fica sempre no canto da tela para lançar um gasto rapidinho.']
+    ['Botão +', 'fica sempre no canto da tela para lançar um gasto rapidinho.'],
+    ['Chat de lançamento', 'aparece ao entrar (uma vez por dia) e também em “Lançar por mensagem”. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”.'],
+    ['Conexões', 'mostra as integrações: Google Agenda (já disponível), WhatsApp e Open Finance (em preparação).']
   ];
+  var OPEN_FINANCE_BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Mercado Pago','PicPay'];
   var INFO_PAGES = {
     'sobre': {title:'Sobre o projeto', body:
       '<p>O Grana Leve nasceu na Atividade Extensionista do curso de Engenharia de Software, com o tema “Tecnologia aplicada à inclusão digital”. A proposta é uma ferramenta gratuita e simples de controle financeiro para jovens e famílias da comunidade local.</p>' +
@@ -452,10 +455,12 @@
         try{
           var r = await opts.onSubmit(form);
           if (r && r.error){ err.textContent = r.error; return; }
+          if (r && r.keepOpen) return;
           close(r === undefined ? true : r);
         } catch(ex){ err.textContent = 'Algo deu errado. Tente novamente.'; }
       });
-      if (opts.onOpen) opts.onOpen(root, close);
+      // Os ouvintes vão no elemento .modal, que é recriado a cada abertura (o #modalRoot é reaproveitado).
+      if (opts.onOpen) opts.onOpen(root.querySelector('.modal'), close);
       // Em confirmações de exclusão o foco começa no “Cancelar”, para um Enter acidental não apagar nada.
       var first = opts.danger ? form.querySelector('.modal-actions [data-modal-close]') : form.querySelector('input:not([type=checkbox]), select, textarea, button[type=submit]');
       if (first) first.focus();
@@ -1479,6 +1484,145 @@
       '</ol></section>';
   }
 
+  /* ---------- Chat de lançamento ---------- */
+  // Grava lançamentos vindos de fora do formulário. Hoje: o chat. No futuro: WhatsApp e Open Finance
+  // (basta o servidor entregar itens no mesmo formato do GranaParser e indicar a origem em `source`).
+  async function importTransactions(items, source){
+    var saved = [];
+    for (var i=0;i<items.length;i++){
+      var it = items[i];
+      var tx = {type: it.type, amount: money(it.amount), category: it.category, categoryLabel: catLabel(it.category, it.type),
+        date: it.date || todayKey(), description: it.description || '', paymentMethod: null, source: source, createdAt: Date.now() + i};
+      if (it.type === 'expense'){
+        tx.paymentMethod = it.paymentMethod || 'conta';
+        if (tx.paymentMethod === 'cartao'){
+          if (State.cards.length) tx.cardId = State.cards[0].id;
+          else tx.paymentMethod = 'conta';
+        }
+      }
+      var s = await Store.add(k(), 'transactions', tx);
+      State.transactions.unshift(s);
+      saved.push(s);
+    }
+    sortTransactions();
+    renderAll();
+    return saved;
+  }
+
+  function bubble(who, html){ return '<div class="bubble ' + who + '">' + html + '</div>'; }
+
+  function describeSaved(t){
+    var cat = catLabel(t.category, t.type, t.categoryLabel);
+    var pay = paymentLabel(t);
+    return '<strong>' + (t.type === 'income' ? 'Ganho' : 'Gasto') + ' de ' + fmtMoney(t.amount) + '</strong> em ' + escapeHtml(cat) +
+      (t.description && t.description.toLowerCase() !== cat.toLowerCase() ? ' (' + escapeHtml(t.description) + ')' : '') +
+      (pay ? ' · ' + escapeHtml(pay) : '') + (t.date !== todayKey() ? ' · ' + formatDateFull(t.date) : '') +
+      ' <button type="button" class="linklike" data-undo-tx="' + escapeHtml(t.id) + '">Desfazer</button>';
+  }
+
+  async function openQuickEntry(welcome){
+    var first = escapeHtml(State.session.name.split(' ')[0]);
+    var closeFn = null;
+    function log(root){ return qs('#chatLog', root || document); }
+    function say(who, html){
+      var l = log(); if (!l) return;
+      l.insertAdjacentHTML('beforeend', bubble(who, html));
+      l.scrollTop = l.scrollHeight;
+    }
+    async function handle(text){
+      say('me', escapeHtml(text));
+      var r = window.GranaParser ? window.GranaParser.parse(text) : {error:'O leitor de mensagens não carregou.'};
+      if (r.nothing){
+        say('bot', 'Beleza! Então é só usar o Grana Leve à vontade.');
+        setTimeout(function(){ if (closeFn) closeFn(true); }, 900);
+        return;
+      }
+      if (r.error){ say('bot', escapeHtml(r.error)); return; }
+      var saved = await importTransactions(r.items, 'chat');
+      say('bot', 'Anotei:<ul class="chat-list">' + saved.map(function(t){ return '<li data-chat-tx="' + escapeHtml(t.id) + '">' + describeSaved(t) + '</li>'; }).join('') + '</ul>' +
+        (saved.some(function(t){ return t.category === 'outros' || t.category === 'outros_receita'; }) ? '<span class="chat-hint">Não reconheci a categoria de algum item e coloquei em “Outros”. Dá para ajustar em Ganhos e gastos.</span><br>' : '') +
+        'Mais alguma coisa? Quando terminar, é só fechar.');
+    }
+    await openModal({
+      title: welcome ? 'Antes de começar…' : 'Lançar por mensagem',
+      body: '<div class="chat-log" id="chatLog" aria-live="polite">' +
+          bubble('bot', (welcome ? 'Oi, ' + first + '! Teve algum gasto ou ganho desde a última vez?' : 'Me conta o que entrou ou saiu.') +
+            '<br><span class="chat-hint">Escreva do seu jeito: “gastei 30 no mercado”, “recebi 1.500 de salário ontem”, “paguei 120 de luz e 80 de internet”.</span>') +
+        '</div>' +
+        '<div class="chips" id="chatChips">' +
+          '<button type="button" class="chip" data-chip-send="Não, nada">Não, nada</button>' +
+          '<button type="button" class="chip" data-chip="gastei ">Gastei…</button>' +
+          '<button type="button" class="chip" data-chip="recebi ">Recebi…</button>' +
+        '</div>' +
+        '<input id="chatInput" class="chat-input" name="msg" type="text" maxlength="200" autocomplete="off" placeholder="Ex: gastei 25 no almoço" aria-label="Mensagem">' +
+        (welcome ? '<label class="check"><input type="checkbox" name="off"' + (getPrefs().quickEntryOff ? ' checked' : '') + '> Não perguntar ao entrar</label>' : ''),
+      submitLabel: 'Enviar', cancelLabel: welcome ? 'Pular' : 'Fechar',
+      onOpen: function(root, close){
+        closeFn = close;
+        root.addEventListener('click', async function(e){
+          var b;
+          if ((b = e.target.closest('[data-chip-send]'))){ handle(b.getAttribute('data-chip-send')); return; }
+          if ((b = e.target.closest('[data-chip]'))){ var inp = qs('#chatInput', root); inp.value = b.getAttribute('data-chip'); inp.focus(); return; }
+          if ((b = e.target.closest('[data-undo-tx]'))){
+            var id = b.getAttribute('data-undo-tx');
+            await Store.remove(k(), 'transactions', id);
+            State.transactions = State.transactions.filter(function(x){ return x.id !== id; });
+            renderAll();
+            var li = b.closest('[data-chat-tx]');
+            li.innerHTML = '<s>' + li.textContent.replace('Desfazer','').trim() + '</s> · desfeito';
+          }
+        });
+        var off = root.querySelector('input[name=off]');
+        if (off) off.addEventListener('change', function(){ setPref('quickEntryOff', off.checked); });
+      },
+      onSubmit: async function(form){
+        var text = form.msg.value.trim();
+        form.msg.value = '';
+        if (text) await handle(text);
+        form.msg.focus();
+        return {keepOpen: true};
+      }
+    });
+  }
+
+  // Ao entrar no app, pergunta uma vez por dia (dá para desligar no próprio chat).
+  function maybeWelcome(){
+    var p = getPrefs();
+    if (p.quickEntryOff || p.lastWelcome === todayKey()) return;
+    setPref('lastWelcome', todayKey());
+    setTimeout(function(){ if (State.session && document.getElementById('modalRoot').hidden) openQuickEntry(true); }, 350);
+  }
+
+  /* ---------- Conexões ---------- */
+  function renderConnections(){
+    var opt = getPrefs().waOptin;
+    document.getElementById('connWrap').innerHTML =
+      '<div class="conn-card">' +
+        '<div class="conn-head"><span class="feature-icon">' + icon('chat') + '</span><h3>WhatsApp</h3><span class="status-pill warning">Em breve</span></div>' +
+        '<p>Registre gastos mandando uma mensagem, do jeito que você fala. O Grana Leve entende, lança sozinho e também te lembra das metas e das contas a receber.</p>' +
+        '<div class="phone-mock" aria-hidden="true">' +
+          bubble('me', 'gastei 25 no almoço no vale') +
+          bubble('bot', 'Anotei: <strong>Gasto de R$ 25,00</strong> em Alimentação · Vale') +
+          bubble('bot', 'Lembrete: faltam R$ 750,00 para a meta “Viagem”.') +
+        '</div>' +
+        '<div class="card-actions"><button class="btn btn-primary btn-sm" type="button" data-conn="chat">' + icon('chat') + 'Testar o chat agora</button></div>' +
+        (opt ? '<p class="field-hint">Pronto! Vamos te avisar no número ' + escapeHtml(opt.phone) + ' quando estiver disponível. <button type="button" class="linklike" data-conn="wa-remove">Remover</button></p>' :
+          '<form id="waOptinForm" class="deposit-form"><input class="select-sm" style="padding:8px 10px" name="phone" type="tel" maxlength="20" placeholder="Seu WhatsApp" aria-label="Seu número de WhatsApp"><button class="btn btn-ghost btn-sm" type="submit">Quero ser avisado</button></form>') +
+      '</div>' +
+      '<div class="conn-card">' +
+        '<div class="conn-head"><span class="feature-icon">' + icon('bank') + '</span><h3>Open Finance</h3><span class="status-pill warning">Em breve</span></div>' +
+        '<p>Conecte sua conta do banco para trazer extratos e faturas automaticamente, já com categoria, sem digitar nada.</p>' +
+        '<ol class="howto-list"><li>Escolha o seu banco.</li><li>Autorize no app do banco: você decide o que compartilhar e por quanto tempo.</li><li>Os lançamentos aparecem aqui sozinhos.</li></ol>' +
+        '<div class="chips">' + OPEN_FINANCE_BANKS.map(function(b){ return '<button type="button" class="chip" disabled title="Em breve">' + escapeHtml(b) + '</button>'; }).join('') + '</div>' +
+        '<p class="field-hint">' + icon('lock') + ' O Open Finance é regulado pelo Banco Central. O Grana Leve nunca vai pedir a senha do seu banco.</p>' +
+      '</div>' +
+      '<div class="conn-card">' +
+        '<div class="conn-head"><span class="feature-icon">' + icon('calendar') + '</span><h3>Google Agenda</h3><span class="status-pill good">Disponível</span></div>' +
+        '<p>Crie lembretes das suas metas na sua agenda com um toque. É só definir uma data de lembrete ou prazo na meta e tocar em “Google Agenda”.</p>' +
+        '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-conn="metas">Ir para Metas</button></div>' +
+      '</div>';
+  }
+
   /* ---------- Tudo ---------- */
   function renderAll(){
     document.getElementById('greeting').textContent = 'Olá, ' + State.session.name.split(' ')[0];
@@ -1492,10 +1636,11 @@
     renderDebts();
     renderReceivables();
     renderLearn();
+    renderConnections();
   }
 
   /* ============ Tabs / navigation ============ */
-  var TABS = ['dashboard','lancamentos','cartoes','limites','metas','dividas','receber','aprenda'];
+  var TABS = ['dashboard','lancamentos','cartoes','limites','metas','dividas','receber','aprenda','conexoes'];
   function showTab(name){
     State.activeTab = name;
     qsa('#tabbar button').forEach(function(b){
@@ -1525,6 +1670,7 @@
     syncTxFormVisibility();
     renderAll();
     showTab('dashboard');
+    maybeWelcome();
   }
 
   function logout(){
@@ -1628,6 +1774,14 @@
       renderAll();
       return;
     }
+    // Conexões
+    if ((el = t.closest('[data-conn]'))){
+      var conn = el.getAttribute('data-conn');
+      if (conn === 'chat') openQuickEntry(false);
+      if (conn === 'metas') showTab('metas');
+      if (conn === 'wa-remove'){ setPref('waOptin', null); renderConnections(); }
+      return;
+    }
     // Metas
     if ((el = t.closest('[data-goal-filter]'))){ State.goalFilter = el.getAttribute('data-goal-filter'); renderGoals(); return; }
     if ((el = t.closest('[data-goal-edit]'))){ editGoal(el.getAttribute('data-goal-edit')); return; }
@@ -1679,6 +1833,16 @@
   });
 
   // Guardar valor em uma meta (formulário dentro do card).
+  document.addEventListener('submit', function(e){
+    if (e.target.id !== 'waOptinForm') return;
+    e.preventDefault();
+    var phone = e.target.phone.value.trim();
+    if (onlyDigits(phone).length < 10){ toast('Informe o número com DDD.'); return; }
+    setPref('waOptin', {phone: phone, at: Date.now()});
+    renderConnections();
+    toast('Combinado! Vamos avisar quando o WhatsApp estiver disponível.');
+  });
+
   document.addEventListener('submit', async function(e){
     var form = e.target.closest('[data-goal-deposit]');
     if (!form) return;
@@ -1715,6 +1879,7 @@
   });
   document.getElementById('txForOther').addEventListener('change', syncTxFormVisibility);
   document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
+  document.getElementById('quickEntryBtn').addEventListener('click', function(){ openQuickEntry(false); });
 
   document.getElementById('tabbar').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-tab]');
