@@ -3,35 +3,80 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="Grana Leve: controle financeiro pessoal simples para jovens e famílias.">
   <title>Grana Leve</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%230e6b5c'/%3E%3Cpath d='M9 22.5C11 14 16 9.5 23.5 8.5 22.8 16 18 21 10.5 23' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11.5 21c2.6-3 5-5 8-6.5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' opacity='.75'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+<!-- Ícones reutilizáveis -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.5 18a10 10 0 1 1 17 0"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-card" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></symbol>
+    <symbol id="i-handshake" viewBox="0 0 24 24"><path d="M3 11l4-4 5 2 5-2 4 4-7 7-2-2-2 2z"/><path d="M8 13l2 2M11 12l2.5 2.5"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></symbol>
+    <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></symbol>
+  </defs>
+</svg>
+
 <div id="toastWrap" class="toast-wrap" aria-live="polite"></div>
+<div id="modalRoot" class="modal-root" hidden></div>
 
 <header class="topbar">
   <div class="side-gutter topbar-inner">
     <button class="brand" id="brandHome" type="button" aria-label="Grana Leve, ir para o início">
-      <span class="brand-dot"></span><span class="brand-word">Grana Leve</span>
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect class="brand-mark-bg" width="32" height="32" rx="9"/>
+        <path class="brand-mark-leaf" d="M9 22.5C11 14 16 9.5 23.5 8.5 22.8 16 18 21 10.5 23"/>
+        <path class="brand-mark-vein" d="M11.5 21c2.6-3 5-5 8-6.5"/>
+      </svg>
+      <span class="brand-word">Grana <span>Leve</span></span>
     </button>
-    <div class="topbar-actions" id="topbarActions"></div>
+    <div class="topbar-actions">
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="Alternar modo claro e escuro" title="Alternar modo claro/escuro">
+        <svg class="ico"><use href="#i-moon"/></svg>
+      </button>
+      <div class="topbar-actions" id="topbarActions"></div>
+    </div>
   </div>
 </header>
 
 <main>
+  <!-- ================= Apresentação ================= -->
   <section id="viewLanding">
     <div class="side-gutter hero">
       <span class="eyebrow">Pesquisa com 48 pessoas · projeto de Engenharia de Software</span>
       <h1>Anotar gasto não devia dar ansiedade.</h1>
-      <p class="lede">Na pesquisa que fizemos para o TCC, 54% das pessoas disseram esquecer de anotar despesas e 1 em cada 4 sente desânimo só de olhar os números. O Grana Leve existe pra resolver isso: lançar um gasto em segundos, ver pra onde o dinheiro vai e guardar um pouco todo mês — sem planilha e sem culpa.</p>
+      <p class="lede">Na pesquisa que fizemos, 54% das pessoas disseram esquecer de anotar despesas e 1 em cada 4 sente desânimo só de olhar os números. O Grana Leve existe pra resolver isso: lançar um gasto em segundos, ver pra onde o dinheiro vai e guardar um pouco todo mês, sem planilha e sem culpa.</p>
       <div class="hero-ctas">
         <button class="btn btn-primary" data-action="go-signup">Criar conta grátis</button>
         <button class="btn btn-ghost" data-action="go-login">Já tenho conta</button>
       </div>
-      <p class="hero-note">Sem cartão de crédito. Leva menos de um minuto pra começar.</p>
+      <ul class="trust-list">
+        <li><svg class="ico"><use href="#i-check"/></svg>100% gratuito</li>
+        <li><svg class="ico"><use href="#i-check"/></svg>Não pede cartão de crédito</li>
+        <li><svg class="ico"><use href="#i-check"/></svg>Pronto em menos de 1 minuto</li>
+        <li><svg class="ico"><use href="#i-check"/></svg>Feito para o celular</li>
+      </ul>
     </div>
 
     <div class="side-gutter">
@@ -46,52 +91,63 @@
     <div class="side-gutter section">
       <div class="section-head">
         <h2>Feito a partir do que as pessoas realmente disseram precisar</h2>
-        <p>Cada funcionalidade do Grana Leve responde a uma dificuldade ou um pedido que apareceu na pesquisa.</p>
+        <p>Cada funcionalidade do Grana Leve responde a uma dificuldade ou a um pedido que apareceu na pesquisa.</p>
       </div>
       <div class="feature-grid">
         <div class="feature-card">
-          <div class="feature-icon">＋</div>
+          <div class="feature-icon"><svg class="ico"><use href="#i-bolt"/></svg></div>
           <h3>Lance em segundos</h3>
-          <p>Um botão sempre à mão pra registrar o gasto na hora, antes que ele vire "depois eu anoto" — e vire esquecido.</p>
+          <p>Ao entrar, o Grana Leve pergunta se você teve algum gasto ou ganho. É só responder como numa conversa: “gastei 30 no mercado”.</p>
           <span class="feature-tag">Resposta à maior dificuldade apontada: esquecimento</span>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">◔</div>
-          <h3>Orçamento por categoria</h3>
-          <p>Defina um limite pra cada tipo de gasto e veja, em tempo real, o quanto ainda pode gastar sem sustos no fim do mês.</p>
+          <div class="feature-icon"><svg class="ico"><use href="#i-gauge"/></svg></div>
+          <h3>Limites de gastos</h3>
+          <p>Defina quanto quer gastar em cada categoria e veja, em tempo real, quanto ainda pode gastar sem sustos no fim do mês.</p>
           <span class="feature-tag">60% pediram relatórios de gastos claros</span>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">↟</div>
+          <div class="feature-icon"><svg class="ico"><use href="#i-target"/></svg></div>
           <h3>Metas sem peso</h3>
-          <p>Guarde dinheiro para um objetivo com prazo e acompanhe o progresso — sem números soltos que geram ansiedade.</p>
+          <p>Guarde dinheiro para um objetivo com prazo, receba lembretes na sua agenda e acompanhe o progresso.</p>
           <span class="feature-tag">32 de 48 pessoas dão nota máxima à importância de poupar</span>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">▤</div>
-          <h3>Dívidas sob controle</h3>
-          <p>Cadastre cada dívida com o valor da parcela e acompanhe o quanto já foi pago, com uma visão clara do que falta.</p>
+          <div class="feature-icon"><svg class="ico"><use href="#i-card"/></svg></div>
+          <h3>Cartões e faturas</h3>
+          <p>Cadastre seus cartões com limite, fechamento e vencimento. A fatura se monta sozinha e vira PDF quando você precisar.</p>
+          <span class="feature-tag">O cartão de crédito é a dívida mais citada</span>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon"><svg class="ico"><use href="#i-handshake"/></svg></div>
+          <h3>Dívidas e cobranças</h3>
+          <p>Controle o que você deve e também o que te devem: empréstimo para um amigo, compra no seu cartão, valor combinado.</p>
           <span class="feature-tag">67% têm dívidas; 25% relatam dificuldade em pagar</span>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">✎</div>
+          <div class="feature-icon"><svg class="ico"><use href="#i-book"/></svg></div>
           <h3>Aprenda no seu ritmo</h3>
-          <p>Conteúdos curtos sobre planejamento mensal, cartão de crédito e como sair de dívidas — sem economês.</p>
-          <span class="feature-tag">Temas mais pedidos na pesquisa</span>
-        </div>
-        <div class="feature-card">
-          <div class="feature-icon">▥</div>
-          <h3>Feito pra celular</h3>
-          <p>Layout pensado pra quem acessa pelo smartphone — que foi o dispositivo de 38 das 48 pessoas ouvidas.</p>
-          <span class="feature-tag">79% acessam principalmente pelo celular</span>
+          <p>Conteúdos curtos sobre planejamento, cartão, dívidas e como fazer o dinheiro render, sem economês.</p>
+          <span class="feature-tag">100% querem aprender mais sobre finanças</span>
         </div>
       </div>
     </div>
 
-    <div class="side-gutter section" style="padding-top:0">
+    <div class="side-gutter section section-tight">
+      <div class="section-head">
+        <h2>Como funciona</h2>
+      </div>
+      <ol class="steps">
+        <li><span class="step-num">1</span><h3>Crie sua conta</h3><p>Só nome, e-mail e senha. Nada de cartão ou documentos.</p></li>
+        <li><span class="step-num">2</span><h3>Anote o que entra e sai</h3><p>Pelo chat de boas-vindas ou pelo botão “+”, sempre à mão.</p></li>
+        <li><span class="step-num">3</span><h3>Acompanhe e ajuste</h3><p>Veja o painel do mês, seus limites, metas e faturas em um só lugar.</p></li>
+      </ol>
+    </div>
+
+    <div class="side-gutter section section-tight">
       <div class="research-note">
         <h3>Sobre este projeto</h3>
-        <p>O Grana Leve nasceu de um trabalho de faculdade sobre hábitos financeiros: 48 respostas coletadas, a maioria de 18 a 24 anos, mostrando que quase ninguém usa um aplicativo dedicado a controle financeiro hoje — a maior parte usa planilha, caderno ou nada. Esta versão já é funcional: crie sua conta, seus dados ficam salvos e você pode usar de verdade, não é só uma tela de mentirinha.</p>
+        <p>O Grana Leve nasceu de um trabalho de extensão universitária sobre hábitos financeiros: 48 respostas coletadas, a maioria de 18 a 24 anos, mostrando que quase ninguém usa um aplicativo dedicado a controle financeiro hoje. A maior parte usa planilha, caderno ou nada. Esta versão já é funcional: crie sua conta e use de verdade.</p>
       </div>
     </div>
 
@@ -99,13 +155,9 @@
       <h2>Comece a organizar suas finanças hoje</h2>
       <button class="btn btn-primary" data-action="go-signup">Criar minha conta</button>
     </div>
-
-    <footer class="site-footer side-gutter">
-      <span>Grana Leve — projeto acadêmico de controle financeiro</span>
-      <span>Dados da pesquisa: 48 respostas, setembro de 2026</span>
-    </footer>
   </section>
 
+  <!-- ================= Entrar / Criar conta ================= -->
   <section id="viewAuth" hidden>
     <div class="side-gutter auth-wrap">
       <div class="auth-card">
@@ -115,14 +167,14 @@
         </div>
 
         <form id="loginForm" novalidate>
-          <div style="display:grid; gap:14px">
+          <div class="stack">
             <div class="field">
               <label for="loginEmail">E-mail</label>
-              <input id="loginEmail" type="email" autocomplete="username" required>
+              <input id="loginEmail" type="email" autocomplete="username" maxlength="120" required>
             </div>
             <div class="field">
               <label for="loginPassword">Senha</label>
-              <input id="loginPassword" type="password" autocomplete="current-password" required>
+              <input id="loginPassword" type="password" autocomplete="current-password" maxlength="128" required>
             </div>
             <p class="form-error" id="loginError"></p>
             <button class="btn btn-primary btn-block" type="submit">Entrar</button>
@@ -130,21 +182,23 @@
         </form>
 
         <form id="signupForm" novalidate hidden>
-          <div style="display:grid; gap:14px">
+          <div class="stack">
             <div class="field">
               <label for="signupName">Nome</label>
-              <input id="signupName" type="text" autocomplete="name" required>
+              <input id="signupName" type="text" autocomplete="name" maxlength="60" required>
             </div>
             <div class="field">
               <label for="signupEmail">E-mail</label>
-              <input id="signupEmail" type="email" autocomplete="username" required>
+              <input id="signupEmail" type="email" autocomplete="username" maxlength="120" required>
             </div>
             <div class="field">
               <label for="signupPassword">Senha</label>
-              <input id="signupPassword" type="password" autocomplete="new-password" minlength="4" required>
+              <input id="signupPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
+              <span class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.</span>
             </div>
             <p class="form-error" id="signupError"></p>
             <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
+            <p class="auth-foot">Não pedimos cartão de crédito.</p>
           </div>
         </form>
         <p class="auth-foot" id="authFoot"></p>
@@ -152,6 +206,7 @@
     </div>
   </section>
 
+  <!-- ================= App ================= -->
   <section id="viewApp" hidden>
     <div class="side-gutter">
       <div class="app-header">
@@ -161,34 +216,62 @@
         </div>
       </div>
 
-      <nav class="tabbar" id="tabbar">
+      <nav class="tabbar" id="tabbar" aria-label="Seções">
         <button type="button" data-tab="dashboard" class="active">Painel</button>
-        <button type="button" data-tab="lancamentos">Lançamentos</button>
-        <button type="button" data-tab="orcamento">Orçamento</button>
+        <button type="button" data-tab="lancamentos">Ganhos e gastos</button>
+        <button type="button" data-tab="cartoes">Cartões</button>
+        <button type="button" data-tab="limites">Limites</button>
         <button type="button" data-tab="metas">Metas</button>
         <button type="button" data-tab="dividas">Dívidas</button>
+        <button type="button" data-tab="receber">A receber</button>
         <button type="button" data-tab="aprenda">Aprenda</button>
       </nav>
 
+      <!-- Painel -->
       <div id="tab-dashboard" class="tab-panel">
+        <p class="tab-intro">Resumo do seu mês: quanto entrou, quanto saiu e o que ainda está previsto.</p>
         <div class="card-head" style="margin-bottom:-4px">
           <h3>Resumo do mês</h3>
           <button class="btn btn-ghost btn-sm" id="pdfReportBtn" type="button">Relatório em PDF</button>
         </div>
-        <div class="stat-tiles">
-          <div class="tile"><span class="tile-lbl">Saldo do mês</span><span class="tile-val tabular" id="statSaldo">—</span></div>
-          <div class="tile"><span class="tile-lbl">Gastos no mês</span><span class="tile-val tabular" id="statGastos">—</span></div>
-          <div class="tile"><span class="tile-lbl">Guardado nas metas</span><span class="tile-val tabular" id="statMetas">—</span></div>
-          <div class="tile"><span class="tile-lbl">Dívida restante</span><span class="tile-val tabular" id="statDividas">—</span></div>
+        <div class="stat-tiles stat-tiles-auto" id="statTiles"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Previsão de entradas</h3>
+            <span class="month-lbl" id="forecastMonthLabel"></span>
+          </div>
+          <p class="card-sub">Anote o que você ainda espera receber neste mês, como salário, um freela ou um pagamento combinado. Quando o dinheiro cair, toque em “Recebi”.</p>
+          <div id="forecastList"></div>
+          <form id="forecastForm" class="inline-form">
+            <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
+            <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+            <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
+            <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
+            <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
+          </form>
         </div>
 
         <div class="dash-grid">
           <div class="card">
-            <div class="card-head"><h3>Gastos por categoria — este mês</h3></div>
+            <div class="card-head">
+              <h3>Neste mês: gastos por categoria</h3>
+              <button class="linklike" type="button" data-view-toggle="donut">Ver como tabela</button>
+            </div>
             <div class="chart-wrap" id="donutWrap"></div>
           </div>
           <div class="card">
-            <div class="card-head"><h3>Receitas × despesas — 6 meses</h3></div>
+            <div class="card-head">
+              <h3>Ganhos × gastos</h3>
+              <div class="card-head-tools">
+                <select id="barPeriod" class="select-sm" aria-label="Período do gráfico">
+                  <option value="3">3 meses</option>
+                  <option value="6" selected>6 meses</option>
+                  <option value="12">12 meses</option>
+                </select>
+                <button class="linklike" type="button" data-view-toggle="bar">Ver como tabela</button>
+              </div>
+            </div>
             <div class="chart-wrap" id="barWrap"></div>
           </div>
         </div>
@@ -205,81 +288,161 @@
         </div>
       </div>
 
+      <!-- Ganhos e gastos -->
       <div id="tab-lancamentos" class="tab-panel" hidden>
+        <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor.</p>
         <div class="card">
-          <div class="card-head"><h3>Novo lançamento</h3></div>
+          <div class="card-head">
+            <h3>Novo lançamento</h3>
+            <button class="linklike" type="button" id="manageCatsBtn">Minhas categorias</button>
+          </div>
           <form id="txForm" class="add-tx-form">
-            <div class="type-toggle f-submit" style="grid-column:span 6" id="typeToggle">
-              <button type="button" class="active" data-type="expense">Despesa</button>
-              <button type="button" data-type="income">Receita</button>
+            <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
+              <button type="button" class="active" data-type="expense">Gasto</button>
+              <button type="button" data-type="income">Ganho</button>
             </div>
-            <div class="field"><label for="txAmount">Valor (R$)</label><input id="txAmount" type="number" step="0.01" min="0" inputmode="decimal" required></div>
+            <div class="field"><label for="txAmount">Valor</label><span class="money-input"><span>R$</span><input id="txAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
             <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select></div>
-            <div class="field"><label for="txDate">Data</label><input id="txDate" type="date" required></div>
-            <div class="field f-desc"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
-            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar lançamento</button></div>
+            <div class="field"><label for="txDate">Data</label><input id="txDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
+            <div class="field" id="txPaymentField"><label for="txPayment">Forma de pagamento</label><select id="txPayment"></select></div>
+            <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
+            <div class="field f-half" id="txForOtherField">
+              <label class="check"><input type="checkbox" id="txForOther"> Foi para outra pessoa (vai para “A receber”)</label>
+              <input id="txOtherName" type="text" maxlength="60" placeholder="Nome de quem vai te pagar" hidden>
+            </div>
+            <div class="f-full"><button class="btn btn-primary" type="submit">Adicionar lançamento</button></div>
           </form>
         </div>
 
         <div class="card">
           <div class="card-head">
             <div class="month-switch">
-              <button type="button" id="prevMonth" aria-label="Mês anterior">‹</button>
+              <button type="button" id="prevMonth" aria-label="Mês anterior"><svg class="ico"><use href="#i-chevron-left"/></svg></button>
               <strong id="txMonthLabel">—</strong>
-              <button type="button" id="nextMonth" aria-label="Próximo mês">›</button>
+              <button type="button" id="nextMonth" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
             </div>
             <button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button>
           </div>
-          <p style="color:var(--text-secondary); font-size:.88rem; margin-bottom:6px" id="txSummary"></p>
+          <p class="card-sub" id="txSummary"></p>
           <div id="txList"></div>
         </div>
       </div>
 
-      <div id="tab-orcamento" class="tab-panel" hidden>
+      <!-- Cartões -->
+      <div id="tab-cartoes" class="tab-panel" hidden>
+        <p class="tab-intro">Cadastre seus cartões de crédito. Cada gasto feito no cartão entra sozinho na fatura certa, de acordo com o dia de fechamento.</p>
         <div class="card">
-          <div class="card-head"><h3>Orçamento por categoria</h3><span class="month-lbl" id="budgetMonthLabel"></span></div>
-          <p style="color:var(--text-secondary); font-size:.88rem; margin-bottom:8px">Defina um limite mensal para cada categoria de despesa e acompanhe o quanto já foi gasto.</p>
+          <div class="card-head"><h3>Novo cartão</h3></div>
+          <form id="cardForm" class="new-item-form">
+            <div class="field"><label for="cardName">Nome do cartão</label><input id="cardName" type="text" maxlength="40" placeholder="Ex: Nubank, Inter" required></div>
+            <div class="field"><label for="cardLimit">Limite</label><span class="money-input"><span>R$</span><input id="cardLimit" type="number" step="0.01" min="0" max="99999999" required></span></div>
+            <div class="field"><label for="cardClosing">Dia do fechamento</label><input id="cardClosing" type="number" min="1" max="31" required placeholder="Ex: 3"></div>
+            <div class="field"><label for="cardDue">Dia do vencimento</label><input id="cardDue" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
+            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar cartão</button></div>
+          </form>
+        </div>
+        <div id="cardList" class="stack-lg"></div>
+      </div>
+
+      <!-- Limites -->
+      <div id="tab-limites" class="tab-panel" hidden>
+        <p class="tab-intro">Escolha quanto quer gastar, no máximo, em cada categoria por mês. A barra mostra quanto você já usou desse limite.</p>
+        <div class="card">
+          <div class="card-head">
+            <h3>Limites de gastos</h3>
+            <div class="month-switch">
+              <button type="button" id="budgetPrev" aria-label="Mês anterior"><svg class="ico"><use href="#i-chevron-left"/></svg></button>
+              <strong id="budgetMonthLabel">—</strong>
+              <button type="button" id="budgetNext" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
+            </div>
+          </div>
           <div id="budgetList"></div>
         </div>
       </div>
 
+      <!-- Metas -->
       <div id="tab-metas" class="tab-panel" hidden>
+        <p class="tab-intro">Junte dinheiro para um objetivo (uma viagem, a reserva de emergência) e acompanhe quanto falta.</p>
         <div class="card">
-          <div class="card-head"><h3>Nova meta de economia</h3></div>
+          <div class="card-head"><h3>Nova meta</h3></div>
           <form id="goalForm" class="new-item-form">
-            <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" required placeholder="Ex: viagem, reserva de emergência"></div>
-            <div class="field"><label for="goalTarget">Valor alvo (R$)</label><input id="goalTarget" type="number" step="0.01" min="1" required></div>
-            <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date"></div>
+            <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" maxlength="50" required placeholder="Ex: viagem, reserva de emergência"></div>
+            <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="number" step="0.01" min="1" max="99999999" required></span></div>
+            <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field"><label for="goalReminder">Lembrete</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field f-submit"><label for="goalNote">Observação (opcional)</label><textarea id="goalNote" rows="2" maxlength="300" placeholder="Ex: guardar R$ 100 todo dia 5"></textarea></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Criar meta</button></div>
           </form>
         </div>
+        <div class="segmented" id="goalFilter" role="tablist" aria-label="Filtrar metas"></div>
         <div id="goalGrid" class="goal-grid"></div>
       </div>
 
+      <!-- Dívidas -->
       <div id="tab-dividas" class="tab-panel" hidden>
+        <p class="tab-intro">Tudo o que você deve: cartão, banco, financiamento ou um empréstimo com um amigo. Registre cada pagamento e veja quanto falta.</p>
         <div class="card">
           <div class="card-head"><h3>Nova dívida</h3></div>
           <form id="debtForm" class="new-item-form">
-            <div class="field"><label for="debtName">Nome</label><input id="debtName" type="text" required placeholder="Ex: cartão de crédito, financiamento"></div>
-            <div class="field"><label for="debtTotal">Valor total (R$)</label><input id="debtTotal" type="number" step="0.01" min="1" required></div>
-            <div class="field"><label for="debtPaid">Já pago (R$)</label><input id="debtPaid" type="number" step="0.01" min="0" value="0"></div>
-            <div class="field"><label for="debtInstallment">Parcela mensal (R$)</label><input id="debtInstallment" type="number" step="0.01" min="0"></div>
+            <div class="field"><label for="debtName">Nome</label><input id="debtName" type="text" maxlength="50" required placeholder="Ex: empréstimo do João"></div>
+            <div class="field"><label for="debtKind">Tipo</label><select id="debtKind"></select></div>
+            <div class="field"><label for="debtCreditor">Com quem (opcional)</label><input id="debtCreditor" type="text" maxlength="50" placeholder="Ex: Banco X, João"></div>
+            <div class="field"><label for="debtTotal">Valor total</label><span class="money-input"><span>R$</span><input id="debtTotal" type="number" step="0.01" min="1" max="99999999" required></span></div>
+            <div class="field"><label for="debtPaid">Já pago</label><span class="money-input"><span>R$</span><input id="debtPaid" type="number" step="0.01" min="0" max="99999999" value="0"></span></div>
+            <div class="field"><label for="debtInstallment">Parcela mensal</label><span class="money-input"><span>R$</span><input id="debtInstallment" type="number" step="0.01" min="0" max="99999999"></span></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar dívida</button></div>
           </form>
         </div>
         <div id="debtGrid" class="debt-grid"></div>
       </div>
 
+      <!-- A receber -->
+      <div id="tab-receber" class="tab-panel" hidden>
+        <p class="tab-intro">O que as outras pessoas te devem: um empréstimo, uma compra feita no seu cartão ou um valor combinado. Daqui dá para cobrar com uma mensagem pronta.</p>
+        <div class="card">
+          <div class="card-head"><h3>Novo valor a receber</h3></div>
+          <form id="recvForm" class="new-item-form">
+            <div class="field"><label for="recvPerson">Quem vai te pagar</label><input id="recvPerson" type="text" maxlength="50" required placeholder="Ex: Maria"></div>
+            <div class="field"><label for="recvKind">Tipo</label><select id="recvKind"></select></div>
+            <div class="field"><label for="recvTotal">Valor</label><span class="money-input"><span>R$</span><input id="recvTotal" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
+            <div class="field"><label for="recvDue">Combinado para</label><input id="recvDue" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field f-half"><label for="recvDesc">Descrição (opcional)</label><input id="recvDesc" type="text" maxlength="80" placeholder="Ex: metade do show"></div>
+            <div class="field f-half"><label for="recvPhone">WhatsApp da pessoa (opcional)</label><input id="recvPhone" type="tel" maxlength="20" placeholder="Ex: (11) 98888-7777"></div>
+            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar</button></div>
+          </form>
+        </div>
+        <div id="recvGrid" class="debt-grid"></div>
+      </div>
+
+      <!-- Aprenda -->
       <div id="tab-aprenda" class="tab-panel" hidden>
-        <div class="tips-grid" id="tipsGrid"></div>
+        <p class="tab-intro">Conteúdos curtos para organizar o dinheiro, fazer ele render e tirar o melhor do Grana Leve.</p>
+        <div id="learnWrap" class="stack-lg"></div>
       </div>
     </div>
   </section>
 </main>
 
-<button class="fab" id="fabAdd" type="button" aria-label="Novo lançamento" title="Novo lançamento" hidden>＋</button>
+<footer class="site-footer">
+  <div class="side-gutter footer-inner">
+    <div class="footer-brand">
+      <strong>Grana Leve</strong>
+      <span>Controle financeiro pessoal para jovens e famílias. Projeto de extensão universitária.</span>
+    </div>
+    <nav class="footer-links" aria-label="Rodapé">
+      <button type="button" class="linklike" data-info="sobre">Sobre o projeto</button>
+      <button type="button" class="linklike" data-info="como-usar">Como usar</button>
+      <button type="button" class="linklike" data-info="privacidade">Privacidade</button>
+      <button type="button" class="linklike" data-info="termos">Termos de uso</button>
+      <button type="button" class="linklike" data-info="contato">Contato</button>
+    </nav>
+    <p class="footer-copy">© <span id="footerYear">2026</span> Grana Leve. Todos os direitos reservados. Dados da pesquisa: 48 respostas, 2026.</p>
+  </div>
+</footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<button class="fab" id="fabAdd" type="button" aria-label="Novo lançamento" title="Novo lançamento" hidden><svg class="ico"><use href="#i-plus"/></svg></button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
