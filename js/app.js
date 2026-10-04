@@ -68,7 +68,8 @@
     ['Dívidas', 'registre o que você deve, para banco ou para pessoas, e marque cada parcela paga.'],
     ['A receber', 'anote o que te devem e use “Cobrar” para enviar uma mensagem pronta.'],
     ['Botão +', 'fica sempre no canto da tela e abre o chat de lançamento. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”. O chat também aparece ao entrar, uma vez por dia.'],
-    ['Conexões', 'mostra as integrações: Google Agenda (já disponível), WhatsApp e Open Finance (em preparação).']
+    ['Conexões', 'mostra as integrações: app no celular e Google Agenda (já disponíveis), WhatsApp e Open Finance (em preparação).'],
+    ['Backup dos dados', 'fica no rodapé. Salve um arquivo de backup de vez em quando: seus dados ficam só neste navegador.']
   ];
   var OPEN_FINANCE_BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Mercado Pago','PicPay'];
   var INFO_PAGES = {
@@ -294,6 +295,23 @@
       var data = this._readLocal();
       delete data.users[key];
       this._writeLocal(data);
+    },
+
+    // Substitui todos os dados do usuário (usado ao restaurar um backup). O perfil e a senha não mudam.
+    async replaceAll(key, data){
+      if (this.mode === 'cloud'){
+        for (var i=0;i<COLLECTIONS.length;i++){
+          var c = COLLECTIONS[i];
+          var q = await this._userDoc(key).collection(c).get();
+          for (var j=0;j<q.docs.length;j++){ await this._userDoc(key).collection(c).doc(q.docs[j].id).delete(); }
+          for (var n=0;n<data[c].length;n++){ var item = Object.assign({}, data[c][n]); var id = item.id; delete item.id; await this._userDoc(key).collection(c).doc(id).set(item); }
+        }
+        return;
+      }
+      var all = this._readLocal();
+      var u = this._userLocal(all, key);
+      COLLECTIONS.forEach(function(c){ u[c] = data[c].slice(); });
+      this._writeLocal(all);
     },
 
     async list(key, coll){
@@ -953,17 +971,35 @@
     var mb = monthBounds(State.txMonthOffset);
     document.getElementById('txMonthLabel').textContent = mb.label;
     document.getElementById('nextMonth').disabled = State.txMonthOffset >= maxTxMonthOffset();
-    var tx = txForMonth(mb.key);
+    var tx = filterTransactions(txForMonth(mb.key));
+    var filtering = tx.length !== txForMonth(mb.key).length || isFiltering();
     var income = sum(tx.filter(function(t){ return t.type==='income'; }), function(t){ return t.amount; });
     var expenseTx = tx.filter(function(t){ return t.type==='expense'; });
     var expense = sum(expenseTx, function(t){ return t.amount; });
     var onCard = sum(expenseTx.filter(function(t){ return t.paymentMethod==='cartao'; }), function(t){ return t.amount; });
     var onVale = sum(expenseTx.filter(function(t){ return t.paymentMethod==='vale'; }), function(t){ return t.amount; });
-    document.getElementById('txSummary').textContent = tx.length + ' lançamento(s) · ganhos ' + fmtMoney(income) + ' · gastos ' + fmtMoney(expense) +
+    document.getElementById('txSummary').textContent = (filtering ? 'Filtrando: ' : '') + tx.length + ' lançamento(s) · ganhos ' + fmtMoney(income) + ' · gastos ' + fmtMoney(expense) +
       (onCard ? ' (no cartão ' + fmtMoney(onCard) + ')' : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '');
     var list = document.getElementById('txList');
-    if (!tx.length){ list.innerHTML = '<p class="empty-state">Nenhum lançamento neste mês.</p>'; return; }
+    if (!tx.length){ list.innerHTML = '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
     list.innerHTML = tx.map(txRowHtml).join('');
+  }
+
+  // Busca sem diferenciar acentos e maiúsculas ("almoco" encontra "Almoço").
+  function fold(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+  function isFiltering(){
+    return !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterType').value !== 'all' || document.getElementById('txFilterPay').value !== 'all';
+  }
+  function filterTransactions(list){
+    var q = fold(document.getElementById('txSearch').value.trim());
+    var type = document.getElementById('txFilterType').value;
+    var pay = document.getElementById('txFilterPay').value;
+    return list.filter(function(t){
+      if (type !== 'all' && t.type !== type) return false;
+      if (pay !== 'all' && (t.type !== 'expense' || (t.paymentMethod || 'conta') !== pay)) return false;
+      if (q && fold((t.description || '') + ' ' + catLabel(t.category, t.type, t.categoryLabel) + ' ' + paymentLabel(t)).indexOf(q) < 0) return false;
+      return true;
+    });
   }
 
   async function createCategory(type){
@@ -1048,7 +1084,26 @@
       saved.push(s);
     }
     sortTransactions();
+    checkBudgetAlerts(saved);
     return saved;
+  }
+
+  // Avisa na hora quando um gasto do mês atual faz a categoria chegar a 80% ou passar do planejado.
+  function checkBudgetAlerts(newTx){
+    var cur = monthBounds(0).key, added = {};
+    newTx.forEach(function(t){ if (t.type === 'expense' && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + Number(t.amount); });
+    var spentNow = expenseCategoryTotals(cur);
+    Object.keys(added).forEach(function(cat){
+      var limit = Number(State.budgets[cat] || 0);
+      if (!limit) return;
+      var after = spentNow[cat] || 0, before = after - added[cat];
+      var name = catLabel(cat, 'expense');
+      if (after > limit && before <= limit){
+        toast('Atenção: você passou ' + fmtMoney(after - limit) + ' do planejado para ' + name + ' neste mês.');
+      } else if (after >= 0.8 * limit && before < 0.8 * limit){
+        toast('Você já usou ' + Math.round(100 * after / limit) + '% do planejado para ' + name + '. Restam ' + fmtMoney(limit - after) + '.');
+      }
+    });
   }
   // Agrupa as parcelas de cada compra. "Pagas" = parcelas com data até hoje (já entraram em fatura).
   function installmentGroups(){
@@ -1959,6 +2014,13 @@
         '<p class="field-hint">' + icon('lock') + ' O Open Finance é regulado pelo Banco Central. O Grana Leve nunca vai pedir a senha do seu banco.</p>' +
       '</div>' +
       '<div class="conn-card">' +
+        '<div class="conn-head"><span class="feature-icon">' + icon('phone') + '</span><h3>App no celular</h3><span class="status-pill good">Disponível</span></div>' +
+        '<p>Instale o Grana Leve na tela inicial: ele abre como um aplicativo e funciona mesmo sem internet.</p>' +
+        (installPrompt ? '<div class="card-actions"><button class="btn btn-primary btn-sm" type="button" data-conn="install">Instalar agora</button></div>' :
+          (isStandalone() ? '<p class="field-hint">O Grana Leve já está instalado neste aparelho.</p>' :
+          '<ul class="howto-list"><li><strong>Android (Chrome):</strong> menu ⋮ e depois “Instalar app” ou “Adicionar à tela inicial”.</li><li><strong>iPhone (Safari):</strong> botão Compartilhar e depois “Adicionar à Tela de Início”.</li></ul>')) +
+      '</div>' +
+      '<div class="conn-card">' +
         '<div class="conn-head"><span class="feature-icon">' + icon('calendar') + '</span><h3>Google Agenda</h3><span class="status-pill good">Disponível</span></div>' +
         '<p>Crie lembretes das suas metas na sua agenda com um toque. É só preencher “Me avise em” ou o prazo na meta e tocar em “Google Agenda”.</p>' +
         '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-conn="metas">Ir para Metas</button></div>' +
@@ -2024,7 +2086,79 @@
     renderTopbar();
   }
 
+  function backupData(){
+    var data = {};
+    COLLECTIONS.forEach(function(c){ data[c] = []; });
+    data.transactions = State.transactions; data.goals = State.goals; data.debts = State.debts; data.cards = State.cards;
+    data.receivables = State.receivables; data.forecasts = State.forecasts; data.categories = State.categories; data.vouchers = State.vouchers;
+    data.budgets = Object.keys(State.budgets).map(function(id){ return {id:id, limit: State.budgets[id]}; });
+    return {app:'grana-leve', version:1, exportedAt: new Date().toISOString(), profile:{name: State.session.name, email: State.session.email}, data: data};
+  }
+  // Valida o arquivo antes de gravar: só aceita as coleções conhecidas, com objetos que tenham id.
+  function validateBackup(obj){
+    if (!obj || obj.app !== 'grana-leve' || typeof obj.data !== 'object' || !obj.data) return 'Este arquivo não é um backup do Grana Leve.';
+    for (var i=0;i<COLLECTIONS.length;i++){
+      var list = obj.data[COLLECTIONS[i]];
+      if (list === undefined){ obj.data[COLLECTIONS[i]] = []; continue; }
+      if (!Array.isArray(list)) return 'O backup está corrompido (' + COLLECTIONS[i] + ').';
+      for (var j=0;j<list.length;j++){
+        var it = list[j];
+        if (!it || typeof it !== 'object' || Array.isArray(it) || typeof it.id !== 'string' || !it.id) return 'O backup está corrompido (' + COLLECTIONS[i] + ').';
+        if (it.amount !== undefined && !isFinite(Number(it.amount))) return 'O backup tem valores inválidos.';
+      }
+    }
+    return '';
+  }
+  async function backupModal(){
+    if (!State.session){
+      await openModal({title:'Backup dos dados', body:'<p>Entre na sua conta para salvar ou restaurar um backup.</p>', submitLabel:null, cancelLabel:'Fechar'});
+      return;
+    }
+    var counts = State.transactions.length + ' lançamentos, ' + State.cards.length + ' cartões, ' + State.goals.length + ' metas, ' + State.debts.length + ' dívidas';
+    await openModal({
+      title: 'Backup dos dados',
+      body: '<p>Seus dados ficam só neste navegador. Se você limpar o navegador ou trocar de aparelho, eles se perdem. Salve um backup de vez em quando e guarde o arquivo (no Google Drive, por exemplo).</p>' +
+        '<div class="tip-box"><strong>Agora você tem:</strong> ' + counts + '.</div>' +
+        '<div class="pdf-actions"><button type="button" class="btn btn-primary btn-sm" data-backup="export">Salvar backup</button></div>' +
+        '<h4>Restaurar um backup</h4>' +
+        '<p>Escolha um arquivo salvo antes. Ele <strong>substitui</strong> os dados atuais desta conta. Sua senha não muda.</p>' +
+        '<input type="file" id="backupFile" accept="application/json,.json" aria-label="Arquivo de backup">' +
+        '<p class="form-error" id="backupError"></p>',
+      submitLabel: null, cancelLabel: 'Fechar',
+      onOpen: function(modal, close){
+        qs('[data-backup="export"]', modal).addEventListener('click', function(){
+          saveFile('grana-leve-backup-' + todayKey() + '.json', JSON.stringify(backupData(), null, 2), 'application/json')
+            .then(function(){ setPref('lastBackup', Date.now()); toast('Backup salvo.'); });
+        });
+        qs('#backupFile', modal).addEventListener('change', function(e){
+          var file = e.target.files[0];
+          var err = qs('#backupError', modal);
+          err.textContent = '';
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024){ err.textContent = 'Arquivo grande demais para ser um backup do Grana Leve.'; return; }
+          var reader = new FileReader();
+          reader.onload = async function(){
+            var obj;
+            try{ obj = JSON.parse(reader.result); } catch(ex){ err.textContent = 'Não foi possível ler o arquivo.'; return; }
+            var problem = validateBackup(obj);
+            if (problem){ err.textContent = problem; return; }
+            var n = obj.data.transactions.length;
+            close(null);
+            var ok = await confirmAction({title:'Restaurar backup?', message:'O backup de ' + (obj.exportedAt ? new Date(obj.exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida') + ' tem ' + n + ' lançamentos. Os dados atuais desta conta serão substituídos.', confirmLabel:'Restaurar'});
+            if (!ok) return;
+            await Store.replaceAll(k(), obj.data);
+            await loadAllData();
+            renderAll();
+            toast('Backup restaurado.');
+          };
+          reader.readAsText(file);
+        });
+      }
+    });
+  }
+
   async function showInfo(id){
+    if (id === 'backup'){ backupModal(); return; }
     var page = INFO_PAGES[id];
     if (id === 'como-usar'){
       page = {title:'Como usar o Grana Leve', body:'<ol class="howto-list">' + HOW_TO.map(function(h){ return '<li><strong>' + escapeHtml(h[0]) + '</strong> ' + escapeHtml(h[1]) + '</li>'; }).join('') + '</ol>'};
@@ -2142,6 +2276,10 @@
       if (conn === 'chat') openQuickEntry(false);
       if (conn === 'metas') showTab('metas');
       if (conn === 'wa-remove'){ setPref('waOptin', null); renderConnections(); }
+      if (conn === 'install' && installPrompt){
+        installPrompt.prompt();
+        installPrompt.userChoice.then(function(){ installPrompt = null; if (State.session) renderConnections(); });
+      }
       return;
     }
     // Metas
@@ -2246,6 +2384,9 @@
     syncTxFormVisibility();
   });
   document.getElementById('txAmount').addEventListener('input', populateInstallSelect);
+  ['txSearch','txFilterType','txFilterPay'].forEach(function(id){
+    document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
+  });
   document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
 
   document.getElementById('tabbar').addEventListener('click', function(e){
@@ -2477,6 +2618,18 @@
     }
     renderTopbar();
     showView('viewLanding');
+  }
+
+  /* ============ App instalável (PWA) ============ */
+  var installPrompt = null;
+  function isStandalone(){ return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches; }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    installPrompt = e;
+    if (State.session) renderConnections();
+  });
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
   }
 
   if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); } else { boot(); }

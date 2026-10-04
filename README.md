@@ -19,7 +19,15 @@ pessoas sobre hábitos financeiros.
 - **Metas** com prazo, lembrete no Google Agenda, observação e abas por situação.
 - **Dívidas** (banco, empréstimo, pessoal) e **A receber** com cobrança por mensagem pronta.
 - **Aprenda**: organização, rendimento e guia de uso.
-- **Conexões**: Google Agenda disponível; WhatsApp e Open Finance com interface pronta.
+- **Compras parceladas** no cartão (até 24x), que aparecem nos cartões e em Dívidas com
+  opção de adiantar pagamento (com pergunta sobre desconto).
+- **Vale-alimentação/refeição** com saldo, e **relatório por cartão** com filtros.
+- **Conexões**: app instalável e Google Agenda disponíveis; WhatsApp e Open Finance com
+  interface pronta.
+- **Backup e restauração** dos dados em arquivo JSON (rodapé → “Backup dos dados”).
+- Aviso na hora quando um gasto chega a 80% ou passa do planejado na categoria.
+- Busca (sem diferenciar acentos) e filtros por tipo e forma de pagamento.
+- **App instalável (PWA)** que funciona sem internet.
 - Modo claro/escuro e layout pensado para celular.
 
 ## Como rodar
@@ -42,6 +50,8 @@ index.html      marcação das telas (apresentação, login, app) e ícones SVG
 css/style.css   estilos e tema claro/escuro
 js/parser.js    GranaParser: transforma frases em lançamentos (funciona no navegador e no Node)
 js/app.js       Store (persistência), renderização, gráficos SVG, PDF/CSV, chat e integrações
+sw.js           service worker (rede primeiro, cópia local quando estiver sem internet)
+manifest.webmanifest, icons/   dados para instalar como app
 ```
 
 ## Segurança
