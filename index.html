@@ -102,14 +102,14 @@
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg class="ico"><use href="#i-gauge"/></svg></div>
-          <h3>Limites de gastos</h3>
+          <h3>Planeje seus gastos</h3>
           <p>Defina quanto quer gastar em cada categoria e veja, em tempo real, quanto ainda pode gastar sem sustos no fim do mês.</p>
           <span class="feature-tag">60% pediram relatórios de gastos claros</span>
         </div>
         <div class="feature-card">
           <div class="feature-icon"><svg class="ico"><use href="#i-target"/></svg></div>
           <h3>Metas sem peso</h3>
-          <p>Guarde dinheiro para um objetivo com prazo, receba lembretes na sua agenda e acompanhe o progresso.</p>
+          <p>Guarde dinheiro para um objetivo com prazo, escolha quando quer ser avisado na sua agenda e acompanhe o progresso.</p>
           <span class="feature-tag">32 de 48 pessoas dão nota máxima à importância de poupar</span>
         </div>
         <div class="feature-card">
@@ -219,8 +219,8 @@
       <nav class="tabbar" id="tabbar" aria-label="Seções">
         <button type="button" data-tab="dashboard" class="active">Painel</button>
         <button type="button" data-tab="lancamentos">Ganhos e gastos</button>
-        <button type="button" data-tab="cartoes">Cartões</button>
-        <button type="button" data-tab="limites">Limites</button>
+        <button type="button" data-tab="cartoes">Cartões e vale</button>
+        <button type="button" data-tab="limites">Planejar gastos</button>
         <button type="button" data-tab="metas">Metas</button>
         <button type="button" data-tab="dividas">Dívidas</button>
         <button type="button" data-tab="receber">A receber</button>
@@ -236,22 +236,6 @@
           <button class="btn btn-ghost btn-sm" id="pdfReportBtn" type="button">Relatório em PDF</button>
         </div>
         <div class="stat-tiles stat-tiles-auto" id="statTiles"></div>
-
-        <div class="card">
-          <div class="card-head">
-            <h3>Previsão de entradas</h3>
-            <span class="month-lbl" id="forecastMonthLabel"></span>
-          </div>
-          <p class="card-sub">Anote o que você ainda espera receber neste mês, como salário, um freela ou um pagamento combinado. Quando o dinheiro cair, toque em “Recebi”.</p>
-          <div id="forecastList"></div>
-          <form id="forecastForm" class="inline-form">
-            <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
-            <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
-            <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
-            <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
-            <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
-          </form>
-        </div>
 
         <div class="dash-grid">
           <div class="card">
@@ -291,14 +275,11 @@
 
       <!-- Ganhos e gastos -->
       <div id="tab-lancamentos" class="tab-panel" hidden>
-        <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor.</p>
+        <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Também dá para deixar previsto o que você ainda vai receber no mês.</p>
         <div class="card">
           <div class="card-head">
             <h3>Novo lançamento</h3>
-            <div class="card-head-tools">
-              <button class="linklike" type="button" id="quickEntryBtn">Lançar por mensagem</button>
-              <button class="linklike" type="button" id="manageCatsBtn">Minhas categorias</button>
-            </div>
+            <button class="linklike" type="button" id="manageCatsBtn">Minhas categorias</button>
           </div>
           <form id="txForm" class="add-tx-form">
             <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
@@ -311,8 +292,9 @@
             <div class="field" id="txPaymentField"><label for="txPayment">Forma de pagamento</label><select id="txPayment"></select></div>
             <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             <div class="field f-half" id="txForOtherField">
-              <label class="check"><input type="checkbox" id="txForOther"> Foi para outra pessoa (vai para “A receber”)</label>
-              <input id="txOtherName" type="text" maxlength="60" placeholder="Nome de quem vai te pagar" hidden>
+              <label class="check"><input type="checkbox" id="txForOther"> Paguei por outra pessoa e ela vai me devolver</label>
+              <span class="field-hint" id="txOtherHint" hidden>O valor entra nos seus gastos e também em “A receber”, para você acompanhar e cobrar depois.</span>
+              <input id="txOtherName" type="text" maxlength="60" placeholder="Quem vai te devolver?" hidden>
             </div>
             <div class="f-full"><button class="btn btn-primary" type="submit">Adicionar lançamento</button></div>
           </form>
@@ -330,11 +312,27 @@
           <p class="card-sub" id="txSummary"></p>
           <div id="txList"></div>
         </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Previsão de entradas</h3>
+            <span class="month-lbl" id="forecastMonthLabel"></span>
+          </div>
+          <p class="card-sub">Anote o que você ainda espera receber neste mês, como salário, um freela ou um pagamento combinado. Quando o dinheiro cair, toque em “Recebi”.</p>
+          <div id="forecastList"></div>
+          <form id="forecastForm" class="inline-form">
+            <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
+            <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+            <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
+            <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
+            <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
+          </form>
+        </div>
       </div>
 
       <!-- Cartões -->
       <div id="tab-cartoes" class="tab-panel" hidden>
-        <p class="tab-intro">Cadastre seus cartões de crédito. Cada gasto feito no cartão entra sozinho na fatura certa, de acordo com o dia de fechamento.</p>
+        <p class="tab-intro">Cadastre seus cartões de crédito e seu vale-alimentação. Cada gasto feito no cartão entra sozinho na fatura certa, de acordo com o dia de fechamento, e os gastos no vale descontam do saldo.</p>
         <div class="card">
           <div class="card-head"><h3>Novo cartão</h3></div>
           <form id="cardForm" class="new-item-form">
@@ -346,14 +344,27 @@
           </form>
         </div>
         <div id="cardList" class="stack-lg"></div>
+
+        <div class="card">
+          <div class="card-head"><h3>Vale-alimentação / refeição</h3></div>
+          <p class="card-sub">Cadastre seu vale para saber quanto ainda tem de saldo. Gastos pagos com o vale entram aqui sozinhos e já vão para a categoria Alimentação.</p>
+          <form id="voucherForm" class="new-item-form">
+            <div class="field"><label for="vName">Nome</label><input id="vName" type="text" maxlength="30" placeholder="Ex: VR, Alelo" required></div>
+            <div class="field"><label for="vAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="vAmount" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
+            <div class="field"><label for="vBalance">Saldo atual (opcional)</label><span class="money-input"><span>R$</span><input id="vBalance" type="number" step="0.01" min="0" max="99999999" placeholder="Se já tiver saldo"></span></div>
+            <div class="field"><label class="check" style="margin-top:22px"><input type="checkbox" id="vCarry" checked> Saldo acumula de um mês para o outro</label></div>
+            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar vale</button></div>
+          </form>
+          <div id="voucherList" class="stack-lg" style="margin-top:14px"></div>
+        </div>
       </div>
 
       <!-- Limites -->
       <div id="tab-limites" class="tab-panel" hidden>
-        <p class="tab-intro">Escolha quanto quer gastar, no máximo, em cada categoria por mês. A barra mostra quanto você já usou desse limite.</p>
+        <p class="tab-intro">Planeje quanto quer gastar, no máximo, em cada categoria por mês. Digite o valor ao lado da categoria; a barra mostra quanto você já usou.</p>
         <div class="card">
           <div class="card-head">
-            <h3>Limites de gastos</h3>
+            <h3>Quanto quero gastar por categoria</h3>
             <div class="month-switch">
               <button type="button" id="budgetPrev" aria-label="Mês anterior"><svg class="ico"><use href="#i-chevron-left"/></svg></button>
               <strong id="budgetMonthLabel">—</strong>
@@ -373,7 +384,7 @@
             <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" maxlength="50" required placeholder="Ex: viagem, reserva de emergência"></div>
             <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="number" step="0.01" min="1" max="99999999" required></span></div>
             <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
-            <div class="field"><label for="goalReminder">Lembrete</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field"><label for="goalReminder">Me avise em</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field f-submit"><label for="goalNote">Observação (opcional)</label><textarea id="goalNote" rows="2" maxlength="300" placeholder="Ex: guardar R$ 100 todo dia 5"></textarea></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Criar meta</button></div>
           </form>
@@ -450,7 +461,7 @@
   </div>
 </footer>
 
-<button class="fab" id="fabAdd" type="button" aria-label="Novo lançamento" title="Novo lançamento" hidden><svg class="ico"><use href="#i-plus"/></svg></button>
+<button class="fab" id="fabAdd" type="button" aria-label="Lançar gasto ou ganho" title="Lançar gasto ou ganho" hidden><svg class="ico"><use href="#i-plus"/></svg></button>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="js/parser.js"></script>
