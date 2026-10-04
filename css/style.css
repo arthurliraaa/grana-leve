@@ -499,3 +499,8 @@ a.btn{ text-decoration:none; }
 .bar-track > span{ display:block; height:100%; background: var(--brand); border-radius:999px; }
 .table-scroll{ overflow-x:auto; }
 @media (max-width: 620px){ .report-filters{ grid-template-columns: minmax(0,1fr); } .report-bar{ grid-template-columns: minmax(0,6.5rem) minmax(0,1fr) auto; } }
+
+/* Busca e filtros */
+.tx-filters{ display:grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap:8px; margin-bottom:10px; }
+.tx-filters input, .tx-filters select{ width:100%; min-width:0; padding:8px 10px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); }
+@media (max-width: 620px){ .tx-filters{ grid-template-columns: minmax(0,1fr) minmax(0,1fr); } .tx-filters input{ grid-column: 1 / -1; } }
