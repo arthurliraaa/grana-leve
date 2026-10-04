@@ -290,6 +290,7 @@
             <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select></div>
             <div class="field"><label for="txDate">Data</label><input id="txDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
             <div class="field" id="txPaymentField"><label for="txPayment">Forma de pagamento</label><select id="txPayment"></select></div>
+            <div class="field" id="txInstallField" hidden><label for="txInstall">Parcelas</label><select id="txInstall"></select></div>
             <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             <div class="field f-half" id="txForOtherField">
               <label class="check"><input type="checkbox" id="txForOther"> Paguei por outra pessoa e ela vai me devolver</label>
@@ -408,6 +409,7 @@
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar dívida</button></div>
           </form>
         </div>
+        <div id="installDebtWrap"></div>
         <div id="debtGrid" class="debt-grid"></div>
       </div>
 
