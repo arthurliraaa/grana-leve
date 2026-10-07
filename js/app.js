@@ -61,8 +61,8 @@
   ];
   var HOW_TO = [
     ['Painel', 'mostra o resumo do mês: saldo, ganhos, gastos, previsões de entrada e gráficos. O botão “Relatório em PDF” gera um resumo para guardar ou compartilhar.'],
-    ['Ganhos e gastos', 'é onde você anota o que entra e o que sai e deixa previsto o que ainda vai receber. Escolha a forma de pagamento (dinheiro/Pix, vale ou cartão) e crie categorias próprias em “Minhas categorias”.'],
-    ['Cartões e vale', 'cadastre o cartão com limite, fechamento e vencimento e o seu vale-alimentação. Os gastos no cartão entram sozinhos na fatura do mês certo, e os do vale descontam do saldo.'],
+    ['Ganhos e gastos', 'é onde você anota o que entra e o que sai e deixa previsto o que ainda vai receber. Escolha a forma de pagamento (conta, dinheiro, vale ou cartão) e crie categorias próprias em “Minhas categorias”.'],
+    ['Contas e cartões', 'cadastre suas contas de banco com o saldo de hoje, o cartão com limite, fechamento e vencimento e o seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela; use “Transferir” para mover dinheiro entre contas e escolha a conta ao marcar uma fatura como paga.'],
     ['Planejar gastos', 'defina quanto quer gastar por categoria. A barra fica amarela perto do valor planejado e vermelha quando passa.'],
     ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e escolha em “Me avise em” quando quer um lembrete na sua agenda.'],
     ['Dívidas', 'registre o que você deve, para banco ou para pessoas, e marque cada parcela paga.'],
@@ -224,7 +224,7 @@
   }
 
   /* ============ Store (cloud via db capability, local fallback) ============ */
-  var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers'];
+  var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers'];
 
   var Store = {
     mode: 'local',
@@ -370,6 +370,8 @@
     forecasts: [],
     categories: [],
     vouchers: [],
+    accounts: [],         // contas bancárias, com o saldo informado no cadastro
+    transfers: [],        // transferências entre contas (não contam como ganho nem gasto)
     txMonthOffset: 0,
     budgetMonthOffset: 0,
     invoiceOffsets: {},
@@ -517,13 +519,14 @@
       body: (opts.message ? '<p>' + escapeHtml(opts.message) + '</p>' : '') +
         '<div class="field"><label for="askAmount">' + escapeHtml(opts.label || 'Valor') + '</label>' +
         '<span class="money-input"><span>R$</span><input id="askAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (opts.value ? money(opts.value) : '') + '"></span></div>' +
-        (opts.checkbox ? '<label class="check"><input type="checkbox" name="extra"' + (opts.checkboxDefault ? ' checked' : '') + '> ' + escapeHtml(opts.checkbox) + '</label>' : ''),
+        (opts.checkbox ? '<label class="check"><input type="checkbox" name="extra"' + (opts.checkboxDefault ? ' checked' : '') + '> ' + escapeHtml(opts.checkbox) + '</label>' : '') +
+        (opts.account ? accountSelectHtml('askAcc', 'acc', opts.account) : ''),
       submitLabel: opts.submitLabel || 'Confirmar',
       onSubmit: function(form){
         var v = money(form.amount.value);
         if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
         if (opts.max && v > opts.max + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(opts.max) + '.'};
-        return {amount: v, extra: !!(form.extra && form.extra.checked)};
+        return {amount: v, extra: !!(form.extra && form.extra.checked), accountId: form.acc ? (form.acc.value || null) : null};
       }
     });
     return r && r.amount ? r : null;
@@ -606,6 +609,8 @@
     State.forecasts = byName.forecasts;
     State.categories = byName.categories;
     State.vouchers = byName.vouchers;
+    State.accounts = byName.accounts;
+    State.transfers = byName.transfers;
   }
   function sortTransactions(){
     State.transactions.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0); });
@@ -684,10 +689,10 @@
   async function receiveForecast(id, date){
     var f = findById(State.forecasts, id);
     if (!f) return;
-    var r = await askAmount({title:'Registrar recebimento', message:'Confirme quanto entrou de “' + f.description + '”. O valor vai para os seus ganhos.', value: f.amount, submitLabel:'Registrar'});
+    var r = await askAmount({title:'Registrar recebimento', message:'Confirme quanto entrou de “' + f.description + '”. O valor vai para os seus ganhos.', value: f.amount, submitLabel:'Registrar', account:'Entrou em'});
     if (!r) return;
     var key = monthKeyOf(date);
-    var tx = {type:'income', amount:r.amount, category: f.category || 'salario', date: date > todayKey() ? todayKey() : date, description: f.description, paymentMethod:null, createdAt: Date.now()};
+    var tx = {type:'income', amount:r.amount, category: f.category || 'salario', date: date > todayKey() ? todayKey() : date, description: f.description, paymentMethod:null, accountId: r.accountId, createdAt: Date.now()};
     var saved = await Store.add(k(), 'transactions', tx);
     State.transactions.unshift(saved); sortTransactions();
     var received = Object.assign({}, f.received || {}); received[key] = r.amount;
@@ -709,10 +714,12 @@
     function tile(label, value, cls, sub){
       return '<div class="tile"><span class="tile-lbl">' + label + '</span><span class="tile-val tabular ' + (cls||'') + '">' + fmtMoney(value) + '</span>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>';
     }
+    document.getElementById('statTiles').classList.toggle('tiles-7', State.accounts.length > 0);
     document.getElementById('statTiles').innerHTML =
       tile('Ganhos do mês', t.income, '', pendingForecast > 0 ? 'Previsto: ' + fmtMoney(t.income + pendingForecast) : '') +
       tile('Gastos do mês', t.expense) +
       tile('Saldo do mês', t.saldo, t.saldo < 0 ? 'neg' : 'pos') +
+      (State.accounts.length ? tile('Saldo nas contas', totalAccountsBalance(), totalAccountsBalance() < 0 ? 'neg' : '', State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta')) : '') +
       tile('Guardado nas metas', savedInGoals) +
       tile('Dívida restante', debtRemaining) +
       tile('A receber', toReceive);
@@ -896,6 +903,7 @@
   }
 
   function paymentLabel(t){
+    if (t.type === 'income'){ var ai = t.accountId && findById(State.accounts, t.accountId); return ai ? 'Em ' + ai.name : ''; }
     if (t.type !== 'expense' || !t.paymentMethod) return '';
     if (t.paymentMethod === 'cartao'){
       var c = findById(State.cards, t.cardId);
@@ -905,7 +913,8 @@
       var v = voucherOf(t);
       return v ? 'Vale ' + v.name : 'Vale';
     }
-    return '';
+    var a = t.accountId && findById(State.accounts, t.accountId);
+    return a ? a.name : '';
   }
 
   function txRowHtml(t){
@@ -934,25 +943,40 @@
   }
   // Formas de pagamento de um gasto (usadas no formulário da aba e no popup de lançamento).
   function paymentOptions(){
-    var opts = [{id:'conta', label: PAYMENT_LABELS.conta}];
+    var opts = [];
+    if (State.accounts.length){
+      State.accounts.forEach(function(a){ opts.push({id:'acc:' + a.id, label:'Pix ou débito · ' + a.name}); });
+      opts.push({id:'conta', label:'Dinheiro (fora das contas)'});
+    } else opts.push({id:'conta', label: PAYMENT_LABELS.conta});
     if (State.vouchers.length) State.vouchers.forEach(function(v){ opts.push({id:'vale:' + v.id, label:'Vale · ' + v.name}); });
     else opts.push({id:'vale', label: PAYMENT_LABELS.vale});
     State.cards.forEach(function(c){ opts.push({id:'card:' + c.id, label:'Cartão de crédito · ' + c.name}); });
-    if (!State.cards.length) opts.push({id:'card:none', label:'Cartão de crédito (cadastre na aba Cartões)'});
+    if (!State.cards.length) opts.push({id:'card:none', label:'Cartão de crédito (cadastre em Contas e cartões)'});
     return opts;
   }
   // Valor do select de pagamento que corresponde a um lançamento já salvo.
   function paymentValue(t){
     if (t.paymentMethod === 'cartao' && t.cardId) return 'card:' + t.cardId;
     if (t.paymentMethod === 'vale'){ var v = voucherOf(t); return v ? 'vale:' + v.id : 'vale'; }
+    if (t.accountId && findById(State.accounts, t.accountId)) return 'acc:' + t.accountId;
     return 'conta';
+  }
+  // Contas para o campo “Entrou em” / “Saiu de”. A primeira conta vem marcada.
+  function accountOptions(){
+    return State.accounts.map(function(a){ return {id: a.id, label: a.name}; }).concat([{id:'', label:'Não informar (dinheiro)'}]);
+  }
+  function accountSelectHtml(id, name, label, selected){
+    if (!State.accounts.length) return '';
+    return '<div class="field" id="' + id + 'Field"><label for="' + id + '">' + label + '</label><select id="' + id + '" name="' + name + '">' +
+      optionsHtml(accountOptions(), selected === undefined ? State.accounts[0].id : (selected || '')) + '</select></div>';
   }
   // Grava no lançamento a forma de pagamento escolhida. Campos que não se aplicam ficam nulos,
   // para que a edição apague o cartão ou o vale de antes.
   function applyPayment(tx, pay){
-    tx.cardId = null; tx.voucherId = null;
+    tx.cardId = null; tx.voucherId = null; tx.accountId = null;
     if (pay.indexOf('card:') === 0){ tx.paymentMethod = 'cartao'; tx.cardId = pay.slice(5); }
     else if (pay.indexOf('vale:') === 0){ tx.paymentMethod = 'vale'; tx.voucherId = pay.slice(5); }
+    else if (pay.indexOf('acc:') === 0){ tx.paymentMethod = 'conta'; tx.accountId = pay.slice(4); }
     else tx.paymentMethod = pay;
   }
   function populatePaymentSelect(){
@@ -960,7 +984,14 @@
     var prev = sel.value;
     var opts = paymentOptions();
     sel.innerHTML = optionsHtml(opts, prev);
-    if (!findById(opts, prev)) sel.value = 'conta';
+    // Ao cadastrar a primeira conta, ela passa a ser o padrão no lugar de “Dinheiro”.
+    var hadAccounts = sel.getAttribute('data-accounts') === '1';
+    if (!findById(opts, prev) || (prev === 'conta' && !hadAccounts)) sel.value = opts[0].id;
+    sel.setAttribute('data-accounts', State.accounts.length ? '1' : '0');
+    var acc = document.getElementById('txAccount');
+    var prevAcc = acc.value;
+    acc.innerHTML = optionsHtml(accountOptions(), prevAcc);
+    if (!findById(accountOptions(), prevAcc)) acc.value = State.accounts.length ? State.accounts[0].id : '';
     syncTxFormVisibility();
   }
   /* ---------- Seletor de parcelas (− 3x +) ---------- */
@@ -999,6 +1030,7 @@
     document.getElementById('txInstallField').hidden = !onCard;
     if (!onCard){ document.getElementById('txInstall').value = '1'; populateInstallSelect(); }
     document.getElementById('txPaymentField').hidden = !isExpense;
+    document.getElementById('txAccountField').hidden = isExpense || !State.accounts.length;
     document.getElementById('txForOtherField').hidden = !isExpense;
     var other = document.getElementById('txForOther').checked;
     document.getElementById('txOtherName').hidden = !other;
@@ -1087,6 +1119,7 @@
       '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
       '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
       '<div class="field" id="mPayField"><label for="mPay">Forma de pagamento</label><select id="mPay" name="pay"' + (inst ? ' disabled' : '') + '></select></div>' +
+      accountSelectHtml('mAcc', 'acc', 'Entrou em', isEdit ? (t.type === 'income' ? t.accountId : undefined) : undefined) +
       (isEdit ? '' : '<div class="field" id="mInstallField" hidden><label for="mInstall">Parcelas</label>' + installStepperHtml('mInstall', 'install') + '<span class="field-hint tabular" id="mInstallHint">À vista</span></div>') +
       '<div class="field"><label for="mDesc">Descrição (opcional)</label><input id="mDesc" name="desc" type="text" maxlength="80" placeholder="Ex: mercado da semana" value="' + escapeHtml(inst ? t.installment.baseDescription : (t.description || '')) + '"></div>' +
       (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. A categoria e a descrição mudam em todas as parcelas. Para mudar valor, data ou número de parcelas, exclua a compra e lance de novo.</p>' : '') +
@@ -1117,12 +1150,14 @@
         function sync(){
           var isExp = mType === 'expense';
           qs('#mPayField', modal).hidden = !isExp;
+          if (qs('#mAccField', modal)) qs('#mAccField', modal).hidden = isExp;
           if (!instSel) return;
           var onCard = isExp && paySel.value.indexOf('card:') === 0 && paySel.value !== 'card:none';
           qs('#mInstallField', modal).hidden = !onCard;
           if (!onCard){ instSel.value = '1'; fillInstall(); }
         }
-        paySel.innerHTML = optionsHtml(paymentOptions(), paymentValue(t));
+        var payOpts = paymentOptions();
+        paySel.innerHTML = optionsHtml(payOpts, isEdit ? paymentValue(t) : payOpts[0].id);
         fillCats(t.category); fillInstall(); sync();
         qs('#mType', modal).addEventListener('click', function(e){
           var b = e.target.closest('button[data-type]');
@@ -1153,9 +1188,9 @@
           category = made.id;
         }
         var tx = {type: mType, amount: amount, category: category, categoryLabel: catLabel(category, mType), date: date, description: form.desc.value.trim()};
-        if (mType === 'income'){ tx.paymentMethod = null; tx.cardId = null; tx.voucherId = null; }
+        if (mType === 'income'){ tx.paymentMethod = null; tx.cardId = null; tx.voucherId = null; tx.accountId = form.acc ? (form.acc.value || null) : null; }
         else if (!inst){
-          if (form.pay.value === 'card:none') return {error:'Cadastre um cartão na aba “Cartões e vale” primeiro.'};
+          if (form.pay.value === 'card:none') return {error:'Cadastre um cartão em “Contas e cartões” primeiro.'};
           applyPayment(tx, form.pay.value);
         }
         if (isEdit){ await saveTxEdit(t, tx); return true; }
@@ -1521,7 +1556,7 @@
               '<strong>Fatura de ' + monthLabelOf(key) + '</strong>' +
               '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button>' +
             '</div>' +
-            '<span class="status-pill ' + INVOICE_PILL[status] + '">' + status + '</span>' +
+            '<span class="status-pill ' + INVOICE_PILL[status] + '">' + status + ((c.invoicePayments || {})[key] ? ' com ' + escapeHtml(accountName(c.invoicePayments[key].accountId)) : '') + '</span>' +
           '</div>' +
           '<div class="invoice-head"><span class="invoice-total tabular">' + fmtMoney(total) + '</span>' +
             '<span class="meta-line"><span>Fecha ' + formatDateFull(dates.closing) + '</span><span>Vence ' + formatDateFull(dates.due) + '</span></span></div>' +
@@ -1570,6 +1605,162 @@
         toast('Cartão atualizado.');
       }
     });
+  }
+
+  /* ---------- Contas bancárias ---------- */
+  // O saldo parte do valor informado no cadastro (ou no último ajuste) e soma só o que aconteceu
+  // depois dele: ganhos e gastos ligados à conta, transferências e faturas pagas com ela.
+  // Lançamentos com data futura só entram quando a data chega.
+  function afterBase(a, date, createdAt){ return date > a.baseDate || (date === a.baseDate && (createdAt || 0) > (a.baseAt || 0)); }
+  function accountName(id){ var a = findById(State.accounts, id); return a ? a.name : 'conta excluída'; }
+  function accountMoves(a){
+    var today = todayKey(), out = [];
+    function add(date, createdAt, amount, label, kind, extra){
+      if (date > today || !afterBase(a, date, createdAt)) return;
+      out.push(Object.assign({date: date, createdAt: createdAt || 0, amount: money(amount), label: label, kind: kind}, extra || {}));
+    }
+    State.transactions.forEach(function(t){
+      if (t.accountId !== a.id) return;
+      var label = t.description || catLabel(t.category, t.type, t.categoryLabel);
+      if (t.type === 'income') add(t.date, t.createdAt, Number(t.amount), label, 'Ganho');
+      else if (t.type === 'expense' && t.paymentMethod === 'conta') add(t.date, t.createdAt, -Number(t.amount), label, 'Gasto');
+    });
+    State.transfers.forEach(function(x){
+      var note = x.description ? ' · ' + x.description : '';
+      if (x.fromId === a.id) add(x.date, x.createdAt, -Number(x.amount), 'Para ' + accountName(x.toId) + note, 'Transferência', {transferId: x.id});
+      if (x.toId === a.id) add(x.date, x.createdAt, Number(x.amount), 'De ' + accountName(x.fromId) + note, 'Transferência', {transferId: x.id});
+    });
+    State.cards.forEach(function(c){
+      var pays = c.invoicePayments || {};
+      Object.keys(pays).forEach(function(key){
+        var p = pays[key];
+        if (p.accountId === a.id) add(p.date, p.createdAt, -Number(p.amount), 'Fatura ' + c.name + ' de ' + monthLabelOf(key), 'Pagamento de fatura');
+      });
+    });
+    return out.sort(function(x, y){ return y.date.localeCompare(x.date) || y.createdAt - x.createdAt; });
+  }
+  function accountBalance(a){ return money(Number(a.initialBalance || 0) + sum(accountMoves(a), function(m){ return m.amount; })); }
+  function totalAccountsBalance(){ return money(sum(State.accounts, accountBalance)); }
+
+  function moveRowHtml(m){
+    var pos = m.amount >= 0;
+    return '<div class="tx-row">' +
+      '<span class="tx-cat-dot" style="background:' + (pos ? 'var(--good)' : 'var(--text-muted)') + '"></span>' +
+      '<div class="tx-main"><div class="tx-desc">' + escapeHtml(m.label) + '</div><div class="tx-meta">' + m.kind + ' · ' + formatDateBr(m.date) + '</div></div>' +
+      '<span class="tx-amount tabular ' + (pos ? 'income' : 'expense') + '">' + (pos ? '+ ' : '- ') + fmtMoney(Math.abs(m.amount)) + '</span>' +
+      (m.transferId ? '<button class="tx-del" type="button" data-transfer-del="' + escapeHtml(m.transferId) + '" aria-label="Excluir transferência" title="Excluir transferência">' + icon('trash') + '</button>' : '') +
+      '</div>';
+  }
+
+  function renderAccounts(){
+    document.getElementById('transferBtn').hidden = State.accounts.length < 2;
+    var wrap = document.getElementById('accountList');
+    if (!State.accounts.length){ wrap.innerHTML = '<p class="empty-state">Nenhuma conta cadastrada. Adicione acima para acompanhar o saldo de cada banco.</p>'; return; }
+    var cur = monthBounds(0).key;
+    wrap.innerHTML = State.accounts.map(function(a){
+      var bal = accountBalance(a);
+      var moves = accountMoves(a);
+      var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
+      return '<div class="goal-card account-card">' +
+        '<div class="budget-top"><h4>' + icon('bank') + ' ' + escapeHtml(a.name) + '</h4></div>' +
+        '<div class="goal-figs"><span>Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
+        '<div class="meta-line"><span>Entrou no mês: ' + fmtMoney(sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; })) + '</span>' +
+          '<span>Saiu no mês: ' + fmtMoney(-sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; })) + '</span></div>' +
+        (moves.length ? '<details class="budget-details"><summary>Ver movimentações (' + moves.length + ')</summary>' + moves.slice(0, 40).map(moveRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma movimentação desde o cadastro.</p>') +
+        '<div class="card-actions">' +
+          (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
+          '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar</button>' +
+          '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  async function editAccount(id){
+    var a = findById(State.accounts, id);
+    var current = accountBalance(a);
+    await openModal({
+      title: 'Editar conta',
+      body: '<div class="field"><label for="eaName">Nome da conta</label><input id="eaName" name="name" type="text" maxlength="40" value="' + escapeHtml(a.name) + '"></div>' +
+        '<div class="field"><label for="eaBalance">Saldo hoje</label><span class="money-input"><span>R$</span><input id="eaBalance" name="balance" type="number" step="0.01" min="-99999999" max="99999999" value="' + current + '"></span>' +
+        '<span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do banco. O app passa a contar a partir de agora.</span></div>',
+      onSubmit: async function(form){
+        var name = form.name.value.trim();
+        if (!name) return {error:'Dê um nome para a conta.'};
+        var patch = {name: name};
+        var bal = money(form.balance.value);
+        if (form.balance.value !== '' && bal !== current){ patch.initialBalance = bal; patch.baseDate = todayKey(); patch.baseAt = Date.now(); }
+        await Store.update(k(), 'accounts', id, patch);
+        Object.assign(a, patch);
+        renderAll();
+        toast('Conta atualizada.');
+      }
+    });
+  }
+
+  async function openTransfer(fromId){
+    var opts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (' + fmtMoney(accountBalance(a)) + ')'}; });
+    var from = fromId || State.accounts[0].id;
+    var to = State.accounts.filter(function(a){ return a.id !== from; })[0].id;
+    var r = await openModal({
+      title: 'Transferir entre contas',
+      body: '<div class="field"><label for="trFrom">De</label><select id="trFrom" name="from">' + optionsHtml(opts, from) + '</select></div>' +
+        '<div class="field"><label for="trTo">Para</label><select id="trTo" name="to">' + optionsHtml(opts, to) + '</select></div>' +
+        '<div class="field"><label for="trAmount">Valor</label><span class="money-input"><span>R$</span><input id="trAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal"></span></div>' +
+        '<div class="field"><label for="trDate">Data</label><input id="trDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
+        '<div class="field"><label for="trDesc">Descrição (opcional)</label><input id="trDesc" name="desc" type="text" maxlength="60" placeholder="Ex: guardar na poupança"></div>' +
+        '<p class="field-hint">Transferências mudam o saldo das duas contas, mas não contam como ganho nem como gasto.</p>',
+      submitLabel: 'Transferir',
+      onSubmit: async function(form){
+        var amount = money(form.amount.value);
+        if (!(amount > 0)) return {error:'Informe um valor maior que zero.'};
+        if (form.from.value === form.to.value) return {error:'Escolha contas diferentes em “De” e “Para”.'};
+        var date = form.date.value || todayKey();
+        if (!validDateStr(date)) return {error:'Use uma data entre 1900 e 3000.'};
+        var saved = await Store.add(k(), 'transfers', {fromId: form.from.value, toId: form.to.value, amount: amount, date: date, description: form.desc.value.trim(), createdAt: Date.now()});
+        State.transfers.push(saved);
+        return saved;
+      }
+    });
+    if (r && r.id){
+      renderAccounts(); renderStatTiles();
+      toast('Transferência de ' + fmtMoney(r.amount) + ' de ' + accountName(r.fromId) + ' para ' + accountName(r.toId) + ' registrada.');
+    }
+  }
+
+  // Marcar fatura como paga: com contas cadastradas, pergunta de qual conta saiu o dinheiro.
+  // O pagamento da fatura só desconta da conta; as compras já contaram como gasto quando foram feitas.
+  async function toggleInvoicePaid(cardId, key){
+    var card = findById(State.cards, cardId);
+    var paid = (card.paidInvoices || []).slice();
+    var pays = Object.assign({}, card.invoicePayments || {});
+    var idx = paid.indexOf(key);
+    if (idx >= 0){ paid.splice(idx, 1); delete pays[key]; }
+    else {
+      var total = money(sum(invoiceItems(card, key), function(t){ return t.amount; }));
+      if (State.accounts.length){
+        var opts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (saldo ' + fmtMoney(accountBalance(a)) + ')'}; }).concat([{id:'', label:'Não descontar de nenhuma conta'}]);
+        var choice = await openModal({
+          title: 'Pagar fatura',
+          body: '<p>Fatura de ' + monthLabelOf(key) + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
+            '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(opts, State.accounts[0].id) + '</select></div>' +
+            '<div class="field"><label for="ipDate">Data do pagamento</label><input id="ipDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
+            '<p class="field-hint">Pode ser a conta de outro banco: o valor sai do saldo da conta escolhida.</p>',
+          submitLabel: 'Marcar como paga',
+          onSubmit: function(form){
+            var date = form.date.value || todayKey();
+            if (!validDateStr(date)) return {error:'Use uma data entre 1900 e 3000.'};
+            return {accountId: form.acc.value, date: date};
+          }
+        });
+        if (!choice) return;
+        if (choice.accountId) pays[key] = {accountId: choice.accountId, amount: total, date: choice.date, createdAt: Date.now()};
+      }
+      paid.push(key);
+    }
+    await Store.update(k(), 'cards', card.id, {paidInvoices: paid, invoicePayments: pays});
+    card.paidInvoices = paid; card.invoicePayments = pays;
+    renderCards(); renderAccounts(); renderStatTiles();
+    toast(idx >= 0 ? 'Fatura marcada como em aberto.' : 'Fatura marcada como paga' + (pays[key] ? ' com a conta ' + accountName(pays[key].accountId) : '') + '.');
   }
 
   /* ---------- Vale-alimentação / refeição ---------- */
@@ -1992,14 +2183,14 @@
     var r = await askAmount({
       title: 'Registrar pagamento', message: '“' + d.name + '”: faltam ' + fmtMoney(remaining) + '.',
       value: Number(d.monthlyPayment) > 0 ? Math.min(d.monthlyPayment, remaining) : remaining, max: remaining,
-      checkbox: 'Lançar também como gasto do mês', checkboxDefault: true, submitLabel: 'Registrar'
+      checkbox: 'Lançar também como gasto do mês', checkboxDefault: true, submitLabel: 'Registrar', account: 'Saiu de'
     });
     if (!r) return;
     var newPaid = money(Math.min(Number(d.totalAmount), Number(d.paidAmount||0) + r.amount));
     await Store.update(k(), 'debts', id, {paidAmount: newPaid});
     d.paidAmount = newPaid;
     if (r.extra){
-      var saved = await Store.add(k(), 'transactions', {type:'expense', amount:r.amount, category:'dividas', date: todayKey(), description:'Pagamento: ' + d.name, paymentMethod:'conta', createdAt: Date.now()});
+      var saved = await Store.add(k(), 'transactions', {type:'expense', amount:r.amount, category:'dividas', date: todayKey(), description:'Pagamento: ' + d.name, paymentMethod:'conta', accountId: r.accountId, createdAt: Date.now()});
       State.transactions.unshift(saved); sortTransactions();
     }
     renderAll();
@@ -2086,7 +2277,8 @@
             '<label class="check"><input type="radio" name="mode" value="outro"> Outro valor</label>' +
           '</fieldset>' +
           '<div class="field" id="rcvOtherField" hidden><label for="rcvOther">Valor recebido</label><span class="money-input"><span>R$</span><input id="rcvOther" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal"></span></div>' +
-          '<label class="check"><input type="checkbox" name="extra"' + (r.kind !== 'cartao' ? ' checked' : '') + '> Lançar também como ganho do mês</label>',
+          '<label class="check"><input type="checkbox" name="extra"' + (r.kind !== 'cartao' ? ' checked' : '') + '> Lançar também como ganho do mês</label>' +
+          accountSelectHtml('rcvAcc', 'acc', 'Entrou em'),
         submitLabel: 'Registrar',
         onOpen: function(modal){
           modal.addEventListener('change', function(e){
@@ -2100,20 +2292,20 @@
           var v = form.mode.value === 'outro' ? money(form.amount.value) : suggested;
           if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
           if (v > remaining + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(remaining) + '.'};
-          return {amount: v, extra: form.extra.checked};
+          return {amount: v, extra: form.extra.checked, accountId: form.acc ? (form.acc.value || null) : null};
         }
       });
       if (!a || !a.amount) return;
     } else {
       a = await askAmount({title:'Registrar recebimento', message: r.person + ' te deve ' + fmtMoney(remaining) + '.', value: remaining, max: remaining,
-        checkbox:'Lançar também como ganho do mês', checkboxDefault: r.kind !== 'cartao', submitLabel:'Registrar'});
+        checkbox:'Lançar também como ganho do mês', checkboxDefault: r.kind !== 'cartao', submitLabel:'Registrar', account:'Entrou em'});
       if (!a) return;
     }
     var newReceived = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount||0) + a.amount));
     await Store.update(k(), 'receivables', id, {receivedAmount: newReceived});
     r.receivedAmount = newReceived;
     if (a.extra){
-      var saved = await Store.add(k(), 'transactions', {type:'income', amount:a.amount, category:'recebimento', date: todayKey(), description:'Recebido de ' + r.person, paymentMethod:null, createdAt: Date.now()});
+      var saved = await Store.add(k(), 'transactions', {type:'income', amount:a.amount, category:'recebimento', date: todayKey(), description:'Recebido de ' + r.person, paymentMethod:null, accountId: a.accountId, createdAt: Date.now()});
       State.transactions.unshift(saved); sortTransactions();
     }
     renderAll();
@@ -2324,6 +2516,7 @@
     populatePaymentSelect();
     renderDashboard();
     renderTransactionsTab();
+    renderAccounts();
     renderCards();
     renderVouchers();
     renderBudgets();
@@ -2381,6 +2574,7 @@
     COLLECTIONS.forEach(function(c){ data[c] = []; });
     data.transactions = State.transactions; data.goals = State.goals; data.debts = State.debts; data.cards = State.cards;
     data.receivables = State.receivables; data.forecasts = State.forecasts; data.categories = State.categories; data.vouchers = State.vouchers;
+    data.accounts = State.accounts; data.transfers = State.transfers;
     data.budgets = Object.keys(State.budgetBase).map(function(id){ return {id:id, limit: State.budgetBase[id]}; })
       .concat(Object.keys(State.budgetMonths).map(function(m){ return {id:'plan-' + m, month:m, limits: State.budgetMonths[m]}; }));
     return {app:'grana-leve', version:1, exportedAt: new Date().toISOString(), profile:{name: State.session.name, email: State.session.email}, data: data};
@@ -2405,7 +2599,7 @@
       await openModal({title:'Backup dos dados', body:'<p>Entre na sua conta para salvar ou restaurar um backup.</p>', submitLabel:null, cancelLabel:'Fechar'});
       return;
     }
-    var counts = State.transactions.length + ' lançamentos, ' + State.cards.length + ' cartões, ' + State.goals.length + ' metas, ' + State.debts.length + ' dívidas';
+    var counts = State.transactions.length + ' lançamentos, ' + State.accounts.length + ' contas, ' + State.cards.length + ' cartões, ' + State.goals.length + ' metas, ' + State.debts.length + ' dívidas';
     await openModal({
       title: 'Backup dos dados',
       body: '<p>Seus dados ficam só neste navegador. Se você limpar o navegador ou trocar de aparelho, eles se perdem. Salve um backup de vez em quando e guarde o arquivo (no Google Drive, por exemplo).</p>' +
@@ -2534,16 +2728,25 @@
       return;
     }
     if ((el = t.closest('[data-inv-pdf]'))){ generateInvoicePdf(el.getAttribute('data-inv-pdf'), el.getAttribute('data-key')); return; }
-    if ((el = t.closest('[data-inv-paid]'))){
-      var card = findById(State.cards, el.getAttribute('data-inv-paid'));
-      var key = el.getAttribute('data-key');
-      var paid = (card.paidInvoices || []).slice();
-      var idx = paid.indexOf(key);
-      if (idx >= 0) paid.splice(idx, 1); else paid.push(key);
-      await Store.update(k(), 'cards', card.id, {paidInvoices: paid});
-      card.paidInvoices = paid;
-      renderCards();
-      toast(idx >= 0 ? 'Fatura marcada como em aberto.' : 'Fatura marcada como paga.');
+    if ((el = t.closest('[data-inv-paid]'))){ toggleInvoicePaid(el.getAttribute('data-inv-paid'), el.getAttribute('data-key')); return; }
+    // Contas bancárias
+    if ((el = t.closest('[data-acc-transfer]'))){ openTransfer(el.getAttribute('data-acc-transfer')); return; }
+    if ((el = t.closest('[data-acc-edit]'))){ editAccount(el.getAttribute('data-acc-edit')); return; }
+    if ((el = t.closest('[data-acc-del]'))){
+      var ac = findById(State.accounts, el.getAttribute('data-acc-del'));
+      if (!(await confirmAction({title:'Excluir conta?', message:'Excluir a conta “' + ac.name + '”? Os ganhos e gastos ligados a ela continuam nos seus lançamentos, sem conta.'}))) return;
+      await Store.remove(k(), 'accounts', ac.id);
+      State.accounts = State.accounts.filter(function(x){ return x.id !== ac.id; });
+      renderAll();
+      return;
+    }
+    if ((el = t.closest('[data-transfer-del]'))){
+      var tr = findById(State.transfers, el.getAttribute('data-transfer-del'));
+      if (!tr || !(await confirmAction({title:'Excluir transferência?', message:'Excluir a transferência de ' + fmtMoney(tr.amount) + ' de ' + accountName(tr.fromId) + ' para ' + accountName(tr.toId) + '? O saldo das duas contas volta ao que era.'}))) return;
+      await Store.remove(k(), 'transfers', tr.id);
+      State.transfers = State.transfers.filter(function(x){ return x.id !== tr.id; });
+      renderAccounts(); renderStatTiles();
+      toast('Transferência excluída.');
       return;
     }
     if ((el = t.closest('[data-card-edit]'))){ editCard(el.getAttribute('data-card-edit')); return; }
@@ -2762,11 +2965,12 @@
     if (!(amount > 0)){ toast('Informe um valor válido.'); return; }
     if (!validDateStr(date)){ toast('Use uma data entre 1900 e 3000.'); return; }
     if (category === '__new'){ toast('Escolha uma categoria.'); return; }
-    var tx = {type:type, amount:amount, category:category, categoryLabel: catLabel(category, type), date:date, description:desc, paymentMethod:null, createdAt: Date.now()};
+    var tx = {type:type, amount:amount, category:category, categoryLabel: catLabel(category, type), date:date, description:desc, paymentMethod:null, accountId:null, createdAt: Date.now()};
+    if (type === 'income') tx.accountId = document.getElementById('txAccount').value || null;
     var forOther = null;
     if (type === 'expense'){
       var pay = document.getElementById('txPayment').value;
-      if (pay === 'card:none'){ toast('Cadastre um cartão na aba Cartões primeiro.'); showTab('cartoes'); return; }
+      if (pay === 'card:none'){ toast('Cadastre um cartão em “Contas e cartões” primeiro.'); showTab('cartoes'); return; }
       applyPayment(tx, pay);
       if (document.getElementById('txForOther').checked){
         forOther = document.getElementById('txOtherName').value.trim();
@@ -2811,6 +3015,20 @@
     renderDashboard();
     toast('Previsão de ' + fmtMoney(amount) + ' adicionada.');
   });
+
+  document.getElementById('accountForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var name = document.getElementById('accName').value.trim();
+    var raw = document.getElementById('accBalance').value;
+    if (!name){ toast('Dê um nome para a conta.'); return; }
+    var a = {name: name, initialBalance: raw === '' ? 0 : money(raw), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now()};
+    var saved = await Store.add(k(), 'accounts', a);
+    State.accounts.push(saved);
+    e.target.reset();
+    renderAll();
+    toast('Conta “' + name + '” adicionada com saldo de ' + fmtMoney(a.initialBalance) + '.');
+  });
+  document.getElementById('transferBtn').addEventListener('click', function(){ openTransfer(); });
 
   document.getElementById('cardForm').addEventListener('submit', async function(e){
     e.preventDefault();
