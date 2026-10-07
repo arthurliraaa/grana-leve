@@ -963,23 +963,41 @@
     if (!findById(opts, prev)) sel.value = 'conta';
     syncTxFormVisibility();
   }
-  function installOptions(amount){
-    var opts = [];
-    for (var i=1;i<=24;i++){
-      opts.push({id:String(i), label: i === 1 ? 'À vista (1x)' : i + 'x' + (amount > 0 ? ' de ' + fmtMoney(Math.floor(amount*100/i)/100) : '')});
-    }
-    return opts;
+  /* ---------- Seletor de parcelas (− 3x +) ---------- */
+  var MAX_INSTALLMENTS = 24;
+  function clampInstall(v){ var n = Math.round(Number(v)); return n >= 1 ? Math.min(MAX_INSTALLMENTS, n) : 1; }
+  function installStepperHtml(id, name){
+    return '<div class="stepper"><button type="button" data-step="-1" data-for="' + id + '" aria-label="Menos parcelas">−</button>' +
+      '<input id="' + id + '" name="' + name + '" type="number" min="1" max="' + MAX_INSTALLMENTS + '" step="1" value="1" inputmode="numeric">' +
+      '<span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="' + id + '" aria-label="Mais parcelas">+</button></div>';
+  }
+  // Mesmo arredondamento de expandInstallments (os centavos que sobram vão na 1ª parcela).
+  function installHint(n, amount){
+    if (n <= 1) return 'À vista';
+    if (!(amount > 0)) return n + ' parcelas';
+    return n + 'x de ' + fmtMoney(Math.floor(Math.round(amount * 100) / n) / 100) + ' · total ' + fmtMoney(amount);
   }
   function populateInstallSelect(){
-    var sel = document.getElementById('txInstall');
-    var prev = sel.value || '1';
-    sel.innerHTML = optionsHtml(installOptions(money(document.getElementById('txAmount').value)), prev);
+    var inp = document.getElementById('txInstall');
+    document.getElementById('txInstallHint').textContent = installHint(clampInstall(inp.value), money(document.getElementById('txAmount').value));
   }
+  // Os botões − e + funcionam em qualquer seletor de parcelas, inclusive dentro dos popups.
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-step]');
+    if (!b) return;
+    var inp = document.getElementById(b.getAttribute('data-for'));
+    if (!inp || inp.disabled) return;
+    inp.value = clampInstall(clampInstall(inp.value) + Number(b.getAttribute('data-step')));
+    inp.dispatchEvent(new Event('input', {bubbles:true}));
+  });
+  document.addEventListener('change', function(e){
+    if (e.target.matches && e.target.matches('.stepper input')){ e.target.value = clampInstall(e.target.value); e.target.dispatchEvent(new Event('input', {bubbles:true})); }
+  });
   function syncTxFormVisibility(){
     var isExpense = currentTxType() === 'expense';
     var onCard = isExpense && document.getElementById('txPayment').value.indexOf('card:') === 0 && document.getElementById('txPayment').value !== 'card:none';
     document.getElementById('txInstallField').hidden = !onCard;
-    if (!onCard) document.getElementById('txInstall').value = '1';
+    if (!onCard){ document.getElementById('txInstall').value = '1'; populateInstallSelect(); }
     document.getElementById('txPaymentField').hidden = !isExpense;
     document.getElementById('txForOtherField').hidden = !isExpense;
     var other = document.getElementById('txForOther').checked;
@@ -1069,7 +1087,7 @@
       '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
       '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
       '<div class="field" id="mPayField"><label for="mPay">Forma de pagamento</label><select id="mPay" name="pay"' + (inst ? ' disabled' : '') + '></select></div>' +
-      (isEdit ? '' : '<div class="field" id="mInstallField" hidden><label for="mInstall">Parcelas</label><select id="mInstall" name="install"></select></div>') +
+      (isEdit ? '' : '<div class="field" id="mInstallField" hidden><label for="mInstall">Parcelas</label>' + installStepperHtml('mInstall', 'install') + '<span class="field-hint tabular" id="mInstallHint">À vista</span></div>') +
       '<div class="field"><label for="mDesc">Descrição (opcional)</label><input id="mDesc" name="desc" type="text" maxlength="80" placeholder="Ex: mercado da semana" value="' + escapeHtml(inst ? t.installment.baseDescription : (t.description || '')) + '"></div>' +
       (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. A categoria e a descrição mudam em todas as parcelas. Para mudar valor, data ou número de parcelas, exclua a compra e lance de novo.</p>' : '') +
       (isEdit ? '' : '<button type="button" class="linklike" data-m-chat style="justify-self:start">Prefere escrever? Lance pelo chat</button>');
@@ -1094,7 +1112,7 @@
           syncNewCat();
         }
         function fillInstall(){
-          if (instSel) instSel.innerHTML = optionsHtml(installOptions(money(qs('#mAmount', modal).value)), instSel.value || '1');
+          if (instSel) qs('#mInstallHint', modal).textContent = installHint(clampInstall(instSel.value), money(qs('#mAmount', modal).value));
         }
         function sync(){
           var isExp = mType === 'expense';
@@ -1102,7 +1120,7 @@
           if (!instSel) return;
           var onCard = isExp && paySel.value.indexOf('card:') === 0 && paySel.value !== 'card:none';
           qs('#mInstallField', modal).hidden = !onCard;
-          if (!onCard) instSel.value = '1';
+          if (!onCard){ instSel.value = '1'; fillInstall(); }
         }
         paySel.innerHTML = optionsHtml(paymentOptions(), paymentValue(t));
         fillCats(t.category); fillInstall(); sync();
@@ -1119,6 +1137,7 @@
           syncNewCat(); sync();
         });
         qs('#mAmount', modal).addEventListener('input', fillInstall);
+        if (instSel) instSel.addEventListener('input', fillInstall);
         var chat = qs('[data-m-chat]', modal);
         if (chat) chat.addEventListener('click', function(){ close(null); openQuickEntry(false); });
       },
@@ -1141,7 +1160,7 @@
         }
         if (isEdit){ await saveTxEdit(t, tx); return true; }
         tx.createdAt = Date.now();
-        var n = tx.paymentMethod === 'cartao' ? Number(form.install.value) || 1 : 1;
+        var n = tx.paymentMethod === 'cartao' ? clampInstall(form.install.value) : 1;
         await saveTransactions(expandInstallments(tx, n));
         renderAll();
         toast((mType === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(amount) + (n > 1 ? ' em ' + n + 'x' : '') + ' registrado.');
@@ -1988,24 +2007,60 @@
   }
 
   /* ---------- A receber ---------- */
+  // Valor a receber parcelado: as parcelas recebidas contam pelo total que já entrou.
+  function recvInstallInfo(r){
+    var n = Number(r.installments) || 1;
+    if (n <= 1) return null;
+    var per = Number(r.installmentAmount) || money(Number(r.totalAmount) / n);
+    var paid = Math.min(n, Math.floor((Number(r.receivedAmount || 0) + 0.005) / per));
+    return {n: n, per: per, paid: paid, next: Math.min(n, paid + 1), nextDue: r.dueDate ? addMonthsIso(r.dueDate, paid) : null};
+  }
+  function recvNextDue(r){ var i = recvInstallInfo(r); return i ? i.nextDue : r.dueDate; }
+
+  // Mostra no formulário só o que vale para o que foi escolhido (parcelas, cartão).
+  function syncRecvForm(){
+    var n = clampInstall(document.getElementById('recvInstall').value);
+    var perMode = n > 1 && qs('input[name=recvMode][value=parcela]').checked;
+    var typed = money(document.getElementById('recvTotal').value);
+    document.getElementById('recvModeField').hidden = n <= 1;
+    document.getElementById('recvTotalLabel').textContent = n <= 1 ? 'Valor' : (perMode ? 'Valor de cada parcela' : 'Valor total');
+    document.getElementById('recvDueLabel').textContent = n <= 1 ? 'Combinado para' : '1ª parcela em';
+    document.getElementById('recvInstallHint').textContent = installHint(n, perMode ? money(typed * n) : typed);
+    var onCard = document.getElementById('recvKind').value === 'cartao';
+    document.getElementById('recvCardField').hidden = !onCard || !State.cards.length;
+    document.getElementById('recvLaunchField').hidden = !onCard || !State.cards.length;
+  }
+  function populateRecvCards(){
+    var sel = document.getElementById('recvCard');
+    var prev = sel.value;
+    sel.innerHTML = optionsHtml(State.cards.map(function(c){ return {id: c.id, label: c.name}; }), prev);
+    syncRecvForm();
+  }
+
   function renderReceivables(){
+    populateRecvCards();
     var grid = document.getElementById('recvGrid');
     if (!State.receivables.length){ grid.innerHTML = '<p class="empty-state">Ninguém te deve nada por aqui. Quando emprestar dinheiro ou alguém usar seu cartão, anote acima.</p>'; return; }
     var items = State.receivables.slice().sort(function(a,b){
       var ad = Number(a.receivedAmount||0) >= Number(a.totalAmount), bd = Number(b.receivedAmount||0) >= Number(b.totalAmount);
-      return (ad - bd) || String(a.dueDate||'9999').localeCompare(String(b.dueDate||'9999'));
+      return (ad - bd) || String(recvNextDue(a)||'9999').localeCompare(String(recvNextDue(b)||'9999'));
     });
     grid.innerHTML = items.map(function(r){
       var remaining = Math.max(0, Number(r.totalAmount||0) - Number(r.receivedAmount||0));
       var pct = r.totalAmount > 0 ? Math.min(1, Number(r.receivedAmount||0)/Number(r.totalAmount)) : 0;
       var done = remaining <= 0;
-      var late = !done && r.dueDate && r.dueDate < todayKey();
+      var info = recvInstallInfo(r);
+      var due = recvNextDue(r);
+      var late = !done && due && due < todayKey();
+      var lateHtml = late ? ' · <strong style="color:var(--critical)">atrasado</strong>' : '';
       return '<div class="debt-card">' +
-        '<div class="budget-top"><h4>'+escapeHtml(r.person)+'</h4><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + '</span></div>' +
+        '<div class="budget-top"><h4>'+escapeHtml(r.person)+'</h4><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span></div>' +
         (r.description ? '<span class="tx-meta">' + escapeHtml(r.description) + '</span>' : '') +
         '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
         '<div class="debt-figs"><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
-        (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + (late ? ' · <strong style="color:var(--critical)">atrasado</strong>' : '') + '</span>' : '') +
+        (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
+            'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
+          (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +
         '<div class="card-actions">' +
           (done ? '<span class="status-pill good">Recebido</span>' :
             '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
@@ -2018,9 +2073,42 @@
   async function receiveReceivable(id){
     var r = findById(State.receivables, id);
     var remaining = Math.max(0, Number(r.totalAmount) - Number(r.receivedAmount||0));
-    var a = await askAmount({title:'Registrar recebimento', message: r.person + ' te deve ' + fmtMoney(remaining) + '.', value: remaining, max: remaining,
-      checkbox:'Lançar também como ganho do mês', checkboxDefault: r.kind !== 'cartao', submitLabel:'Registrar'});
-    if (!a) return;
+    var info = recvInstallInfo(r);
+    var a;
+    if (info){
+      // Parcelado: registra o valor da parcela com um toque, ou outro valor (pagou a mais, a menos ou várias de uma vez).
+      var suggested = money(Math.min(info.next === info.n ? remaining : info.per, remaining));
+      a = await openModal({
+        title: 'Registrar recebimento',
+        body: '<p>' + escapeHtml(r.person) + ' te deve ' + fmtMoney(remaining) + '. Próxima: parcela ' + info.next + ' de ' + info.n + '.</p>' +
+          '<fieldset class="radio-group"><legend>Quanto entrou?</legend>' +
+            '<label class="check"><input type="radio" name="mode" value="parcela" checked> Valor da parcela (' + fmtMoney(suggested) + ')</label>' +
+            '<label class="check"><input type="radio" name="mode" value="outro"> Outro valor</label>' +
+          '</fieldset>' +
+          '<div class="field" id="rcvOtherField" hidden><label for="rcvOther">Valor recebido</label><span class="money-input"><span>R$</span><input id="rcvOther" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal"></span></div>' +
+          '<label class="check"><input type="checkbox" name="extra"' + (r.kind !== 'cartao' ? ' checked' : '') + '> Lançar também como ganho do mês</label>',
+        submitLabel: 'Registrar',
+        onOpen: function(modal){
+          modal.addEventListener('change', function(e){
+            if (e.target.name !== 'mode') return;
+            var other = e.target.value === 'outro';
+            qs('#rcvOtherField', modal).hidden = !other;
+            if (other) qs('#rcvOther', modal).focus();
+          });
+        },
+        onSubmit: function(form){
+          var v = form.mode.value === 'outro' ? money(form.amount.value) : suggested;
+          if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
+          if (v > remaining + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(remaining) + '.'};
+          return {amount: v, extra: form.extra.checked};
+        }
+      });
+      if (!a || !a.amount) return;
+    } else {
+      a = await askAmount({title:'Registrar recebimento', message: r.person + ' te deve ' + fmtMoney(remaining) + '.', value: remaining, max: remaining,
+        checkbox:'Lançar também como ganho do mês', checkboxDefault: r.kind !== 'cartao', submitLabel:'Registrar'});
+      if (!a) return;
+    }
     var newReceived = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount||0) + a.amount));
     await Store.update(k(), 'receivables', id, {receivedAmount: newReceived});
     r.receivedAmount = newReceived;
@@ -2038,8 +2126,10 @@
     var r = findById(State.receivables, id);
     var remaining = Math.max(0, Number(r.totalAmount) - Number(r.receivedAmount||0));
     var first = State.session.name.split(' ')[0];
-    var msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar do valor de ' + fmtMoney(remaining) +
-      (r.description ? ' (' + r.description + ')' : '') + (r.dueDate ? ', combinado para ' + formatDateFull(r.dueDate) : '') +
+    var info = recvInstallInfo(r), due = recvNextDue(r);
+    var what = info ? 'da parcela ' + info.next + ' de ' + info.n + ', de ' + fmtMoney(Math.min(info.per, remaining)) : 'do valor de ' + fmtMoney(remaining);
+    var msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar ' + what +
+      (r.description ? ' (' + r.description + ')' : '') + (due ? ', combinad' + (info ? 'a' : 'o') + ' para ' + formatDateFull(due) : '') +
       '. Quando puder, me avisa. Obrigado! ' + first;
     await openModal({
       title: 'Cobrar ' + r.person,
@@ -2590,6 +2680,7 @@
     syncTxFormVisibility();
   });
   document.getElementById('txAmount').addEventListener('input', populateInstallSelect);
+  document.getElementById('txInstall').addEventListener('input', populateInstallSelect);
   ['txSearch','txFilterType','txFilterPay'].forEach(function(id){
     document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
   });
@@ -2682,10 +2773,16 @@
         if (!forOther){ toast('Informe quem vai te devolver o valor.'); return; }
       }
     }
-    var n = tx.paymentMethod === 'cartao' ? Number(document.getElementById('txInstall').value) || 1 : 1;
+    var n = tx.paymentMethod === 'cartao' ? clampInstall(document.getElementById('txInstall').value) : 1;
     await saveTransactions(expandInstallments(tx, n));
     if (forOther){
-      var recv = await Store.add(k(), 'receivables', {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: amount, receivedAmount: 0, dueDate: null, createdAt: Date.now()});
+      var recvData = {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: amount, receivedAmount: 0, dueDate: null, createdAt: Date.now()};
+      if (n > 1){
+        var usedCard = findById(State.cards, tx.cardId);
+        recvData.installments = n; recvData.installmentAmount = Math.floor(amount * 100 / n) / 100; recvData.cardId = tx.cardId;
+        if (usedCard) recvData.dueDate = invoiceDates(invoiceKeyFor(date, usedCard), usedCard).due;
+      }
+      var recv = await Store.add(k(), 'receivables', recvData);
       State.receivables.push(recv);
       document.getElementById('txForOther').checked = false;
       document.getElementById('txOtherName').value = '';
@@ -2779,20 +2876,38 @@
   document.getElementById('recvForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var person = document.getElementById('recvPerson').value.trim();
-    var total = money(document.getElementById('recvTotal').value);
+    var typed = money(document.getElementById('recvTotal').value);
     var due = document.getElementById('recvDue').value;
-    if (!person || !(total > 0)){ toast('Informe quem vai pagar e o valor.'); return; }
+    var kind = document.getElementById('recvKind').value;
+    var desc = document.getElementById('recvDesc').value.trim();
+    var n = clampInstall(document.getElementById('recvInstall').value);
+    var perMode = n > 1 && qs('input[name=recvMode][value=parcela]').checked;
+    if (!person || !(typed > 0)){ toast('Informe quem vai pagar e o valor.'); return; }
     if (!validDateStr(due)){ toast('Use uma data entre 1900 e 3000.'); return; }
-    var r = {person:person, kind: document.getElementById('recvKind').value, description: document.getElementById('recvDesc').value.trim(), phone: document.getElementById('recvPhone').value.trim(), totalAmount: total, receivedAmount: 0, dueDate: due || null, createdAt: Date.now()};
+    var total = perMode ? money(typed * n) : typed;
+    var r = {person:person, kind: kind, description: desc, phone: document.getElementById('recvPhone').value.trim(), totalAmount: total, receivedAmount: 0, dueDate: due || null, createdAt: Date.now()};
+    if (n > 1){ r.installments = n; r.installmentAmount = perMode ? typed : Math.floor(total * 100 / n) / 100; }
+    // Compra feita no meu cartão: pode entrar também na fatura, já parcelada.
+    var card = kind === 'cartao' && document.getElementById('recvLaunch').checked ? findById(State.cards, document.getElementById('recvCard').value) : null;
+    if (card){
+      r.cardId = card.id;
+      if (!r.dueDate) r.dueDate = invoiceDates(invoiceKeyFor(todayKey(), card), card).due;
+      var tx = {type:'expense', amount: total, category:'compras', categoryLabel: catLabel('compras', 'expense'), date: todayKey(),
+        description: desc || 'Compra para ' + person, paymentMethod:'cartao', cardId: card.id, voucherId: null, createdAt: Date.now()};
+      await saveTransactions(expandInstallments(tx, n));
+    }
     var saved = await Store.add(k(), 'receivables', r);
     State.receivables.push(saved);
     e.target.reset();
-    renderReceivables(); renderDashboard();
-    toast(person + ' foi adicionado(a) em “A receber”.');
+    if (card) renderAll(); else { renderReceivables(); renderDashboard(); }
+    toast(person + ' foi adicionado(a) em “A receber”' + (n > 1 ? ' em ' + n + 'x' : '') + '.' + (card ? ' A compra entrou na fatura do ' + card.name + '.' : ''));
   });
 
   document.getElementById('debtKind').innerHTML = optionsHtml(DEBT_KINDS, 'banco');
   document.getElementById('recvKind').innerHTML = optionsHtml(RECV_KINDS, 'emprestimo');
+  ['recvInstall','recvTotal'].forEach(function(id){ document.getElementById(id).addEventListener('input', syncRecvForm); });
+  document.getElementById('recvForm').addEventListener('change', syncRecvForm);
+  document.getElementById('recvForm').addEventListener('reset', function(){ setTimeout(syncRecvForm, 0); });
 
   document.getElementById('exportCsvBtn').addEventListener('click', async function(){
     var mb = monthBounds(State.txMonthOffset);

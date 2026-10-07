@@ -525,3 +525,14 @@ a.btn{ text-decoration:none; }
 .budget-note.locked{ color: var(--warning); font-weight:600; }
 .budget-note .ico{ width:14px; height:14px; vertical-align:-2px; }
 .money-input input:disabled{ color: var(--text-secondary); cursor:not-allowed; }
+
+/* Seletor de parcelas compacto (− 3x +) */
+.stepper{ display:flex; align-items:center; width:fit-content; max-width:100%; border:1px solid var(--border); border-radius:9px; background: var(--bg); overflow:hidden; }
+.stepper button{ width:40px; height:40px; flex:none; border:none; background: var(--surface-2); color: var(--text-primary); font-size:1.15rem; font-weight:600; line-height:1; }
+.stepper button:hover{ background: var(--brand-tint); }
+.field .stepper input{ width:3.2em; min-width:0; border:none; border-radius:0; background:transparent; text-align:right; padding:10px 0; font-weight:600; -moz-appearance:textfield; appearance:textfield; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.stepper input:focus{ outline:none; }
+.stepper:focus-within{ outline:2px solid var(--brand); }
+.stepper-x{ padding:0 10px 0 1px; font-weight:600; color: var(--text-secondary); }
+.stepper input:disabled{ color: var(--text-muted); }
