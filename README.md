@@ -6,21 +6,30 @@ pessoas sobre hábitos financeiros.
 
 ## Funcionalidades
 
+- **Botão +**: abre o formulário de gasto/ganho em um popup, de qualquer aba.
 - **Chat de lançamento**: ao entrar (uma vez por dia) o app pergunta se houve gasto ou
   ganho. Entende frases como “gastei 30 no mercado e 20 no uber” ou “recebi 1.500 de
-  salário ontem”.
+  salário ontem”. Também abre pelo link “Lance pelo chat” no botão +.
 - **Painel**: saldo, ganhos (com previsão de entradas), gastos, metas, dívidas e valores
   a receber; gráficos com opção de tabela e período de 3, 6 ou 12 meses; relatório em PDF.
-- **Ganhos e gastos**: categorias personalizadas, forma de pagamento (Pix/débito, cartão
-  de crédito, vale), compra para outra pessoa vai direto para “A receber”, exportação CSV.
+- **Ganhos e gastos**: categorias personalizadas (dá para renomear), forma de pagamento
+  (conta, dinheiro, cartão de crédito, vale), compra para outra pessoa vai direto para
+  “A receber”, exportação CSV. Cada lançamento pode ser editado pelo lápis.
+- **Contas bancárias**: saldo de cada conta a partir do valor informado, atualizado pelos
+  ganhos e gastos ligados a ela; transferências entre contas (não contam como ganho nem
+  gasto) e pagamento de fatura escolhendo a conta, inclusive de outro banco.
 - **Cartões**: limite, fechamento e vencimento; fatura montada automaticamente e
   visualizada em PDF dentro do app (baixar, compartilhar).
-- **Limites de gastos** por categoria e por mês.
+- **Planejar gastos** por categoria, com o planejamento guardado mês a mês: mudar o mês
+  atual não altera os anteriores, que ficam travados. Dá para planejar o próximo mês e
+  criar categorias ali mesmo.
 - **Metas** com prazo, lembrete no Google Agenda, observação e abas por situação.
 - **Dívidas** (banco, empréstimo, pessoal) e **A receber** com cobrança por mensagem pronta.
+  “A receber” aceita parcelas (informando o total ou o valor de cada parcela) e, para
+  compra feita no seu cartão, pode lançar a compra parcelada na fatura.
 - **Aprenda**: organização, rendimento e guia de uso.
-- **Compras parceladas** no cartão (até 24x), que aparecem nos cartões e em Dívidas com
-  opção de adiantar pagamento (com pergunta sobre desconto).
+- **Compras parceladas** no cartão (até 24x, com seletor − / + que mostra o valor de cada
+  parcela), que aparecem nos cartões e em Dívidas com opção de adiantar pagamento.
 - **Vale-alimentação/refeição** com saldo, e **relatório por cartão** com filtros.
 - **Conexões**: app instalável e Google Agenda disponíveis; WhatsApp e Open Finance com
   interface pronta.

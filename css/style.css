@@ -536,3 +536,18 @@ a.btn{ text-decoration:none; }
 .stepper:focus-within{ outline:2px solid var(--brand); }
 .stepper-x{ padding:0 10px 0 1px; font-weight:600; color: var(--text-secondary); }
 .stepper input:disabled{ color: var(--text-muted); }
+
+/* Contas bancárias */
+.account-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:14px; margin-top:14px; }
+.account-grid > .empty-state{ grid-column: 1 / -1; padding:20px; }
+.account-card h4{ display:flex; align-items:center; gap:8px; }
+.account-card h4 .ico{ color: var(--brand); }
+.account-balance{ font-size:1.25rem; }
+.f-submit-inline{ display:flex; align-items:end; }
+.f-submit-inline .btn{ width:100%; }
+@media (max-width: 860px){ .account-grid{ grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 620px){ .new-item-form .f-submit-inline{ grid-column: span 2; } }
+.account-grid{ align-items:start; }
+.account-card{ align-content:start; }
+/* Com contas cadastradas o painel tem 7 quadros: no computador ficam em 4 + 3, sem um quadro sozinho. */
+@media (min-width: 861px){ .stat-tiles-auto.tiles-7{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
