@@ -361,7 +361,8 @@
   var State = {
     session: null,        // {emailKey, name, email, expiresAt}
     transactions: [],
-    budgets: {},
+    budgetBase: {},       // planejamento antigo, de antes de cada mês ter o seu
+    budgetMonths: {},     // {'2026-10': {categoria: valor}}
     goals: [],
     debts: [],
     cards: [],
@@ -593,8 +594,11 @@
     COLLECTIONS.forEach(function(c, i){ byName[c] = res[i]; });
     State.transactions = byName.transactions;
     sortTransactions();
-    State.budgets = {};
-    byName.budgets.forEach(function(b){ State.budgets[b.id] = Number(b.limit) || 0; });
+    State.budgetBase = {}; State.budgetMonths = {};
+    byName.budgets.forEach(function(b){
+      if (b.month && b.limits) State.budgetMonths[b.month] = b.limits;
+      else State.budgetBase[b.id] = Number(b.limit) || 0;
+    });
     State.goals = byName.goals;
     State.debts = byName.debts;
     State.cards = byName.cards;
@@ -1266,7 +1270,7 @@
     newTx.forEach(function(t){ if (t.type === 'expense' && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + Number(t.amount); });
     var spentNow = expenseCategoryTotals(cur);
     Object.keys(added).forEach(function(cat){
-      var limit = Number(State.budgets[cat] || 0);
+      var limit = budgetLimit(cur, cat);
       if (!limit) return;
       var after = spentNow[cat] || 0, before = after - added[cat];
       var name = catLabel(cat, 'expense');
@@ -1781,15 +1785,39 @@
   }
   var statusLabel = {good:'sob controle', warning:'quase no limite', critical:'estourou'};
 
+  // Cada mês guarda o próprio planejamento em budgetMonths[mês]. Um mês sem planejamento próprio
+  // usa o do último mês planejado antes dele; sem nenhum, usa os valores antigos (budgetBase),
+  // de quando o planejamento valia para todos os meses.
+  function budgetsFor(key){
+    var best = null;
+    Object.keys(State.budgetMonths).forEach(function(m){ if (m <= key && (!best || m > best)) best = m; });
+    return best ? State.budgetMonths[best] : State.budgetBase;
+  }
+  function budgetLimit(key, cat){ return Number(budgetsFor(key)[cat] || 0); }
+  // Só o mês atual e o próximo podem mudar; os meses que já passaram ficam travados.
+  function budgetLocked(key){ return key < monthBounds(0).key; }
+  async function setBudget(key, cat, val){
+    var plan = Object.assign({}, budgetsFor(key));
+    if (val > 0) plan[cat] = val; else delete plan[cat];
+    await Store.put(k(), 'budgets', 'plan-' + key, {month: key, limits: plan});
+    State.budgetMonths[key] = plan;
+  }
+
   function renderBudgets(){
     var mb = monthBounds(State.budgetMonthOffset);
+    var locked = budgetLocked(mb.key);
     document.getElementById('budgetMonthLabel').textContent = mb.label;
-    document.getElementById('budgetNext').disabled = State.budgetMonthOffset >= 0;
+    document.getElementById('budgetNext').disabled = State.budgetMonthOffset >= 1;
+    document.getElementById('budgetNote').innerHTML = locked ?
+      icon('lock') + ' Mês encerrado: o planejamento fica como estava e não pode ser alterado.' :
+      (State.budgetMonthOffset > 0 ? 'Planejando o próximo mês. Ele começa com os valores do mês atual.' : 'Os valores valem a partir deste mês. Os meses anteriores continuam como estavam.');
+    document.getElementById('budgetNote').classList.toggle('locked', locked);
+    document.getElementById('budgetNewCat').hidden = locked;
     var monthTx = txForMonth(mb.key).filter(function(t){ return t.type==='expense'; });
     var list = document.getElementById('budgetList');
     list.innerHTML = expenseCats().map(function(c){
       var catTx = monthTx.filter(function(t){ return t.category === c.id; });
-      var limit = Number(State.budgets[c.id] || 0);
+      var limit = budgetLimit(mb.key, c.id);
       var spent = sum(catTx, function(t){ return t.amount; });
       var pct = limit > 0 ? spent/limit : 0;
       var status = limit > 0 ? statusForPct(pct) : 'good';
@@ -1797,12 +1825,12 @@
       return '<div class="budget-row">' +
         '<div class="budget-top">' +
           '<span class="budget-cat"><span class="legend-swatch" style="background:'+resolveVar(c.color, list)+'"></span>'+escapeHtml(c.label)+'</span>' +
-          '<span class="money-input sm"><span>R$</span><input class="tabular" type="number" min="0" step="10" max="99999999" data-budget-cat="'+escapeHtml(c.id)+'" value="'+(limit||'')+'" placeholder="Sem limite" aria-label="Quanto quero gastar com '+escapeHtml(c.label)+'"></span>' +
+          '<span class="money-input sm"><span>R$</span><input class="tabular" type="number" min="0" step="10" max="99999999" data-budget-cat="'+escapeHtml(c.id)+'" value="'+(limit||'')+'" placeholder="'+(locked ? '—' : 'Sem limite')+'"'+(locked ? ' disabled' : '')+' aria-label="Quanto quero gastar com '+escapeHtml(c.label)+'"></span>' +
         '</div>' +
         (limit > 0 ?
           '<div class="progress"><span style="width:'+Math.min(100,pct*100)+'%; background:'+barColor+'"></span></div>' +
           '<div class="budget-top"><span class="budget-figs tabular">'+fmtMoney(spent)+' de '+fmtMoney(limit)+(limit > spent ? ' · restam ' + fmtMoney(limit-spent) : '')+'</span><span class="status-pill '+status+'">'+statusLabel[status]+'</span></div>'
-          : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+' (digite ao lado quanto quer gastar)</span>' : '')
+          : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+(locked ? '' : ' (digite ao lado quanto quer gastar)')+'</span>' : '')
         ) +
         (catTx.length ? '<details class="budget-details"><summary>Ver com o que gastou (' + catTx.length + ')</summary>' + catTx.map(txRowHtml).join('') + '</details>' : '') +
         '</div>';
@@ -1811,11 +1839,11 @@
     qsa('[data-budget-cat]', list).forEach(function(input){
       input.addEventListener('change', async function(){
         var cat = input.getAttribute('data-budget-cat');
-        var val = Math.max(0, money(input.value || 0));
-        await Store.put(k(), 'budgets', cat, {limit: val});
-        State.budgets[cat] = val;
+        var key = monthBounds(State.budgetMonthOffset).key;
+        if (budgetLocked(key)) return;
+        await setBudget(key, cat, Math.max(0, money(input.value || 0)));
         renderBudgets();
-        toast('Planejamento de ' + catLabel(cat,'expense') + ' atualizado.');
+        toast('Planejamento de ' + catLabel(cat,'expense') + ' em ' + monthLabelOf(key) + ' atualizado.');
       });
     });
   }
@@ -2263,7 +2291,8 @@
     COLLECTIONS.forEach(function(c){ data[c] = []; });
     data.transactions = State.transactions; data.goals = State.goals; data.debts = State.debts; data.cards = State.cards;
     data.receivables = State.receivables; data.forecasts = State.forecasts; data.categories = State.categories; data.vouchers = State.vouchers;
-    data.budgets = Object.keys(State.budgets).map(function(id){ return {id:id, limit: State.budgets[id]}; });
+    data.budgets = Object.keys(State.budgetBase).map(function(id){ return {id:id, limit: State.budgetBase[id]}; })
+      .concat(Object.keys(State.budgetMonths).map(function(m){ return {id:'plan-' + m, month:m, limits: State.budgetMonths[m]}; }));
     return {app:'grana-leve', version:1, exportedAt: new Date().toISOString(), profile:{name: State.session.name, email: State.session.email}, data: data};
   }
   // Valida o arquivo antes de gravar: só aceita as coleções conhecidas, com objetos que tenham id.
@@ -2576,7 +2605,12 @@
   document.getElementById('prevMonth').addEventListener('click', function(){ State.txMonthOffset--; renderTransactionsTab(); });
   document.getElementById('nextMonth').addEventListener('click', function(){ if (State.txMonthOffset < maxTxMonthOffset()){ State.txMonthOffset++; renderTransactionsTab(); } });
   document.getElementById('budgetPrev').addEventListener('click', function(){ State.budgetMonthOffset--; renderBudgets(); });
-  document.getElementById('budgetNext').addEventListener('click', function(){ if (State.budgetMonthOffset < 0){ State.budgetMonthOffset++; renderBudgets(); } });
+  document.getElementById('budgetNext').addEventListener('click', function(){ if (State.budgetMonthOffset < 1){ State.budgetMonthOffset++; renderBudgets(); } });
+  document.getElementById('budgetNewCat').addEventListener('click', async function(){
+    var id = await createCategory('expense');
+    if (id){ populateCategorySelect(document.getElementById('txCategory').value); renderBudgets(); var inp = qs('[data-budget-cat="' + id + '"]'); if (inp) inp.focus(); }
+  });
+  document.getElementById('budgetManageCats').addEventListener('click', manageCategories);
   document.getElementById('barPeriod').addEventListener('change', function(e){ State.barMonths = Number(e.target.value); renderBarChart(); });
 
   document.getElementById('loginForm').addEventListener('submit', async function(e){

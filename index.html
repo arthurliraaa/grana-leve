@@ -372,7 +372,7 @@
 
       <!-- Limites -->
       <div id="tab-limites" class="tab-panel" hidden>
-        <p class="tab-intro">Planeje quanto quer gastar, no máximo, em cada categoria por mês. Digite o valor ao lado da categoria; a barra mostra quanto você já usou.</p>
+        <p class="tab-intro">Planeje quanto quer gastar, no máximo, em cada categoria por mês. Digite o valor ao lado da categoria; a barra mostra quanto você já usou. Cada mês guarda o próprio planejamento: mudar o mês atual não altera os meses que já passaram.</p>
         <div class="card">
           <div class="card-head">
             <h3>Quanto quero gastar por categoria</h3>
@@ -380,6 +380,13 @@
               <button type="button" id="budgetPrev" aria-label="Mês anterior"><svg class="ico"><use href="#i-chevron-left"/></svg></button>
               <strong id="budgetMonthLabel">—</strong>
               <button type="button" id="budgetNext" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
+            </div>
+          </div>
+          <div class="budget-toolbar">
+            <p class="budget-note" id="budgetNote"></p>
+            <div class="card-actions">
+              <button class="btn btn-ghost btn-sm" type="button" id="budgetNewCat"><svg class="ico"><use href="#i-plus"/></svg>Nova categoria</button>
+              <button class="linklike" type="button" id="budgetManageCats">Minhas categorias</button>
             </div>
           </div>
           <div id="budgetList"></div>
