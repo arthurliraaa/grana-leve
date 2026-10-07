@@ -295,7 +295,9 @@
             <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select></div>
             <div class="field"><label for="txDate">Data</label><input id="txDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
             <div class="field" id="txPaymentField"><label for="txPayment">Forma de pagamento</label><select id="txPayment"></select></div>
-            <div class="field" id="txInstallField" hidden><label for="txInstall">Parcelas</label><select id="txInstall"></select></div>
+            <div class="field" id="txInstallField" hidden><label for="txInstall">Parcelas</label>
+              <div class="stepper"><button type="button" data-step="-1" data-for="txInstall" aria-label="Menos parcelas">−</button><input id="txInstall" type="number" min="1" max="24" step="1" value="1" inputmode="numeric"><span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="txInstall" aria-label="Mais parcelas">+</button></div>
+              <span class="field-hint tabular" id="txInstallHint">À vista</span></div>
             <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             <div class="field f-half" id="txForOtherField">
               <label class="check"><input type="checkbox" id="txForOther"> Paguei por outra pessoa e ela vai me devolver</label>
@@ -438,8 +440,17 @@
           <form id="recvForm" class="new-item-form">
             <div class="field"><label for="recvPerson">Quem vai te pagar</label><input id="recvPerson" type="text" maxlength="50" required placeholder="Ex: Maria"></div>
             <div class="field"><label for="recvKind">Tipo</label><select id="recvKind"></select></div>
-            <div class="field"><label for="recvTotal">Valor</label><span class="money-input"><span>R$</span><input id="recvTotal" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
-            <div class="field"><label for="recvDue">Combinado para</label><input id="recvDue" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field"><label for="recvTotal" id="recvTotalLabel">Valor</label><span class="money-input"><span>R$</span><input id="recvTotal" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
+            <div class="field"><label for="recvDue" id="recvDueLabel">Combinado para</label><input id="recvDue" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field"><label for="recvInstall">Parcelas</label>
+              <div class="stepper"><button type="button" data-step="-1" data-for="recvInstall" aria-label="Menos parcelas">−</button><input id="recvInstall" type="number" min="1" max="24" step="1" value="1" inputmode="numeric"><span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="recvInstall" aria-label="Mais parcelas">+</button></div>
+              <span class="field-hint tabular" id="recvInstallHint">À vista</span></div>
+            <fieldset class="radio-group f-half" id="recvModeField" hidden><legend>O valor que você digitou é</legend>
+              <label class="check"><input type="radio" name="recvMode" value="total" checked> O total</label>
+              <label class="check"><input type="radio" name="recvMode" value="parcela"> De cada parcela</label>
+            </fieldset>
+            <div class="field" id="recvCardField" hidden><label for="recvCard">Cartão usado</label><select id="recvCard"></select></div>
+            <div class="field f-half" id="recvLaunchField" hidden><label class="check"><input type="checkbox" id="recvLaunch"> Lançar a compra também na fatura do cartão</label><span class="field-hint">Deixe desmarcado se você já lançou essa compra em “Ganhos e gastos”.</span></div>
             <div class="field f-half"><label for="recvDesc">Descrição (opcional)</label><input id="recvDesc" type="text" maxlength="80" placeholder="Ex: metade do show"></div>
             <div class="field f-half"><label for="recvPhone">WhatsApp da pessoa (opcional)</label><input id="recvPhone" type="tel" maxlength="20" placeholder="Ex: (11) 98888-7777"></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar</button></div>
