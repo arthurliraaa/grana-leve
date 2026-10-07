@@ -67,7 +67,8 @@
     ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e escolha em “Me avise em” quando quer um lembrete na sua agenda.'],
     ['Dívidas', 'registre o que você deve, para banco ou para pessoas, e marque cada parcela paga.'],
     ['A receber', 'anote o que te devem e use “Cobrar” para enviar uma mensagem pronta.'],
-    ['Botão +', 'fica sempre no canto da tela e abre o chat de lançamento. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”. O chat também aparece ao entrar, uma vez por dia.'],
+    ['Botão +', 'fica sempre no canto da tela e abre o formulário para lançar um gasto ou ganho. Para corrigir um lançamento, toque no lápis ao lado dele.'],
+    ['Chat de lançamento', 'aparece ao entrar, uma vez por dia, e também pelo link “Lance pelo chat” no botão +. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”.'],
     ['Conexões', 'mostra as integrações: app no celular e Google Agenda (já disponíveis), WhatsApp e Open Finance (em preparação).'],
     ['Backup dos dados', 'fica no rodapé. Salve um arquivo de backup de vez em quando: seus dados ficam só neste navegador.']
   ];
@@ -913,6 +914,7 @@
       '<div class="tx-main"><div class="tx-desc">'+escapeHtml(t.description || cat)+'</div>' +
       '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div></div>' +
       '<span class="tx-amount ' + (isExpense ? 'expense' : 'income') + ' tabular">' + (isExpense ? '-' : '+') + ' ' + fmtMoney(t.amount) + '</span>' +
+      '<button class="tx-del tx-edit" type="button" data-edit-tx="'+escapeHtml(t.id)+'" aria-label="Editar lançamento" title="Editar">' + icon('edit') + '</button>' +
       '<button class="tx-del" type="button" data-del-tx="'+escapeHtml(t.id)+'" aria-label="Excluir lançamento" title="Excluir">' + icon('trash') + '</button>' +
       '</div>';
   }
@@ -926,27 +928,48 @@
     sel.innerHTML = optionsHtml(list, selected) + '<option value="__new">+ Nova categoria…</option>';
     if (!selected) sel.value = list[0].id;
   }
-  function populatePaymentSelect(){
-    var sel = document.getElementById('txPayment');
-    var prev = sel.value;
+  // Formas de pagamento de um gasto (usadas no formulário da aba e no popup de lançamento).
+  function paymentOptions(){
     var opts = [{id:'conta', label: PAYMENT_LABELS.conta}];
     if (State.vouchers.length) State.vouchers.forEach(function(v){ opts.push({id:'vale:' + v.id, label:'Vale · ' + v.name}); });
     else opts.push({id:'vale', label: PAYMENT_LABELS.vale});
     State.cards.forEach(function(c){ opts.push({id:'card:' + c.id, label:'Cartão de crédito · ' + c.name}); });
     if (!State.cards.length) opts.push({id:'card:none', label:'Cartão de crédito (cadastre na aba Cartões)'});
+    return opts;
+  }
+  // Valor do select de pagamento que corresponde a um lançamento já salvo.
+  function paymentValue(t){
+    if (t.paymentMethod === 'cartao' && t.cardId) return 'card:' + t.cardId;
+    if (t.paymentMethod === 'vale'){ var v = voucherOf(t); return v ? 'vale:' + v.id : 'vale'; }
+    return 'conta';
+  }
+  // Grava no lançamento a forma de pagamento escolhida. Campos que não se aplicam ficam nulos,
+  // para que a edição apague o cartão ou o vale de antes.
+  function applyPayment(tx, pay){
+    tx.cardId = null; tx.voucherId = null;
+    if (pay.indexOf('card:') === 0){ tx.paymentMethod = 'cartao'; tx.cardId = pay.slice(5); }
+    else if (pay.indexOf('vale:') === 0){ tx.paymentMethod = 'vale'; tx.voucherId = pay.slice(5); }
+    else tx.paymentMethod = pay;
+  }
+  function populatePaymentSelect(){
+    var sel = document.getElementById('txPayment');
+    var prev = sel.value;
+    var opts = paymentOptions();
     sel.innerHTML = optionsHtml(opts, prev);
     if (!findById(opts, prev)) sel.value = 'conta';
     syncTxFormVisibility();
   }
-  function populateInstallSelect(){
-    var sel = document.getElementById('txInstall');
-    var amount = money(document.getElementById('txAmount').value);
-    var prev = sel.value || '1';
+  function installOptions(amount){
     var opts = [];
     for (var i=1;i<=24;i++){
       opts.push({id:String(i), label: i === 1 ? 'À vista (1x)' : i + 'x' + (amount > 0 ? ' de ' + fmtMoney(Math.floor(amount*100/i)/100) : '')});
     }
-    sel.innerHTML = optionsHtml(opts, prev);
+    return opts;
+  }
+  function populateInstallSelect(){
+    var sel = document.getElementById('txInstall');
+    var prev = sel.value || '1';
+    sel.innerHTML = optionsHtml(installOptions(money(document.getElementById('txAmount').value)), prev);
   }
   function syncTxFormVisibility(){
     var isExpense = currentTxType() === 'expense';
@@ -1002,49 +1025,198 @@
     });
   }
 
+  // Nome repetido é recusado sem diferenciar maiúsculas. exceptId permite manter o nome ao renomear.
+  function categoryNameProblem(name, type, exceptId){
+    if (!name) return 'Dê um nome para a categoria.';
+    var all = type === 'income' ? incomeCats() : expenseCats();
+    if (all.some(function(c){ return c.id !== exceptId && c.label.toLowerCase() === name.toLowerCase(); })) return 'Já existe uma categoria com esse nome.';
+    return '';
+  }
+  // A mesma lista de categorias serve para “Ganhos e gastos” e “Planejar gastos”.
+  async function addCategory(name, type){
+    name = String(name || '').trim();
+    var problem = categoryNameProblem(name, type);
+    if (problem) return {error: problem};
+    var color = CUSTOM_COLORS[State.categories.length % CUSTOM_COLORS.length];
+    var saved = await Store.add(k(), 'categories', {label:name, type:type, color:color, createdAt:Date.now()});
+    State.categories.push(saved);
+    return saved;
+  }
   async function createCategory(type){
     var r = await openModal({
       title: 'Nova categoria de ' + (type === 'income' ? 'ganho' : 'gasto'),
-      body: '<div class="field"><label for="newCatName">Nome</label><input id="newCatName" name="name" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>',
+      body: '<div class="field"><label for="newCatName">Nome</label><input id="newCatName" name="name" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
+        '<p class="field-hint">A categoria aparece em “Ganhos e gastos”' + (type === 'income' ? '.' : ' e em “Planejar gastos”.') + '</p>',
       submitLabel: 'Criar categoria',
-      onSubmit: async function(form){
-        var name = form.name.value.trim();
-        if (!name) return {error:'Dê um nome para a categoria.'};
-        var all = type === 'income' ? incomeCats() : expenseCats();
-        if (all.some(function(c){ return c.label.toLowerCase() === name.toLowerCase(); })) return {error:'Já existe uma categoria com esse nome.'};
-        var color = CUSTOM_COLORS[State.categories.length % CUSTOM_COLORS.length];
-        var saved = await Store.add(k(), 'categories', {label:name, type:type, color:color, createdAt:Date.now()});
-        State.categories.push(saved);
-        return saved;
-      }
+      onSubmit: function(form){ return addCategory(form.name.value, type); }
     });
     if (r && r.id){ toast('Categoria “' + r.label + '” criada.'); return r.id; }
     return null;
   }
 
+  /* ---------- Popup de lançamento (botão + e edição) ---------- */
+  function txModalBody(t, isEdit){
+    var inst = isEdit && t.installment;
+    var type = t.type || 'expense';
+    function typeBtn(id, label){ return '<button type="button" data-type="' + id + '"' + (type === id ? ' class="active"' : '') + (inst ? ' disabled' : '') + '>' + label + '</button>'; }
+    return '<div class="type-toggle" id="mType" role="group" aria-label="Tipo de lançamento">' + typeBtn('expense', 'Gasto') + typeBtn('income', 'Ganho') + '</div>' +
+      '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (t.amount || '') + '"' + (inst ? ' disabled' : '') + '></span></div>' +
+      '<div class="field"><label for="mCategory">Categoria</label><select id="mCategory" name="category"></select></div>' +
+      '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
+      '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
+      '<div class="field" id="mPayField"><label for="mPay">Forma de pagamento</label><select id="mPay" name="pay"' + (inst ? ' disabled' : '') + '></select></div>' +
+      (isEdit ? '' : '<div class="field" id="mInstallField" hidden><label for="mInstall">Parcelas</label><select id="mInstall" name="install"></select></div>') +
+      '<div class="field"><label for="mDesc">Descrição (opcional)</label><input id="mDesc" name="desc" type="text" maxlength="80" placeholder="Ex: mercado da semana" value="' + escapeHtml(inst ? t.installment.baseDescription : (t.description || '')) + '"></div>' +
+      (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. A categoria e a descrição mudam em todas as parcelas. Para mudar valor, data ou número de parcelas, exclua a compra e lance de novo.</p>' : '') +
+      (isEdit ? '' : '<button type="button" class="linklike" data-m-chat style="justify-self:start">Prefere escrever? Lance pelo chat</button>');
+  }
+
+  async function openTxModal(t){
+    var isEdit = !!(t && t.id);
+    t = t || {type: 'expense'};
+    var inst = isEdit && t.installment;
+    var mType = t.type || 'expense';
+    await openModal({
+      title: isEdit ? 'Editar lançamento' : 'Novo lançamento',
+      body: txModalBody(t, isEdit),
+      submitLabel: isEdit ? 'Salvar alterações' : 'Adicionar lançamento',
+      onOpen: function(modal, close){
+        var catSel = qs('#mCategory', modal), paySel = qs('#mPay', modal), instSel = qs('#mInstall', modal);
+        function syncNewCat(){ qs('#mNewCatField', modal).hidden = catSel.value !== '__new'; }
+        function fillCats(selected){
+          var list = mType === 'income' ? incomeCats() : expenseCats();
+          catSel.innerHTML = optionsHtml(list, selected) + '<option value="__new">+ Nova categoria…</option>';
+          if (!findById(list, selected)) catSel.value = list[0].id;
+          syncNewCat();
+        }
+        function fillInstall(){
+          if (instSel) instSel.innerHTML = optionsHtml(installOptions(money(qs('#mAmount', modal).value)), instSel.value || '1');
+        }
+        function sync(){
+          var isExp = mType === 'expense';
+          qs('#mPayField', modal).hidden = !isExp;
+          if (!instSel) return;
+          var onCard = isExp && paySel.value.indexOf('card:') === 0 && paySel.value !== 'card:none';
+          qs('#mInstallField', modal).hidden = !onCard;
+          if (!onCard) instSel.value = '1';
+        }
+        paySel.innerHTML = optionsHtml(paymentOptions(), paymentValue(t));
+        fillCats(t.category); fillInstall(); sync();
+        qs('#mType', modal).addEventListener('click', function(e){
+          var b = e.target.closest('button[data-type]');
+          if (!b || b.disabled) return;
+          mType = b.getAttribute('data-type');
+          qsa('button', qs('#mType', modal)).forEach(function(x){ x.classList.toggle('active', x === b); });
+          fillCats(); sync();
+        });
+        catSel.addEventListener('change', syncNewCat);
+        paySel.addEventListener('change', function(){
+          if (paySel.value.indexOf('vale') === 0 && mType === 'expense') catSel.value = 'alimentacao';
+          syncNewCat(); sync();
+        });
+        qs('#mAmount', modal).addEventListener('input', fillInstall);
+        var chat = qs('[data-m-chat]', modal);
+        if (chat) chat.addEventListener('click', function(){ close(null); openQuickEntry(false); });
+      },
+      onSubmit: async function(form){
+        var amount = inst ? t.amount : money(form.amount.value);
+        if (!(amount > 0)) return {error:'Informe um valor maior que zero.'};
+        var date = inst ? t.date : (form.date.value || todayKey());
+        if (!validDateStr(date)) return {error:'Use uma data entre 1900 e 3000.'};
+        var category = form.category.value;
+        if (category === '__new'){
+          var made = await addCategory(form.newCat.value, mType);
+          if (made.error) return made;
+          category = made.id;
+        }
+        var tx = {type: mType, amount: amount, category: category, categoryLabel: catLabel(category, mType), date: date, description: form.desc.value.trim()};
+        if (mType === 'income'){ tx.paymentMethod = null; tx.cardId = null; tx.voucherId = null; }
+        else if (!inst){
+          if (form.pay.value === 'card:none') return {error:'Cadastre um cartão na aba “Cartões e vale” primeiro.'};
+          applyPayment(tx, form.pay.value);
+        }
+        if (isEdit){ await saveTxEdit(t, tx); return true; }
+        tx.createdAt = Date.now();
+        var n = tx.paymentMethod === 'cartao' ? Number(form.install.value) || 1 : 1;
+        await saveTransactions(expandInstallments(tx, n));
+        renderAll();
+        toast((mType === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(amount) + (n > 1 ? ' em ' + n + 'x' : '') + ' registrado.');
+        return true;
+      }
+    });
+  }
+
+  // Na compra parcelada, categoria e descrição mudam em todas as parcelas; valor e datas ficam como estão.
+  async function saveTxEdit(t, patch){
+    if (t.installment){
+      var base = patch.description || catLabel(patch.category, 'expense');
+      var group = State.transactions.filter(function(x){ return x.installment && x.installment.group === t.installment.group; });
+      for (var i=0;i<group.length;i++){
+        var x = group[i];
+        var p = {category: patch.category, categoryLabel: patch.categoryLabel, description: base + ' (' + x.installment.n + '/' + x.installment.total + ')',
+          installment: Object.assign({}, x.installment, {baseDescription: base})};
+        await Store.update(k(), 'transactions', x.id, p);
+        Object.assign(x, p);
+      }
+    } else {
+      await Store.update(k(), 'transactions', t.id, patch);
+      Object.assign(t, patch);
+    }
+    sortTransactions();
+    renderAll();
+    toast('Lançamento atualizado.');
+  }
+
   async function manageCategories(){
+    var editing = null;
     function bodyHtml(){
-      if (!State.categories.length) return '<p>Você ainda não criou categorias próprias. Use a opção “+ Nova categoria…” no campo Categoria.</p>';
+      if (!State.categories.length) return '<p>Você ainda não criou categorias próprias. Use “+ Nova categoria” em “Planejar gastos” ou a opção “+ Nova categoria…” no campo Categoria.</p>';
       return '<div>' + State.categories.map(function(c){
+        if (c.id === editing){
+          return '<div class="list-row"><span class="tx-cat-dot" style="background:' + escapeHtml(c.color) + '"></span>' +
+            '<input class="chat-input cat-rename" type="text" maxlength="30" value="' + escapeHtml(c.label) + '" aria-label="Novo nome da categoria">' +
+            '<button class="btn btn-primary btn-sm" type="button" data-cat-save="' + escapeHtml(c.id) + '">Salvar</button></div>';
+        }
         return '<div class="list-row"><span class="tx-cat-dot" style="background:' + escapeHtml(c.color) + '"></span>' +
           '<div class="tx-main"><div class="tx-desc">' + escapeHtml(c.label) + '</div><div class="tx-meta">' + (c.type === 'income' ? 'Ganho' : 'Gasto') + '</div></div>' +
-          '<button class="tx-del" type="button" data-cat-del="' + escapeHtml(c.id) + '" aria-label="Excluir categoria">' + icon('trash') + '</button></div>';
-      }).join('') + '</div><p class="field-hint">Lançamentos antigos continuam guardados com o nome da categoria.</p>';
+          '<button class="tx-del tx-edit" type="button" data-cat-edit="' + escapeHtml(c.id) + '" aria-label="Renomear categoria" title="Renomear">' + icon('edit') + '</button>' +
+          '<button class="tx-del" type="button" data-cat-del="' + escapeHtml(c.id) + '" aria-label="Excluir categoria" title="Excluir">' + icon('trash') + '</button></div>';
+      }).join('') + '</div><p class="field-hint">Ao renomear, os lançamentos da categoria passam a mostrar o nome novo. Ao excluir, eles continuam guardados com o nome antigo.</p>';
     }
     await openModal({
       title: 'Minhas categorias',
       body: '<div id="catManageBody">' + bodyHtml() + '</div>',
       submitLabel: null, cancelLabel: 'Fechar',
       onOpen: function(root){
+        var body = qs('#catManageBody', root);
+        function redraw(){ body.innerHTML = bodyHtml(); var inp = qs('.cat-rename', body); if (inp){ inp.focus(); inp.select(); } }
+        async function saveRename(id){
+          var c = findById(State.categories, id);
+          var name = qs('.cat-rename', body).value.trim();
+          var problem = categoryNameProblem(name, c.type, c.id);
+          if (problem){ qs('[data-modal-error]', root).textContent = problem; return; }
+          qs('[data-modal-error]', root).textContent = '';
+          await Store.update(k(), 'categories', id, {label: name});
+          c.label = name;
+          editing = null;
+          redraw(); populateCategorySelect(document.getElementById('txCategory').value); renderAll();
+          toast('Categoria renomeada para “' + name + '”.');
+        }
         root.addEventListener('click', async function(e){
-          var b = e.target.closest('[data-cat-del]');
-          if (!b) return;
+          var b;
+          if ((b = e.target.closest('[data-cat-edit]'))){ editing = b.getAttribute('data-cat-edit'); redraw(); return; }
+          if ((b = e.target.closest('[data-cat-save]'))){ saveRename(b.getAttribute('data-cat-save')); return; }
+          if (!(b = e.target.closest('[data-cat-del]'))) return;
           var id = b.getAttribute('data-cat-del');
           await Store.remove(k(), 'categories', id);
           State.categories = State.categories.filter(function(c){ return c.id !== id; });
-          qs('#catManageBody', root).innerHTML = bodyHtml();
+          redraw();
           populateCategorySelect();
           renderAll();
+        });
+        // Enter no campo de renomear salva, em vez de enviar o formulário do popup.
+        root.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' && e.target.classList.contains('cat-rename')){ e.preventDefault(); saveRename(editing); }
         });
       }
     });
@@ -1939,7 +2111,7 @@
         'Mais alguma coisa? Quando terminar, é só fechar.');
     }
     await openModal({
-      title: welcome ? 'Antes de começar…' : 'Lançar por mensagem',
+      title: welcome ? 'Antes de começar…' : 'Chat de lançamento',
       body: '<div class="chat-log" id="chatLog" aria-live="polite">' +
           bubble('bot', (welcome ? 'Oi, ' + first + '! Teve algum gasto ou ganho desde a última vez?' : 'Me conta o que entrou ou saiu.') +
             '<br><span class="chat-hint">Escreva do seu jeito: “gastei 30 no mercado”, “recebi 1.500 de salário ontem”, “paguei 120 de luz e 80 de internet”.</span>') +
@@ -2197,6 +2369,11 @@
     if (!State.session) return;
     if (t.closest('#modalRoot')) return;
 
+    if ((el = t.closest('[data-edit-tx]'))){
+      var et = findById(State.transactions, el.getAttribute('data-edit-tx'));
+      if (et) openTxModal(et);
+      return;
+    }
     if ((el = t.closest('[data-del-tx]'))){
       var id = el.getAttribute('data-del-tx');
       var tx = findById(State.transactions, id);
@@ -2394,7 +2571,7 @@
     if (btn) showTab(btn.getAttribute('data-tab'));
   });
 
-  document.getElementById('fabAdd').addEventListener('click', function(){ openQuickEntry(false); });
+  document.getElementById('fabAdd').addEventListener('click', function(){ openTxModal(); });
 
   document.getElementById('prevMonth').addEventListener('click', function(){ State.txMonthOffset--; renderTransactionsTab(); });
   document.getElementById('nextMonth').addEventListener('click', function(){ if (State.txMonthOffset < maxTxMonthOffset()){ State.txMonthOffset++; renderTransactionsTab(); } });
@@ -2465,9 +2642,7 @@
     if (type === 'expense'){
       var pay = document.getElementById('txPayment').value;
       if (pay === 'card:none'){ toast('Cadastre um cartão na aba Cartões primeiro.'); showTab('cartoes'); return; }
-      if (pay.indexOf('card:') === 0){ tx.paymentMethod = 'cartao'; tx.cardId = pay.slice(5); }
-      else if (pay.indexOf('vale:') === 0){ tx.paymentMethod = 'vale'; tx.voucherId = pay.slice(5); }
-      else tx.paymentMethod = pay;
+      applyPayment(tx, pay);
       if (document.getElementById('txForOther').checked){
         forOther = document.getElementById('txOtherName').value.trim();
         if (!forOther){ toast('Informe quem vai te devolver o valor.'); return; }

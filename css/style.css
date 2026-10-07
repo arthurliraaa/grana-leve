@@ -504,3 +504,16 @@ a.btn{ text-decoration:none; }
 .tx-filters{ display:grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr) minmax(0,1fr); gap:8px; margin-bottom:10px; }
 .tx-filters input, .tx-filters select{ width:100%; min-width:0; padding:8px 10px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); }
 @media (max-width: 620px){ .tx-filters{ grid-template-columns: minmax(0,1fr) minmax(0,1fr); } .tx-filters input{ grid-column: 1 / -1; } }
+
+/* Mensagens de lista vazia ocupam a largura toda (as grades têm duas colunas) e ficam centralizadas. */
+.goal-grid > .empty-state, .debt-grid > .empty-state, .conn-grid > .empty-state{ grid-column: 1 / -1; }
+.empty-state{ justify-self:center; max-width:60ch; margin-inline:auto; }
+.disclaimer{ text-align:center; }
+
+/* Textos corridos justificados, com hifenização para não abrir buracos entre as palavras. */
+.tab-intro, .card-sub, .tip-card p, .feature-card p, .conn-card > p, .modal-body > p, .tip-box, .howto-list li, .goal-card .note{
+  text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+
+/* Editar lançamento / categoria */
+.tx-edit:hover{ color: var(--brand); }
+.cat-rename{ flex:1; min-width:0; padding:8px 10px; }
