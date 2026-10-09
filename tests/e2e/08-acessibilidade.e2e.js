@@ -15,7 +15,7 @@ L.run(async ({page}) => {
 
   L.section('Auditoria automática (axe-core)');
   await page.goto(L.BASE, {waitUntil: 'domcontentloaded'});
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('granaleve_backend', 'local'); });
   await page.reload({waitUntil: 'domcontentloaded'}); await L.sleep(300);
   await audit('apresentação');
   await page.click('[data-action="go-signup"]'); await L.sleep(100);

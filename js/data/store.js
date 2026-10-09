@@ -1,8 +1,12 @@
 /*
- * Persistência. Dois adaptadores: "local" (localStorage deste navegador) e "cloud"
- * (banco do ambiente Claude, quando o app roda como Artifact). Coleções por usuário.
+ * Persistência. Três adaptadores:
+ *   "supabase": conta e dados no servidor (Fase 2, js/data/supabase.js);
+ *   "local": localStorage deste navegador (Fase 1, e para desenvolver e testar);
+ *   "cloud": banco do ambiente Claude, quando o app roda como Artifact.
  */
 import {uid} from '../domain/util.js';
+import {createSupabaseStore} from './supabase.js';
+import {SUPABASE_URL, SUPABASE_ANON_KEY, BACKEND_OVERRIDE_KEY} from '../config.js';
 import {SCHEMA_VERSION, migrateData} from './migrations.js';
 
 export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers'];
@@ -23,6 +27,18 @@ export var Store = {
         if (db){ this.db = db; this.mode = 'cloud'; return; }
         this.cloudError = 'o armazenamento na nuvem não está disponível';
       } catch(e){ this.cloudError = (e && e.message) || 'erro ao conectar'; }
+      this.mode = 'local';
+      return;
+    }
+    var forceLocal = false;
+    try { forceLocal = localStorage.getItem(BACKEND_OVERRIDE_KEY) === 'local'; } catch(e){ /* sem localStorage */ }
+    if (!forceLocal && window.supabase && window.supabase.createClient && SUPABASE_URL){
+      // PKCE: os links de confirmação e de nova senha voltam com ?code=, sem disputar o #/rota do app.
+      var client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}
+      });
+      Object.assign(this, createSupabaseStore(client, COLLECTIONS));
+      return;
     }
     this.mode = 'local';
   },

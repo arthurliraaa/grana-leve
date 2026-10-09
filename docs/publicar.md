@@ -70,8 +70,9 @@ adicione em **Project → Settings → Domains** no Vercel.
 O esquema está em `supabase/migrations/`: tabelas, regras de segurança (RLS) e as funções
 do estudo e do painel de administração.
 
-1. No painel do Supabase, abra **SQL Editor**, cole o conteúdo de
-   `supabase/migrations/20261009000000_inicial.sql` e clique em **Run**.
+1. No painel do Supabase, abra **SQL Editor** e rode, **nesta ordem**, cada arquivo de
+   `supabase/migrations/` (cole o conteúdo e clique em **Run**):
+   `20261009000000_inicial.sql` e depois `20261009010000_excluir_propria_conta.sql`.
 2. Crie sua conta no app. Depois, no SQL Editor, rode `supabase/tornar-admin.sql` trocando o
    e-mail pelo seu. Só quem tem `role = 'admin'` acessa o painel, e isso é verificado no
    banco, não na tela.
@@ -86,6 +87,26 @@ O comando sobe um PostgreSQL temporário, aplica a migração sobre um esboço d
 cria (`supabase/tests/stub-supabase.sql`) e roda `supabase/tests/rls.test.sql`. São 53
 verificações: isolamento entre pessoas, admin sem acesso a dados financeiros, conta
 bloqueada, estudo anônimo, sair do estudo e excluir conta.
+
+### Endereços permitidos para os links de e-mail
+
+Em **Authentication → URL Configuration**:
+
+- **Site URL:** o endereço do Vercel (ex.: `https://grana-leve.vercel.app`).
+- **Redirect URLs:** adicione `http://localhost:5500/**` (para testar no computador) e o
+  endereço do Vercel com `/**` no fim.
+
+Os links de confirmação de cadastro e de nova senha só voltam para esses endereços.
+
+### Configuração do app
+
+`js/config.js` tem a URL do projeto e a chave **anon** (pública: sozinha ela não lê nada,
+quem protege os dados é o RLS). O app usa o Supabase sempre que essa configuração existe.
+Para desenvolver ou rodar os testes no navegador sem servidor:
+
+```js
+localStorage.setItem('granaleve_backend', 'local')   // no console do navegador
+```
 
 ### O que muda no app
 

@@ -4,7 +4,7 @@ import * as L from './lib.js';
 L.run(async ({page}) => {
   L.section('Termo da pesquisa no cadastro');
   await page.goto(L.BASE, {waitUntil: 'domcontentloaded'});
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('granaleve_backend', 'local'); });
   await page.reload({waitUntil: 'domcontentloaded'});
   await page.click('[data-action="go-signup"]');
   L.ok(!(await page.$eval('#signupResearch', el => el.checked)), 'participar da pesquisa começa desmarcado (opt-in)');
@@ -27,7 +27,7 @@ L.run(async ({page}) => {
   await page.click('#signupForm button[type=submit]');
   await page.waitForSelector('#viewApp:not([hidden])'); await L.sleep(300);
   const profile = await page.evaluate((key) => JSON.parse(localStorage.getItem('granaleve_local_db_v1')).users[key].profile, email);
-  L.ok(profile.research && profile.research.consent === true && profile.research.version === '1' && /^\d{4}-\d{2}-\d{2}T/.test(profile.research.at), 'consentimento salvo com versão e data');
+  L.ok(profile.research && profile.research.consent === true && profile.research.version === '2' && /^\d{4}-\d{2}-\d{2}T/.test(profile.research.at), 'consentimento salvo com versão e data');
   L.ok(profile.research.ageRange === '18-24' && profile.research.uf === 'PR', 'perfil opcional salvo');
 
   L.section('Sair e voltar ao estudo em “Seus dados”');
