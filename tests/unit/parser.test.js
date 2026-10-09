@@ -54,3 +54,10 @@ test('respostas sem lançamento e mensagens de erro', () => {
   assert.ok(parse('', {today}).error);
   assert.ok(parse('fui ao mercado', {today}).error);
 });
+
+test('item sem verbo herda o tipo da frase e não fica marcado; frase sem verbo fica', () => {
+  const r = parse('gastei 30 no mercado e 45 na lojinha', {today});
+  assert.equal(r.items[1].type, 'expense');
+  assert.equal(r.items[1].recognized.type, true);
+  assert.equal(parse('45 na lojinha', {today}).items[0].recognized.type, false);
+});

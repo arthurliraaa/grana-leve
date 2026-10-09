@@ -150,6 +150,7 @@ export function parse(input, opts){
     if (!amount) return;
     if (inst && inst.perInstallment) amount.value = Math.round(inst.perInstallment * inst.count * 100) / 100;
     var isIncome = INCOME_WORDS.test(chunk), isExpense = EXPENSE_WORDS.test(chunk);
+    var inherited = !isIncome && !isExpense && !!lastType;  // "gastei 30 no mercado e 20 no uber": o 2º herda o verbo
     var type = isIncome && !isExpense ? 'income' : isExpense ? 'expense' : (lastType || (INCOME_WORDS.test(text) && !EXPENSE_WORDS.test(text) ? 'income' : 'expense'));
     lastType = type;
     var cat = findCategory(chunk, type === 'income' ? INCOME_KEYWORDS : EXPENSE_KEYWORDS);
@@ -167,7 +168,7 @@ export function parse(input, opts){
       installments: inst && type === 'expense' ? inst.count : 1,
       // O que veio de palavras da frase (true) e o que foi suposto (false), para a revisão destacar.
       recognized: {
-        type: isIncome || isExpense,
+        type: isIncome || isExpense || inherited,
         category: !!cat,
         payment: type === 'income' || !!findPayment(payText),
         date: anyDate
