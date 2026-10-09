@@ -41,25 +41,43 @@ pessoas sobre hábitos financeiros.
 
 ## Como rodar
 
-Opção 1, no VS Code: instale a extensão recomendada **Live Server** e clique em
-"Go Live" na barra inferior.
-
-Opção 2, no terminal:
+Precisa do Node.js 20 ou mais novo. Na primeira vez, instale as dependências de desenvolvimento:
 
 ```bash
+npm install
 npm run dev
 ```
 
-Depois abra http://localhost:5500.
+Depois abra http://localhost:5500. A extensão **Live Server** do VS Code também funciona.
+O app usa módulos ES, então precisa ser aberto por um servidor (abrir o `index.html`
+direto do disco não funciona).
+
+## Testes e verificação
+
+```bash
+npm run lint       # ESLint: variáveis não declaradas, imports sem uso
+npm test           # regras de dinheiro, datas, faturas, saldos e o parser (node:test, ~1 s)
+npm run test:e2e   # o app inteiro no Chrome (puppeteer-core); defina CHROME_PATH se precisar
+npm run check      # lint + testes de regras
+```
+
+O GitHub Actions roda os três a cada push (`.github/workflows/verificacao.yml`).
 
 ## Estrutura
 
 ```
-index.html      marcação das telas (apresentação, login, app) e ícones SVG
-css/style.css   estilos e tema claro/escuro
-js/parser.js    GranaParser: transforma frases em lançamentos (funciona no navegador e no Node)
-js/app.js       Store (persistência), renderização, gráficos SVG, PDF/CSV, chat e integrações
-sw.js           service worker (rede primeiro, cópia local quando estiver sem internet)
+index.html            marcação das telas (apresentação, login, app) e ícones SVG
+css/style.css         estilos e tema claro/escuro
+js/app.js             ponto de entrada (módulo ES)
+js/domain/            regras puras, sem tela: dinheiro (centavos), datas, lançamentos e
+                      parcelas, cartões e faturas, contas, planejamento, vale, previsões,
+                      a receber e o parser de mensagens (também roda no Node)
+js/data/              persistência (Store local/nuvem), sessão e preferências, senha/login
+js/ui/                tela: app.js (estado, abas e eventos), modal, gráficos, PDF, utilidades
+tests/unit/           testes das regras (node:test)
+tests/e2e/            testes no navegador, com servidor próprio
+docs/                 regras financeiras e decisões
+sw.js                 service worker (rede primeiro, cópia local sem internet)
 manifest.webmanifest, icons/   dados para instalar como app
 ```
 
