@@ -7,9 +7,12 @@ pessoas sobre hábitos financeiros.
 ## Funcionalidades
 
 - **Botão +**: abre o formulário de gasto/ganho em um popup, de qualquer aba.
-- **Chat de lançamento**: ao entrar (uma vez por dia) o app pergunta se houve gasto ou
-  ganho. Entende frases como “gastei 30 no mercado e 20 no uber” ou “recebi 1.500 de
-  salário ontem”. Também abre pelo link “Lance pelo chat” no botão +.
+- **Lançamento por mensagem (chat)**: ao entrar (uma vez por dia) o app pergunta se houve
+  gasto ou ganho. Entende frases como “gastei 30 no mercado e 20 no uber” ou “recebi
+  1.500 de salário ontem” com um leitor baseado em regras (não é IA). **Nada é salvo
+  direto**: cada item aparece para conferir e editar (valor, data, categoria, pagamento,
+  parcelas), com destaque no que foi suposto, e só grava ao tocar em “Salvar”.
+  Também abre pelo link “Lance pelo chat” no botão +.
 - **Painel**: saldo, ganhos (com previsão de entradas), gastos, metas, dívidas e valores
   a receber; gráficos com opção de tabela e período de 3, 6 ou 12 meses; relatório em PDF.
 - **Ganhos e gastos**: categorias personalizadas (dá para renomear), forma de pagamento

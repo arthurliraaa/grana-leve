@@ -3,7 +3,8 @@ import {qsa, escapeHtml} from './dom.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {money, fmtMoney} from '../domain/money.js';
 
-// opts: {title, body, submitLabel, cancelLabel, danger, wide, onOpen(root, close), onSubmit(form) -> valor | {error}}
+// opts: {title, body, submitLabel, cancelLabel, danger, wide, onOpen(root, close), onSubmit(form) -> valor | {error},
+//        beforeClose() -> false para impedir que a pessoa feche (X, Cancelar, fundo ou Esc)}
 export function openModal(opts){
   return new Promise(function(resolve){
     var root = document.getElementById('modalRoot');
@@ -36,9 +37,11 @@ export function openModal(opts){
       if (prevFocus && prevFocus.focus) prevFocus.focus();
       resolve(val);
     }
-    function onKey(e){ if (e.key === 'Escape') close(null); }
+    // Fechamento pedido pela pessoa; o código chama close() direto.
+    function requestClose(){ if (opts.beforeClose && opts.beforeClose() === false) return; close(null); }
+    function onKey(e){ if (e.key === 'Escape') requestClose(); }
     document.addEventListener('keydown', onKey);
-    qsa('[data-modal-close]', root).forEach(function(el){ el.addEventListener('click', function(){ close(null); }); });
+    qsa('[data-modal-close]', root).forEach(function(el){ el.addEventListener('click', requestClose); });
     form.addEventListener('submit', async function(e){
       e.preventDefault();
       var err = form.querySelector('[data-modal-error]');
