@@ -42,3 +42,23 @@ export function cardUsed(list, card, today){
     return invoiceTotal(list, card, key);
   });
 }
+
+// Faturas que já fecharam e não foram marcadas como pagas (o valor não muda mais), da mais antiga
+// para a mais nova, e a fatura aberta de cada cartão (ainda recebendo compras).
+export function invoicesSummary(list, cards, today){
+  var toPay = [], open = [];
+  cards.forEach(function(card){
+    var keys = {};
+    list.forEach(function(t){ if (isCardExpense(t, card)) keys[invoiceKeyFor(t.date, card)] = true; });
+    Object.keys(keys).sort().forEach(function(key){
+      var status = invoiceStatus(card, key, today);
+      var total = invoiceTotal(list, card, key);
+      if (!(total > 0) || status === 'paga') return;
+      var item = {card: card, key: key, total: total, due: invoiceDates(key, card).due, status: status};
+      if (status === 'fechada' || status === 'vencida') toPay.push(item);
+      else if (key === invoiceKeyFor(today, card)) open.push(item);
+    });
+  });
+  toPay.sort(function(a, b){ return a.due.localeCompare(b.due); });
+  return {toPay: toPay, open: open, toPayTotal: sumMoney(toPay, function(i){ return i.total; }), openTotal: sumMoney(open, function(i){ return i.total; })};
+}

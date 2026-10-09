@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {invoiceKeyFor, invoiceDates, invoiceItems, invoiceTotal, invoiceStatus, cardUsed} from '../../js/domain/cards.js';
+import {invoiceKeyFor, invoiceDates, invoiceItems, invoiceTotal, invoiceStatus, cardUsed, invoicesSummary} from '../../js/domain/cards.js';
 import {expandInstallments, installmentGroups, monthTotals, clampInstall, installHint} from '../../js/domain/transactions.js';
 
 const card = {id: 'c1', name: 'Nubank', closingDay: 3, dueDay: 10};
@@ -81,4 +81,15 @@ test('seletor de parcelas: limites e resumo', () => {
   assert.equal(clampInstall(2.6), 3);
   assert.equal(installHint(1, 100, String), 'À vista');
   assert.equal(installHint(3, 100, v => v.toFixed(2)), '3x de 33.33 · total 100.00');
+});
+
+test('faturas a pagar: fechadas ou vencidas e não pagas; aberta separada', () => {
+  const list = [buy('a', '2026-09-02', 100), buy('b', '2026-09-20', 40), buy('c', '2026-10-06', 15)];
+  // hoje 08/10: fatura de set (fechou 03/09, venceu 10/09) vencida; out (fechou 03/10) fechada; nov aberta
+  const s = invoicesSummary(list, [card], '2026-10-08');
+  assert.deepEqual(s.toPay.map(i => [i.key, i.status, i.total]), [['2026-09', 'vencida', 100], ['2026-10', 'fechada', 40]]);
+  assert.equal(s.toPayTotal, 140);
+  assert.deepEqual(s.open.map(i => [i.key, i.total]), [['2026-11', 15]]);
+  const paid = invoicesSummary(list, [{...card, paidInvoices: ['2026-09']}], '2026-10-08');
+  assert.equal(paid.toPayTotal, 40);
 });

@@ -17,7 +17,7 @@ import {statusForPct} from '../domain/budgets.js';
 import * as Accounts from '../domain/accounts.js';
 import * as Vouchers from '../domain/vouchers.js';
 import * as Fc from '../domain/forecasts.js';
-import {recvInstallInfo, recvNextDue} from '../domain/receivables.js';
+import {recvInstallInfo, recvNextDue, recvRemaining} from '../domain/receivables.js';
 import {parse as parseMessage} from '../domain/parser.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
@@ -316,26 +316,61 @@ async function receiveForecast(id, date){
 }
 
 /* ---------- Painel ---------- */
-function renderStatTiles(){
-  var cur = monthBounds(0);
+// O painel separa o que já aconteceu (data até hoje) do que ainda vai acontecer no mês,
+// e o que existe agora (contas, faturas, metas, dívidas, a receber). Regras em docs/regras-financeiras.md.
+function dashboardFigures(){
+  var cur = monthBounds(0), today = todayKey();
   var t = monthTotals(cur.key);
-  var pendingForecast = sum(forecastOccurrences(cur.key).filter(function(o){ return o.received === undefined; }), function(o){ return o.f.amount; });
-  var savedInGoals = sum(State.goals.filter(function(g){ return !g.deletedAt; }), function(g){ return g.currentAmount; });
-  var debtRemaining = sum(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); }) +
-    sum(installmentGroups(), function(g){ return g.remaining; });
-  var toReceive = sum(State.receivables, function(r){ return Math.max(0, Number(r.totalAmount||0)-Number(r.receivedAmount||0)); });
+  var pendingForecast = sumMoney(forecastOccurrences(cur.key).filter(function(o){ return o.received === undefined; }), function(o){ return o.f.amount; });
+  var expectedIncome = money(pendingForecast + t.incomeScheduled);
+  var balanceDone = money(t.incomeDone - t.expenseDone);
+  return {
+    t: t, expectedIncome: expectedIncome, balanceDone: balanceDone,
+    balanceEnd: money(balanceDone + expectedIncome - t.expenseScheduled),
+    invoices: Cards.invoicesSummary(State.transactions, State.cards, today),
+    savedInGoals: sumMoney(State.goals.filter(function(g){ return !g.deletedAt; }), function(g){ return g.currentAmount; }),
+    debtRemaining: money(sumMoney(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); }) +
+      sumMoney(installmentGroups(), function(g){ return g.remaining; })),
+    toReceive: sumMoney(State.receivables, recvRemaining)
+  };
+}
+function renderStatTiles(){
+  var f = dashboardFigures(), t = f.t;
   function tile(label, value, cls, sub){
     return '<div class="tile"><span class="tile-lbl">' + label + '</span><span class="tile-val tabular ' + (cls||'') + '">' + fmtMoney(value) + '</span>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>';
   }
-  document.getElementById('statTiles').classList.toggle('tiles-7', State.accounts.length > 0);
+  var inv = f.invoices, invoiceSub = '';
+  if (inv.toPay.length){
+    var next = inv.toPay[0];
+    invoiceSub = (next.status === 'vencida' ? '<span class="neg-text">venceu ' : 'vence ') + formatDateBr(next.due) + (next.status === 'vencida' ? '</span>' : '') + (inv.toPay.length > 1 ? ' · ' + inv.toPay.length + ' faturas' : '');
+  } else if (inv.openTotal > 0) invoiceSub = 'Fatura aberta: ' + fmtMoney(inv.openTotal);
+  var month = tile('Ganhos do mês', t.incomeDone, '', f.expectedIncome > 0 ? 'Esperado ainda: + ' + fmtMoney(f.expectedIncome) : '') +
+    tile('Gastos do mês', t.expenseDone, '', t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : '') +
+    tile('Saldo do mês', f.balanceDone, f.balanceDone < 0 ? 'neg' : 'pos', f.balanceEnd !== f.balanceDone ? 'Previsto no fim do mês: ' + fmtMoney(f.balanceEnd) : '');
+  var now = (State.accounts.length ? tile('Disponível nas contas', totalAccountsBalance(), totalAccountsBalance() < 0 ? 'neg' : '', 'hoje, em ' + State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta')) : '') +
+    (State.cards.length ? tile('Faturas a pagar', inv.toPayTotal, '', invoiceSub) : '') +
+    tile('Guardado nas metas', f.savedInGoals) +
+    tile('Dívida restante', f.debtRemaining) +
+    tile('A receber', f.toReceive);
   document.getElementById('statTiles').innerHTML =
-    tile('Ganhos do mês', t.income, '', pendingForecast > 0 ? 'Previsto: ' + fmtMoney(t.income + pendingForecast) : '') +
-    tile('Gastos do mês', t.expense) +
-    tile('Saldo do mês', t.saldo, t.saldo < 0 ? 'neg' : 'pos') +
-    (State.accounts.length ? tile('Saldo nas contas', totalAccountsBalance(), totalAccountsBalance() < 0 ? 'neg' : '', State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta')) : '') +
-    tile('Guardado nas metas', savedInGoals) +
-    tile('Dívida restante', debtRemaining) +
-    tile('A receber', toReceive);
+    '<p class="tiles-group">Neste mês <span>realizado até hoje</span></p><div class="stat-tiles stat-tiles-auto">' + month + '</div>' +
+    '<p class="tiles-group">Agora</p><div class="stat-tiles stat-tiles-auto">' + now + '</div>';
+}
+
+var CALC_RULES = [
+  ['Realizado e agendado', 'Ganhos e gastos do mês contam só o que tem data até hoje. O que tem data mais para frente no mês (uma parcela, um gasto agendado) aparece como “Agendado” e entra na previsão do fim do mês.'],
+  ['Esperado', 'Soma as previsões de entrada ainda não recebidas e os ganhos com data futura no mês.'],
+  ['Cartão de crédito', 'A compra conta como gasto na data da compra, no mês em que foi feita. Ela entra na fatura do mês em que a fatura fecha: compra feita depois do dia de fechamento vai para a fatura seguinte.'],
+  ['Pagar a fatura', 'Não é um gasto novo (as compras já contaram). Se você escolher uma conta ao marcar a fatura como paga, o valor sai do saldo dessa conta.'],
+  ['Faturas a pagar', 'Soma as faturas que já fecharam e não foram marcadas como pagas. A fatura aberta, que ainda recebe compras, aparece embaixo.'],
+  ['Parcelas', 'Cada parcela é um gasto no mês dela. Os centavos que sobram da divisão ficam na 1ª parcela. As parcelas futuras somam em “Dívida restante”.'],
+  ['Disponível nas contas', 'Parte do saldo que você informou e soma o que veio depois: ganhos e gastos ligados à conta, transferências e faturas pagas com ela. Transferência não é ganho nem gasto.']
+];
+async function calcHelp(){
+  await openModal({
+    title: 'Como o painel calcula', submitLabel: null, cancelLabel: 'Fechar',
+    body: '<dl class="rules-list">' + CALC_RULES.map(function(r){ return '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>'; }).join('') + '</dl>'
+  });
 }
 
 function renderComparison(){
@@ -2644,6 +2679,7 @@ document.getElementById('exportCsvBtn').addEventListener('click', async function
 });
 
 document.getElementById('pdfReportBtn').addEventListener('click', generateMonthlyReport);
+document.getElementById('calcHelpBtn').addEventListener('click', calcHelp);
 
 /* ============ Boot ============ */
 async function boot(){
