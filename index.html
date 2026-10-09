@@ -224,6 +224,16 @@
               </ul>
               <label class="check"><input type="checkbox" id="signupStorageOk"> Entendi onde meus dados ficam</label>
             </div>
+            <fieldset class="research-optin">
+              <legend>Pesquisa acadêmica <span>(opcional)</span></legend>
+              <p>O Grana Leve é um projeto de extensão universitária. Você pode ajudar o estudo com dados de uso anônimos, sem valores nem textos. Não muda nada no app.</p>
+              <label class="check"><input type="checkbox" id="signupResearch"> Tenho 18 anos ou mais e aceito participar do estudo</label>
+              <button type="button" class="linklike" data-info="pesquisa">Ler o termo de consentimento</button>
+              <div class="research-profile" id="signupResearchProfile" hidden>
+                <div class="field"><label for="signupAge">Faixa etária (opcional)</label><select id="signupAge" data-age-options></select></div>
+                <div class="field"><label for="signupUf">Estado (opcional)</label><select id="signupUf" data-uf-options></select></div>
+              </div>
+            </fieldset>
             <p class="form-error" id="signupError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
             <p class="auth-foot">Não pedimos cartão de crédito.</p>
@@ -316,12 +326,31 @@
       <!-- Ganhos e gastos -->
       <div id="tab-lancamentos" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Ganhos e gastos</h2>
-        <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Também dá para deixar previsto o que você ainda vai receber no mês.</p>
+        <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Em “Previstas” você anota o que ainda vai receber no mês.</p>
         <div class="card">
           <div class="card-head">
             <h3>Novo lançamento</h3>
-            <button class="linklike" type="button" id="manageCatsBtn">Personalizar categorias</button>
+            <div class="card-head-tools">
+              <button class="btn btn-ghost btn-sm forecast-toggle" type="button" id="forecastToggle" aria-expanded="false" aria-controls="forecastPanel">
+                <svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>Previstas</span><span class="count-badge" id="forecastCount">0</span><span class="sr-only" id="forecastSr"></span>
+              </button>
+              <button class="linklike" type="button" id="manageCatsBtn">Personalizar categorias</button>
+            </div>
           </div>
+          <section class="forecast-panel" id="forecastPanel" aria-labelledby="forecastTitle" hidden>
+            <div class="forecast-head">
+              <h4 id="forecastTitle">Previsões de entrada <span class="month-lbl" id="forecastMonthLabel"></span></h4>
+              <p class="field-hint">O que você ainda espera receber neste mês (salário, freela, pagamento combinado). Quando o dinheiro cair, toque em “Recebi”.</p>
+            </div>
+            <div id="forecastList"></div>
+            <form id="forecastForm" class="inline-form">
+              <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
+              <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+              <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
+              <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
+              <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
+            </form>
+          </section>
           <form id="txForm" class="add-tx-form">
             <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
               <button type="button" class="active" data-type="expense">Gasto</button>
@@ -363,21 +392,6 @@
           <div id="txList"></div>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <h3>Previsão de entradas</h3>
-            <span class="month-lbl" id="forecastMonthLabel"></span>
-          </div>
-          <p class="card-sub">Anote o que você ainda espera receber neste mês, como salário, um freela ou um pagamento combinado. Quando o dinheiro cair, toque em “Recebi”.</p>
-          <div id="forecastList"></div>
-          <form id="forecastForm" class="inline-form">
-            <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
-            <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
-            <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
-            <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
-            <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
-          </form>
-        </div>
       </div>
 
       <!-- Cartões -->
@@ -553,6 +567,7 @@
       <button type="button" class="linklike" data-info="como-usar">Como usar</button>
       <button type="button" class="linklike" data-info="privacidade">Privacidade</button>
       <button type="button" class="linklike" data-info="termos">Termos de uso</button>
+      <button type="button" class="linklike" data-info="pesquisa">Termo da pesquisa</button>
       <button type="button" class="linklike" data-info="contato">Contato</button>
       <button type="button" class="linklike" data-info="backup">Seus dados e backup</button>
     </nav>

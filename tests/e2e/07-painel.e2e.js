@@ -25,6 +25,7 @@ L.run(async ({page}) => {
     await L.addTx(page, {type: 'income', amount: 50, date: later, desc: 'Pix combinado'});
   }
   await L.tab(page, 'lancamentos');
+  await L.openForecasts(page);
   await page.type('#fcDesc', 'Freela'); await page.type('#fcAmount', '400');
   await L.setVal(page, '#fcDate', later || today);
   await page.click('#forecastForm button[type=submit]'); await L.sleep(200);

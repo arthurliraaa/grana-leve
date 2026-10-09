@@ -18,6 +18,12 @@ pessoas sobre hábitos financeiros.
   (36 sugestões ou qualquer um digitado) e cor em “Personalizar categorias”. As padrão
   podem voltar ao original. O emoji aparece nas listas, nos campos, no planejamento e nos
   gráficos.
+- **Previsões de entrada** recolhidas num ícone com contador no card “Novo lançamento”.
+- **Pesquisa acadêmica opcional**: consentimento separado no cadastro (18+), termo completo,
+  perfil opcional (faixa etária e estado) e opção de sair em “Seus dados e backup”. Nesta
+  versão nada é enviado; a coleta começa com o servidor (veja `docs/publicar.md`).
+- **Transições suaves** ao trocar de área e abrir painéis e popups (desligadas para quem
+  pede menos movimento no sistema).
 - **Urgência** (alta, média, baixa) em dívidas, valores a receber e metas: escolhida no
   cadastro ou direto no card; os mais urgentes aparecem primeiro e o Início destaca a
   dívida urgente.
@@ -71,6 +77,11 @@ npm run dev
 Depois abra http://localhost:5500. A extensão **Live Server** do VS Code também funciona.
 O app usa módulos ES, então precisa ser aberto por um servidor (abrir o `index.html`
 direto do disco não funciona).
+
+## Publicar
+
+O site é publicado no **Vercel** (Fase 1). A Fase 2 traz o **Supabase** (login, sincronização,
+estudo e painel de administração). O passo a passo está em [`docs/publicar.md`](docs/publicar.md).
 
 ## Testes e verificação
 

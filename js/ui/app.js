@@ -20,6 +20,8 @@ import * as Fc from '../domain/forecasts.js';
 import {recvInstallInfo, recvNextDue, recvRemaining} from '../domain/receivables.js';
 import {parse as parseMessage} from '../domain/parser.js';
 import {URGENCY, DEFAULT_URGENCY, urgencyOf, urgencyLabel, byUrgency} from '../domain/urgency.js';
+import * as Research from '../domain/research.js';
+import {termHtml} from './research-term.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
 import {validateNewTransaction} from '../domain/validate.js';
@@ -200,7 +202,8 @@ var State = {
   activeTab: 'dashboard',
   commitTab: 'dividas',
   sumOpen: {},          // cartões do Início com os detalhes abertos (+)
-  dashDetails: false,   // "Ver todos os detalhes do mês" aberto  // parte aberta de Compromissos: 'dividas' (Eu devo) ou 'receber' (Me devem)
+  dashDetails: false,   // "Ver todos os detalhes do mês" aberto
+  research: null,       // consentimento da pesquisa {consent, version, at, ageRange, uf}  // parte aberta de Compromissos: 'dividas' (Eu devo) ou 'receber' (Me devem)
   persisted: null,      // o navegador aceitou não apagar os dados sozinho (navigator.storage.persist)
   authTab: 'login'
 };
@@ -313,6 +316,11 @@ function renderForecasts(){
   var list = document.getElementById('forecastList');
   var pending = occ.filter(function(o){ return o.received === undefined; });
   var receivedOcc = occ.filter(function(o){ return o.received !== undefined; });
+  var badge = document.getElementById('forecastCount');
+  badge.textContent = pending.length;
+  badge.hidden = !pending.length;
+  // O nome lido pelo leitor de tela começa pelo texto visível (“Previstas 1 a receber”).
+  document.getElementById('forecastSr').textContent = pending.length ? ' a receber' : ' (nenhuma pendente)';
   if (!occ.length){ list.innerHTML = '<p class="empty-state" style="padding:14px">Nenhuma entrada prevista para este mês.</p>'; return; }
   list.innerHTML = pending.concat(receivedOcc).map(function(o){
     var done = o.received !== undefined;
@@ -2316,6 +2324,8 @@ async function enterApp(){
   showView('viewApp');
   await Store.migrate(k());
   await loadAllData();
+  var profile = await Store.getUser(k());
+  State.research = (profile && profile.research) || null;
   Store.persist().then(function(v){ State.persisted = v; });
   document.getElementById('txDate').value = todayKey();
   document.getElementById('fcDate').value = todayKey();
@@ -2387,6 +2397,37 @@ function renderBackupBanner(){
       '<button class="btn btn-ghost btn-sm" type="button" data-backup-snooze>Lembrar em 7 dias</button></div>';
 }
 
+/* ---------- Pesquisa acadêmica: participar ou sair ---------- */
+function researchStatusHtml(){
+  var r = State.research;
+  if (Research.isParticipating(r)) return 'Você participa do estudo desde ' + formatDateFull(r.at.slice(0, 10)) + ' (termo versão ' + r.version + ').';
+  if (r && r.consent) return 'O termo foi atualizado. Leia a versão nova para continuar participando.';
+  return 'Você não participa do estudo.';
+}
+async function researchModal(){
+  var on = Research.isParticipating(State.research);
+  var r = await openModal({
+    title: on ? 'Sair do estudo?' : 'Participar do estudo', wide: true,
+    body: termHtml() + (on ? '<p><strong>Ao sair</strong>, nada mais é registrado para o estudo e os dados ligados ao seu código são apagados.</p>' :
+      '<label class="check"><input type="checkbox" name="accept"> Tenho 18 anos ou mais e aceito participar do estudo</label>' +
+      '<div class="research-profile">' +
+        '<div class="field"><label for="rmAge">Faixa etária (opcional)</label><select id="rmAge" name="age">' + optionsHtml(Research.AGE_RANGES, '') + '</select></div>' +
+        '<div class="field"><label for="rmUf">Estado (opcional)</label><select id="rmUf" name="uf">' + optionsHtml(ufOptions(), '') + '</select></div>' +
+      '</div>'),
+    submitLabel: on ? 'Sair do estudo' : 'Participar', danger: on,
+    onSubmit: function(form){
+      if (on) return {accept: false};
+      if (!form.accept.checked) return {error: 'Para participar, marque que tem 18 anos ou mais e aceita o termo.'};
+      return {accept: true, age: form.age.value, uf: form.uf.value};
+    }
+  });
+  if (!r) return;
+  State.research = Research.consentRecord(r.accept, r.age, r.uf);
+  await Store.updateUser(k(), {research: State.research});
+  toast(r.accept ? 'Obrigado! Sua participação no estudo foi registrada.' : 'Você saiu do estudo.');
+}
+function ufOptions(){ return [{id: '', label: 'Prefiro não dizer'}].concat(Research.UFS.map(function(u){ return {id: u, label: u}; })); }
+
 async function dataModal(){
   if (!State.session){
     await openModal({title:'Seus dados e backup', body:'<p>Os dados do Grana Leve ficam salvos só no navegador em que a conta foi criada. Entre na sua conta para salvar ou restaurar um backup.</p>', submitLabel:null, cancelLabel:'Fechar'});
@@ -2404,6 +2445,8 @@ async function dataModal(){
           '<p>Seus dados ficam salvos no armazenamento do app e aparecem onde você abrir este app.</p>') +
       '</div></div>' +
       '<div class="tip-box"><strong>Agora você tem:</strong> ' + backupCounts() + '.</div>' +
+      '<div class="research-status"><strong>Pesquisa acadêmica</strong><span id="researchStatus">' + researchStatusHtml() + '</span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-research>' + (Research.isParticipating(State.research) ? 'Sair do estudo' : 'Participar do estudo') + '</button></div>' +
       '<p>O backup é um arquivo com todos os seus dados e preferências. Guarde fora deste aparelho (no Google Drive, por exemplo).</p>' +
       '<div class="pdf-actions"><button type="button" class="btn btn-primary btn-sm" data-backup="export">Salvar backup</button></div>' +
       '<h4>Restaurar um backup</h4>' +
@@ -2413,6 +2456,7 @@ async function dataModal(){
     submitLabel: null, cancelLabel: 'Fechar',
     onOpen: function(modal, close){
       qs('[data-backup="export"]', modal).addEventListener('click', function(){ exportBackup().then(function(){ close(null); }); });
+      qs('[data-research]', modal).addEventListener('click', function(){ close(null); researchModal(); });
       qs('#backupFile', modal).addEventListener('change', function(e){
         var file = e.target.files[0];
         var err = qs('#backupError', modal);
@@ -2442,6 +2486,10 @@ async function dataModal(){
 
 async function showInfo(id){
   if (id === 'backup'){ dataModal(); return; }
+  if (id === 'pesquisa'){
+    await openModal({title: 'Termo de consentimento da pesquisa', wide: true, body: termHtml(), submitLabel: null, cancelLabel: 'Fechar'});
+    return;
+  }
   var page = INFO_PAGES[id];
   if (id === 'como-usar'){
     page = {title:'Como usar o Grana Leve', body:'<ol class="howto-list">' + HOW_TO.map(function(h){ return '<li><strong>' + escapeHtml(h[0]) + '</strong> ' + escapeHtml(h[1]) + '</li>'; }).join('') + '</ol>'};
@@ -2709,6 +2757,18 @@ document.getElementById('txInstall').addEventListener('input', populateInstallSe
   document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
 });
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
+// Previsões de entrada: ficam recolhidas no card de novo lançamento.
+function setForecastOpen(open){
+  var btn = document.getElementById('forecastToggle');
+  btn.setAttribute('aria-expanded', String(open));
+  btn.classList.toggle('active', open);
+  document.getElementById('forecastPanel').hidden = !open;
+}
+document.getElementById('forecastToggle').addEventListener('click', function(){
+  var open = document.getElementById('forecastPanel').hidden;
+  setForecastOpen(open);
+  if (open) document.getElementById('fcDesc').focus();
+});
 
 // Links do menu: o endereço muda e o hashchange troca a área (também funciona com Voltar/Avançar).
 function syncFromAddress(){
@@ -2789,7 +2849,9 @@ document.getElementById('signupForm').addEventListener('submit', async function(
   var emailKey = sanitizeEmailKey(email);
   try{
     if (await Store.getUser(emailKey)){ errEl.textContent = 'Já existe uma conta com esse e-mail. Tente entrar.'; return; }
-    var profile = Object.assign({name: name, email: email, createdAt: Date.now()}, await makePasswordRecord(password));
+    var profile = Object.assign({name: name, email: email, createdAt: Date.now(),
+      research: Research.consentRecord(document.getElementById('signupResearch').checked, document.getElementById('signupAge').value, document.getElementById('signupUf').value)},
+      await makePasswordRecord(password));
     await Store.createUser(emailKey, profile);
     State.session = newSession(emailKey, profile);
     saveSession(State.session);
@@ -2968,6 +3030,9 @@ document.getElementById('recvForm').addEventListener('submit', async function(e)
 document.getElementById('debtKind').innerHTML = optionsHtml(DEBT_KINDS, 'banco');
 document.getElementById('recvKind').innerHTML = optionsHtml(RECV_KINDS, 'emprestimo');
 qsa('[data-urgency-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(urgencyOptions(), DEFAULT_URGENCY); });
+qsa('[data-age-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(Research.AGE_RANGES, ''); });
+qsa('[data-uf-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(ufOptions(), ''); });
+document.getElementById('signupResearch').addEventListener('change', function(e){ document.getElementById('signupResearchProfile').hidden = !e.target.checked; });
 // Depois de enviar um formulário, a urgência volta para média.
 ['goalForm', 'debtForm', 'recvForm'].forEach(function(id){
   document.getElementById(id).addEventListener('reset', function(e){ setTimeout(function(){ qsa('[data-urgency-options]', e.target).forEach(function(sel){ sel.value = DEFAULT_URGENCY; }); }, 0); });

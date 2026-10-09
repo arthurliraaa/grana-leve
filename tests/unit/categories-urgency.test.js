@@ -49,3 +49,17 @@ test('validação aceita emoji/cor e urgência válidos', () => {
   assert.equal(validateRecord('debts', {id: 'd', name: 'Cartão', totalAmount: 100, urgency: 'alta'}), '');
   assert.equal(validateRecord('debts', {id: 'd', name: 'Cartão', totalAmount: 100, urgency: 'urgentíssima'}), 'dívida inválida');
 });
+
+import {consentRecord, isParticipating, TERM_VERSION} from '../../js/domain/research.js';
+
+test('consentimento da pesquisa: versão, data e perfil opcional validado', () => {
+  const now = new Date('2026-10-09T12:00:00Z');
+  assert.deepEqual(consentRecord(false, '18-24', 'SP', now), {consent: false, version: TERM_VERSION, at: '2026-10-09T12:00:00.000Z'});
+  const r = consentRecord(true, '18-24', 'SP', now);
+  assert.equal(isParticipating(r), true);
+  assert.deepEqual([r.ageRange, r.uf], ['18-24', 'SP']);
+  const bad = consentRecord(true, '10-12', 'XX', now);
+  assert.deepEqual([bad.ageRange, bad.uf], ['', '']); // valores fora da lista são descartados
+  assert.equal(isParticipating({consent: true, version: '0'}), false); // termo antigo: pergunta de novo
+  assert.equal(isParticipating(null), false);
+});

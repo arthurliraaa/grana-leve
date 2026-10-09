@@ -1,0 +1,7 @@
+# Só o site vai para o Vercel; testes, ferramentas e configuração de desenvolvimento ficam de fora.
+node_modules
+tests
+tools
+.github
+.vscode
+eslint.config.js
