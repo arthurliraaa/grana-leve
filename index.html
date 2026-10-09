@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Pular para o conteúdo</a>
 
 <!-- Ícones reutilizáveis -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -65,7 +66,7 @@
   </div>
 </header>
 
-<main>
+<main id="main" tabindex="-1">
   <!-- ================= Apresentação ================= -->
   <section id="viewLanding">
     <div class="side-gutter hero">
@@ -167,6 +168,7 @@
   <section id="viewAuth" hidden>
     <div class="side-gutter auth-wrap">
       <div class="auth-card">
+        <h1 class="sr-only">Entrar ou criar conta no Grana Leve</h1>
         <div class="auth-tabs">
           <button type="button" data-authtab="login">Entrar</button>
           <button type="button" data-authtab="signup">Criar conta</button>
@@ -182,7 +184,7 @@
               <label for="loginPassword">Senha</label>
               <input id="loginPassword" type="password" autocomplete="current-password" maxlength="128" required>
             </div>
-            <p class="form-error" id="loginError"></p>
+            <p class="form-error" id="loginError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Entrar</button>
             <p class="auth-foot" data-local-only>Só funciona com uma conta criada <strong>neste navegador</strong>.</p>
           </div>
@@ -212,7 +214,7 @@
               </ul>
               <label class="check"><input type="checkbox" id="signupStorageOk"> Entendi onde meus dados ficam</label>
             </div>
-            <p class="form-error" id="signupError"></p>
+            <p class="form-error" id="signupError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
             <p class="auth-foot">Não pedimos cartão de crédito.</p>
           </div>
@@ -232,20 +234,21 @@
         </div>
       </div>
 
-      <nav class="tabbar" id="tabbar" aria-label="Seções">
-        <button type="button" data-tab="dashboard" class="active">Painel</button>
-        <button type="button" data-tab="lancamentos">Ganhos e gastos</button>
-        <button type="button" data-tab="cartoes">Contas e cartões</button>
-        <button type="button" data-tab="limites">Planejar gastos</button>
-        <button type="button" data-tab="metas">Metas</button>
-        <button type="button" data-tab="dividas">Dívidas</button>
-        <button type="button" data-tab="receber">A receber</button>
-        <button type="button" data-tab="aprenda">Aprenda</button>
-        <button type="button" data-tab="conexoes">Conexões</button>
+      <nav class="tabbar" id="tabbar" role="tablist" aria-label="Seções do app">
+        <button type="button" role="tab" id="tabbtn-dashboard" aria-controls="tab-dashboard" data-tab="dashboard" class="active">Painel</button>
+        <button type="button" role="tab" id="tabbtn-lancamentos" aria-controls="tab-lancamentos" data-tab="lancamentos">Ganhos e gastos</button>
+        <button type="button" role="tab" id="tabbtn-cartoes" aria-controls="tab-cartoes" data-tab="cartoes">Contas e cartões</button>
+        <button type="button" role="tab" id="tabbtn-limites" aria-controls="tab-limites" data-tab="limites">Planejar gastos</button>
+        <button type="button" role="tab" id="tabbtn-metas" aria-controls="tab-metas" data-tab="metas">Metas</button>
+        <button type="button" role="tab" id="tabbtn-dividas" aria-controls="tab-dividas" data-tab="dividas">Dívidas</button>
+        <button type="button" role="tab" id="tabbtn-receber" aria-controls="tab-receber" data-tab="receber">A receber</button>
+        <button type="button" role="tab" id="tabbtn-aprenda" aria-controls="tab-aprenda" data-tab="aprenda">Aprenda</button>
+        <button type="button" role="tab" id="tabbtn-conexoes" aria-controls="tab-conexoes" data-tab="conexoes">Conexões</button>
       </nav>
 
       <!-- Painel -->
-      <div id="tab-dashboard" class="tab-panel">
+      <div id="tab-dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-dashboard" tabindex="-1">
+        <h2 class="sr-only">Painel</h2>
         <div class="backup-banner" id="backupBanner" role="status" hidden></div>
         <p class="tab-intro">Resumo do seu mês: quanto entrou, quanto saiu e o que ainda está previsto.</p>
         <div class="card-head" style="margin-bottom:-4px">
@@ -294,7 +297,8 @@
       </div>
 
       <!-- Ganhos e gastos -->
-      <div id="tab-lancamentos" class="tab-panel" hidden>
+      <div id="tab-lancamentos" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-lancamentos" tabindex="-1" hidden>
+        <h2 class="sr-only">Ganhos e gastos</h2>
         <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Também dá para deixar previsto o que você ainda vai receber no mês.</p>
         <div class="card">
           <div class="card-head">
@@ -360,7 +364,8 @@
       </div>
 
       <!-- Cartões -->
-      <div id="tab-cartoes" class="tab-panel" hidden>
+      <div id="tab-cartoes" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-cartoes" tabindex="-1" hidden>
+        <h2 class="sr-only">Contas e cartões</h2>
         <p class="tab-intro">Cadastre suas contas de banco, seus cartões de crédito e seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela, as transferências e as faturas pagas. Cada gasto no cartão entra sozinho na fatura certa, e os gastos no vale descontam do saldo.</p>
         <div class="card">
           <div class="card-head">
@@ -403,7 +408,8 @@
       </div>
 
       <!-- Limites -->
-      <div id="tab-limites" class="tab-panel" hidden>
+      <div id="tab-limites" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-limites" tabindex="-1" hidden>
+        <h2 class="sr-only">Planejar gastos</h2>
         <p class="tab-intro">Planeje quanto quer gastar, no máximo, em cada categoria por mês. Digite o valor ao lado da categoria; a barra mostra quanto você já usou. Cada mês guarda o próprio planejamento: mudar o mês atual não altera os meses que já passaram.</p>
         <div class="card">
           <div class="card-head">
@@ -426,7 +432,8 @@
       </div>
 
       <!-- Metas -->
-      <div id="tab-metas" class="tab-panel" hidden>
+      <div id="tab-metas" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-metas" tabindex="-1" hidden>
+        <h2 class="sr-only">Metas</h2>
         <p class="tab-intro">Junte dinheiro para um objetivo (uma viagem, a reserva de emergência) e acompanhe quanto falta.</p>
         <div class="card">
           <div class="card-head"><h3>Nova meta</h3></div>
@@ -444,7 +451,8 @@
       </div>
 
       <!-- Dívidas -->
-      <div id="tab-dividas" class="tab-panel" hidden>
+      <div id="tab-dividas" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-dividas" tabindex="-1" hidden>
+        <h2 class="sr-only">Dívidas</h2>
         <p class="tab-intro">Tudo o que você deve: cartão, banco, financiamento ou um empréstimo com um amigo. Registre cada pagamento e veja quanto falta.</p>
         <div class="card">
           <div class="card-head"><h3>Nova dívida</h3></div>
@@ -463,7 +471,8 @@
       </div>
 
       <!-- A receber -->
-      <div id="tab-receber" class="tab-panel" hidden>
+      <div id="tab-receber" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-receber" tabindex="-1" hidden>
+        <h2 class="sr-only">A receber</h2>
         <p class="tab-intro">O que as outras pessoas te devem: um empréstimo, uma compra feita no seu cartão ou um valor combinado. Daqui dá para cobrar com uma mensagem pronta.</p>
         <div class="card">
           <div class="card-head"><h3>Novo valor a receber</h3></div>
@@ -490,13 +499,15 @@
       </div>
 
       <!-- Aprenda -->
-      <div id="tab-aprenda" class="tab-panel" hidden>
+      <div id="tab-aprenda" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-aprenda" tabindex="-1" hidden>
+        <h2 class="sr-only">Aprenda</h2>
         <p class="tab-intro">Conteúdos curtos para organizar o dinheiro, fazer ele render e tirar o melhor do Grana Leve.</p>
         <div id="learnWrap" class="stack-lg"></div>
       </div>
 
       <!-- Conexões -->
-      <div id="tab-conexoes" class="tab-panel" hidden>
+      <div id="tab-conexoes" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-conexoes" tabindex="-1" hidden>
+        <h2 class="sr-only">Conexões</h2>
         <p class="tab-intro">Ligue o Grana Leve a outros serviços para anotar menos na mão. Algumas conexões ainda estão em preparação e chegam nas próximas versões.</p>
         <div id="connWrap" class="conn-grid"></div>
       </div>
