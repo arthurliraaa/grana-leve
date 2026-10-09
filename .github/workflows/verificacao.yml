@@ -13,6 +13,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run test:db
       - run: npm run test:e2e
         env:
           CHROME_PATH: /usr/bin/google-chrome
