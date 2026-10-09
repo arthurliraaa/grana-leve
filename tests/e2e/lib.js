@@ -20,6 +20,8 @@ export async function launch(){
   const browser = await puppeteer.launch({executablePath: CHROME, headless: 'new', args: ['--no-sandbox', '--lang=pt-BR']});
   const page = await browser.newPage();
   await page.setViewport({width: 1280, height: 900});
+  // Sem animações nos testes (como quem pede menos movimento no sistema): o estado é verificado na hora.
+  if (!process.env.E2E_MOTION) await page.emulateMediaFeatures([{name: 'prefers-reduced-motion', value: 'reduce'}]);
   const errors = [];
   page.on('pageerror', e => errors.push('pageerror: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/fonts\.g|net::ERR|Failed to load resource|cdnjs/.test(m.text())) errors.push('console: ' + m.text()); });
@@ -109,6 +111,12 @@ export async function addTx(page, o){
   if (o.install) await setVal(page, '#mInstall', o.install);
   if (o.desc) await page.type('#mDesc', o.desc);
   await submitModal(page);
+}
+// As previsões de entrada ficam recolhidas no card de novo lançamento.
+export async function openForecasts(page){
+  await tab(page, 'lancamentos');
+  if (await page.$eval('#forecastPanel', el => el.hidden)) await page.click('#forecastToggle');
+  await sleep(80);
 }
 export async function addCard(page, name, limit, closing, due){
   await tab(page, 'cartoes');

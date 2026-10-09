@@ -149,6 +149,7 @@ L.run(async ({page}) => {
 
   L.section('Recebimentos e pagamentos escolhem a conta');
   await L.tab(page, 'lancamentos');
+  await L.openForecasts(page);
   await page.type('#fcDesc', 'Salário'); await page.type('#fcAmount', '3000');
   await page.click('#forecastForm button[type=submit]'); await L.sleep(200);
   await page.click('[data-fc-receive]'); await L.sleep(150);

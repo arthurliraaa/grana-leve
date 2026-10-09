@@ -15,7 +15,7 @@ export default [
     }
   },
   {
-    files: ['tests/**/*.js'],
+    files: ['tests/**/*.js', 'tools/**/*.js'],
     languageOptions: {ecmaVersion: 2022, sourceType: 'module', globals: {...globals.node, ...globals.browser}},
     rules: {'no-undef': 'error', 'no-unused-vars': ['error', {args: 'none', caughtErrors: 'none'}]}
   }
