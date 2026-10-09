@@ -3,6 +3,7 @@
  * (banco do ambiente Claude, quando o app roda como Artifact). Coleções por usuário.
  */
 import {uid} from '../domain/util.js';
+import {SCHEMA_VERSION, migrateData} from './migrations.js';
 
 export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers'];
 
@@ -11,14 +12,24 @@ export var Store = {
   db: null,
   LOCAL_KEY: 'granaleve_local_db_v1',
 
+  // Se o app roda num ambiente com banco na nuvem e ele falha, NÃO troca para o navegador
+  // sem avisar: guarda o erro em cloudError e a tela pergunta o que fazer.
+  cloudError: null,
   async init(){
-    try{
-      if (window.claude && typeof window.claude.use === 'function'){
+    this.cloudError = null;
+    if (window.claude && typeof window.claude.use === 'function'){
+      try{
         var db = await window.claude.use('db');
         if (db){ this.db = db; this.mode = 'cloud'; return; }
-      }
-    } catch(e){ /* fall through to local */ }
+        this.cloudError = 'o armazenamento na nuvem não está disponível';
+      } catch(e){ this.cloudError = (e && e.message) || 'erro ao conectar'; }
+    }
     this.mode = 'local';
+  },
+  // Pede ao navegador para não apagar os dados sozinho quando faltar espaço. Retorna true/false/null.
+  async persist(){
+    if (this.mode !== 'local' || !navigator.storage || !navigator.storage.persist) return null;
+    try{ return (await navigator.storage.persisted()) || (await navigator.storage.persist()); } catch(e){ return null; }
   },
 
   _readLocal(){
@@ -33,15 +44,22 @@ export var Store = {
   },
   _userLocal(data, key){
     var u = data.users[key];
-    if (!u) u = data.users[key] = {profile:null};
-    // Versões antigas guardavam os limites como objeto {categoria: valor}.
-    if (u.budgets && !Array.isArray(u.budgets)){
-      u.budgets = Object.keys(u.budgets).map(function(k){ return {id:k, limit:u.budgets[k]}; });
-    }
+    if (!u) u = data.users[key] = {profile:null, schemaVersion: SCHEMA_VERSION};
+    // Dados de versões antigas são atualizados aqui (e gravados na próxima escrita ou em migrate()).
+    if ((u.schemaVersion || 1) < SCHEMA_VERSION){ migrateData(u, u.schemaVersion || 1); u.schemaVersion = SCHEMA_VERSION; }
     COLLECTIONS.forEach(function(c){ if (!Array.isArray(u[c])) u[c] = []; });
     return u;
   },
   _userDoc(key){ return this.db.doc('users/' + key); },
+
+  // Grava já atualizado o formato dos dados do usuário (chamado ao entrar). Retorna a versão anterior.
+  async migrate(key){
+    if (this.mode === 'cloud') return SCHEMA_VERSION;
+    var data = this._readLocal();
+    var before = data.users[key] ? (data.users[key].schemaVersion || 1) : SCHEMA_VERSION;
+    if (before < SCHEMA_VERSION){ this._userLocal(data, key); this._writeLocal(data); }
+    return before;
+  },
 
   async getUser(key){
     if (this.mode === 'cloud'){
@@ -92,6 +110,7 @@ export var Store = {
     var all = this._readLocal();
     var u = this._userLocal(all, key);
     COLLECTIONS.forEach(function(c){ u[c] = data[c].slice(); });
+    u.schemaVersion = SCHEMA_VERSION;
     this._writeLocal(all);
   },
 

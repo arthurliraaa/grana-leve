@@ -92,6 +92,20 @@ O que esta versão faz:
 - Content Security Policy, Subresource Integrity no jsPDF e escape de todo texto digitado.
 - CSV protegido contra injeção de fórmulas no Excel.
 
+Onde ficam os dados (e como o app deixa isso claro):
+
+- O cadastro avisa que a conta existe só neste navegador, sem sincronização e sem
+  recuperação de senha, e pede confirmação ("Entendi onde meus dados ficam").
+- O indicador "Só neste navegador", no topo, abre "Seus dados e backup": onde os dados
+  ficam, se o navegador aceitou não apagá-los sozinho (`navigator.storage.persist`) e a
+  data do último backup.
+- O painel lembra de fazer backup quando há dados e nenhum backup nos últimos 30 dias.
+- O backup leva todas as coleções, as preferências e a versão do formato (`schemaVersion`).
+  Ao restaurar, cada registro é validado (`js/domain/validate.js`) e dados antigos são
+  atualizados (`js/data/migrations.js`).
+- Se o app rodar com banco na nuvem e ele falhar, a tela pergunta antes de usar o
+  navegador; o erro nunca vira um perfil vazio em silêncio.
+
 Limitação importante: tudo roda **no navegador** e os dados ficam no `localStorage`.
 Quem tem acesso ao computador consegue ler os dados. Para uso real com várias pessoas,
 o próximo passo é um backend com autenticação (ex.: Supabase ou Firebase).

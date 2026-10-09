@@ -80,6 +80,7 @@
         <li><svg class="ico"><use href="#i-check"/></svg>100% gratuito</li>
         <li><svg class="ico"><use href="#i-check"/></svg>Não pede cartão de crédito</li>
         <li><svg class="ico"><use href="#i-check"/></svg>Pronto em menos de 1 minuto</li>
+        <li><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam no seu aparelho</li>
         <li><svg class="ico"><use href="#i-check"/></svg>Feito para o celular</li>
       </ul>
     </div>
@@ -183,6 +184,7 @@
             </div>
             <p class="form-error" id="loginError"></p>
             <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+            <p class="auth-foot" data-local-only>Só funciona com uma conta criada <strong>neste navegador</strong>.</p>
           </div>
         </form>
 
@@ -200,6 +202,15 @@
               <label for="signupPassword">Senha</label>
               <input id="signupPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
               <span class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.</span>
+            </div>
+            <div class="storage-notice" data-local-only>
+              <strong><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam só neste navegador</strong>
+              <ul>
+                <li>A conta não é sincronizada: não dá para entrar de outro aparelho ou navegador.</li>
+                <li>Limpar os dados do navegador apaga tudo, e não existe recuperação de senha.</li>
+                <li>Para não perder nada, salve um backup em “Seus dados e backup”.</li>
+              </ul>
+              <label class="check"><input type="checkbox" id="signupStorageOk"> Entendi onde meus dados ficam</label>
             </div>
             <p class="form-error" id="signupError"></p>
             <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
@@ -235,6 +246,7 @@
 
       <!-- Painel -->
       <div id="tab-dashboard" class="tab-panel">
+        <div class="backup-banner" id="backupBanner" role="status" hidden></div>
         <p class="tab-intro">Resumo do seu mês: quanto entrou, quanto saiu e o que ainda está previsto.</p>
         <div class="card-head" style="margin-bottom:-4px">
           <h3>Resumo do mês</h3>
@@ -501,7 +513,7 @@
       <button type="button" class="linklike" data-info="privacidade">Privacidade</button>
       <button type="button" class="linklike" data-info="termos">Termos de uso</button>
       <button type="button" class="linklike" data-info="contato">Contato</button>
-      <button type="button" class="linklike" data-info="backup">Backup dos dados</button>
+      <button type="button" class="linklike" data-info="backup">Seus dados e backup</button>
     </nav>
     <p class="footer-copy">© <span id="footerYear">2026</span> Grana Leve. Todos os direitos reservados. Dados da pesquisa: 48 respostas, 2026.</p>
   </div>
