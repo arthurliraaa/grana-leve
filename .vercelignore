@@ -5,3 +5,5 @@ tools
 .github
 .vscode
 eslint.config.js
+supabase
+docs

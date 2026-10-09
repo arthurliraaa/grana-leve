@@ -6,11 +6,12 @@
   "description": "Ferramenta de controle financeiro pessoal para jovens e famílias (projeto de Atividade Extensionista).",
   "scripts": {
     "dev": "serve -l 5500 .",
-    "lint": "eslint js tests tools",
+    "lint": "eslint js tests tools supabase",
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:e2e": "node tests/e2e/run.js",
     "check": "npm run lint && npm test",
-    "sw:update": "node tools/update-sw.js"
+    "sw:update": "node tools/update-sw.js",
+    "test:db": "node supabase/tests/run.js"
   },
   "devDependencies": {
     "axe-core": "4.14.0",

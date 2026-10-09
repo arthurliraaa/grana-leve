@@ -65,6 +65,28 @@ adicione em **Project → Settings → Domains** no Vercel.
    para o código do site.
 3. Definir qual e-mail será o administrador.
 
+### Banco de dados (já pronto no repositório)
+
+O esquema está em `supabase/migrations/`: tabelas, regras de segurança (RLS) e as funções
+do estudo e do painel de administração.
+
+1. No painel do Supabase, abra **SQL Editor**, cole o conteúdo de
+   `supabase/migrations/20261009000000_inicial.sql` e clique em **Run**.
+2. Crie sua conta no app. Depois, no SQL Editor, rode `supabase/tornar-admin.sql` trocando o
+   e-mail pelo seu. Só quem tem `role = 'admin'` acessa o painel, e isso é verificado no
+   banco, não na tela.
+
+Para testar as regras sem mexer no projeto real (precisa de Podman ou Docker):
+
+```bash
+npm run test:db
+```
+
+O comando sobe um PostgreSQL temporário, aplica a migração sobre um esboço do que o Supabase
+cria (`supabase/tests/stub-supabase.sql`) e roda `supabase/tests/rls.test.sql`. São 53
+verificações: isolamento entre pessoas, admin sem acesso a dados financeiros, conta
+bloqueada, estudo anônimo, sair do estudo e excluir conta.
+
 ### O que muda no app
 
 - **Login:** passa a ser feito pelo Supabase Auth, com recuperação de senha por e-mail. O
