@@ -17,7 +17,7 @@ export function openModal(opts){
         '<div class="modal-head"><h3 id="modalTitle">' + escapeHtml(opts.title) + '</h3>' +
         '<button type="button" class="modal-x" data-modal-close aria-label="Fechar">×</button></div>' +
         '<form class="modal-body" novalidate>' + (opts.body || '') +
-          '<p class="form-error" data-modal-error></p>' +
+          '<p class="form-error" data-modal-error role="alert"></p>' +
           '<div class="modal-actions">' +
             (cancelLabel ? '<button type="button" class="btn btn-ghost" data-modal-close>' + escapeHtml(cancelLabel) + '</button>' : '') +
             (submitLabel ? '<button type="submit" class="btn ' + (opts.danger ? 'btn-danger-solid' : 'btn-primary') + '">' + escapeHtml(submitLabel) + '</button>' : '') +
@@ -26,12 +26,16 @@ export function openModal(opts){
       '</div>';
     root.hidden = false;
     document.body.classList.add('modal-open');
+    // O resto da página fica inerte: o Tab não sai do popup e o leitor de tela não lê o fundo.
+    var behind = qsa('body > *').filter(function(el){ return el !== root && el.id !== 'toastWrap' && !el.hasAttribute('inert'); });
+    behind.forEach(function(el){ el.setAttribute('inert', ''); });
     var form = root.querySelector('form');
     var done = false;
     function close(val){
       if (done) return; done = true;
       root.hidden = true; root.innerHTML = '';
       document.body.classList.remove('modal-open');
+      behind.forEach(function(el){ el.removeAttribute('inert'); });
       document.removeEventListener('keydown', onKey);
       if (opts.onClose) opts.onClose();
       if (prevFocus && prevFocus.focus) prevFocus.focus();

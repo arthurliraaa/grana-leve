@@ -2023,12 +2023,22 @@ function renderAll(){
 
 /* ============ Tabs / navigation ============ */
 var TABS = ['dashboard','lancamentos','cartoes','limites','metas','dividas','receber','aprenda','conexoes'];
+// Rola só a barra de abas até a aba ativa. (scrollIntoView mudaria o ponto de partida do Tab
+// no Chrome, e quem usa teclado pularia o topo da página no primeiro Tab.)
+function revealTab(b){
+  var bar = document.getElementById('tabbar');
+  var left = b.offsetLeft, right = left + b.offsetWidth;
+  if (left < bar.scrollLeft) bar.scrollLeft = left - 8;
+  else if (right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = right - bar.clientWidth + 8;
+}
 function showTab(name){
   State.activeTab = name;
   qsa('#tabbar button').forEach(function(b){
     var on = b.getAttribute('data-tab') === name;
     b.classList.toggle('active', on);
-    if (on) b.scrollIntoView({block:'nearest', inline:'nearest'});
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+    b.tabIndex = on ? 0 : -1;   // só a aba ativa entra no Tab; as setas trocam de aba
+    if (on) revealTab(b);
   });
   TABS.forEach(function(t){ document.getElementById('tab-' + t).hidden = (t !== name); });
 }
@@ -2427,6 +2437,16 @@ document.getElementById('manageCatsBtn').addEventListener('click', manageCategor
 document.getElementById('tabbar').addEventListener('click', function(e){
   var btn = e.target.closest('button[data-tab]');
   if (btn) showTab(btn.getAttribute('data-tab'));
+});
+// Teclado nas abas: setas esquerda/direita, Home e End (padrão de abas da WAI-ARIA).
+document.getElementById('tabbar').addEventListener('keydown', function(e){
+  var keys = {ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last'};
+  if (!(e.key in keys)) return;
+  e.preventDefault();
+  var i = TABS.indexOf(State.activeTab), step = keys[e.key];
+  var next = step === 'first' ? 0 : step === 'last' ? TABS.length - 1 : (i + step + TABS.length) % TABS.length;
+  showTab(TABS[next]);
+  document.getElementById('tabbtn-' + TABS[next]).focus();
 });
 
 document.getElementById('fabAdd').addEventListener('click', function(){ openTxModal(); });

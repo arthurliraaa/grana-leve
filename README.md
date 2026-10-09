@@ -84,6 +84,16 @@ sw.js                 service worker (rede primeiro, cópia local sem internet)
 manifest.webmanifest, icons/   dados para instalar como app
 ```
 
+## Acessibilidade
+
+- Contraste de cores dentro do WCAG 2.1 AA (4,5:1) nos temas claro e escuro.
+- Abas com `role="tab"`: setas, Home e End trocam de aba; só a aba ativa entra no Tab.
+- Popups deixam o resto da página inerte (o Tab não sai deles), fecham com Esc e
+  devolvem o foco ao botão que os abriu; erros de formulário são anunciados (`role="alert"`).
+- Link "Pular para o conteúdo", títulos em ordem (h1 › h2 › h3) e ícones com descrição.
+- `tests/e2e/08-acessibilidade.e2e.js` roda o axe-core em todas as abas, popups e na
+  prévia do chat, nos dois temas, e testa o uso só com teclado.
+
 ## Segurança
 
 O que esta versão faz:

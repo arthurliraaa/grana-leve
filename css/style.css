@@ -12,7 +12,7 @@ img{max-width:100%}
   --surface-2: #f1f0ea;
   --text-primary: #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted: #898781;
+  --text-muted: #68665f;
   --border: rgba(11,11,11,0.10);
   --gridline: #e1e0d9;
   --baseline: #c3c2b7;
@@ -21,9 +21,12 @@ img{max-width:100%}
   --brand-tint: #e4f2ee;
   --accent: #d9820f;
   --accent-tint: #fbeed9;
-  --good: #0ca30c;
-  --warning: #b8790c;
-  --critical: #d03b3b;
+  --good: #126f17;
+  --warning: #875700;
+  --critical: #b83232;
+  /* Texto sobre fundos coloridos (botão principal, botões Gasto/Ganho ativos). */
+  --on-brand: #ffffff;
+  --on-strong: #ffffff;
   --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
   --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7; --cat-8: #e34948; --cat-9: #8c6239;
   --shadow: 0 1px 2px rgba(11,11,11,0.06), 0 8px 24px -12px rgba(11,11,11,0.18);
@@ -46,9 +49,11 @@ img{max-width:100%}
     --brand-tint: #163029;
     --accent: #f2b84c;
     --accent-tint: #332510;
-    --good: #0ca30c;
+    --good: #3cc04a;
     --warning: #e0a53a;
-    --critical: #e66767;
+    --critical: #ef7b7b;
+    --on-brand: #06231d;
+    --on-strong: #0b0b0b;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
     --cat-5: #d55181; --cat-6: #35c95f; --cat-7: #9085e9; --cat-8: #e66767; --cat-9: #c79a6b;
     --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.6);
@@ -70,9 +75,11 @@ img{max-width:100%}
   --brand-tint: #163029;
   --accent: #f2b84c;
   --accent-tint: #332510;
-  --good: #0ca30c;
+  --good: #3cc04a;
   --warning: #e0a53a;
-  --critical: #e66767;
+  --critical: #ef7b7b;
+  --on-brand: #06231d;
+  --on-strong: #0b0b0b;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
   --cat-5: #d55181; --cat-6: #35c95f; --cat-7: #9085e9; --cat-8: #e66767; --cat-9: #c79a6b;
   --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.6);
@@ -121,7 +128,7 @@ input, select{ font: inherit; }
 .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; border-radius:10px;
   padding:10px 16px; font-weight:600; font-size:.92rem; border:1px solid transparent; transition: transform .08s ease; white-space:nowrap; }
 .btn:active{ transform: scale(0.98); }
-.btn-primary{ background: var(--brand); color:#fff; }
+.btn-primary{ background: var(--brand); color: var(--on-brand); }
 .btn-primary:hover{ background: var(--brand-strong); }
 .btn-ghost{ background: transparent; color: var(--text-primary); border-color: var(--border); }
 .btn-ghost:hover{ background: var(--surface-2); }
@@ -232,8 +239,8 @@ input, select{ font: inherit; }
 .add-tx-form .f-half{ grid-column: span 2; }
 .type-toggle{ display:flex; gap:6px; }
 .type-toggle button{ flex:1; padding:9px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-secondary); font-weight:600; font-size:.82rem; }
-.type-toggle button.active[data-type="expense"]{ background: var(--critical); border-color: var(--critical); color:#fff; }
-.type-toggle button.active[data-type="income"]{ background: var(--good); border-color: var(--good); color:#fff; }
+.type-toggle button.active[data-type="expense"]{ background: var(--critical); border-color: var(--critical); color: var(--on-strong); }
+.type-toggle button.active[data-type="income"]{ background: var(--good); border-color: var(--good); color: var(--on-strong); }
 
 .month-switch{ display:flex; align-items:center; gap:10px; }
 .month-switch button{ background: var(--surface-2); border:1px solid var(--border); border-radius:8px; width:30px; height:30px; display:grid; place-items:center; color: var(--text-primary); }
@@ -436,7 +443,7 @@ body.modal-open{ overflow:hidden; }
   .card-head{ flex-wrap:wrap; }
 }
 .new-item-form .f-half{ grid-column: span 2; }
-.btn-danger-solid{ background: var(--critical); color:#fff; }
+.btn-danger-solid{ background: var(--critical); color: var(--on-strong); }
 .btn-danger-solid:hover{ filter: brightness(.94); }
 a.btn{ text-decoration:none; }
 /* Itens de grid não podem ficar mais largos que a tela (evita corte no celular). */
@@ -589,3 +596,10 @@ button.sync-badge:hover{ background: var(--brand-tint); }
 .rules-list{ margin:0; display:grid; gap:4px; }
 .rules-list dt{ font-weight:700; color: var(--text-primary); margin-top:8px; }
 .rules-list dd{ margin:0; color: var(--text-secondary); line-height:1.5; text-align:justify; hyphens:auto; }
+
+/* Acessibilidade */
+.skip-link{ position:absolute; left:12px; top:-60px; z-index:100; background: var(--brand); color: var(--on-brand); padding:10px 14px; border-radius:8px; font-weight:600; text-decoration:none; }
+.skip-link:focus{ top:12px; }
+button:focus-visible, select:focus-visible, summary:focus-visible, .chip:focus-visible{ outline: 2px solid var(--brand); outline-offset: 2px; }
+.tabbar button:focus-visible{ outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce){ *{ transition:none !important; animation:none !important; scroll-behavior:auto !important; } }
