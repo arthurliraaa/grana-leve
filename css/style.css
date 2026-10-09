@@ -549,8 +549,6 @@ a.btn{ text-decoration:none; }
 @media (max-width: 620px){ .new-item-form .f-submit-inline{ grid-column: span 2; } }
 .account-grid{ align-items:start; }
 .account-card{ align-content:start; }
-/* Com contas cadastradas o painel tem 7 quadros: no computador ficam em 4 + 3, sem um quadro sozinho. */
-@media (min-width: 861px){ .stat-tiles-auto.tiles-7{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
 
 /* Onde ficam os dados */
 button.sync-badge{ font: inherit; font-size:.78rem; cursor:pointer; color: var(--text-secondary); }
@@ -583,3 +581,11 @@ button.sync-badge:hover{ background: var(--brand-tint); }
 .review-flag{ display:inline-block; margin-left:4px; padding:0 6px; border-radius:999px; font-size:.68rem; font-weight:700; color: var(--warning); background: color-mix(in srgb, var(--warning) 16%, transparent); }
 .chat-log{ max-height: min(58vh, 520px); position:relative; }
 @media (max-width: 620px){ .draft-grid{ grid-template-columns: minmax(0,1fr); } }
+
+/* Painel: grupos “Neste mês” e “Agora” */
+.tiles-wrap{ display:grid; gap:8px; }
+.tiles-group{ font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color: var(--text-secondary); margin-top:6px; }
+.tiles-group span{ text-transform:none; letter-spacing:0; font-weight:500; color: var(--text-muted); margin-left:6px; }
+.rules-list{ margin:0; display:grid; gap:4px; }
+.rules-list dt{ font-weight:700; color: var(--text-primary); margin-top:8px; }
+.rules-list dd{ margin:0; color: var(--text-secondary); line-height:1.5; text-align:justify; hyphens:auto; }

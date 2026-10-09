@@ -36,7 +36,7 @@ L.run(async ({page}) => {
   let d = await L.db(page);
   const nu = d.accounts.find(a => a.name === 'Nubank'), it = d.accounts.find(a => a.name === 'Itaú');
   await L.tab(page, 'dashboard');
-  L.ok(/Saldo nas contas\s*R\$\s?1\.500,00/.test(await L.text(page, '#statTiles')), 'painel mostra o saldo nas contas');
+  L.ok(/Disponível nas contas\s*R\$\s?1\.500,00/.test(await L.text(page, '#statTiles')), 'painel mostra o saldo nas contas');
 
   L.section('Gastos e ganhos ligados à conta');
   await L.tab(page, 'lancamentos');
@@ -67,7 +67,8 @@ L.run(async ({page}) => {
   await L.addTx(page, {amount: 60, date: tomorrow, desc: 'Amanhã'});
   await L.tab(page, 'cartoes');
   L.ok(await bal('Nubank') === 900, 'gasto de ontem e de amanhã não mudam o saldo de hoje');
-  const expensesMonth = 100 + (inMonth(yesterday) ? 40 : 0) + (inMonth(tomorrow) ? 60 : 0);
+  // “Gastos do mês” conta só o realizado (data até hoje); o de amanhã é agendado.
+  const expensesMonth = 100 + (inMonth(yesterday) ? 40 : 0);
 
   L.section('Transferência');
   await page.click('#transferBtn'); await L.sleep(150);
@@ -84,7 +85,7 @@ L.run(async ({page}) => {
   const tiles = await L.text(page, '#statTiles');
   L.ok(/Ganhos do mês\s*R\$\s?300,00/.test(tiles), 'transferência não conta como ganho');
   L.ok(L.moneyOf(tiles.match(/Gastos do mês\s*(R\$\s?[\d.,]+)/)[1]) === expensesMonth, 'transferência não conta como gasto');
-  L.ok(/Saldo nas contas\s*R\$\s?1\.700,00/.test(tiles), 'total nas contas continua igual');
+  L.ok(/Disponível nas contas\s*R\$\s?1\.700,00/.test(tiles), 'total nas contas continua igual');
   await L.tab(page, 'cartoes');
   await page.evaluate(() => document.querySelectorAll('#accountList details').forEach(x => { x.open = true; }));
   const accTxt = await L.text(page, '#accountList');
