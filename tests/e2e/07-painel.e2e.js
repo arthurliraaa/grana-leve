@@ -65,7 +65,8 @@ L.run(async ({page}) => {
   L.ok(L.moneyOf(ft.val) === (closedThisMonth ? 250 : 0), 'fatura paga sai da soma');
   L.ok(L.moneyOf((await tileOf('Gastos do mês')).val) === 300, 'compras de meses passados no cartão não entram nos gastos deste mês');
 
-  L.section('Explicação das regras');
+  L.section('Explicação das regras (dentro dos detalhes)');
+  if (await page.$eval('#dashDetails', el => el.hidden)) await page.click('#dashDetailsBtn');
   await page.click('#calcHelpBtn'); await L.sleep(150);
   L.ok(await L.modalTitle(page) === 'Como o painel calcula', 'abre “Como o painel calcula”');
   const rules = await L.text(page, '#modalRoot');

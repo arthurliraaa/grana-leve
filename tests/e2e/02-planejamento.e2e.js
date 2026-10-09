@@ -82,7 +82,7 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('#txCategory', (el, id) => [...el.options].some(o => o.value === id), acad.id), 'aparece no formulário de Ganhos e gastos');
   await L.tab(page, 'limites');
   await page.click('#budgetManageCats'); await L.sleep(150);
-  L.ok(await L.modalTitle(page) === 'Minhas categorias', '“Minhas categorias” também abre pelo planejamento');
+  L.ok(await L.modalTitle(page) === 'Personalizar categorias', '“Personalizar categorias” também abre pelo planejamento');
   await L.closeModal(page);
 
   L.section('Persistência e backup');

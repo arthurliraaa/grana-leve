@@ -51,7 +51,20 @@ export async function reload(page){
   await sleep(300);
 }
 
-export async function tab(page, name){ await page.click('#tabbar button[data-tab="' + name + '"]'); await sleep(120); }
+// Abre uma área do app: pelo menu lateral quando ele aparece (computador) ou pelo endereço (celular).
+// 'dividas' e 'receber' são as duas partes de Compromissos (Eu devo / Me devem).
+const ROUTES = {dashboard: 'inicio', lancamentos: 'lancamentos', cartoes: 'contas', limites: 'planejar', metas: 'metas',
+  compromissos: 'compromissos', aprenda: 'aprenda', conexoes: 'conexoes'};
+export async function tab(page, name){
+  const sub = name === 'dividas' || name === 'receber' ? name : null;
+  const area = sub ? 'compromissos' : name;
+  const link = '.sidenav [data-tab="' + area + '"]';
+  if (await page.$eval(link, el => el.getBoundingClientRect().width > 0).catch(() => false)) await page.click(link);
+  else await page.evaluate(r => { location.hash = '#/' + r; }, ROUTES[area]);
+  await sleep(80);
+  if (sub) await page.click('#segbtn-' + sub);
+  await sleep(80);
+}
 export async function modalOpen(page){ return page.$eval('#modalRoot', el => !el.hidden).catch(() => false); }
 export async function modalTitle(page){ return page.$eval('#modalTitle', el => el.textContent).catch(() => null); }
 export async function submitModal(page){ await page.click('#modalRoot .modal-actions button[type=submit]'); await sleep(250); }
