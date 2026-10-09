@@ -1,9 +1,20 @@
 {
   "name": "grana-leve",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
+  "type": "module",
   "description": "Ferramenta de controle financeiro pessoal para jovens e famílias (projeto de Atividade Extensionista).",
   "scripts": {
-    "dev": "npx --yes serve -l 5500 ."
+    "dev": "serve -l 5500 .",
+    "lint": "eslint js tests",
+    "test": "node --test \"tests/unit/*.test.js\"",
+    "test:e2e": "node tests/e2e/run.js",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "eslint": "9.39.5",
+    "globals": "17.13.0",
+    "puppeteer-core": "25.13.0",
+    "serve": "14.2.6"
   }
 }
