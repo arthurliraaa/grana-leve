@@ -7,11 +7,11 @@ import {join} from 'node:path';
 L.run(async ({browser, page}) => {
   L.section('Apresentação e cadastro deixam claro onde os dados ficam');
   await page.goto(L.BASE, {waitUntil: 'domcontentloaded'});
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('granaleve_backend', 'local'); });
   await page.reload({waitUntil: 'domcontentloaded'});
   L.ok(/Seus dados ficam no seu aparelho/.test(await L.text(page, '.trust-list')), 'apresentação avisa que os dados ficam no aparelho');
   await page.click('[data-action="go-signup"]');
-  const notice = await L.text(page, '#signupForm .storage-notice');
+  const notice = await L.text(page, '#signupForm .storage-notice[data-local-only]');
   L.ok(/só neste navegador/.test(notice) && /não é sincronizada/.test(notice) && /não existe recuperação de senha/.test(notice), 'cadastro explica: só neste navegador, sem sincronização, sem recuperar senha');
   await page.type('#signupName', 'Bia'); await page.type('#signupEmail', 'bia' + Date.now() + '@teste.com'); await page.type('#signupPassword', 'senha123');
   await page.click('#signupForm button[type=submit]'); await L.sleep(200);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob:; connect-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob:; connect-src 'self' https://aapixkwfdktevqpopmnv.supabase.co https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Grana Leve: controle financeiro pessoal simples para jovens e famílias.">
   <title>Grana Leve</title>
@@ -41,6 +41,7 @@
     <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
     <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12 2.3 2.3 4.3-4.6"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
     <symbol id="i-list" viewBox="0 0 24 24"><path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3"/></symbol>
     <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M16 13.5h.01"/></symbol>
@@ -197,6 +198,7 @@
             <p class="form-error" id="loginError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Entrar</button>
             <p class="auth-foot" data-local-only>Só funciona com uma conta criada <strong>neste navegador</strong>.</p>
+            <button type="button" class="linklike auth-forgot" id="forgotBtn" data-online-only hidden>Esqueci minha senha</button>
           </div>
         </form>
 
@@ -214,6 +216,13 @@
               <label for="signupPassword">Senha</label>
               <input id="signupPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
               <span class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.</span>
+            </div>
+            <div class="storage-notice storage-online" data-online-only hidden>
+              <strong><svg class="ico"><use href="#i-lock"/></svg>Sua conta fica salva com segurança</strong>
+              <ul>
+                <li>Os dados ficam num servidor no Brasil e aparecem em qualquer aparelho em que você entrar.</li>
+                <li>Só você vê seus lançamentos. Se esquecer a senha, dá para criar outra pelo e-mail.</li>
+              </ul>
             </div>
             <div class="storage-notice" data-local-only>
               <strong><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam só neste navegador</strong>
@@ -259,6 +268,7 @@
           <p class="nav-group">Mais</p>
           <a class="nav-item" href="#/aprenda" data-tab="aprenda"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg><span>Aprenda</span></a>
           <a class="nav-item" href="#/conexoes" data-tab="conexoes"><svg class="ico" aria-hidden="true"><use href="#i-plug"/></svg><span>Conexões</span></a>
+          <a class="nav-item" href="#/admin" data-tab="admin" id="navAdmin" hidden><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span>Administração</span></a>
         </nav>
         <button type="button" class="nav-item nav-data" data-info="backup"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span>Seus dados e backup</span></button>
       </aside>
@@ -545,6 +555,19 @@
         <div id="learnWrap" class="stack-lg"></div>
       </div>
 
+      <!-- Administração (só aparece para o papel admin, verificado no banco) -->
+      <div id="tab-admin" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg>Administração</h2>
+        <p class="tab-intro">Área restrita. Aqui aparecem números agregados, a lista de contas e o estudo anônimo. Os lançamentos e valores das pessoas não aparecem e não podem ser lidos por esta área.</p>
+        <div class="segmented seg-wide" role="tablist" aria-label="Seções da administração">
+          <button type="button" role="tab" data-admin="metricas" id="admbtn-metricas" aria-selected="true">Métricas</button>
+          <button type="button" role="tab" data-admin="contas" id="admbtn-contas" aria-selected="false" tabindex="-1">Contas</button>
+          <button type="button" role="tab" data-admin="conteudos" id="admbtn-conteudos" aria-selected="false" tabindex="-1">Conteúdos</button>
+          <button type="button" role="tab" data-admin="estudo" id="admbtn-estudo" aria-selected="false" tabindex="-1">Estudo</button>
+        </div>
+        <div id="adminBody" class="admin-body" role="tabpanel" aria-live="polite"></div>
+      </div>
+
       <!-- Conexões -->
       <div id="tab-conexoes" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-plug"/></svg>Conexões</h2>
@@ -585,6 +608,8 @@
 </nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- supabase-js 2.117.3 (MIT), copiado para js/vendor para não depender de CDN externo -->
+<script src="js/vendor/supabase.umd.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

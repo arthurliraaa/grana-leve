@@ -22,9 +22,11 @@ import {parse as parseMessage} from '../domain/parser.js';
 import {URGENCY, DEFAULT_URGENCY, urgencyOf, urgencyLabel, byUrgency} from '../domain/urgency.js';
 import * as Research from '../domain/research.js';
 import {termHtml} from './research-term.js';
+import {initAdmin, renderAdmin} from './admin.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
 import {validateNewTransaction} from '../domain/validate.js';
+import {authMessage} from '../data/supabase.js';
 import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, lockRemaining, registerFail, clearFails} from '../data/auth.js';
 import {saveSession, loadSession, clearSession, newSession, getPrefs, setPref, setPrefsOwner, prefsKey} from '../data/session.js';
 import {qs, qsa, escapeHtml, csvCell, optionsHtml, labelOf, icon, resolveVar, saveFile, toast} from './dom.js';
@@ -203,7 +205,9 @@ var State = {
   commitTab: 'dividas',
   sumOpen: {},          // cartões do Início com os detalhes abertos (+)
   dashDetails: false,   // "Ver todos os detalhes do mês" aberto
-  research: null,       // consentimento da pesquisa {consent, version, at, ageRange, uf}  // parte aberta de Compromissos: 'dividas' (Eu devo) ou 'receber' (Me devem)
+  research: null,       // consentimento da pesquisa {consent, version, at, ageRange, uf}
+  isAdmin: false,       // papel admin confirmado pelo banco (is_admin)
+  content: [],          // dicas da aba Aprenda editadas no painel (vazio = dicas padrão)  // parte aberta de Compromissos: 'dividas' (Eu devo) ou 'receber' (Me devem)
   persisted: null,      // o navegador aceitou não apagar os dados sozinho (navigator.storage.persist)
   authTab: 'login'
 };
@@ -269,9 +273,12 @@ function renderTopbar(){
 
 async function loadAllData(){
   var key = k();
-  var res = await Promise.all(COLLECTIONS.map(function(c){ return Store.list(key, c); }));
   var byName = {};
-  COLLECTIONS.forEach(function(c, i){ byName[c] = res[i]; });
+  if (Store.listAll) byName = await Store.listAll();
+  else {
+    var res = await Promise.all(COLLECTIONS.map(function(c){ return Store.list(key, c); }));
+    COLLECTIONS.forEach(function(c, i){ byName[c] = res[i]; });
+  }
   State.transactions = byName.transactions;
   sortTransactions();
   State.budgetBase = {}; State.budgetMonths = {};
@@ -1915,9 +1922,12 @@ function renderLearn(){
       return '<div class="tip-card"><span class="tip-tag">'+escapeHtml(t.tag)+'</span><h4>'+escapeHtml(t.title)+'</h4><p>'+escapeHtml(t.text)+'</p></div>';
     }).join('') + '</div>';
   }
+  // Dicas editadas no painel de administração substituem as padrão.
+  var edited = State.content || [];
+  function of(kind, fallback){ var l = edited.filter(function(c){ return c.kind === kind; }).map(function(c){ return c.data; }); return edited.length ? l : fallback; }
   document.getElementById('learnWrap').innerHTML =
-    '<section class="learn-section"><h3>Organizar o dinheiro</h3>' + tipCards(TIPS) + '</section>' +
-    '<section class="learn-section"><h3>Fazer o dinheiro render</h3>' + tipCards(TIPS_GROW) +
+    '<section class="learn-section"><h3>Organizar o dinheiro</h3>' + tipCards(of('tip', TIPS)) + '</section>' +
+    '<section class="learn-section"><h3>Fazer o dinheiro render</h3>' + tipCards(of('tip_grow', TIPS_GROW)) +
       '<p class="disclaimer" style="margin-top:10px">Conteúdo educativo. Não é recomendação de investimento. Valores e taxas são exemplos e mudam com o tempo.</p></section>' +
     '<section class="learn-section card"><h3>Como usar o Grana Leve</h3><ol class="howto-list">' +
       HOW_TO.map(function(h){ return '<li><strong>' + escapeHtml(h[0]) + '</strong> ' + escapeHtml(h[1]) + '</li>'; }).join('') +
@@ -2048,6 +2058,7 @@ async function openQuickEntry(welcome){
   }
   function handle(text){
     say('me', escapeHtml(text));
+    track('usou:chat');
     var r = parseMessage(text);
     if (r.nothing){
       if (pending().length){ say('bot', 'Tudo bem. Ainda faltam os itens acima: salve ou descarte antes de sair.'); return; }
@@ -2078,6 +2089,7 @@ async function openQuickEntry(welcome){
     var saved = [];
     for (var j = 0; j < built.length; j++){ var list = await saveTransactions(expandInstallments(built[j].tx, built[j].n)); saved.push(list[0]); }
     p.state = 'saved';
+    track('salvou:chat');
     renderAll();
     el.innerHTML = 'Anotei:<ul class="chat-list">' + saved.map(function(t){ return '<li data-chat-tx="' + escapeHtml(t.id) + '">' + describeSaved(t) + '</li>'; }).join('') + '</ul>' +
       '<span class="chat-hint">Mais alguma coisa? Quando terminar, é só fechar.</span>';
@@ -2151,6 +2163,11 @@ async function openQuickEntry(welcome){
         var d = previews[pid].drafts[Number(row.getAttribute('data-draft'))];
         d[f] = e.target.value;
         var recKey = {category:'category', date:'date', pay:'payment', type:'type'}[f];
+        // Estudo: o que a pessoa corrigiu no que o leitor entendeu (só o nome do campo).
+        if (e.type === 'change' && !d['tracked_' + f]){
+          d['tracked_' + f] = true;
+          track('corrigiu:chat', {type:'type', amount:'amount', category:'category', date:'date', pay:'payment', desc:'description'}[f]);
+        }
         if (recKey && e.type === 'change'){ d.recognized[recKey] = true; e.target.classList.remove('needs-review'); var flagEl = row.querySelector('label[for="' + e.target.id + '"] .review-flag'); if (flagEl) flagEl.remove(); }
         if (e.type === 'change' && (f === 'type' || f === 'pay')){
           if (f === 'type'){ d.category = Cats.FALLBACK_CATEGORY[d.type]; d.recognized.category = false; }
@@ -2237,8 +2254,8 @@ function renderAll(){
 
 /* ============ Tabs / navigation ============ */
 // Áreas do app e o endereço de cada uma (#/metas). O endereço permite usar o botão Voltar do navegador.
-var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes'];
-var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes'};
+var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','admin'];
+var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', admin:'admin'};
 // "Dívidas" e "A receber" agora são as duas partes de Compromissos.
 var SUBTABS = {dividas: 'eu-devo', receber: 'me-devem'};
 
@@ -2264,7 +2281,7 @@ function showSubTab(sub){
 function showTab(name){
   var sub = name in SUBTABS ? name : null;
   if (sub) name = 'compromissos';
-  if (TABS.indexOf(name) < 0) name = 'dashboard';
+  if (TABS.indexOf(name) < 0 || (name === 'admin' && !State.isAdmin)) name = 'dashboard';
   if (name === 'compromissos') showSubTab(sub || State.commitTab || 'dividas');
   var changed = State.activeTab !== name;
   State.activeTab = name;
@@ -2282,13 +2299,15 @@ function showTab(name){
   if (location.hash !== route){
     if (State.navReady) history.pushState(null, '', route); else history.replaceState(null, '', route);
   }
+  if (changed && name !== 'admin') track('abriu:' + ROUTES[name], null, 30 * 60000);
+  if (name === 'admin') renderAdmin();
   if (changed) window.scrollTo(0, 0);
 }
 
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 async function openMoreMenu(){
   var items = [['cartoes','wallet','Contas e cartões'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
-    ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões']];
+    ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
   await openModal({
     title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',
     body: '<nav class="more-menu" aria-label="Outras áreas">' + items.map(function(it){
@@ -2317,6 +2336,7 @@ function showAuthTab(name){
   document.getElementById('loginError').textContent = '';
   document.getElementById('signupError').textContent = '';
   qsa('[data-local-only]').forEach(function(el){ el.hidden = Store.mode !== 'local'; });
+  qsa('[data-online-only]').forEach(function(el){ el.hidden = Store.mode !== 'supabase'; });
 }
 
 async function enterApp(){
@@ -2326,6 +2346,9 @@ async function enterApp(){
   await loadAllData();
   var profile = await Store.getUser(k());
   State.research = (profile && profile.research) || null;
+  State.isAdmin = Store.isAdmin ? await Store.isAdmin() : false;
+  State.content = Store.listContent ? await Store.listContent().catch(function(){ return []; }) : [];
+  document.getElementById('navAdmin').hidden = !State.isAdmin;
   Store.persist().then(function(v){ State.persisted = v; });
   document.getElementById('txDate').value = todayKey();
   document.getElementById('fcDate').value = todayKey();
@@ -2337,12 +2360,15 @@ async function enterApp(){
   State.navReady = false;
   showTab(tabFromHash() || 'dashboard');
   State.navReady = true;
-  maybeWelcome();
+  if (!(await offerLocalImport())) maybeWelcome();
 }
 
 function logout(){
+  if (Store.mode === 'supabase' && State.session) Store.signOut();
   clearSession();
   State.session = null;
+  State.isAdmin = false;
+  document.getElementById('navAdmin').hidden = true;
   setPrefsOwner(null);
   showView('viewLanding');
   renderTopbar();
@@ -2397,6 +2423,92 @@ function renderBackupBanner(){
       '<button class="btn btn-ghost btn-sm" type="button" data-backup-snooze>Lembrar em 7 dias</button></div>';
 }
 
+/* ---------- Conta no servidor (Supabase) ---------- */
+function siteUrl(){ return location.origin + location.pathname; }
+// Depois do link do e-mail (?code=...), limpa o endereço para não ficar com o código à mostra.
+function cleanAuthParams(){
+  if (/[?&](code|error|error_description)=/.test(location.search)) history.replaceState(null, '', siteUrl() + location.hash);
+}
+async function startOnlineSession(user){
+  var profile = await Store.getUser(user.id).catch(function(){ return null; });
+  if (profile && profile.blocked){
+    await Store.signOut();
+    toast('Esta conta está bloqueada. Fale com a equipe do Grana Leve.');
+    showView('viewLanding'); renderTopbar();
+    return;
+  }
+  State.session = {emailKey: user.id, name: (profile && profile.name) || (user.user_metadata && user.user_metadata.name) || user.email.split('@')[0], email: user.email};
+  await enterApp();
+}
+async function forgotPassword(){
+  var r = await openModal({
+    title: 'Criar nova senha',
+    body: '<p>Informe o e-mail da conta. Se ele estiver cadastrado, enviamos um link para criar uma senha nova.</p>' +
+      '<div class="field"><label for="fpEmail">E-mail</label><input id="fpEmail" name="email" type="email" autocomplete="username" maxlength="120" value="' + escapeHtml(document.getElementById('loginEmail').value) + '"></div>',
+    submitLabel: 'Enviar link',
+    onSubmit: async function(form){
+      var email = form.email.value.trim();
+      if (!validEmail(email)) return {error: 'Informe um e-mail válido.'};
+      try { await Store.resetPassword(email, siteUrl()); } catch(err){ return {error: authMessage(err.cause || err)}; }
+      return true;
+    }
+  });
+  if (r) toast('Se houver uma conta com esse e-mail, o link chega em alguns minutos.');
+}
+async function newPasswordModal(){
+  await openModal({
+    title: 'Escolha a nova senha',
+    body: '<div class="field"><label for="npPass">Nova senha</label><input id="npPass" name="pass" type="password" autocomplete="new-password" minlength="6" maxlength="128">' +
+      '<span class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.</span></div>' +
+      '<div class="field"><label for="npPass2">Repita a nova senha</label><input id="npPass2" name="pass2" type="password" autocomplete="new-password" maxlength="128"></div>',
+    submitLabel: 'Salvar nova senha',
+    onSubmit: async function(form){
+      var problem = passwordProblem(form.pass.value);
+      if (problem) return {error: problem};
+      if (form.pass.value !== form.pass2.value) return {error: 'As duas senhas não são iguais.'};
+      try { await Store.updatePassword(form.pass.value); } catch(err){ return {error: authMessage(err.cause || err)}; }
+      return true;
+    }
+  });
+  toast('Senha atualizada.');
+}
+// Primeira entrada online: se este navegador tem dados da versão local com o mesmo e-mail,
+// oferece levar para a conta (só quando a conta ainda está vazia). Retorna true se mostrou a oferta.
+async function offerLocalImport(){
+  if (Store.mode !== 'supabase' || getPrefs().localImportDone) return false;
+  var local;
+  try { local = JSON.parse(localStorage.getItem('granaleve_local_db_v1') || 'null'); } catch(e){ return false; }
+  var u = local && local.users && local.users[sanitizeEmailKey(State.session.email)];
+  if (!u) return false;
+  var data = {};
+  COLLECTIONS.forEach(function(c){ data[c] = Array.isArray(u[c]) ? u[c] : []; });
+  if (u.budgets && !Array.isArray(u.budgets)) data.budgets = u.budgets;
+  var count = COLLECTIONS.reduce(function(n, c){ return n + (Array.isArray(data[c]) ? data[c].length : 0); }, 0);
+  if (!count || !(await Store.isEmpty())) return false;
+  var ok = await confirmAction({title: 'Trazer os dados deste navegador?',
+    message: 'Encontramos ' + data.transactions.length + ' lançamentos e outros ' + (count - data.transactions.length) + ' registros da versão anterior, salvos neste navegador com o seu e-mail. Quer levar tudo para a sua conta? Assim eles aparecem em qualquer aparelho.',
+    confirmLabel: 'Trazer para a conta', danger: false});
+  setPref('localImportDone', true);
+  if (!ok) return true;
+  var r = readBackup({app: 'grana-leve', schemaVersion: u.schemaVersion || 1, data: data});
+  if (r.error){ toast('Não foi possível trazer os dados: ' + r.error); return true; }
+  try { await Store.replaceAll(k(), r.data); } catch(e){ toast('Não foi possível trazer os dados agora. Tente pelo backup.'); return true; }
+  await loadAllData();
+  renderAll();
+  toast('Pronto! Seus dados agora estão na sua conta.');
+  return true;
+}
+
+/* ---------- Estudo: registro de uso (só de quem aceitou o termo, e só no servidor) ---------- */
+var trackedAt = {};
+function track(event, field, minIntervalMs){
+  if (!Store.track || !Research.isParticipating(State.research)) return;
+  var key = event + ':' + (field || '');
+  if (minIntervalMs && trackedAt[key] && Date.now() - trackedAt[key] < minIntervalMs) return;
+  trackedAt[key] = Date.now();
+  Store.track(event, field);
+}
+
 /* ---------- Pesquisa acadêmica: participar ou sair ---------- */
 function researchStatusHtml(){
   var r = State.research;
@@ -2408,7 +2520,7 @@ async function researchModal(){
   var on = Research.isParticipating(State.research);
   var r = await openModal({
     title: on ? 'Sair do estudo?' : 'Participar do estudo', wide: true,
-    body: termHtml() + (on ? '<p><strong>Ao sair</strong>, nada mais é registrado para o estudo e os dados ligados ao seu código são apagados.</p>' :
+    body: termHtml(Store.mode === 'supabase') + (on ? '<p><strong>Ao sair</strong>, nada mais é registrado para o estudo e os dados ligados ao seu código são apagados.</p>' :
       '<label class="check"><input type="checkbox" name="accept"> Tenho 18 anos ou mais e aceito participar do estudo</label>' +
       '<div class="research-profile">' +
         '<div class="field"><label for="rmAge">Faixa etária (opcional)</label><select id="rmAge" name="age">' + optionsHtml(Research.AGE_RANGES, '') + '</select></div>' +
@@ -2422,8 +2534,13 @@ async function researchModal(){
     }
   });
   if (!r) return;
-  State.research = Research.consentRecord(r.accept, r.age, r.uf);
-  await Store.updateUser(k(), {research: State.research});
+  try {
+    if (Store.mode === 'supabase') State.research = r.accept ? await Store.studyJoin(Research.TERM_VERSION, r.age, r.uf) : await Store.studyWithdraw();
+    else {
+      State.research = Research.consentRecord(r.accept, r.age, r.uf);
+      await Store.updateUser(k(), {research: State.research});
+    }
+  } catch(err){ toast('Não foi possível registrar sua escolha agora. Tente de novo.'); return; }
   toast(r.accept ? 'Obrigado! Sua participação no estudo foi registrada.' : 'Você saiu do estudo.');
 }
 function ufOptions(){ return [{id: '', label: 'Prefiro não dizer'}].concat(Research.UFS.map(function(u){ return {id: u, label: u}; })); }
@@ -2487,7 +2604,7 @@ async function dataModal(){
 async function showInfo(id){
   if (id === 'backup'){ dataModal(); return; }
   if (id === 'pesquisa'){
-    await openModal({title: 'Termo de consentimento da pesquisa', wide: true, body: termHtml(), submitLabel: null, cancelLabel: 'Fechar'});
+    await openModal({title: 'Termo de consentimento da pesquisa', wide: true, body: termHtml(Store.mode === 'supabase'), submitLabel: null, cancelLabel: 'Fechar'});
     return;
   }
   var page = INFO_PAGES[id];
@@ -2500,10 +2617,14 @@ async function showInfo(id){
     submitLabel: canDelete ? 'Apagar minha conta e dados' : null, danger: true, cancelLabel: 'Fechar'
   });
   if (r && canDelete){
-    var ok = await confirmAction({title:'Apagar conta?', message:'Todos os seus lançamentos, cartões, metas, dívidas e valores a receber serão apagados deste navegador. Isso não pode ser desfeito.', confirmLabel:'Apagar tudo'});
+    var ok = await confirmAction({title:'Apagar conta?', message: Store.mode === 'supabase' ?
+      'Sua conta, todos os seus lançamentos, cartões, metas, dívidas, valores a receber e a participação no estudo serão apagados do servidor. Isso não pode ser desfeito.' :
+      'Todos os seus lançamentos, cartões, metas, dívidas e valores a receber serão apagados deste navegador. Isso não pode ser desfeito.', confirmLabel:'Apagar tudo'});
     if (!ok) return;
-    await Store.deleteUser(k());
+    try { await Store.deleteUser(k()); }
+    catch(err){ toast('Não foi possível excluir a conta agora. Tente de novo.'); return; }
     try{ localStorage.removeItem(prefsKey()); } catch(e){}
+    State.session = State.session && Store.mode === 'supabase' ? null : State.session;
     logout();
     toast('Conta e dados apagados.');
   }
@@ -2757,6 +2878,14 @@ document.getElementById('txInstall').addEventListener('input', populateInstallSe
   document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
 });
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
+document.getElementById('forgotBtn').addEventListener('click', forgotPassword);
+initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn});
+// Qualquer falha de rede que escapar vira um aviso, em vez de travar a tela em silêncio.
+window.addEventListener('unhandledrejection', function(e){
+  if (Store.mode !== 'supabase') return;
+  e.preventDefault();
+  toast('Não foi possível falar com o servidor. Verifique a internet e tente de novo.');
+});
 // Previsões de entrada: ficam recolhidas no card de novo lançamento.
 function setForecastOpen(open){
   var btn = document.getElementById('forecastToggle');
@@ -2816,6 +2945,15 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   var password = document.getElementById('loginPassword').value;
   var errEl = document.getElementById('loginError');
   errEl.textContent = '';
+  if (Store.mode === 'supabase'){
+    try{
+      var res = await Store.signIn(email, password);
+      document.getElementById('loginPassword').value = '';
+      await startOnlineSession(res.user);
+      toast('Bem-vindo de volta, ' + State.session.name.split(' ')[0] + '!');
+    } catch(err){ errEl.textContent = authMessage(err.cause || err); }
+    return;
+  }
   var emailKey = sanitizeEmailKey(email);
   var wait = lockRemaining(emailKey);
   if (wait){ errEl.textContent = 'Muitas tentativas. Aguarde ' + wait + ' segundos e tente de novo.'; return; }
@@ -2846,11 +2984,26 @@ document.getElementById('signupForm').addEventListener('submit', async function(
   var pwErr = passwordProblem(password);
   if (pwErr){ errEl.textContent = pwErr; return; }
   if (Store.mode === 'local' && !document.getElementById('signupStorageOk').checked){ errEl.textContent = 'Confirme que entendeu onde seus dados ficam.'; return; }
+  var research = Research.consentRecord(document.getElementById('signupResearch').checked, document.getElementById('signupAge').value, document.getElementById('signupUf').value);
+  if (Store.mode === 'supabase'){
+    try{
+      var res = await Store.signUp(email, password, {name: name, research: research}, siteUrl());
+      document.getElementById('signupPassword').value = '';
+      if (res.session){ await startOnlineSession(res.user); toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.'); return; }
+      // Com confirmação por e-mail ligada, a conta só entra depois do link.
+      await openModal({title: 'Confirme seu e-mail', submitLabel: null, cancelLabel: 'Entendi',
+        body: '<p>Enviamos um link de confirmação para <strong>' + escapeHtml(email) + '</strong>. Abra o e-mail e toque no link para ativar a conta; depois é só entrar.</p>' +
+          '<p class="field-hint">Não chegou? Confira a caixa de spam. O envio pode levar alguns minutos.</p>'});
+      showAuthTab('login');
+      document.getElementById('loginEmail').value = email;
+    } catch(err){ errEl.textContent = authMessage(err.cause || err); }
+    return;
+  }
   var emailKey = sanitizeEmailKey(email);
   try{
     if (await Store.getUser(emailKey)){ errEl.textContent = 'Já existe uma conta com esse e-mail. Tente entrar.'; return; }
     var profile = Object.assign({name: name, email: email, createdAt: Date.now(),
-      research: Research.consentRecord(document.getElementById('signupResearch').checked, document.getElementById('signupAge').value, document.getElementById('signupUf').value)},
+      research: research},
       await makePasswordRecord(password));
     await Store.createUser(emailKey, profile);
     State.session = newSession(emailKey, profile);
@@ -3077,6 +3230,20 @@ async function boot(){
       submitLabel: 'Tentar de novo', cancelLabel: 'Continuar só neste navegador'
     });
     if (retry){ location.reload(); return; }
+  }
+  if (Store.mode === 'supabase'){
+    Store.onAuthChange(function(event){
+      if (event === 'PASSWORD_RECOVERY') setTimeout(newPasswordModal, 0);
+      if (event === 'SIGNED_OUT' && State.session){ State.session = null; logout(); }
+    });
+    try {
+      var current = await Store.getSession();
+      cleanAuthParams();
+      if (current){ await startOnlineSession(current.user); return; }
+    } catch(e){ toast('Sem conexão com o servidor. Verifique a internet.'); }
+    renderTopbar();
+    showView('viewLanding');
+    return;
   }
   var session = loadSession();
   if (session){

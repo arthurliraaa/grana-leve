@@ -80,8 +80,10 @@ direto do disco não funciona).
 
 ## Publicar
 
-O site é publicado no **Vercel** (Fase 1). A Fase 2 traz o **Supabase** (login, sincronização,
-estudo e painel de administração). O passo a passo está em [`docs/publicar.md`](docs/publicar.md).
+O site é publicado no **Vercel**. Com o **Supabase** configurado em `js/config.js`, o app usa
+conta de verdade (login, confirmação por e-mail e recuperação de senha), sincroniza os dados
+entre aparelhos, envia o estudo de quem aceitou o termo e libera o **painel de
+administração** para quem tem o papel admin no banco. O passo a passo está em [`docs/publicar.md`](docs/publicar.md).
 
 ## Testes e verificação
 

@@ -33,7 +33,7 @@ export async function launch(){
 export async function signup(page, opts = {}){
   const email = opts.email || ('t' + Date.now() + Math.random().toString(36).slice(2, 6) + '@teste.com');
   await page.goto(BASE, {waitUntil: 'domcontentloaded'});
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('granaleve_backend', 'local'); });
   if (!opts.welcome) await page.evaluate((key) => localStorage.setItem('granaleve_prefs_' + key, JSON.stringify({quickEntryOff: true})), email.toLowerCase());
   await page.goto(BASE, {waitUntil: 'domcontentloaded'});
   await page.waitForSelector('[data-action="go-signup"]');

@@ -133,3 +133,19 @@ select t.ok(t.fails($$select public.admin_delete_account(auth.uid())$$), 'admin 
 reset role;
 select t.ok((select count(*) from public.user_data where user_id = 'bbbbbbbb-0000-0000-0000-000000000002') = 0, 'dados da conta excluída foram apagados');
 select t.ok((select count(*) from public.user_data where id = 't1') = 1, 'lançamento da Ana continua intacto (Bruno não conseguiu apagar)');
+
+select t.section('Excluir a própria conta');
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('dddddddd-0000-0000-0000-000000000004', 'd@teste.com', '{"name":"Davi","research":{"consent":true,"version":"2"}}');
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'dddddddd-0000-0000-0000-000000000004', false);
+insert into public.user_data (collection, id, doc) values ('transactions', 'd1', '{}');
+insert into public.study_events (code, event) values (public.my_study_code(), 'usou:chat');
+select public.delete_my_account();
+reset role;
+select t.ok(not exists (select 1 from auth.users where id = 'dddddddd-0000-0000-0000-000000000004'), 'a conta some');
+select t.ok(not exists (select 1 from public.user_data where user_id = 'dddddddd-0000-0000-0000-000000000004'), 'os dados somem junto');
+select t.ok((select count(*) from public.study_events e where not exists (select 1 from public.study_participants sp where sp.code = e.code)) = 0 and (select count(*) from public.study_participants) = 0, 'e o estudo dela também');
+set role anon;
+select t.ok(t.fails($$select public.delete_my_account()$$), 'visitante não chama a função');
+reset role;

@@ -8,7 +8,8 @@
  *   - perfil opcional: faixa etária e estado (UF).
  * Valores, descrições, nomes, e-mail e senha nunca entram.
  */
-export var TERM_VERSION = '1';
+// Versão 2: os dados do estudo passam a ir para o servidor (Fase 2). Quem aceitou a 1 é perguntado de novo.
+export var TERM_VERSION = '2';
 export var TERM_DATE = '2026-10-09';
 
 export var AGE_RANGES = [
