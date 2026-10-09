@@ -551,3 +551,18 @@ a.btn{ text-decoration:none; }
 .account-card{ align-content:start; }
 /* Com contas cadastradas o painel tem 7 quadros: no computador ficam em 4 + 3, sem um quadro sozinho. */
 @media (min-width: 861px){ .stat-tiles-auto.tiles-7{ grid-template-columns: repeat(4, minmax(0,1fr)); } }
+
+/* Onde ficam os dados */
+button.sync-badge{ font: inherit; font-size:.78rem; cursor:pointer; color: var(--text-secondary); }
+button.sync-badge:hover{ background: var(--brand-tint); }
+.storage-notice{ background: var(--accent-tint); border:1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius:10px; padding:12px 14px; font-size:.84rem; display:grid; gap:8px; }
+.storage-notice strong{ display:flex; align-items:center; gap:6px; }
+.storage-notice ul{ margin:0; padding-left:18px; color: var(--text-secondary); display:grid; gap:4px; }
+.storage-notice .ico{ width:16px; height:16px; }
+.storage-notice .check{ font-weight:600; color: var(--text-primary); }
+.storage-status{ display:flex; gap:10px; align-items:flex-start; background: var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px 14px; font-size:.88rem; }
+.storage-status > .ico{ color: var(--brand); margin-top:2px; }
+.storage-status ul{ margin:6px 0 0; padding-left:18px; color: var(--text-secondary); display:grid; gap:4px; }
+.backup-banner{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; background: var(--accent-tint); border:1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius:12px; padding:12px 16px; font-size:.88rem; }
+.backup-banner > .ico{ color: var(--warning); }
+.backup-banner-text{ flex:1 1 280px; }

@@ -20,6 +20,8 @@ import * as Fc from '../domain/forecasts.js';
 import {recvInstallInfo, recvNextDue} from '../domain/receivables.js';
 import {parse as parseMessage} from '../domain/parser.js';
 import {Store, COLLECTIONS} from '../data/store.js';
+import {buildBackup, readBackup} from '../data/backup.js';
+import {validateNewTransaction} from '../domain/validate.js';
 import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, lockRemaining, registerFail, clearFails} from '../data/auth.js';
 import {saveSession, loadSession, clearSession, newSession, getPrefs, setPref, setPrefsOwner, prefsKey} from '../data/session.js';
 import {qs, qsa, escapeHtml, csvCell, optionsHtml, labelOf, icon, resolveVar, saveFile, toast} from './dom.js';
@@ -77,7 +79,7 @@ var HOW_TO = [
   ['Botão +', 'fica sempre no canto da tela e abre o formulário para lançar um gasto ou ganho. Para corrigir um lançamento, toque no lápis ao lado dele.'],
   ['Chat de lançamento', 'aparece ao entrar, uma vez por dia, e também pelo link “Lance pelo chat” no botão +. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”.'],
   ['Conexões', 'mostra as integrações: app no celular e Google Agenda (já disponíveis), WhatsApp e Open Finance (em preparação).'],
-  ['Backup dos dados', 'fica no rodapé. Salve um arquivo de backup de vez em quando: seus dados ficam só neste navegador.']
+  ['Seus dados e backup', 'abre pelo indicador “Só neste navegador”, no topo, ou pelo rodapé. Mostra onde os dados ficam e quando foi o último backup. Salve um backup de vez em quando: seus dados existem só neste navegador.']
 ];
 var OPEN_FINANCE_BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Mercado Pago','PicPay'];
 var INFO_PAGES = {
@@ -86,7 +88,12 @@ var INFO_PAGES = {
     '<p>As funcionalidades foram definidas a partir de uma pesquisa anônima com 48 pessoas sobre hábitos financeiros, relacionada aos Objetivos de Desenvolvimento Sustentável 1 (erradicação da pobreza), 8 (trabalho decente e crescimento econômico) e 10 (redução das desigualdades).</p>'},
   'privacidade': {title:'Privacidade', body:
     '<p>Nesta versão, seus dados ficam salvos <strong>somente neste navegador</strong>, no seu aparelho. Nada é enviado para servidores do Grana Leve.</p>' +
-    '<ul><li>Sua senha é guardada de forma embaralhada (hash PBKDF2 com sal), nunca em texto puro.</li><li>Não usamos cookies de rastreamento nem anúncios.</li><li>Se você limpar os dados do navegador, as informações são apagadas.</li><li>Você pode apagar sua conta e todos os seus dados a qualquer momento pelo botão abaixo (quando estiver conectado).</li></ul>'},
+    '<ul><li><strong>Não há sincronização:</strong> a conta só existe neste navegador. Em outro aparelho, é outra conta, vazia.</li>' +
+    '<li><strong>Não há recuperação de senha:</strong> como não existe servidor, ninguém consegue redefinir a senha.</li>' +
+    '<li>Se você limpar os dados do navegador, as informações são apagadas. Guarde um backup em “Seus dados e backup”.</li>' +
+    '<li>A senha é guardada embaralhada (hash PBKDF2 com sal), nunca em texto puro. Isso protege a senha, mas os lançamentos ficam legíveis para quem usa este aparelho.</li>' +
+    '<li>Não usamos cookies de rastreamento nem anúncios.</li>' +
+    '<li>Você pode apagar sua conta e todos os seus dados a qualquer momento pelo botão abaixo (quando estiver conectado).</li></ul>'},
   'termos': {title:'Termos de uso', body:
     '<p>O Grana Leve é um projeto acadêmico oferecido gratuitamente, “como está”. Ele ajuda a organizar suas finanças, mas não substitui orientação profissional.</p>' +
     '<ul><li>Os conteúdos da aba Aprenda são educativos e não são recomendação de investimento.</li><li>Você é responsável pelas informações que registra.</li><li>Como os dados ficam no seu navegador, recomendamos exportar seus lançamentos em CSV de tempos em tempos.</li></ul>'},
@@ -165,6 +172,7 @@ var State = {
   barView: 'chart',
   barMonths: 6,
   activeTab: 'dashboard',
+  persisted: null,      // o navegador aceitou não apagar os dados sozinho (navigator.storage.persist)
   authTab: 'login'
 };
 
@@ -211,13 +219,15 @@ function renderTopbar(){
   var wrap = document.getElementById('topbarActions');
   if (State.session){
     var cloud = Store.mode === 'cloud';
+    var where = cloud ? 'Dados salvos na nuvem do app.' : 'Dados salvos só neste navegador.';
     wrap.innerHTML =
-      '<span class="sync-badge" title="' + (cloud ? 'Seus dados estão salvos na nuvem.' : 'Os dados ficam salvos apenas neste navegador.') + '">' +
-        '<span class="sync-dot ' + (cloud ? 'cloud' : 'local') + '"></span><span class="sync-text">' + (cloud ? 'Sincronizado' : 'Salvo neste navegador') + '</span>' +
-      '</span>' +
+      '<button type="button" class="sync-badge" id="storageBtn" title="' + where + ' Toque para ver detalhes e backup." aria-label="' + where + ' Ver detalhes e backup">' +
+        '<span class="sync-dot ' + (cloud ? 'cloud' : 'local') + '" aria-hidden="true"></span><span class="sync-text">' + (cloud ? 'Na nuvem' : 'Só neste navegador') + '</span>' +
+      '</button>' +
       '<span class="user-chip">Olá, <strong>' + escapeHtml(State.session.name.split(' ')[0]) + '</strong></span>' +
       '<button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Sair</button>';
     qs('#logoutBtn').addEventListener('click', logout);
+    qs('#storageBtn').addEventListener('click', dataModal);
   } else {
     wrap.innerHTML =
       '<button class="btn btn-ghost btn-sm" data-action="go-login">Entrar</button>' +
@@ -357,6 +367,7 @@ function renderComparison(){
 function renderDashboard(){
   var cur = monthBounds(0);
   document.getElementById('monthLabel').textContent = 'Painel de ' + cur.label;
+  renderBackupBanner();
   renderStatTiles();
   renderForecasts();
   renderDonut(txForMonth(cur.key));
@@ -1673,6 +1684,7 @@ async function importTransactions(items, source){
     var it = items[i];
     var tx = {type: it.type, amount: money(it.amount), category: it.category, categoryLabel: catLabel(it.category, it.type),
       date: it.date || todayKey(), description: it.description || '', paymentMethod: null, source: source, createdAt: Date.now() + i};
+    if (validateNewTransaction(Object.assign({}, tx, {paymentMethod: it.type === 'expense' ? (it.paymentMethod || 'conta') : null}))) continue;
     if (it.type === 'expense'){
       tx.paymentMethod = it.paymentMethod || 'conta';
       if (tx.paymentMethod === 'cartao'){
@@ -1850,12 +1862,15 @@ function showAuthTab(name){
   document.getElementById('authFoot').textContent = name === 'login' ? 'Ainda não tem conta? Clique em “Criar conta” acima.' : 'Já é cadastrado? Clique em “Entrar” acima.';
   document.getElementById('loginError').textContent = '';
   document.getElementById('signupError').textContent = '';
+  qsa('[data-local-only]').forEach(function(el){ el.hidden = Store.mode !== 'local'; });
 }
 
 async function enterApp(){
   setPrefsOwner(k());
   showView('viewApp');
+  await Store.migrate(k());
   await loadAllData();
+  Store.persist().then(function(v){ State.persisted = v; });
   document.getElementById('txDate').value = todayKey();
   document.getElementById('fcDate').value = todayKey();
   populateCategorySelect();
@@ -1874,52 +1889,81 @@ function logout(){
   renderTopbar();
 }
 
-function backupData(){
-  var data = {};
-  COLLECTIONS.forEach(function(c){ data[c] = []; });
-  data.transactions = State.transactions; data.goals = State.goals; data.debts = State.debts; data.cards = State.cards;
-  data.receivables = State.receivables; data.forecasts = State.forecasts; data.categories = State.categories; data.vouchers = State.vouchers;
-  data.accounts = State.accounts; data.transfers = State.transfers;
-  data.budgets = Object.keys(State.budgetBase).map(function(id){ return {id:id, limit: State.budgetBase[id]}; })
-    .concat(Object.keys(State.budgetMonths).map(function(m){ return {id:'plan-' + m, month:m, limits: State.budgetMonths[m]}; }));
-  return {app:'grana-leve', version:1, exportedAt: new Date().toISOString(), profile:{name: State.session.name, email: State.session.email}, data: data};
+function backupCounts(){
+  var n = function(list, one, many){ return list.length + ' ' + (list.length === 1 ? one : many); };
+  return [n(State.transactions, 'lançamento', 'lançamentos'), n(State.accounts, 'conta', 'contas'), n(State.cards, 'cartão', 'cartões'),
+    n(State.goals, 'meta', 'metas'), n(State.debts, 'dívida', 'dívidas')].join(', ');
 }
-// Valida o arquivo antes de gravar: só aceita as coleções conhecidas, com objetos que tenham id.
-function validateBackup(obj){
-  if (!obj || obj.app !== 'grana-leve' || typeof obj.data !== 'object' || !obj.data) return 'Este arquivo não é um backup do Grana Leve.';
-  for (var i=0;i<COLLECTIONS.length;i++){
-    var list = obj.data[COLLECTIONS[i]];
-    if (list === undefined){ obj.data[COLLECTIONS[i]] = []; continue; }
-    if (!Array.isArray(list)) return 'O backup está corrompido (' + COLLECTIONS[i] + ').';
-    for (var j=0;j<list.length;j++){
-      var it = list[j];
-      if (!it || typeof it !== 'object' || Array.isArray(it) || typeof it.id !== 'string' || !it.id) return 'O backup está corrompido (' + COLLECTIONS[i] + ').';
-      if (it.amount !== undefined && !isFinite(Number(it.amount))) return 'O backup tem valores inválidos.';
-    }
-  }
-  return '';
+function backupFile(){
+  var data = {
+    transactions: State.transactions, goals: State.goals, debts: State.debts, cards: State.cards, receivables: State.receivables,
+    forecasts: State.forecasts, categories: State.categories, vouchers: State.vouchers, accounts: State.accounts, transfers: State.transfers,
+    budgets: Object.keys(State.budgetBase).map(function(id){ return {id:id, limit: State.budgetBase[id]}; })
+      .concat(Object.keys(State.budgetMonths).map(function(m){ return {id:'plan-' + m, month:m, limits: State.budgetMonths[m]}; }))
+  };
+  return buildBackup(data, getPrefs(), {name: State.session.name, email: State.session.email});
 }
-async function backupModal(){
+async function exportBackup(){
+  await saveFile('grana-leve-backup-' + todayKey() + '.json', JSON.stringify(backupFile(), null, 2), 'application/json');
+  setPref('lastBackup', Date.now());
+  setPref('backupSnoozeUntil', null);
+  renderBackupBanner();
+  toast('Backup salvo. Guarde o arquivo fora deste aparelho (no Google Drive, por exemplo).');
+}
+function daysAgoText(ts){
+  var d = Math.floor((Date.now() - ts) / 86400000);
+  return d <= 0 ? 'hoje' : d === 1 ? 'ontem' : 'há ' + d + ' dias';
+}
+
+// Lembrete no painel: só no armazenamento do navegador, com dados de verdade e sem backup há 30 dias.
+var BACKUP_EVERY_DAYS = 30;
+function backupDue(){
+  if (Store.mode !== 'local' || !State.session) return false;
+  var p = getPrefs(), now = Date.now();
+  if (p.backupSnoozeUntil && p.backupSnoozeUntil > now) return false;
+  var count = State.transactions.length + State.accounts.length + State.cards.length + State.goals.length + State.debts.length + State.receivables.length;
+  if (count < 5) return false;
+  return !p.lastBackup || now - p.lastBackup > BACKUP_EVERY_DAYS * 86400000;
+}
+function renderBackupBanner(){
+  var el = document.getElementById('backupBanner');
+  var due = backupDue();
+  el.hidden = !due;
+  if (!due){ el.innerHTML = ''; return; }
+  var last = getPrefs().lastBackup;
+  el.innerHTML = icon('lock') +
+    '<div class="backup-banner-text"><strong>' + (last ? 'Seu último backup foi ' + daysAgoText(last) + '.' : 'Você ainda não tem um backup.') + '</strong> ' +
+      'Seus dados existem só neste navegador: se ele for limpo, eles se perdem.</div>' +
+    '<div class="card-actions"><button class="btn btn-primary btn-sm" type="button" data-backup-now>Salvar backup agora</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-backup-snooze>Lembrar em 7 dias</button></div>';
+}
+
+async function dataModal(){
   if (!State.session){
-    await openModal({title:'Backup dos dados', body:'<p>Entre na sua conta para salvar ou restaurar um backup.</p>', submitLabel:null, cancelLabel:'Fechar'});
+    await openModal({title:'Seus dados e backup', body:'<p>Os dados do Grana Leve ficam salvos só no navegador em que a conta foi criada. Entre na sua conta para salvar ou restaurar um backup.</p>', submitLabel:null, cancelLabel:'Fechar'});
     return;
   }
-  var counts = State.transactions.length + ' lançamentos, ' + State.accounts.length + ' contas, ' + State.cards.length + ' cartões, ' + State.goals.length + ' metas, ' + State.debts.length + ' dívidas';
+  var local = Store.mode === 'local';
+  var last = getPrefs().lastBackup;
+  var persistText = State.persisted === true ? 'o navegador foi avisado para não apagar estes dados sozinho.' :
+    'o navegador pode apagar estes dados se faltar espaço no aparelho. Por isso o backup é importante.';
   await openModal({
-    title: 'Backup dos dados',
-    body: '<p>Seus dados ficam só neste navegador. Se você limpar o navegador ou trocar de aparelho, eles se perdem. Salve um backup de vez em quando e guarde o arquivo (no Google Drive, por exemplo).</p>' +
-      '<div class="tip-box"><strong>Agora você tem:</strong> ' + counts + '.</div>' +
+    title: 'Seus dados e backup',
+    body: '<div class="storage-status">' + icon('lock') + '<div><strong>' + (local ? 'Onde ficam: só neste navegador' : 'Onde ficam: na nuvem deste app') + '</strong>' +
+        (local ? '<ul><li>Não sincroniza com outros aparelhos e não tem recuperação de senha.</li><li>Proteção: ' + persistText + '</li>' +
+          '<li>Último backup: <strong>' + (last ? formatDateFull(toDateKey(new Date(last))) + ' (' + daysAgoText(last) + ')' : 'nunca') + '</strong></li></ul>' :
+          '<p>Seus dados ficam salvos no armazenamento do app e aparecem onde você abrir este app.</p>') +
+      '</div></div>' +
+      '<div class="tip-box"><strong>Agora você tem:</strong> ' + backupCounts() + '.</div>' +
+      '<p>O backup é um arquivo com todos os seus dados e preferências. Guarde fora deste aparelho (no Google Drive, por exemplo).</p>' +
       '<div class="pdf-actions"><button type="button" class="btn btn-primary btn-sm" data-backup="export">Salvar backup</button></div>' +
       '<h4>Restaurar um backup</h4>' +
       '<p>Escolha um arquivo salvo antes. Ele <strong>substitui</strong> os dados atuais desta conta. Sua senha não muda.</p>' +
       '<input type="file" id="backupFile" accept="application/json,.json" aria-label="Arquivo de backup">' +
-      '<p class="form-error" id="backupError"></p>',
+      '<p class="form-error" id="backupError" role="alert"></p>',
     submitLabel: null, cancelLabel: 'Fechar',
     onOpen: function(modal, close){
-      qs('[data-backup="export"]', modal).addEventListener('click', function(){
-        saveFile('grana-leve-backup-' + todayKey() + '.json', JSON.stringify(backupData(), null, 2), 'application/json')
-          .then(function(){ setPref('lastBackup', Date.now()); toast('Backup salvo.'); });
-      });
+      qs('[data-backup="export"]', modal).addEventListener('click', function(){ exportBackup().then(function(){ close(null); }); });
       qs('#backupFile', modal).addEventListener('change', function(e){
         var file = e.target.files[0];
         var err = qs('#backupError', modal);
@@ -1930,13 +1974,13 @@ async function backupModal(){
         reader.onload = async function(){
           var obj;
           try{ obj = JSON.parse(reader.result); } catch(ex){ err.textContent = 'Não foi possível ler o arquivo.'; return; }
-          var problem = validateBackup(obj);
-          if (problem){ err.textContent = problem; return; }
-          var n = obj.data.transactions.length;
+          var r = readBackup(obj);
+          if (r.error){ err.textContent = r.error; return; }
           close(null);
-          var ok = await confirmAction({title:'Restaurar backup?', message:'O backup de ' + (obj.exportedAt ? new Date(obj.exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida') + ' tem ' + n + ' lançamentos. Os dados atuais desta conta serão substituídos.', confirmLabel:'Restaurar'});
+          var ok = await confirmAction({title:'Restaurar backup?', message:'O backup de ' + (r.exportedAt ? new Date(r.exportedAt).toLocaleDateString('pt-BR') : 'data desconhecida') + ' tem ' + r.count + ' lançamentos. Os dados atuais desta conta serão substituídos.', confirmLabel:'Restaurar'});
           if (!ok) return;
-          await Store.replaceAll(k(), obj.data);
+          await Store.replaceAll(k(), r.data);
+          Object.keys(r.prefs).forEach(function(key){ if (key !== 'lastBackup') setPref(key, r.prefs[key]); });
           await loadAllData();
           renderAll();
           toast('Backup restaurado.');
@@ -1948,7 +1992,7 @@ async function backupModal(){
 }
 
 async function showInfo(id){
-  if (id === 'backup'){ backupModal(); return; }
+  if (id === 'backup'){ dataModal(); return; }
   var page = INFO_PAGES[id];
   if (id === 'como-usar'){
     page = {title:'Como usar o Grana Leve', body:'<ol class="howto-list">' + HOW_TO.map(function(h){ return '<li><strong>' + escapeHtml(h[0]) + '</strong> ' + escapeHtml(h[1]) + '</li>'; }).join('') + '</ol>'};
@@ -1990,6 +2034,13 @@ document.addEventListener('click', async function(e){
   if ((el = t.closest('[data-edit-tx]'))){
     var et = findById(State.transactions, el.getAttribute('data-edit-tx'));
     if (et) openTxModal(et);
+    return;
+  }
+  if (t.closest('[data-backup-now]')){ exportBackup(); return; }
+  if (t.closest('[data-backup-snooze]')){
+    setPref('backupSnoozeUntil', Date.now() + 7 * 86400000);
+    renderBackupBanner();
+    toast('Combinado, lembramos de novo em 7 dias.');
     return;
   }
   if ((el = t.closest('[data-del-tx]'))){
@@ -2247,6 +2298,7 @@ document.getElementById('signupForm').addEventListener('submit', async function(
   if (!validEmail(email)){ errEl.textContent = 'Informe um e-mail válido.'; return; }
   var pwErr = passwordProblem(password);
   if (pwErr){ errEl.textContent = pwErr; return; }
+  if (Store.mode === 'local' && !document.getElementById('signupStorageOk').checked){ errEl.textContent = 'Confirme que entendeu onde seus dados ficam.'; return; }
   var emailKey = sanitizeEmailKey(email);
   try{
     if (await Store.getUser(emailKey)){ errEl.textContent = 'Já existe uma conta com esse e-mail. Tente entrar.'; return; }
@@ -2453,6 +2505,15 @@ document.getElementById('pdfReportBtn').addEventListener('click', generateMonthl
 async function boot(){
   Store.onWriteError = function(){ toast('Não foi possível salvar: o armazenamento do navegador está cheio ou bloqueado.'); };
   await Store.init();
+  if (Store.cloudError){
+    var retry = await openModal({
+      title: 'Não foi possível acessar seus dados',
+      body: '<p>O Grana Leve não conseguiu conectar ao armazenamento na nuvem (' + escapeHtml(Store.cloudError) + '). Nada foi apagado.</p>' +
+        '<p>Se continuar, esta sessão usa <strong>só este navegador</strong>: o que você lançar agora não aparece nos seus dados da nuvem.</p>',
+      submitLabel: 'Tentar de novo', cancelLabel: 'Continuar só neste navegador'
+    });
+    if (retry){ location.reload(); return; }
+  }
   var session = loadSession();
   if (session){
     try{

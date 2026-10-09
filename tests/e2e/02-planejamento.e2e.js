@@ -10,6 +10,7 @@ L.run(async ({page}) => {
 
   L.section('Dados antigos: um valor para todos os meses');
   await L.patchDb(page, `
+    delete u.schemaVersion; // dados gravados antes do formato ter versão
     u.budgets = {alimentacao: 500, lazer: 200};
     u.transactions = [{id:'old1', type:'expense', amount:450, category:'alimentacao', date: arg + '-10', description:'Mercado mês passado', paymentMethod:'conta', createdAt: 1}];
   `, prev);
