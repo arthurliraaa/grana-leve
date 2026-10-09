@@ -22,7 +22,7 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('#txAccountField', el => el.hidden), 'sem “Entrou em” quando não há contas');
   await page.click('#typeToggle [data-type="expense"]');
   await L.tab(page, 'cartoes');
-  L.ok(await L.text(page, '#tabbar [data-tab="cartoes"]') === 'Contas e cartões', 'aba se chama “Contas e cartões”');
+  L.ok(await L.text(page, '.sidenav [data-tab="cartoes"]') === 'Contas e cartões', 'menu tem “Contas e cartões”');
   L.ok(/Nenhuma conta cadastrada/.test(await L.text(page, '#accountList')), 'mensagem de nenhuma conta');
   L.ok(await page.$eval('#transferBtn', el => el.hidden), 'sem botão de transferir');
 

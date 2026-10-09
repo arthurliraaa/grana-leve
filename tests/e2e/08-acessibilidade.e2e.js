@@ -49,18 +49,21 @@ L.run(async ({page}) => {
   }
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'light'));
 
-  L.section('Teclado: abas');
+  L.section('Teclado: menu e Compromissos');
   await L.tab(page, 'dashboard');
-  await page.focus('#tabbtn-dashboard');
-  L.ok(await page.$eval('#tabbtn-dashboard', el => el.getAttribute('aria-selected')) === 'true', 'aba ativa marcada com aria-selected');
-  L.ok(await page.$eval('#tabbtn-metas', el => el.tabIndex) === -1, 'só a aba ativa entra no Tab');
-  await page.keyboard.press('ArrowRight'); await L.sleep(80);
-  L.ok(await page.evaluate(() => document.activeElement.id) === 'tabbtn-lancamentos' && !(await page.$eval('#tab-lancamentos', el => el.hidden)), 'seta para a direita abre a próxima aba');
-  await page.keyboard.press('End'); await L.sleep(80);
-  L.ok(await page.evaluate(() => document.activeElement.id) === 'tabbtn-conexoes', 'End vai para a última aba');
-  await page.keyboard.press('ArrowRight'); await L.sleep(80);
-  L.ok(await page.evaluate(() => document.activeElement.id) === 'tabbtn-dashboard', 'da última, a seta volta para a primeira');
-  L.ok(await page.$eval('#tab-dashboard', el => el.getAttribute('aria-labelledby')) === 'tabbtn-dashboard', 'painel ligado à aba (aria-labelledby)');
+  L.ok(await page.$eval('.sidenav [data-tab="dashboard"]', el => el.getAttribute('aria-current')) === 'page', 'item atual do menu marcado com aria-current');
+  await page.focus('.sidenav [data-tab="metas"]');
+  await page.keyboard.press('Enter'); await L.sleep(120);
+  L.ok(!(await page.$eval('#tab-metas', el => el.hidden)) && await page.evaluate(() => location.hash) === '#/metas', 'Enter no menu abre a área e muda o endereço');
+  await page.evaluate(() => history.back()); await L.sleep(200);
+  L.ok(!(await page.$eval('#tab-dashboard', el => el.hidden)) && await page.evaluate(() => location.hash) === '#/inicio', 'Voltar do navegador volta para o Início');
+  await page.evaluate(() => history.forward()); await L.sleep(200);
+  L.ok(!(await page.$eval('#tab-metas', el => el.hidden)), 'Avançar volta para Metas');
+  await L.tab(page, 'dividas');
+  await page.focus('#segbtn-dividas');
+  await page.keyboard.press('ArrowRight'); await L.sleep(100);
+  L.ok(await page.evaluate(() => document.activeElement.id) === 'segbtn-receber' && !(await page.$eval('#tab-receber', el => el.hidden)), 'seta troca para “Me devem”');
+  L.ok(await page.$eval('#segbtn-receber', el => el.getAttribute('aria-selected')) === 'true' && await page.evaluate(() => location.hash) === '#/compromissos/me-devem', 'aba marcada e endereço próprio');
 
   L.section('Teclado: popup');
   await page.focus('#fabAdd');

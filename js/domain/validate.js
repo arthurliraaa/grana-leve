@@ -9,6 +9,7 @@ function isText(v, max){ return typeof v === 'string' && v.length <= (max || 200
 function isNum(v){ return typeof v === 'number' && isFinite(v); }
 function isDate(v){ return typeof v === 'string' && v !== '' && validDateStr(v); }
 function optText(v, max){ return v === undefined || v === null || isText(v, max); }
+function okUrgency(x){ return x.urgency === undefined || x.urgency === null || ['alta', 'media', 'baixa'].indexOf(x.urgency) >= 0; }
 function day(v){ return Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 31; }
 
 var RULES = {
@@ -47,11 +48,15 @@ var RULES = {
     }
     return isNum(Number(b.limit)) && Number(b.limit) >= 0 ? '' : 'valor planejado inválido';
   },
-  goals: function(g){ return isText(g.name, 100) && isNum(Number(g.targetAmount)) ? '' : 'meta inválida'; },
-  debts: function(d){ return isText(d.name, 100) && isNum(Number(d.totalAmount)) ? '' : 'dívida inválida'; },
-  receivables: function(r){ return isText(r.person, 100) && isNum(Number(r.totalAmount)) ? '' : 'valor a receber inválido'; },
+  goals: function(g){ return isText(g.name, 100) && isNum(Number(g.targetAmount)) && okUrgency(g) ? '' : 'meta inválida'; },
+  debts: function(d){ return isText(d.name, 100) && isNum(Number(d.totalAmount)) && okUrgency(d) ? '' : 'dívida inválida'; },
+  receivables: function(r){ return isText(r.person, 100) && isNum(Number(r.totalAmount)) && okUrgency(r) ? '' : 'valor a receber inválido'; },
   forecasts: function(f){ return isText(f.description, 100) && isNum(Number(f.amount)) && isDate(f.date) ? '' : 'previsão inválida'; },
-  categories: function(c){ return isText(c.label, 30) && c.label && (c.type === 'income' || c.type === 'expense') ? '' : 'categoria inválida'; },
+  categories: function(c){
+    if (!isText(c.label, 30) || !c.label || (c.type !== 'income' && c.type !== 'expense')) return 'categoria inválida';
+    if (!optText(c.emoji, 16) || !optText(c.color, 40)) return 'emoji ou cor inválidos';
+    return '';
+  },
   vouchers: function(v){ return isText(v.name, 60) && isNum(Number(v.amount)) ? '' : 'vale inválido'; }
 };
 

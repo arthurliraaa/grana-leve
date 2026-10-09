@@ -41,6 +41,16 @@
     <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
     <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14l-3.5-3.5M20 16H6l3.5 3.5"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3"/></symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M16 13.5h.01"/></symbol>
+    <symbol id="i-pie" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6.5 8h11v3a5.5 5.5 0 0 1-11 0zM12 16.5V21"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
+    <symbol id="i-trend-down" viewBox="0 0 24 24"><path d="M3 7l6.5 6.5 4-4L21 17M21 11v6h-6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-1 1.6-2.1-.5-1.3.3-2.4 1.7-2.4h2.2A3 3 0 0 0 20.5 13 8.5 8.5 0 0 0 12 3.5z"/><path d="M8 10.5h.01M11.5 7.5h.01M15.5 9h.01"/></symbol>
   </defs>
 </svg>
 
@@ -226,31 +236,37 @@
 
   <!-- ================= App ================= -->
   <section id="viewApp" hidden>
-    <div class="side-gutter">
-      <div class="app-header">
-        <div>
-          <h1 id="greeting">Olá</h1>
-          <span class="month-lbl" id="monthLabel"></span>
-        </div>
-      </div>
-
-      <nav class="tabbar" id="tabbar" role="tablist" aria-label="Seções do app">
-        <button type="button" role="tab" id="tabbtn-dashboard" aria-controls="tab-dashboard" data-tab="dashboard" class="active">Painel</button>
-        <button type="button" role="tab" id="tabbtn-lancamentos" aria-controls="tab-lancamentos" data-tab="lancamentos">Ganhos e gastos</button>
-        <button type="button" role="tab" id="tabbtn-cartoes" aria-controls="tab-cartoes" data-tab="cartoes">Contas e cartões</button>
-        <button type="button" role="tab" id="tabbtn-limites" aria-controls="tab-limites" data-tab="limites">Planejar gastos</button>
-        <button type="button" role="tab" id="tabbtn-metas" aria-controls="tab-metas" data-tab="metas">Metas</button>
-        <button type="button" role="tab" id="tabbtn-dividas" aria-controls="tab-dividas" data-tab="dividas">Dívidas</button>
-        <button type="button" role="tab" id="tabbtn-receber" aria-controls="tab-receber" data-tab="receber">A receber</button>
-        <button type="button" role="tab" id="tabbtn-aprenda" aria-controls="tab-aprenda" data-tab="aprenda">Aprenda</button>
-        <button type="button" role="tab" id="tabbtn-conexoes" aria-controls="tab-conexoes" data-tab="conexoes">Conexões</button>
-      </nav>
+    <div class="app-shell">
+      <aside class="sidenav" aria-label="Menu principal">
+        <nav class="sidenav-links">
+          <a class="nav-item" href="#/inicio" data-tab="dashboard"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a>
+          <a class="nav-item" href="#/lancamentos" data-tab="lancamentos"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg><span>Ganhos e gastos</span></a>
+          <a class="nav-item" href="#/contas" data-tab="cartoes"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg><span>Contas e cartões</span></a>
+          <p class="nav-group">Planejar</p>
+          <a class="nav-item" href="#/planejar" data-tab="limites"><svg class="ico" aria-hidden="true"><use href="#i-pie"/></svg><span>Planejar gastos</span></a>
+          <a class="nav-item" href="#/metas" data-tab="metas"><svg class="ico" aria-hidden="true"><use href="#i-target"/></svg><span>Metas</span></a>
+          <a class="nav-item" href="#/compromissos" data-tab="compromissos"><svg class="ico" aria-hidden="true"><use href="#i-handshake"/></svg><span>Compromissos</span></a>
+          <p class="nav-group">Mais</p>
+          <a class="nav-item" href="#/aprenda" data-tab="aprenda"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg><span>Aprenda</span></a>
+          <a class="nav-item" href="#/conexoes" data-tab="conexoes"><svg class="ico" aria-hidden="true"><use href="#i-plug"/></svg><span>Conexões</span></a>
+        </nav>
+        <button type="button" class="nav-item nav-data" data-info="backup"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span>Seus dados e backup</span></button>
+      </aside>
+      <div class="app-main">
+      <h1 class="sr-only">Grana Leve</h1>
 
       <!-- Painel -->
-      <div id="tab-dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-dashboard" tabindex="-1">
-        <h2 class="sr-only">Painel</h2>
+      <div id="tab-dashboard" class="tab-panel" tabindex="-1">
+        <div class="page-head">
+          <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span id="greeting">Olá</span></h2>
+          <span class="month-lbl" id="monthLabel"></span>
+        </div>
         <div class="backup-banner" id="backupBanner" role="status" hidden></div>
-        <p class="tab-intro">Resumo do seu mês: quanto entrou, quanto saiu e o que ainda está previsto.</p>
+        <div class="summary-grid" id="summaryCards"></div>
+        <button type="button" class="details-toggle" id="dashDetailsBtn" aria-expanded="false" aria-controls="dashDetails">
+          <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>Ver todos os detalhes do mês</span>
+        </button>
+        <div id="dashDetails" class="dash-details" hidden>
         <div class="card-head" style="margin-bottom:-4px">
           <h3>Resumo do mês</h3>
           <div class="card-head-tools">
@@ -294,16 +310,17 @@
           <div class="card-head"><h3>Últimos lançamentos</h3><button class="linklike" type="button" data-action="go-tab-lancamentos">Ver todos</button></div>
           <div id="recentTxList"></div>
         </div>
+        </div>
       </div>
 
       <!-- Ganhos e gastos -->
-      <div id="tab-lancamentos" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-lancamentos" tabindex="-1" hidden>
-        <h2 class="sr-only">Ganhos e gastos</h2>
+      <div id="tab-lancamentos" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Ganhos e gastos</h2>
         <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Também dá para deixar previsto o que você ainda vai receber no mês.</p>
         <div class="card">
           <div class="card-head">
             <h3>Novo lançamento</h3>
-            <button class="linklike" type="button" id="manageCatsBtn">Minhas categorias</button>
+            <button class="linklike" type="button" id="manageCatsBtn">Personalizar categorias</button>
           </div>
           <form id="txForm" class="add-tx-form">
             <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
@@ -364,8 +381,8 @@
       </div>
 
       <!-- Cartões -->
-      <div id="tab-cartoes" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-cartoes" tabindex="-1" hidden>
-        <h2 class="sr-only">Contas e cartões</h2>
+      <div id="tab-cartoes" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg>Contas e cartões</h2>
         <p class="tab-intro">Cadastre suas contas de banco, seus cartões de crédito e seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela, as transferências e as faturas pagas. Cada gasto no cartão entra sozinho na fatura certa, e os gastos no vale descontam do saldo.</p>
         <div class="card">
           <div class="card-head">
@@ -408,8 +425,8 @@
       </div>
 
       <!-- Limites -->
-      <div id="tab-limites" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-limites" tabindex="-1" hidden>
-        <h2 class="sr-only">Planejar gastos</h2>
+      <div id="tab-limites" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-pie"/></svg>Planejar gastos</h2>
         <p class="tab-intro">Planeje quanto quer gastar, no máximo, em cada categoria por mês. Digite o valor ao lado da categoria; a barra mostra quanto você já usou. Cada mês guarda o próprio planejamento: mudar o mês atual não altera os meses que já passaram.</p>
         <div class="card">
           <div class="card-head">
@@ -424,7 +441,7 @@
             <p class="budget-note" id="budgetNote"></p>
             <div class="card-actions">
               <button class="btn btn-ghost btn-sm" type="button" id="budgetNewCat"><svg class="ico"><use href="#i-plus"/></svg>Nova categoria</button>
-              <button class="linklike" type="button" id="budgetManageCats">Minhas categorias</button>
+              <button class="linklike" type="button" id="budgetManageCats">Personalizar categorias</button>
             </div>
           </div>
           <div id="budgetList"></div>
@@ -432,8 +449,8 @@
       </div>
 
       <!-- Metas -->
-      <div id="tab-metas" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-metas" tabindex="-1" hidden>
-        <h2 class="sr-only">Metas</h2>
+      <div id="tab-metas" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-target"/></svg>Metas</h2>
         <p class="tab-intro">Junte dinheiro para um objetivo (uma viagem, a reserva de emergência) e acompanhe quanto falta.</p>
         <div class="card">
           <div class="card-head"><h3>Nova meta</h3></div>
@@ -442,6 +459,7 @@
             <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="number" step="0.01" min="1" max="99999999" required></span></div>
             <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field"><label for="goalReminder">Me avise em</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field"><label for="goalUrgency">Urgência</label><select id="goalUrgency" data-urgency-options></select></div>
             <div class="field f-submit"><label for="goalNote">Observação (opcional)</label><textarea id="goalNote" rows="2" maxlength="300" placeholder="Ex: guardar R$ 100 todo dia 5"></textarea></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Criar meta</button></div>
           </form>
@@ -450,9 +468,15 @@
         <div id="goalGrid" class="goal-grid"></div>
       </div>
 
+      <!-- Compromissos: Eu devo (dívidas) e Me devem (a receber) -->
+      <div id="tab-compromissos" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-handshake"/></svg>Compromissos</h2>
+        <div class="segmented seg-wide" role="tablist" aria-label="Tipo de compromisso">
+          <button type="button" role="tab" id="segbtn-dividas" aria-controls="tab-dividas" data-sub="dividas" aria-selected="true">Eu devo</button>
+          <button type="button" role="tab" id="segbtn-receber" aria-controls="tab-receber" data-sub="receber" aria-selected="false" tabindex="-1">Me devem</button>
+        </div>
       <!-- Dívidas -->
-      <div id="tab-dividas" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-dividas" tabindex="-1" hidden>
-        <h2 class="sr-only">Dívidas</h2>
+      <div id="tab-dividas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-dividas">
         <p class="tab-intro">Tudo o que você deve: cartão, banco, financiamento ou um empréstimo com um amigo. Registre cada pagamento e veja quanto falta.</p>
         <div class="card">
           <div class="card-head"><h3>Nova dívida</h3></div>
@@ -463,6 +487,7 @@
             <div class="field"><label for="debtTotal">Valor total</label><span class="money-input"><span>R$</span><input id="debtTotal" type="number" step="0.01" min="1" max="99999999" required></span></div>
             <div class="field"><label for="debtPaid">Já pago</label><span class="money-input"><span>R$</span><input id="debtPaid" type="number" step="0.01" min="0" max="99999999" value="0"></span></div>
             <div class="field"><label for="debtInstallment">Parcela mensal</label><span class="money-input"><span>R$</span><input id="debtInstallment" type="number" step="0.01" min="0" max="99999999"></span></div>
+            <div class="field"><label for="debtUrgency">Urgência</label><select id="debtUrgency" data-urgency-options></select></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar dívida</button></div>
           </form>
         </div>
@@ -471,8 +496,7 @@
       </div>
 
       <!-- A receber -->
-      <div id="tab-receber" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-receber" tabindex="-1" hidden>
-        <h2 class="sr-only">A receber</h2>
+      <div id="tab-receber" class="subpanel" role="tabpanel" aria-labelledby="segbtn-receber" hidden>
         <p class="tab-intro">O que as outras pessoas te devem: um empréstimo, uma compra feita no seu cartão ou um valor combinado. Daqui dá para cobrar com uma mensagem pronta.</p>
         <div class="card">
           <div class="card-head"><h3>Novo valor a receber</h3></div>
@@ -492,24 +516,27 @@
             <div class="field f-half" id="recvLaunchField" hidden><label class="check"><input type="checkbox" id="recvLaunch"> Lançar a compra também na fatura do cartão</label><span class="field-hint">Deixe desmarcado se você já lançou essa compra em “Ganhos e gastos”.</span></div>
             <div class="field f-half"><label for="recvDesc">Descrição (opcional)</label><input id="recvDesc" type="text" maxlength="80" placeholder="Ex: metade do show"></div>
             <div class="field f-half"><label for="recvPhone">WhatsApp da pessoa (opcional)</label><input id="recvPhone" type="tel" maxlength="20" placeholder="Ex: (11) 98888-7777"></div>
+            <div class="field"><label for="recvUrgency">Urgência</label><select id="recvUrgency" data-urgency-options></select></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar</button></div>
           </form>
         </div>
         <div id="recvGrid" class="debt-grid"></div>
       </div>
+      </div>
 
       <!-- Aprenda -->
-      <div id="tab-aprenda" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-aprenda" tabindex="-1" hidden>
-        <h2 class="sr-only">Aprenda</h2>
+      <div id="tab-aprenda" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>Aprenda</h2>
         <p class="tab-intro">Conteúdos curtos para organizar o dinheiro, fazer ele render e tirar o melhor do Grana Leve.</p>
         <div id="learnWrap" class="stack-lg"></div>
       </div>
 
       <!-- Conexões -->
-      <div id="tab-conexoes" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-conexoes" tabindex="-1" hidden>
-        <h2 class="sr-only">Conexões</h2>
+      <div id="tab-conexoes" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-plug"/></svg>Conexões</h2>
         <p class="tab-intro">Ligue o Grana Leve a outros serviços para anotar menos na mão. Algumas conexões ainda estão em preparação e chegam nas próximas versões.</p>
         <div id="connWrap" class="conn-grid"></div>
+      </div>
       </div>
     </div>
   </section>
@@ -533,7 +560,14 @@
   </div>
 </footer>
 
-<button class="fab" id="fabAdd" type="button" aria-label="Lançar gasto ou ganho" title="Lançar gasto ou ganho" hidden><svg class="ico"><use href="#i-plus"/></svg></button>
+<!-- Celular: barra inferior com o + no centro. No computador, só o + aparece (flutuante). -->
+<nav class="bottomnav" id="bottomnav" aria-label="Menu rápido" hidden>
+  <a class="bn-item" href="#/inicio" data-tab="dashboard"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a>
+  <a class="bn-item" href="#/lancamentos" data-tab="lancamentos"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg><span>Ganhos e gastos</span></a>
+  <button class="fab" id="fabAdd" type="button" aria-label="Lançar gasto ou ganho" title="Lançar gasto ou ganho"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></button>
+  <a class="bn-item" href="#/planejar" data-tab="limites"><svg class="ico" aria-hidden="true"><use href="#i-pie"/></svg><span>Planejar</span></a>
+  <button class="bn-item" type="button" id="moreBtn" aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg><span>Mais</span></button>
+</nav>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script type="module" src="js/app.js"></script>

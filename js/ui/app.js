@@ -19,6 +19,7 @@ import * as Vouchers from '../domain/vouchers.js';
 import * as Fc from '../domain/forecasts.js';
 import {recvInstallInfo, recvNextDue, recvRemaining} from '../domain/receivables.js';
 import {parse as parseMessage} from '../domain/parser.js';
+import {URGENCY, DEFAULT_URGENCY, urgencyOf, urgencyLabel, byUrgency} from '../domain/urgency.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
 import {validateNewTransaction} from '../domain/validate.js';
@@ -70,7 +71,7 @@ var TIPS_GROW = [
 ];
 var HOW_TO = [
   ['Painel', 'mostra o resumo do mês: saldo, ganhos, gastos, previsões de entrada e gráficos. O botão “Relatório em PDF” gera um resumo para guardar ou compartilhar.'],
-  ['Ganhos e gastos', 'é onde você anota o que entra e o que sai e deixa previsto o que ainda vai receber. Escolha a forma de pagamento (conta, dinheiro, vale ou cartão) e crie categorias próprias em “Minhas categorias”.'],
+  ['Ganhos e gastos', 'é onde você anota o que entra e o que sai e deixa previsto o que ainda vai receber. Escolha a forma de pagamento (conta, dinheiro, vale ou cartão) e crie e personalize categorias (nome, emoji e cor) em “Personalizar categorias”.'],
   ['Contas e cartões', 'cadastre suas contas de banco com o saldo de hoje, o cartão com limite, fechamento e vencimento e o seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela; use “Transferir” para mover dinheiro entre contas e escolha a conta ao marcar uma fatura como paga.'],
   ['Planejar gastos', 'defina quanto quer gastar por categoria. A barra fica amarela perto do valor planejado e vermelha quando passa.'],
   ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e escolha em “Me avise em” quando quer um lembrete na sua agenda.'],
@@ -114,10 +115,35 @@ function catLabel(id, type, fallback){
   var c = findById(Cats.catsOfType(type, State.categories), id);
   return c ? c.label : (fallback || 'Sem categoria');
 }
-function catColor(id){
-  var c = findById(expenseCats(), id);
-  return c ? c.color : 'var(--text-muted)';
+/* ---------- Urgência (dívidas, a receber e metas) ---------- */
+var URGENCY_MARK = {alta: '🔴', media: '🟡', baixa: '🟢'};
+var URGENCY_RANK = {alta: 0, media: 1, baixa: 2};
+function urgencyOptions(){ return URGENCY.map(function(u){ return {id: u.id, label: URGENCY_MARK[u.id] + ' ' + u.label}; }); }
+// Seletor no card: troca a urgência sem abrir nada. coll = 'debts' | 'receivables' | 'goals'.
+function urgencySelectHtml(coll, item, name){
+  var u = urgencyOf(item);
+  return '<select class="urgency-select u-' + u + '" data-urgency="' + coll + ':' + escapeHtml(item.id) + '" aria-label="Urgência de ' + escapeHtml(name) + '" title="Urgência">' +
+    optionsHtml(urgencyOptions(), u) + '</select>';
 }
+async function setUrgency(coll, id, value){
+  var list = {debts: State.debts, receivables: State.receivables, goals: State.goals}[coll];
+  var item = findById(list, id);
+  if (!item) return;
+  await Store.update(k(), coll, id, {urgency: value});
+  item.urgency = value;
+  if (coll === 'debts') renderDebts(); else if (coll === 'receivables') renderReceivables(); else renderGoals();
+  renderDashboard();
+  toast('Urgência de “' + (item.name || item.person) + '” agora é ' + urgencyLabel(value).toLowerCase() + '.');
+}
+
+function catOf(id, type){ return findById(Cats.catsOfType(type, State.categories), id); }
+// Selo da categoria: o emoji num círculo da cor dela.
+function catBadge(id, type){
+  var c = catOf(id, type);
+  return '<span class="cat-badge" style="--cat:' + escapeHtml(c ? c.color : 'var(--text-muted)') + '" aria-hidden="true">' + escapeHtml(c ? c.emoji : Cats.DEFAULT_EMOJI) + '</span>';
+}
+// Opções de select com o emoji antes do nome.
+function catOptions(list){ return list.map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label}; }); }
 function categoryNameProblem(name, type, exceptId){ return Cats.categoryNameProblem(name, type, State.categories, exceptId); }
 function txLabel(t){ return t.description || catLabel(t.category, t.type, t.categoryLabel); }
 function sortTransactions(){ Tx.sortTransactions(State.transactions); }
@@ -172,6 +198,9 @@ var State = {
   barView: 'chart',
   barMonths: 6,
   activeTab: 'dashboard',
+  commitTab: 'dividas',
+  sumOpen: {},          // cartões do Início com os detalhes abertos (+)
+  dashDetails: false,   // "Ver todos os detalhes do mês" aberto  // parte aberta de Compromissos: 'dividas' (Eu devo) ou 'receber' (Me devem)
   persisted: null,      // o navegador aceitou não apagar os dados sozinho (navigator.storage.persist)
   authTab: 'login'
 };
@@ -211,7 +240,7 @@ function showView(name){
   ['viewLanding','viewAuth','viewApp'].forEach(function(id){
     document.getElementById(id).hidden = (id !== name);
   });
-  document.getElementById('fabAdd').hidden = (name !== 'viewApp');
+  document.getElementById('bottomnav').hidden = (name !== 'viewApp');
   window.scrollTo(0,0);
 }
 
@@ -357,6 +386,87 @@ function renderStatTiles(){
     '<p class="tiles-group">Agora</p><div class="stat-tiles stat-tiles-auto">' + now + '</div>';
 }
 
+/* ---------- Início: 3 cartões de resumo, cada um com + para os detalhes ---------- */
+// O que vem para pagar: faturas (vencidas primeiro) e dívidas abertas, pela urgência e pela data.
+function upcomingCommitments(){
+  var today = todayKey(), out = [];
+  var inv = Cards.invoicesSummary(State.transactions, State.cards, today);
+  inv.toPay.concat(inv.open).forEach(function(i){
+    out.push({title: 'Fatura ' + i.card.name, amount: i.total, date: i.due, late: i.status === 'vencida' || i.due < today,
+      urgency: i.status === 'vencida' ? 'alta' : 'media', note: i.status === 'aberta' ? 'fatura aberta' : '', go: 'cartoes'});
+  });
+  State.debts.forEach(function(d){
+    var left = money(Math.max(0, Number(d.totalAmount || 0) - Number(d.paidAmount || 0)));
+    if (left <= 0) return;
+    var monthly = Number(d.monthlyPayment) > 0;
+    out.push({title: d.name, amount: monthly ? Math.min(Number(d.monthlyPayment), left) : left, date: null, late: false,
+      urgency: urgencyOf(d), note: monthly ? 'parcela mensal' : 'falta pagar', go: 'dividas'});
+  });
+  return out.sort(function(a, b){
+    return (b.late - a.late) || (URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency]) || String(a.date || '9999').localeCompare(String(b.date || '9999'));
+  });
+}
+function plannedTotal(key){
+  var plan = Budgets.budgetsFor(State.budgetBase, State.budgetMonths, key);
+  return sumMoney(Object.keys(plan), function(cat){ return plan[cat]; });
+}
+function sumCard(n, iconName, title, value, valueCls, sub, extra, details){
+  var open = !!State.sumOpen[n];
+  return '<article class="sum-card" aria-labelledby="sumT' + n + '">' +
+    '<div class="sum-head"><span class="sum-icon" aria-hidden="true">' + icon(iconName) + '</span><h3 id="sumT' + n + '">' + title + '</h3>' +
+      '<button type="button" class="sum-more" data-sum-more="' + n + '" aria-expanded="' + open + '" aria-controls="sumD' + n + '" aria-label="' + (open ? 'Esconder' : 'Ver') + ' detalhes de ' + title + '" title="Detalhes">' + icon('plus') + '</button></div>' +
+    '<p class="sum-value tabular ' + (valueCls || '') + '">' + value + '</p>' +
+    (sub ? '<p class="sum-sub">' + sub + '</p>' : '') + (extra || '') +
+    '<div class="sum-details" id="sumD' + n + '"' + (open ? '' : ' hidden') + '>' + details + '</div>' +
+    '</article>';
+}
+function detailRow(label, value, cls){ return '<div class="sum-row"><span>' + label + '</span><strong class="tabular ' + (cls || '') + '">' + value + '</strong></div>'; }
+function goLink(tab, text){ return '<a class="sum-link" href="#/' + routeOf(tab) + '" data-go="' + tab + '">' + text + ' →</a>'; }
+
+function renderSummary(){
+  var f = dashboardFigures(), t = f.t, cur = monthBounds(0).key;
+  // 1. Quanto tenho
+  var hasAcc = State.accounts.length > 0;
+  var have = hasAcc ? totalAccountsBalance() : f.balanceDone;
+  var c1 = sumCard(1, 'wallet', 'Quanto tenho', fmtMoney(have), have < 0 ? 'neg-text' : '',
+    hasAcc ? 'Disponível hoje em ' + State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta') : 'Saldo do mês: ganhos menos gastos até hoje',
+    '',
+    (hasAcc ? State.accounts.map(function(a){ var b = accountBalance(a); return detailRow(escapeHtml(a.name), fmtMoney(b), b < 0 ? 'neg-text' : ''); }).join('') : '') +
+    detailRow('Ganhos do mês', fmtMoney(t.incomeDone) + (f.expectedIncome > 0 ? ' <small>+ ' + fmtMoney(f.expectedIncome) + ' esperado</small>' : '')) +
+    (hasAcc ? detailRow('Saldo do mês', fmtMoney(f.balanceDone), f.balanceDone < 0 ? 'neg-text' : '') : '') +
+    detailRow('Guardado nas metas', fmtMoney(f.savedInGoals)) +
+    detailRow('Me devem', fmtMoney(f.toReceive)) +
+    goLink(hasAcc ? 'cartoes' : 'lancamentos', hasAcc ? 'Ver contas' : 'Ver ganhos e gastos'));
+  // 2. Gastos do mês
+  var planned = plannedTotal(cur), spent = t.expenseDone;
+  var pct = planned > 0 ? spent / planned : 0;
+  var status = statusForPct(pct);
+  var bar = planned > 0 ? '<div class="progress" role="img" aria-label="' + Math.round(pct * 100) + '% do planejado"><span style="width:' + Math.min(100, pct * 100) + '%; background:' +
+    (status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)') + '"></span></div>' : '';
+  var cats = expenseCats().map(function(c){ return {c: c, v: sumMoney(txForMonth(cur).filter(function(x){ return x.type === 'expense' && x.category === c.id && x.date <= todayKey(); }), function(x){ return x.amount; })}; })
+    .filter(function(x){ return x.v > 0; }).sort(function(a, b){ return b.v - a.v; }).slice(0, 3);
+  var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(spent), '',
+    planned > 0 ? Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' · passou ' + fmtMoney(spent - planned) : '') :
+      (t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : 'Ainda sem planejamento para o mês'),
+    bar,
+    (cats.length ? '<p class="sum-caption">Onde mais gastou</p>' + cats.map(function(x){ return '<div class="sum-row">' + catBadge(x.c.id, 'expense') + '<span>' + escapeHtml(x.c.label) + '</span><strong class="tabular">' + fmtMoney(x.v) + '</strong></div>'; }).join('') :
+      '<p class="sum-caption">Nenhum gasto neste mês ainda.</p>') +
+    (t.expenseScheduled > 0 ? detailRow('Agendado até o fim do mês', '+ ' + fmtMoney(t.expenseScheduled)) : '') +
+    goLink('limites', 'Planejar gastos'));
+  // 3. Próximo compromisso
+  var list = upcomingCommitments(), next = list[0];
+  function when(c){ return c.date ? (c.late ? '<span class="neg-text">venceu ' + formatDateBr(c.date) + '</span>' : 'vence ' + formatDateBr(c.date)) : c.note; }
+  var c3 = next ?
+    sumCard(3, 'clock', 'Próximo compromisso', fmtMoney(next.amount), next.late ? 'neg-text' : '',
+      escapeHtml(next.title) + ' · ' + when(next) + (next.urgency === 'alta' ? ' · ' + URGENCY_MARK.alta + ' urgente' : ''), '',
+      '<p class="sum-caption">Próximos ' + Math.min(4, list.length) + ' de ' + list.length + '</p>' +
+      list.slice(0, 4).map(function(c){ return '<div class="sum-row"><span>' + URGENCY_MARK[c.urgency] + ' ' + escapeHtml(c.title) + ' <small>' + when(c) + '</small></span><strong class="tabular">' + fmtMoney(c.amount) + '</strong></div>'; }).join('') +
+      goLink('dividas', 'Ver compromissos')) :
+    sumCard(3, 'clock', 'Próximo compromisso', 'Nada pendente', 'sum-value-text', 'Sem faturas fechadas nem dívidas em aberto. 🎉', '',
+      '<p class="sum-caption">Cadastre cartões em “Contas e cartões” e dívidas em “Compromissos” para ver aqui o que vem pela frente.</p>' + goLink('dividas', 'Ver compromissos'));
+  document.getElementById('summaryCards').innerHTML = c1 + c2 + c3;
+}
+
 var CALC_RULES = [
   ['Realizado e agendado', 'Ganhos e gastos do mês contam só o que tem data até hoje. O que tem data mais para frente no mês (uma parcela, um gasto agendado) aparece como “Agendado” e entra na previsão do fim do mês.'],
   ['Esperado', 'Soma as previsões de entrada ainda não recebidas e os ganhos com data futura no mês.'],
@@ -386,7 +496,7 @@ function renderComparison(){
 
   var list = document.getElementById('comparisonList');
   var cats = expenseCats().map(function(c){
-    return {label:c.label, color:c.color, cur: curCats[c.id]||0, prev: prevCats[c.id]||0};
+    return {id:c.id, label:c.label, color:c.color, cur: curCats[c.id]||0, prev: prevCats[c.id]||0};
   }).filter(function(c){ return c.cur>0 || c.prev>0; });
   if (!cats.length){
     list.innerHTML = '<p class="chart-empty">Ainda não há gastos suficientes para comparar os dois meses.</p>';
@@ -394,15 +504,16 @@ function renderComparison(){
   }
   list.innerHTML = '<div class="cmp-row cmp-head"><span>Categoria</span><span class="tabular">'+cur.label.slice(0,3)+'</span><span class="tabular">'+prev.label.slice(0,3)+'</span><span>Variação</span></div>' +
     cats.map(function(c){
-      return '<div class="cmp-row"><span class="cmp-cat"><span class="legend-swatch" style="background:'+resolveVar(c.color, list)+'"></span>'+escapeHtml(c.label)+'</span>' +
+      return '<div class="cmp-row"><span class="cmp-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label)+'</span>' +
         '<span class="tabular">'+fmtMoney(c.cur)+'</span><span class="tabular">'+fmtMoney(c.prev)+'</span>' + deltaBadge(c.cur, c.prev, true) + '</div>';
     }).join('');
 }
 
 function renderDashboard(){
   var cur = monthBounds(0);
-  document.getElementById('monthLabel').textContent = 'Painel de ' + cur.label;
+  document.getElementById('monthLabel').textContent = 'Resumo de ' + cur.label;
   renderBackupBanner();
+  renderSummary();
   renderStatTiles();
   renderForecasts();
   renderDonut(txForMonth(cur.key));
@@ -424,7 +535,7 @@ function renderDonut(monthTx){
   monthTx.filter(function(t){ return t.type==='expense'; }).forEach(function(t){
     byCat[t.category] = (byCat[t.category]||0) + Number(t.amount||0);
   });
-  var entries = expenseCats().map(function(c){ return {label:c.label, color:c.color, value: byCat[c.id]||0}; }).filter(function(e){ return e.value>0; });
+  var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0}; }).filter(function(e){ return e.value>0; });
   var total = sum(entries, function(e){ return e.value; });
 
   if (!total){
@@ -456,7 +567,7 @@ function renderDonut(monthTx){
     '<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text-primary)">'+fmtMoney(total)+'</text>' +
     '</svg>';
   var legend = '<div class="legend">' + entries.map(function(e){
-    return '<span class="legend-item"><span class="legend-swatch" style="background:'+resolveVar(e.color,wrap)+'"></span>' + escapeHtml(e.label) + ' · ' + fmtMoney(e.value) + '</span>';
+    return '<span class="legend-item"><span class="legend-swatch" style="background:'+resolveVar(e.color,wrap)+'"></span>' + escapeHtml(e.emoji + ' ' + e.label) + ' · ' + fmtMoney(e.value) + '</span>';
   }).join('') + '</div>';
 
   wrap.innerHTML = svg + legend;
@@ -537,11 +648,10 @@ function paymentLabel(t){
 
 function txRowHtml(t){
   var isExpense = t.type === 'expense';
-  var dot = isExpense ? resolveVar(catColor(t.category)) : 'var(--good)';
   var cat = catLabel(t.category, t.type, t.categoryLabel);
   var pay = paymentLabel(t);
   return '<div class="tx-row" data-id="'+escapeHtml(t.id)+'">' +
-    '<span class="tx-cat-dot" style="background:'+dot+'"></span>' +
+    catBadge(t.category, t.type) +
     '<div class="tx-main"><div class="tx-desc">'+escapeHtml(t.description || cat)+'</div>' +
     '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div></div>' +
     '<span class="tx-amount ' + (isExpense ? 'expense' : 'income') + ' tabular">' + (isExpense ? '-' : '+') + ' ' + fmtMoney(t.amount) + '</span>' +
@@ -556,7 +666,7 @@ function currentTxType(){ return qs('#typeToggle button.active').getAttribute('d
 function populateCategorySelect(selected){
   var sel = document.getElementById('txCategory');
   var list = currentTxType() === 'income' ? incomeCats() : expenseCats();
-  sel.innerHTML = optionsHtml(list, selected) + '<option value="__new">+ Nova categoria…</option>';
+  sel.innerHTML = optionsHtml(catOptions(list), selected) + '<option value="__new">+ Nova categoria…</option>';
   if (!selected) sel.value = list[0].id;
 }
 // Formas de pagamento de um gasto (usadas no formulário da aba e no popup de lançamento).
@@ -684,12 +794,13 @@ function filterTransactions(list){
 }
 
 // A mesma lista de categorias serve para “Ganhos e gastos” e “Planejar gastos”.
-async function addCategory(name, type){
+async function addCategory(name, type, look){
   name = String(name || '').trim();
   var problem = categoryNameProblem(name, type);
   if (problem) return {error: problem};
-  var color = CUSTOM_COLORS[State.categories.length % CUSTOM_COLORS.length];
-  var saved = await Store.add(k(), 'categories', {label:name, type:type, color:color, createdAt:Date.now()});
+  look = look || {};
+  var color = look.color || CUSTOM_COLORS[State.categories.length % CUSTOM_COLORS.length];
+  var saved = await Store.add(k(), 'categories', {label:name, type:type, color:color, emoji: look.emoji || Cats.DEFAULT_EMOJI, createdAt:Date.now()});
   State.categories.push(saved);
   return saved;
 }
@@ -737,7 +848,7 @@ async function openTxModal(t){
       function syncNewCat(){ qs('#mNewCatField', modal).hidden = catSel.value !== '__new'; }
       function fillCats(selected){
         var list = mType === 'income' ? incomeCats() : expenseCats();
-        catSel.innerHTML = optionsHtml(list, selected) + '<option value="__new">+ Nova categoria…</option>';
+        catSel.innerHTML = optionsHtml(catOptions(list), selected) + '<option value="__new">+ Nova categoria…</option>';
         if (!findById(list, selected)) catSel.value = list[0].id;
         syncNewCat();
       }
@@ -822,56 +933,143 @@ async function saveTxEdit(t, patch){
   toast('Lançamento atualizado.');
 }
 
+// Personalizar categorias: nome, emoji e cor de todas (padrão e criadas), criar e excluir.
+// As padrão personalizadas ficam salvas com o mesmo id (isDefault) e podem voltar ao original.
+function firstEmoji(text){
+  text = String(text || '').trim();
+  if (!text) return '';
+  if (window.Intl && Intl.Segmenter){ var it = new Intl.Segmenter('pt-BR', {granularity: 'grapheme'}).segment(text)[Symbol.iterator]().next(); return it.value ? it.value.segment : ''; }
+  return Array.from(text)[0];
+}
+function toHex(color){
+  var v = resolveVar(color);
+  return /^#[0-9a-f]{6}$/i.test(v) ? v : '#6b7280';
+}
 async function manageCategories(){
-  var editing = null;
+  var editing = null;   // {id, type, label, emoji, color, isNew, isDefault}
+  function saved(id){ return findById(State.categories, id); }
+  function rowHtml(c, type){
+    var custom = !c.isDefault;
+    return '<div class="list-row cat-row">' + catBadge(c.id, type) +
+      '<div class="tx-main"><div class="tx-desc">' + escapeHtml(c.label) + '</div><div class="tx-meta">' + (custom ? 'Criada por você' : (saved(c.id) ? 'Padrão personalizada' : 'Padrão')) + '</div></div>' +
+      '<button class="tx-del tx-edit" type="button" data-cat-edit="' + escapeHtml(c.id) + '" data-type="' + type + '" aria-label="Personalizar ' + escapeHtml(c.label) + '" title="Personalizar">' + icon('edit') + '</button>' +
+      (custom ? '<button class="tx-del" type="button" data-cat-del="' + escapeHtml(c.id) + '" aria-label="Excluir ' + escapeHtml(c.label) + '" title="Excluir">' + icon('trash') + '</button>' : '<span class="tx-del-space" aria-hidden="true"></span>') +
+      '</div>';
+  }
+  function editorHtml(){
+    var e = editing;
+    return '<div class="cat-editor" role="group" aria-label="' + (e.isNew ? 'Nova categoria' : 'Personalizar ' + escapeHtml(e.label)) + '">' +
+      '<div class="cat-editor-head"><span class="cat-badge cat-badge-lg" id="cePreview" style="--cat:' + escapeHtml(e.color) + '" aria-hidden="true">' + escapeHtml(e.emoji) + '</span>' +
+        '<div class="field"><label for="ceName">Nome</label><input id="ceName" type="text" maxlength="30" value="' + escapeHtml(e.label) + '" placeholder="Ex: Pets, Academia"></div></div>' +
+      '<fieldset class="picker"><legend>Emoji</legend><div class="emoji-grid">' + Cats.PICKER_EMOJIS.map(function(em){
+          return '<button type="button" class="emoji-opt" data-emoji="' + em + '" aria-pressed="' + (em === e.emoji) + '" aria-label="Usar ' + em + '">' + em + '</button>';
+        }).join('') + '</div>' +
+        '<label class="emoji-custom" for="ceEmoji">Ou digite qualquer emoji:</label><input id="ceEmoji" class="emoji-input" type="text" maxlength="16" value="' + escapeHtml(e.emoji) + '"></fieldset>' +
+      '<fieldset class="picker"><legend>Cor</legend><div class="color-grid">' + Cats.PICKER_COLORS.map(function(col){
+          return '<button type="button" class="color-opt" data-color="' + col + '" style="--swatch:' + col + '" aria-pressed="' + (col === toHex(e.color)) + '" aria-label="Cor ' + col + '"></button>';
+        }).join('') + '<label class="color-custom"><input type="color" id="ceColor" value="' + toHex(e.color) + '"> Outra cor</label></div></fieldset>' +
+      '<div class="card-actions">' +
+        '<button class="btn btn-primary btn-sm" type="button" data-cat-save>' + (e.isNew ? 'Criar categoria' : 'Salvar') + '</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-cat-cancel>Cancelar</button>' +
+        (e.isDefault && saved(e.id) ? '<button class="btn btn-ghost btn-sm" type="button" data-cat-reset>Voltar ao padrão</button>' : '') +
+      '</div></div>';
+  }
+  function section(type, title){
+    var list = type === 'income' ? incomeCats() : expenseCats();
+    return '<section class="cat-section"><h4>' + title + '</h4>' +
+      list.map(function(c){ return editing && !editing.isNew && editing.id === c.id && editing.type === type ? editorHtml() : rowHtml(c, type); }).join('') +
+      (editing && editing.isNew && editing.type === type ? editorHtml() :
+        '<button class="btn btn-ghost btn-sm cat-new" type="button" data-cat-new="' + type + '">' + icon('plus') + 'Nova categoria de ' + (type === 'income' ? 'ganho' : 'gasto') + '</button>') +
+      '</section>';
+  }
   function bodyHtml(){
-    if (!State.categories.length) return '<p>Você ainda não criou categorias próprias. Use “+ Nova categoria” em “Planejar gastos” ou a opção “+ Nova categoria…” no campo Categoria.</p>';
-    return '<div>' + State.categories.map(function(c){
-      if (c.id === editing){
-        return '<div class="list-row"><span class="tx-cat-dot" style="background:' + escapeHtml(c.color) + '"></span>' +
-          '<input class="chat-input cat-rename" type="text" maxlength="30" value="' + escapeHtml(c.label) + '" aria-label="Novo nome da categoria">' +
-          '<button class="btn btn-primary btn-sm" type="button" data-cat-save="' + escapeHtml(c.id) + '">Salvar</button></div>';
-      }
-      return '<div class="list-row"><span class="tx-cat-dot" style="background:' + escapeHtml(c.color) + '"></span>' +
-        '<div class="tx-main"><div class="tx-desc">' + escapeHtml(c.label) + '</div><div class="tx-meta">' + (c.type === 'income' ? 'Ganho' : 'Gasto') + '</div></div>' +
-        '<button class="tx-del tx-edit" type="button" data-cat-edit="' + escapeHtml(c.id) + '" aria-label="Renomear categoria" title="Renomear">' + icon('edit') + '</button>' +
-        '<button class="tx-del" type="button" data-cat-del="' + escapeHtml(c.id) + '" aria-label="Excluir categoria" title="Excluir">' + icon('trash') + '</button></div>';
-    }).join('') + '</div><p class="field-hint">Ao renomear, os lançamentos da categoria passam a mostrar o nome novo. Ao excluir, eles continuam guardados com o nome antigo.</p>';
+    return section('expense', 'Gastos') + section('income', 'Ganhos') +
+      '<p class="field-hint">A mesma categoria vale em “Ganhos e gastos” e em “Planejar gastos”. Ao excluir uma categoria criada por você, os lançamentos continuam guardados com o nome dela.</p>';
   }
   await openModal({
-    title: 'Minhas categorias',
+    title: 'Personalizar categorias', wide: true,
     body: '<div id="catManageBody">' + bodyHtml() + '</div>',
     submitLabel: null, cancelLabel: 'Fechar',
     onOpen: function(root){
       var body = qs('#catManageBody', root);
-      function redraw(){ body.innerHTML = bodyHtml(); var inp = qs('.cat-rename', body); if (inp){ inp.focus(); inp.select(); } }
-      async function saveRename(id){
-        var c = findById(State.categories, id);
-        var name = qs('.cat-rename', body).value.trim();
-        var problem = categoryNameProblem(name, c.type, c.id);
-        if (problem){ qs('[data-modal-error]', root).textContent = problem; return; }
-        qs('[data-modal-error]', root).textContent = '';
-        await Store.update(k(), 'categories', id, {label: name});
-        c.label = name;
+      var err = qs('[data-modal-error]', root);
+      function redraw(focusSel){
+        body.innerHTML = bodyHtml();
+        var f = focusSel && qs(focusSel, body);
+        if (f){ f.focus(); if (f.select) f.select(); }
+      }
+      function setLook(patch){
+        Object.assign(editing, patch);
+        var prev = qs('#cePreview', body);
+        prev.textContent = editing.emoji;
+        prev.style.setProperty('--cat', editing.color);
+        qsa('.emoji-opt', body).forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-emoji') === editing.emoji)); });
+        qsa('.color-opt', body).forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-color') === toHex(editing.color))); });
+      }
+      async function save(){
+        var name = qs('#ceName', body).value.trim();
+        var problem = categoryNameProblem(name, editing.type, editing.isNew ? undefined : editing.id);
+        if (problem){ err.textContent = problem; qs('#ceName', body).focus(); return; }
+        if (!editing.emoji){ err.textContent = 'Escolha um emoji.'; return; }
+        err.textContent = '';
+        var look = {emoji: editing.emoji, color: editing.color};
+        if (editing.isNew){
+          await addCategory(name, editing.type, look);
+        } else if (editing.isDefault){
+          var doc = {label: name, type: editing.type, emoji: look.emoji, color: look.color, isDefault: true, updatedAt: Date.now()};
+          await Store.put(k(), 'categories', editing.id, doc);
+          State.categories = State.categories.filter(function(c){ return c.id !== editing.id; }).concat([Object.assign({id: editing.id}, doc)]);
+        } else {
+          var patch = {label: name, emoji: look.emoji, color: look.color};
+          await Store.update(k(), 'categories', editing.id, patch);
+          Object.assign(saved(editing.id), patch);
+        }
+        var msg = editing.isNew ? 'Categoria “' + name + '” criada.' : 'Categoria “' + name + '” atualizada.';
         editing = null;
-        redraw(); populateCategorySelect(document.getElementById('txCategory').value); renderAll();
-        toast('Categoria renomeada para “' + name + '”.');
+        redraw();
+        populateCategorySelect(document.getElementById('txCategory').value);
+        renderAll();
+        toast(msg);
       }
       root.addEventListener('click', async function(e){
         var b;
-        if ((b = e.target.closest('[data-cat-edit]'))){ editing = b.getAttribute('data-cat-edit'); redraw(); return; }
-        if ((b = e.target.closest('[data-cat-save]'))){ saveRename(b.getAttribute('data-cat-save')); return; }
-        if (!(b = e.target.closest('[data-cat-del]'))) return;
-        var id = b.getAttribute('data-cat-del');
-        await Store.remove(k(), 'categories', id);
-        State.categories = State.categories.filter(function(c){ return c.id !== id; });
-        redraw();
-        populateCategorySelect();
-        renderAll();
+        if ((b = e.target.closest('[data-cat-edit]'))){
+          var c = findById(b.getAttribute('data-type') === 'income' ? incomeCats() : expenseCats(), b.getAttribute('data-cat-edit'));
+          editing = {id: c.id, type: b.getAttribute('data-type'), label: c.label, emoji: c.emoji, color: c.color, isDefault: !!c.isDefault};
+          err.textContent = ''; redraw('#ceName'); return;
+        }
+        if ((b = e.target.closest('[data-cat-new]'))){
+          var type = b.getAttribute('data-cat-new');
+          editing = {type: type, label: '', emoji: Cats.DEFAULT_EMOJI, color: CUSTOM_COLORS[State.categories.length % CUSTOM_COLORS.length], isNew: true};
+          err.textContent = ''; redraw('#ceName'); return;
+        }
+        if ((b = e.target.closest('[data-emoji]'))){ setLook({emoji: b.getAttribute('data-emoji')}); qs('#ceEmoji', body).value = editing.emoji; return; }
+        if ((b = e.target.closest('[data-color]'))){ setLook({color: b.getAttribute('data-color')}); qs('#ceColor', body).value = editing.color; return; }
+        if (e.target.closest('[data-cat-cancel]')){ editing = null; err.textContent = ''; redraw(); return; }
+        if (e.target.closest('[data-cat-save]')){ await save(); return; }
+        if (e.target.closest('[data-cat-reset]')){
+          var id = editing.id;
+          await Store.remove(k(), 'categories', id);
+          State.categories = State.categories.filter(function(x){ return x.id !== id; });
+          editing = null; redraw(); populateCategorySelect(document.getElementById('txCategory').value); renderAll();
+          toast('Categoria voltou ao padrão.');
+          return;
+        }
+        if ((b = e.target.closest('[data-cat-del]'))){
+          var del = b.getAttribute('data-cat-del');
+          await Store.remove(k(), 'categories', del);
+          State.categories = State.categories.filter(function(x){ return x.id !== del; });
+          redraw(); populateCategorySelect(); renderAll();
+        }
       });
-      // Enter no campo de renomear salva, em vez de enviar o formulário do popup.
+      root.addEventListener('input', function(e){
+        if (!editing) return;
+        if (e.target.id === 'ceEmoji'){ var em = firstEmoji(e.target.value); if (em) setLook({emoji: em}); }
+        if (e.target.id === 'ceColor') setLook({color: e.target.value});
+      });
+      // Enter no nome salva, em vez de enviar o formulário do popup.
       root.addEventListener('keydown', function(e){
-        if (e.key === 'Enter' && e.target.classList.contains('cat-rename')){ e.preventDefault(); saveRename(editing); }
+        if (e.key === 'Enter' && editing && (e.target.id === 'ceName' || e.target.id === 'ceEmoji')){ e.preventDefault(); save(); }
       });
     }
   });
@@ -974,7 +1172,7 @@ async function advanceInstallments(groupId){
 /* ---------- Relatório por cartão ---------- */
 async function cardReport(cardId){
   var c = findById(State.cards, cardId);
-  var cats = [{id:'all', label:'Todas as categorias'}].concat(expenseCats().map(function(x){ return {id:x.id, label:x.label}; }));
+  var cats = [{id:'all', label:'Todas as categorias'}].concat(catOptions(expenseCats()));
   var periods = [{id:'1', label:'Fatura atual'}, {id:'3', label:'Últimas 3 faturas'}, {id:'6', label:'Últimas 6 faturas'}, {id:'12', label:'Últimas 12 faturas'}, {id:'next', label:'Próximas faturas (parcelas)'}];
   var st = {period:'6', cat:'all'};
   function keys(){
@@ -1392,7 +1590,7 @@ function renderBudgets(){
     var barColor = status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)';
     return '<div class="budget-row">' +
       '<div class="budget-top">' +
-        '<span class="budget-cat"><span class="legend-swatch" style="background:'+resolveVar(c.color, list)+'"></span>'+escapeHtml(c.label)+'</span>' +
+        '<span class="budget-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label)+'</span>' +
         '<span class="money-input sm"><span>R$</span><input class="tabular" type="number" min="0" step="10" max="99999999" data-budget-cat="'+escapeHtml(c.id)+'" value="'+(limit||'')+'" placeholder="'+(locked ? '—' : 'Sem limite')+'"'+(locked ? ' disabled' : '')+' aria-label="Quanto quero gastar com '+escapeHtml(c.label)+'"></span>' +
       '</div>' +
       (limit > 0 ?
@@ -1446,7 +1644,7 @@ function renderGoals(){
   }).join('');
 
   var grid = document.getElementById('goalGrid');
-  var goals = State.goals.filter(function(g){ return goalStatus(g) === State.goalFilter; });
+  var goals = byUrgency(State.goals.filter(function(g){ return goalStatus(g) === State.goalFilter; }), function(a, b){ return String(a.targetDate || '9999').localeCompare(String(b.targetDate || '9999')); });
   if (!goals.length){
     var empty = {andamento:'Nenhuma meta em andamento. Que tal criar a primeira acima?', concluidas:'Nenhuma meta concluída ainda. Você chega lá!', naobatidas:'Nenhuma meta com prazo vencido.', excluidas:'Nenhuma meta excluída.'};
     grid.innerHTML = '<p class="empty-state">' + empty[State.goalFilter] + '</p>';
@@ -1469,7 +1667,8 @@ function renderGoals(){
         '<button class="btn btn-danger btn-sm" type="button" data-goal-del="'+g.id+'">Excluir</button>';
     }
     return '<div class="goal-card">' +
-      '<div class="budget-top"><h4>'+escapeHtml(g.name)+'</h4>' + (status === 'naobatidas' ? '<span class="status-pill critical">prazo vencido</span>' : '') + '</div>' +
+      '<div class="budget-top"><h4>'+escapeHtml(g.name)+'</h4><span class="card-tags">' + (status === 'naobatidas' ? '<span class="status-pill critical">prazo vencido</span>' : '') +
+        (status === 'excluidas' ? '' : urgencySelectHtml('goals', g, g.name)) + '</span></div>' +
       '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--brand)"></span></div>' +
       '<div class="goal-figs"><span class="tabular">'+fmtMoney(g.currentAmount||0)+' de '+fmtMoney(g.targetAmount)+'</span><span>'+Math.round(pct*100)+'%</span></div>' +
       '<div class="meta-line">' +
@@ -1487,6 +1686,7 @@ function goalFormBody(g){
     '<div class="field"><label for="egCurrent">Já guardado</label><span class="money-input"><span>R$</span><input id="egCurrent" name="current" type="number" step="0.01" min="0" max="99999999" value="' + (g.currentAmount||0) + '"></span></div>' +
     '<div class="field"><label for="egDate">Prazo</label><input id="egDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.targetDate||'') + '"></div>' +
     '<div class="field"><label for="egReminder">Me avise em</label><input id="egReminder" name="reminder" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.reminderDate||'') + '"></div>' +
+    '<div class="field"><label for="egUrgency">Urgência</label><select id="egUrgency" name="urgency">' + optionsHtml(urgencyOptions(), urgencyOf(g)) + '</select></div>' +
     '<div class="field"><label for="egNote">Observação</label><textarea id="egNote" name="note" rows="3" maxlength="300">' + escapeHtml(g.note||'') + '</textarea></div>';
 }
 
@@ -1497,7 +1697,7 @@ async function editGoal(id){
     onSubmit: async function(form){
       var v = {
         name: form.name.value.trim(), targetAmount: money(form.target.value), currentAmount: Math.max(0, money(form.current.value)),
-        targetDate: form.date.value || null, reminderDate: form.reminder.value || null, note: form.note.value.trim()
+        targetDate: form.date.value || null, reminderDate: form.reminder.value || null, note: form.note.value.trim(), urgency: form.urgency.value
       };
       if (!v.name || !(v.targetAmount > 0)) return {error:'Informe o nome e um valor alvo maior que zero.'};
       if (!validDateStr(v.targetDate) || !validDateStr(v.reminderDate)) return {error:'Use datas entre os anos de 1900 e 3000.'};
@@ -1518,12 +1718,17 @@ function renderDebts(){
     '<div class="debt-grid">' + gs.map(function(g){ return installmentRowHtml(g, true); }).join('') + '</div></div>' : '';
   var grid = document.getElementById('debtGrid');
   if (!State.debts.length){ grid.innerHTML = gs.length ? '' : '<p class="empty-state">Nenhuma dívida cadastrada. Se você não tem dívidas, ótimo: pode pular esta seção.</p>'; return; }
-  grid.innerHTML = State.debts.map(function(d){
+  var debtLeft = function(d){ return Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0)); };
+  // Quitadas por último; entre as abertas, a mais urgente e depois a maior.
+  var debts = byUrgency(State.debts, function(a, b){ return debtLeft(b) - debtLeft(a); });
+  debts.sort(function(a, b){ return (debtLeft(a) <= 0) - (debtLeft(b) <= 0); });
+  grid.innerHTML = debts.map(function(d){
     var remaining = Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0));
     var pct = d.totalAmount > 0 ? Math.min(1, Number(d.paidAmount||0)/Number(d.totalAmount)) : 0;
     var done = remaining <= 0;
     return '<div class="debt-card">' +
-      '<div class="budget-top"><h4>'+escapeHtml(d.name)+'</h4><span class="pill">' + escapeHtml(labelOf(DEBT_KINDS, d.kind) || 'Dívida') + '</span></div>' +
+      '<div class="budget-top"><h4>'+escapeHtml(d.name)+'</h4><span class="card-tags"><span class="pill">' + escapeHtml(labelOf(DEBT_KINDS, d.kind) || 'Dívida') + '</span>' +
+        (done ? '' : urgencySelectHtml('debts', d, d.name)) + '</span></div>' +
       (d.creditor ? '<span class="tx-meta">Com: ' + escapeHtml(d.creditor) + '</span>' : '') +
       '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
       '<div class="debt-figs"><span class="tabular">Pago: '+fmtMoney(d.paidAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
@@ -1583,7 +1788,7 @@ function renderReceivables(){
   if (!State.receivables.length){ grid.innerHTML = '<p class="empty-state">Ninguém te deve nada por aqui. Quando emprestar dinheiro ou alguém usar seu cartão, anote acima.</p>'; return; }
   var items = State.receivables.slice().sort(function(a,b){
     var ad = Number(a.receivedAmount||0) >= Number(a.totalAmount), bd = Number(b.receivedAmount||0) >= Number(b.totalAmount);
-    return (ad - bd) || String(recvNextDue(a)||'9999').localeCompare(String(recvNextDue(b)||'9999'));
+    return (ad - bd) || (URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)]) || String(recvNextDue(a)||'9999').localeCompare(String(recvNextDue(b)||'9999'));
   });
   grid.innerHTML = items.map(function(r){
     var remaining = Math.max(0, Number(r.totalAmount||0) - Number(r.receivedAmount||0));
@@ -1594,7 +1799,8 @@ function renderReceivables(){
     var late = !done && due && due < todayKey();
     var lateHtml = late ? ' · <strong style="color:var(--critical)">atrasado</strong>' : '';
     return '<div class="debt-card">' +
-      '<div class="budget-top"><h4>'+escapeHtml(r.person)+'</h4><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span></div>' +
+      '<div class="budget-top"><h4>'+escapeHtml(r.person)+'</h4><span class="card-tags"><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span>' +
+        (done ? '' : urgencySelectHtml('receivables', r, r.person)) + '</span></div>' +
       (r.description ? '<span class="tx-meta">' + escapeHtml(r.description) + '</span>' : '') +
       '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
       '<div class="debt-figs"><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
@@ -1779,7 +1985,7 @@ function draftHtml(pid, i, d){
     '</div>' +
     '<div class="draft-grid">' +
       field('Descrição', 'desc', '<input id="' + id + 'desc" data-f="desc" type="text" maxlength="80" value="' + escapeHtml(d.desc) + '">') +
-      field('Categoria' + flag(rec.category, 'não reconheci'), 'category', '<select id="' + id + 'category" data-f="category"' + cls(rec.category) + '>' + optionsHtml(cats, d.category) + '</select>') +
+      field('Categoria' + flag(rec.category, 'não reconheci'), 'category', '<select id="' + id + 'category" data-f="category"' + cls(rec.category) + '>' + optionsHtml(catOptions(cats), d.category) + '</select>') +
       field('Data' + flag(rec.date, d.date === todayKey() ? 'suposto: hoje' : 'confira'), 'date', '<input id="' + id + 'date" data-f="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(d.date) + '"' + cls(rec.date) + '>') +
       (d.type === 'expense' ?
         field('Pagamento' + flag(rec.payment, 'confira'), 'pay', '<select id="' + id + 'pay" data-f="pay"' + cls(rec.payment) + '>' + optionsHtml(paymentOptions(), d.pay) + '</select>') :
@@ -2022,25 +2228,76 @@ function renderAll(){
 }
 
 /* ============ Tabs / navigation ============ */
-var TABS = ['dashboard','lancamentos','cartoes','limites','metas','dividas','receber','aprenda','conexoes'];
-// Rola só a barra de abas até a aba ativa. (scrollIntoView mudaria o ponto de partida do Tab
-// no Chrome, e quem usa teclado pularia o topo da página no primeiro Tab.)
-function revealTab(b){
-  var bar = document.getElementById('tabbar');
-  var left = b.offsetLeft, right = left + b.offsetWidth;
-  if (left < bar.scrollLeft) bar.scrollLeft = left - 8;
-  else if (right > bar.scrollLeft + bar.clientWidth) bar.scrollLeft = right - bar.clientWidth + 8;
+// Áreas do app e o endereço de cada uma (#/metas). O endereço permite usar o botão Voltar do navegador.
+var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes'];
+var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes'};
+// "Dívidas" e "A receber" agora são as duas partes de Compromissos.
+var SUBTABS = {dividas: 'eu-devo', receber: 'me-devem'};
+
+function routeOf(name){ return name in SUBTABS ? 'compromissos/' + SUBTABS[name] : ROUTES[name]; }
+function tabFromHash(){
+  var parts = location.hash.replace(/^#\/?/, '').split('/');
+  var tab = Object.keys(ROUTES).filter(function(t){ return ROUTES[t] === parts[0]; })[0];
+  if (!tab) return null;
+  if (tab === 'compromissos' && parts[1]) return Object.keys(SUBTABS).filter(function(k){ return SUBTABS[k] === parts[1]; })[0] || tab;
+  return tab;
 }
-function showTab(name){
-  State.activeTab = name;
-  qsa('#tabbar button').forEach(function(b){
-    var on = b.getAttribute('data-tab') === name;
+function showSubTab(sub){
+  State.commitTab = sub;
+  qsa('#tab-compromissos [data-sub]').forEach(function(b){
+    var on = b.getAttribute('data-sub') === sub;
     b.classList.toggle('active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
-    b.tabIndex = on ? 0 : -1;   // só a aba ativa entra no Tab; as setas trocam de aba
-    if (on) revealTab(b);
+    b.tabIndex = on ? 0 : -1;
   });
+  ['dividas', 'receber'].forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
+}
+// name pode ser uma área (TABS) ou uma parte de Compromissos ('dividas', 'receber').
+function showTab(name){
+  var sub = name in SUBTABS ? name : null;
+  if (sub) name = 'compromissos';
+  if (TABS.indexOf(name) < 0) name = 'dashboard';
+  if (name === 'compromissos') showSubTab(sub || State.commitTab || 'dividas');
+  var changed = State.activeTab !== name;
+  State.activeTab = name;
+  qsa('.sidenav [data-tab], .bottomnav [data-tab]').forEach(function(a){
+    var on = a.getAttribute('data-tab') === name;
+    a.classList.toggle('active', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  // Áreas que só aparecem no "Mais" do celular deixam o "Mais" marcado.
+  document.getElementById('moreBtn').classList.toggle('active', ['dashboard','lancamentos','limites'].indexOf(name) < 0);
   TABS.forEach(function(t){ document.getElementById('tab-' + t).hidden = (t !== name); });
+  // Cada troca de área vira uma entrada no histórico (o Voltar do navegador volta à área anterior);
+  // ao entrar no app, só corrige o endereço.
+  var route = '#/' + routeOf(name === 'compromissos' ? State.commitTab : name);
+  if (location.hash !== route){
+    if (State.navReady) history.pushState(null, '', route); else history.replaceState(null, '', route);
+  }
+  if (changed) window.scrollTo(0, 0);
+}
+
+// "Mais" no celular: as áreas que não cabem na barra inferior.
+async function openMoreMenu(){
+  var items = [['cartoes','wallet','Contas e cartões'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
+    ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões']];
+  await openModal({
+    title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',
+    body: '<nav class="more-menu" aria-label="Outras áreas">' + items.map(function(it){
+        return '<a class="more-item' + (State.activeTab === it[0] ? ' active' : '') + '" href="#/' + ROUTES[it[0]] + '" data-more="' + it[0] + '">' + icon(it[1]) + '<span>' + it[2] + '</span></a>';
+      }).join('') +
+      '<button type="button" class="more-item" data-more="dados">' + icon('lock') + '<span>Seus dados e backup</span></button>' +
+      '</nav>',
+    onOpen: function(modal, close){
+      modal.addEventListener('click', function(e){
+        var el = e.target.closest('[data-more]');
+        if (!el) return;
+        e.preventDefault();
+        close(null);
+        if (el.getAttribute('data-more') === 'dados') dataModal(); else showTab(el.getAttribute('data-more'));
+      });
+    }
+  });
 }
 
 function showAuthTab(name){
@@ -2066,7 +2323,10 @@ async function enterApp(){
   populateInstallSelect();
   renderAll();
   syncTxFormVisibility();
-  showTab('dashboard');
+  State.activeTab = null;
+  State.navReady = false;
+  showTab(tabFromHash() || 'dashboard');
+  State.navReady = true;
   maybeWelcome();
 }
 
@@ -2223,6 +2483,22 @@ document.addEventListener('click', async function(e){
   if ((el = t.closest('[data-edit-tx]'))){
     var et = findById(State.transactions, el.getAttribute('data-edit-tx'));
     if (et) openTxModal(et);
+    return;
+  }
+  if ((el = t.closest('[data-sum-more]'))){
+    var n = el.getAttribute('data-sum-more');
+    State.sumOpen[n] = !State.sumOpen[n];
+    renderSummary();
+    qs('[data-sum-more="' + n + '"]').focus();
+    return;
+  }
+  if ((el = t.closest('[data-go]'))){ e.preventDefault(); showTab(el.getAttribute('data-go')); return; }
+  if (t.closest('#dashDetailsBtn')){
+    State.dashDetails = !State.dashDetails;
+    var btn = document.getElementById('dashDetailsBtn');
+    btn.setAttribute('aria-expanded', String(State.dashDetails));
+    btn.querySelector('span').textContent = State.dashDetails ? 'Esconder detalhes do mês' : 'Ver todos os detalhes do mês';
+    document.getElementById('dashDetails').hidden = !State.dashDetails;
     return;
   }
   if (t.closest('[data-backup-now]')){ exportBackup(); return; }
@@ -2434,19 +2710,31 @@ document.getElementById('txInstall').addEventListener('input', populateInstallSe
 });
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
 
-document.getElementById('tabbar').addEventListener('click', function(e){
-  var btn = e.target.closest('button[data-tab]');
-  if (btn) showTab(btn.getAttribute('data-tab'));
-});
-// Teclado nas abas: setas esquerda/direita, Home e End (padrão de abas da WAI-ARIA).
-document.getElementById('tabbar').addEventListener('keydown', function(e){
-  var keys = {ArrowRight: 1, ArrowLeft: -1, Home: 'first', End: 'last'};
-  if (!(e.key in keys)) return;
+// Links do menu: o endereço muda e o hashchange troca a área (também funciona com Voltar/Avançar).
+function syncFromAddress(){
+  if (!State.session) return;
+  var t = tabFromHash();
+  if (t) showTab(t);
+}
+window.addEventListener('hashchange', syncFromAddress);
+window.addEventListener('popstate', syncFromAddress);
+document.addEventListener('click', function(e){
+  var a = e.target.closest('.sidenav [data-tab], .bottomnav [data-tab]');
+  if (!a || !State.session) return;
   e.preventDefault();
-  var i = TABS.indexOf(State.activeTab), step = keys[e.key];
-  var next = step === 'first' ? 0 : step === 'last' ? TABS.length - 1 : (i + step + TABS.length) % TABS.length;
-  showTab(TABS[next]);
-  document.getElementById('tabbtn-' + TABS[next]).focus();
+  showTab(a.getAttribute('data-tab'));
+});
+document.getElementById('moreBtn').addEventListener('click', openMoreMenu);
+// Eu devo / Me devem: abas com setas, como no padrão da WAI-ARIA.
+qsa('#tab-compromissos [data-sub]').forEach(function(b){
+  b.addEventListener('click', function(){ showTab(b.getAttribute('data-sub')); });
+  b.addEventListener('keydown', function(e){
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    e.preventDefault();
+    var next = b.getAttribute('data-sub') === 'dividas' ? 'receber' : 'dividas';
+    showTab(next);
+    document.getElementById('segbtn-' + next).focus();
+  });
 });
 
 document.getElementById('fabAdd').addEventListener('click', function(){ openTxModal(); });
@@ -2622,7 +2910,7 @@ document.getElementById('goalForm').addEventListener('submit', async function(e)
   var note = document.getElementById('goalNote').value.trim();
   if (!name || !(target > 0)){ toast('Informe nome e valor alvo da meta.'); return; }
   if (!validDateStr(date) || !validDateStr(reminder)){ toast('Use datas entre os anos de 1900 e 3000.'); return; }
-  var goal = {name:name, targetAmount:target, currentAmount:0, targetDate:date||null, reminderDate:reminder||null, note:note, deletedAt:null, createdAt:Date.now()};
+  var goal = {name:name, targetAmount:target, currentAmount:0, targetDate:date||null, reminderDate:reminder||null, note:note, urgency: document.getElementById('goalUrgency').value, deletedAt:null, createdAt:Date.now()};
   var saved = await Store.add(k(), 'goals', goal);
   State.goals.push(saved);
   e.target.reset();
@@ -2639,7 +2927,7 @@ document.getElementById('debtForm').addEventListener('submit', async function(e)
   var installment = Math.max(0, money(document.getElementById('debtInstallment').value || 0));
   if (!name || !(total > 0)){ toast('Informe nome e valor total da dívida.'); return; }
   if (paid > total){ toast('O valor já pago não pode ser maior que o total.'); return; }
-  var debt = {name:name, kind: document.getElementById('debtKind').value, creditor: document.getElementById('debtCreditor').value.trim(), totalAmount:total, paidAmount:paid, monthlyPayment:installment, createdAt:Date.now()};
+  var debt = {name:name, kind: document.getElementById('debtKind').value, creditor: document.getElementById('debtCreditor').value.trim(), totalAmount:total, paidAmount:paid, monthlyPayment:installment, urgency: document.getElementById('debtUrgency').value, createdAt:Date.now()};
   var saved = await Store.add(k(), 'debts', debt);
   State.debts.push(saved);
   e.target.reset();
@@ -2659,7 +2947,7 @@ document.getElementById('recvForm').addEventListener('submit', async function(e)
   if (!person || !(typed > 0)){ toast('Informe quem vai pagar e o valor.'); return; }
   if (!validDateStr(due)){ toast('Use uma data entre 1900 e 3000.'); return; }
   var total = perMode ? money(typed * n) : typed;
-  var r = {person:person, kind: kind, description: desc, phone: document.getElementById('recvPhone').value.trim(), totalAmount: total, receivedAmount: 0, dueDate: due || null, createdAt: Date.now()};
+  var r = {person:person, kind: kind, description: desc, phone: document.getElementById('recvPhone').value.trim(), totalAmount: total, receivedAmount: 0, dueDate: due || null, urgency: document.getElementById('recvUrgency').value, createdAt: Date.now()};
   if (n > 1){ r.installments = n; r.installmentAmount = perMode ? typed : Math.floor(total * 100 / n) / 100; }
   // Compra feita no meu cartão: pode entrar também na fatura, já parcelada.
   var card = kind === 'cartao' && document.getElementById('recvLaunch').checked ? findById(State.cards, document.getElementById('recvCard').value) : null;
@@ -2679,6 +2967,17 @@ document.getElementById('recvForm').addEventListener('submit', async function(e)
 
 document.getElementById('debtKind').innerHTML = optionsHtml(DEBT_KINDS, 'banco');
 document.getElementById('recvKind').innerHTML = optionsHtml(RECV_KINDS, 'emprestimo');
+qsa('[data-urgency-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(urgencyOptions(), DEFAULT_URGENCY); });
+// Depois de enviar um formulário, a urgência volta para média.
+['goalForm', 'debtForm', 'recvForm'].forEach(function(id){
+  document.getElementById(id).addEventListener('reset', function(e){ setTimeout(function(){ qsa('[data-urgency-options]', e.target).forEach(function(sel){ sel.value = DEFAULT_URGENCY; }); }, 0); });
+});
+document.addEventListener('change', function(e){
+  var sel = e.target.closest && e.target.closest('[data-urgency]');
+  if (!sel) return;
+  var parts = sel.getAttribute('data-urgency').split(':');
+  setUrgency(parts[0], parts.slice(1).join(':'), sel.value);
+});
 ['recvInstall','recvTotal'].forEach(function(id){ document.getElementById(id).addEventListener('input', syncRecvForm); });
 document.getElementById('recvForm').addEventListener('change', syncRecvForm);
 document.getElementById('recvForm').addEventListener('reset', function(){ setTimeout(syncRecvForm, 0); });
