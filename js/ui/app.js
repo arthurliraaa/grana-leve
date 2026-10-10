@@ -2069,24 +2069,29 @@ function populateRecvCards(){
   populateRecvLinks();
   syncRecvForm();
 }
-// Compras no cartão que podem virar "A receber" (ainda não ligadas a ninguém), mais recentes primeiro.
-function recvLinkCandidates(){
-  var out = [], seen = {}, since = shiftMonthKey(monthKeyOf(todayKey()), -4) + '-01';
+// Compras que podem virar "A receber" (ainda não ligadas a ninguém), mais recentes primeiro.
+// anyPay: inclui gastos em conta, Pix e vale (para ligar "A receber" antigos); senão, só cartão.
+function recvLinkCandidates(anyPay){
+  var out = [], seen = {}, since = shiftMonthKey(monthKeyOf(todayKey()), anyPay ? -12 : -4) + '-01';
   State.transactions.forEach(function(t){
-    if (t.type !== 'expense' || t.paymentMethod !== 'cartao' || t.forOther || !findById(State.cards, t.cardId)) return;
+    if (t.type !== 'expense' || t.forOther || t.writeOff || t.debtId) return;
+    if (!anyPay && (t.paymentMethod !== 'cartao' || !findById(State.cards, t.cardId))) return;
     if (t.installment){
       var gid = t.installment.group;
       if (seen[gid]) return;
       seen[gid] = true;
       var items = State.transactions.filter(function(x){ return x.installment && x.installment.group === gid; }).sort(function(a, b){ return a.installment.n - b.installment.n; });
-      if (items[items.length - 1].date < todayKey()) return;
+      if (!anyPay && items[items.length - 1].date < todayKey()) return;
       out.push({id: 'g:' + gid, items: items, date: items[0].date, label: t.installment.baseDescription + ' · ' + items.length + 'x de ' + fmtMoney(items[items.length - 1].amount)});
     } else if (t.date >= since){
       out.push({id: 't:' + t.id, items: [t], date: t.date, label: (t.description || catLabel(t.category, 'expense')) + ' · ' + fmtMoney(t.amount)});
     }
   });
-  return out.sort(function(a, b){ return b.date.localeCompare(a.date); }).slice(0, 40).map(function(c){
-    c.label += ' · ' + findById(State.cards, c.items[0].cardId).name + ' · ' + formatDateBr(c.date);
+  return out.sort(function(a, b){ return b.date.localeCompare(a.date); }).slice(0, anyPay ? 80 : 40).map(function(c){
+    var pay = paymentLabel(c.items[0]);
+    c.total = sumMoney(c.items, function(t){ return t.amount; });
+    c.createdAt = c.items[0].createdAt || 0;
+    c.label += (pay ? ' · ' + pay : '') + ' · ' + formatDateBr(c.date);
     return c;
   });
 }
@@ -2146,9 +2151,51 @@ function renderReceivables(){
           '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
           '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
           '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
+        (!r.linked && !r.forgiven && r.kind !== 'emprestimo' ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-link="'+r.id+'" title="Para “A receber” anotados antes: escolha o gasto que você pagou pela pessoa">Ligar à compra</button>' : '') +
         '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
       '</div>' + paymentLogHtml(r.payments, 'recv', r.id) + '</div>';
   }).join('');
+}
+
+// "A receber" antigo (de antes do vínculo): liga a um gasto já lançado. O gasto passa a ser "pago por"
+// essa pessoa e, se quiser, os recebimentos antigos dela viram devolução (para não contar como ganho).
+async function linkReceivable(id){
+  var r = findById(State.receivables, id);
+  var cands = recvLinkCandidates(true);
+  if (!cands.length){ toast('Nenhum gasto disponível para ligar nos últimos 12 meses.'); return; }
+  // Sugestão: mesmo valor, lançado perto do momento em que o "A receber" foi criado.
+  var best = cands.filter(function(c){ return Math.abs(c.total - Number(r.totalAmount)) < 0.005; })
+    .sort(function(a, b){ return Math.abs(a.createdAt - (r.createdAt||0)) - Math.abs(b.createdAt - (r.createdAt||0)); })[0];
+  var olds = State.transactions.filter(function(t){ return t.type === 'income' && !t.refund && t.category === 'recebimento' &&
+    (t.receivableId === r.id || (!t.receivableId && t.description === 'Recebido de ' + r.person && (t.createdAt||0) >= (r.createdAt||0))); });
+  var a = await openModal({
+    title: 'Ligar à compra',
+    body: '<p>Escolha o gasto que você pagou por ' + escapeHtml(r.person) + '. Ele sai dos seus gastos e ganha a etiqueta “Pago por ' + escapeHtml(r.person) + '”.</p>' +
+      '<div class="field"><label for="lkTx">Gasto</label><select id="lkTx" name="tx">' +
+        optionsHtml(cands.map(function(c){ return {id: c.id, label: (best && c.id === best.id ? '★ ' : '') + c.label}; }), best ? best.id : cands[0].id) + '</select>' +
+        (best ? '<span class="field-hint">★ Sugestão: mesmo valor (' + fmtMoney(best.total) + '), lançado perto de quando você anotou o “A receber”.</span>' : '') + '</div>' +
+      (olds.length ? '<label class="check"><input type="checkbox" name="refund" checked> Marcar ' + olds.length + ' recebimento(s) já registrado(s) de ' + escapeHtml(r.person) + ' (' +
+        fmtMoney(sumMoney(olds, function(t){ return t.amount; })) + ') como devolução, para não contarem como ganho</label>' : ''),
+    submitLabel: 'Ligar',
+    onSubmit: function(form){ return {id: form.tx.value, refund: !!(form.refund && form.refund.checked)}; }
+  });
+  if (!a) return;
+  var c = cands.filter(function(x){ return x.id === a.id; })[0];
+  for (var i = 0; i < c.items.length; i++){
+    var fo = {forOther: {person: r.person, receivableId: r.id}};
+    await Store.update(k(), 'transactions', c.items[i].id, fo); Object.assign(c.items[i], fo);
+  }
+  if (a.refund){
+    for (var j = 0; j < olds.length; j++){
+      var rf = {refund: true, receivableId: r.id};
+      await Store.update(k(), 'transactions', olds[j].id, rf); Object.assign(olds[j], rf);
+    }
+  }
+  var patch = {linked: true, category: c.items[0].category};
+  if (c.items[0].paymentMethod === 'cartao') patch.cardId = c.items[0].cardId;
+  await Store.update(k(), 'receivables', r.id, patch); Object.assign(r, patch);
+  renderAll();
+  toast('Ligado: o gasto agora é “pago por ' + r.person + '”' + (a.refund && olds.length ? ' e os recebimentos antigos viraram devolução.' : '.'));
 }
 
 // "Cartão Inter · parcela 2 de 3 · fatura de novembro de 2026" (compra feita no seu cartão).
@@ -3246,6 +3293,7 @@ document.addEventListener('click', async function(e){
   if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
   if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
   if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
+  if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return; }
   if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
   if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
   if ((el = t.closest('[data-recv-del]'))){
