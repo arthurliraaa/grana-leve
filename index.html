@@ -345,91 +345,134 @@
       <div id="tab-lancamentos" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Ganhos e gastos</h2>
         <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Em “Previstas” você anota o que ainda vai receber no mês.</p>
-        <div class="card">
-          <div class="card-head">
-            <h3>Novo lançamento</h3>
-            <div class="card-head-tools">
-              <button class="btn btn-ghost btn-sm forecast-toggle" type="button" id="forecastToggle" aria-expanded="false" aria-controls="forecastPanel">
-                <svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>Previstas</span><span class="count-badge" id="forecastCount">0</span><span class="sr-only" id="forecastSr"></span>
-              </button>
-              <button class="linklike" type="button" id="manageCatsBtn">Personalizar categorias</button>
+        <div class="segmented seg-wide" role="tablist" aria-label="Ganhos e gastos">
+          <button type="button" role="tab" id="segbtn-lanc" aria-controls="tab-lanc" data-sub="lanc" aria-selected="true">Lançamentos</button>
+          <button type="button" role="tab" id="segbtn-fixas" aria-controls="tab-fixas" data-sub="fixas" aria-selected="false" tabindex="-1">Contas fixas</button>
+        </div>
+        <div id="tab-lanc" class="subpanel" role="tabpanel" aria-labelledby="segbtn-lanc">
+          <div class="card">
+            <div class="card-head">
+              <h3>Novo lançamento</h3>
+              <div class="card-head-tools">
+                <button class="btn btn-ghost btn-sm forecast-toggle" type="button" id="forecastToggle" aria-expanded="false" aria-controls="forecastPanel">
+                  <svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>Previstas</span><span class="count-badge" id="forecastCount">0</span><span class="sr-only" id="forecastSr"></span>
+                </button>
+                <button class="linklike" type="button" id="manageCatsBtn">Personalizar categorias</button>
+              </div>
             </div>
-          </div>
-          <section class="forecast-panel" id="forecastPanel" aria-labelledby="forecastTitle" hidden>
-            <div class="forecast-head">
-              <h4 id="forecastTitle">Previsões de entrada <span class="month-lbl" id="forecastMonthLabel"></span></h4>
-              <p class="field-hint">O que você ainda espera receber neste mês (salário, freela, pagamento combinado). Quando o dinheiro cair, toque em “Recebi”.</p>
-            </div>
-            <div id="forecastList"></div>
-            <form id="forecastForm" class="inline-form">
-              <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
-              <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
-              <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
-              <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
-              <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
-            </form>
-          </section>
-          <form id="txForm" class="add-tx-form">
+            <section class="forecast-panel" id="forecastPanel" aria-labelledby="forecastTitle" hidden>
+              <div class="forecast-head">
+                <h4 id="forecastTitle">Previsões de entrada <span class="month-lbl" id="forecastMonthLabel"></span></h4>
+                <p class="field-hint">O que você ainda espera receber neste mês (salário, freela, pagamento combinado). Quando o dinheiro cair, toque em “Recebi”.</p>
+              </div>
+              <div id="forecastList"></div>
+              <form id="forecastForm" class="inline-form">
+                <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
+                <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+                <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
+                <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
+                <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
+              </form>
+            </section>
+            <form id="txForm" class="add-tx-form tx-form">
             <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
-              <button type="button" class="active" data-type="expense">Gasto</button>
-              <button type="button" data-type="income">Ganho</button>
+              <button type="button" class="active" data-type="expense" aria-pressed="true">Gasto</button>
+              <button type="button" data-type="income" aria-pressed="false">Ganho</button>
             </div>
-            <div class="field"><label for="txAmount">Valor</label><span class="money-input"><span>R$</span><input id="txAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+            <div class="tx-main-row f-full">
+              <div class="field amount-field"><label for="txAmount">Valor</label><span class="money-input money-xl"><span>R$</span><input id="txAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" placeholder="0,00" required></span></div>
+              <div class="field"><label for="txDesc">O que foi? <span class="opt">(opcional)</span></label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
+            </div>
             <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select></div>
             <div class="field"><label for="txDate">Data</label><input id="txDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
-            <div class="field" id="txPaymentField"><label for="txPayment">Forma de pagamento</label><select id="txPayment"></select></div>
-            <div class="field" id="txAccountField" hidden><label for="txAccount">Entrou em</label><select id="txAccount"></select></div>
-            <div class="field" id="txInstallField" hidden><label for="txInstall">Parcelas</label>
-              <div class="stepper"><button type="button" data-step="-1" data-for="txInstall" aria-label="Menos parcelas">−</button><input id="txInstall" type="number" min="1" max="24" step="1" value="1" inputmode="numeric"><span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="txInstall" aria-label="Mais parcelas">+</button></div>
-              <span class="field-hint tabular" id="txInstallHint">À vista</span></div>
-            <div class="f-full" id="txIxWrap"></div>
-            <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
-            <div class="field f-half" id="txForOtherField">
-              <label class="check"><input type="checkbox" id="txForOther"> Paguei por outra pessoa e ela vai me devolver</label>
-              <span class="field-hint" id="txOtherHint" hidden>O valor fica fora dos seus gastos e vai para “A receber”, para você acompanhar e cobrar depois.</span>
-              <input id="txOtherName" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Quem vai te devolver?" hidden>
-              <label class="check"><input type="checkbox" id="txSplit"> Dividir com outras pessoas (ex.: família)</label>
+            <div class="field f-half" id="txPaymentField"><label for="txPayment">Como você pagou?</label><select id="txPayment"></select></div>
+            <div class="field f-half" id="txAccountField" hidden><label for="txAccount">Onde o dinheiro entrou?</label><select id="txAccount"></select></div>
+            <div class="install-box f-full" id="txInstallField" hidden>
+              <div class="install-row">
+                <div class="field"><label for="txInstall">Parcelas</label>
+                  <div class="stepper"><button type="button" data-step="-1" data-for="txInstall" aria-label="Menos parcelas">−</button><input id="txInstall" type="number" min="1" max="24" step="1" value="1" inputmode="numeric"><span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="txInstall" aria-label="Mais parcelas">+</button></div></div>
+                <div id="txIxWrap"></div>
+              </div>
+              <p class="install-summary tabular" id="txInstallHint" aria-live="polite">À vista</p>
             </div>
-            <div class="field f-full split-box" id="txSplitBox" hidden>
-              <fieldset class="radio-group split-head"><legend>Dividir por</legend>
-                <label class="check"><input type="radio" name="txSplitMode" value="valor" checked> valor (R$)</label>
-                <label class="check"><input type="radio" name="txSplitMode" value="pct"> porcentagem (%)</label>
-                <button type="button" class="btn btn-ghost btn-sm" id="txSplitEqual">Dividir igualmente</button>
-              </fieldset>
-              <div id="txSplitRows"></div>
-              <button type="button" class="btn btn-ghost btn-sm" id="txSplitAdd" style="justify-self:start">+ Adicionar pessoa</button>
-              <p class="field-hint tabular" id="txSplitSummary" aria-live="polite"></p>
+            <details class="more-options f-full" id="txForOtherField">
+              <summary><span>Pagou por alguém ou vai dividir com outras pessoas?</span><span class="opt">opcional</span></summary>
+              <div class="option-cards">
+                <label class="option-card"><input type="checkbox" id="txForOther">
+                  <span><strong>Paguei por outra pessoa</strong><small>Ela vai te devolver tudo. Não conta como gasto seu e vai para “Me devem”.</small></span></label>
+                <label class="option-card"><input type="checkbox" id="txSplit">
+                  <span><strong>Dividir com outras pessoas</strong><small>Cada um paga uma parte (ex.: família). Só a sua parte conta como gasto; a dos outros vai para “Me devem”.</small></span></label>
+              </div>
+              <div class="field other-name">
+                <label for="txOtherName" id="txOtherHint" hidden>Quem vai te devolver?</label>
+                <input id="txOtherName" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Nome da pessoa" hidden>
+              </div>
+              <div class="split-box" id="txSplitBox" hidden>
+                <fieldset class="radio-group split-head"><legend>Dividir por</legend>
+                  <label class="check"><input type="radio" name="txSplitMode" value="valor" checked> valor (R$)</label>
+                  <label class="check"><input type="radio" name="txSplitMode" value="pct"> porcentagem (%)</label>
+                  <button type="button" class="btn btn-ghost btn-sm" id="txSplitEqual">Dividir igualmente</button>
+                </fieldset>
+                <div id="txSplitRows"></div>
+                <button type="button" class="btn btn-ghost btn-sm" id="txSplitAdd" style="justify-self:start">+ Adicionar pessoa</button>
+                <p class="field-hint tabular" id="txSplitSummary" aria-live="polite"></p>
+              </div>
+            </details>
+            <div class="f-full tx-submit"><button class="btn btn-primary btn-lg" type="submit" id="txSubmit">Salvar gasto</button></div>
+          </form>
+          </div>
+  
+          <div class="card">
+            <div class="card-head">
+              <div class="month-switch">
+                <button type="button" id="prevMonth" aria-label="Mês anterior"><svg class="ico"><use href="#i-chevron-left"/></svg></button>
+                <strong id="txMonthLabel">—</strong>
+                <button type="button" id="nextMonth" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
+              </div>
+              <button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button>
             </div>
-            <div class="f-full"><button class="btn btn-primary" type="submit">Adicionar lançamento</button></div>
+            <div class="segmented tx-views" role="group" aria-label="Como ver os lançamentos">
+              <button type="button" data-txview="list" aria-pressed="true" class="active">Lista</button>
+              <button type="button" data-txview="cal" aria-pressed="false">Calendário</button>
+              <button type="button" data-txview="year" aria-pressed="false">Ano</button>
+            </div>
+            <div class="tx-filters" role="search">
+              <input id="txSearch" type="search" maxlength="60" placeholder="Buscar por descrição ou categoria" aria-label="Buscar lançamentos">
+              <select id="txFilterType" aria-label="Filtrar por tipo"><option value="all">Ganhos e gastos</option><option value="income">Só ganhos</option><option value="expense">Só gastos</option><option value="others">Pagos por outras pessoas</option></select>
+              <select id="txFilterCat" aria-label="Filtrar por categoria"><option value="all">Todas as categorias</option></select>
+              <select id="txSort" aria-label="Ordenar a lista"><option value="recent">Mais recentes primeiro</option><option value="added">Ordem de cadastro</option><option value="amount">Maior valor primeiro</option></select>
+              <select id="txFilterPay" aria-label="Filtrar por forma de pagamento"><option value="all">Qualquer pagamento</option><option value="conta">Dinheiro, Pix ou débito</option><option value="cartao">Cartão de crédito</option><option value="vale">Vale</option></select>
+            </div>
+            <p class="card-sub" id="txSummary"></p>
+            <div id="txCal" hidden></div>
+            <div id="txList"></div>
+          </div>
+        </div>
+        <!-- Contas fixas (água, luz, internet…): parte de Ganhos e gastos -->
+      <div id="tab-fixas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-fixas" hidden>
+        <p class="tab-intro">Contas que se repetem: água, luz, internet, aluguel, assinaturas. O app mostra os vencimentos de cada mês e, ao pagar, lança o gasto sozinho.</p>
+        <div class="card">
+          <div class="card-head"><h3>Nova conta fixa</h3></div>
+          <form id="billForm" class="new-item-form">
+            <div class="field"><label for="billName">Nome</label><input id="billName" type="text" list="billNames" autocomplete="off" maxlength="60" required placeholder="Ex: Internet"><datalist id="billNames"></datalist></div>
+            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
+            <div class="field"><label for="billDay">Dia do vencimento</label><input id="billDay" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
+            <div class="field"><label for="billEvery">Frequência</label><select id="billEvery"></select></div>
+            <div class="field"><label for="billCat">Categoria</label><select id="billCat"></select></div>
+            <div class="field"><label for="billPay">Forma de pagamento</label><select id="billPay"></select></div>
+            <div class="field"><label for="billStart">A partir de</label><input id="billStart" type="month" required></div>
+            <div class="f-submit-inline"><button class="btn btn-primary" type="submit">Adicionar conta</button></div>
           </form>
         </div>
-
         <div class="card">
-          <div class="card-head">
-            <div class="month-switch">
-              <button type="button" id="prevMonth" aria-label="Mês anterior"><svg class="ico"><use href="#i-chevron-left"/></svg></button>
-              <strong id="txMonthLabel">—</strong>
-              <button type="button" id="nextMonth" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
-            </div>
-            <button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button>
-          </div>
-          <div class="segmented tx-views" role="group" aria-label="Como ver os lançamentos">
-            <button type="button" data-txview="list" aria-pressed="true" class="active">Lista</button>
-            <button type="button" data-txview="cal" aria-pressed="false">Calendário</button>
-            <button type="button" data-txview="year" aria-pressed="false">Ano</button>
-          </div>
-          <div class="tx-filters" role="search">
-            <input id="txSearch" type="search" maxlength="60" placeholder="Buscar por descrição ou categoria" aria-label="Buscar lançamentos">
-            <select id="txFilterType" aria-label="Filtrar por tipo"><option value="all">Ganhos e gastos</option><option value="income">Só ganhos</option><option value="expense">Só gastos</option><option value="others">Pagos por outras pessoas</option></select>
-            <select id="txFilterCat" aria-label="Filtrar por categoria"><option value="all">Todas as categorias</option></select>
-            <select id="txSort" aria-label="Ordenar a lista"><option value="recent">Mais recentes primeiro</option><option value="added">Ordem de cadastro</option><option value="amount">Maior valor primeiro</option></select>
-            <select id="txFilterPay" aria-label="Filtrar por forma de pagamento"><option value="all">Qualquer pagamento</option><option value="conta">Dinheiro, Pix ou débito</option><option value="cartao">Cartão de crédito</option><option value="vale">Vale</option></select>
-          </div>
-          <p class="card-sub" id="txSummary"></p>
-          <div id="txCal" hidden></div>
-          <div id="txList"></div>
+          <div class="card-head"><h3>Vencimentos</h3>
+            <div class="month-switch"><button type="button" id="billPrev" aria-label="Mês anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+              <strong id="billMonthLabel"></strong>
+              <button type="button" id="billNext" aria-label="Próximo mês"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div></div>
+          <div id="billMonth"></div>
         </div>
-
+        <div id="billGrid" class="debt-grid"></div>
+      </div>
       </div>
 
       <!-- Cartões -->
@@ -529,7 +572,6 @@
         <div class="segmented seg-wide" role="tablist" aria-label="Tipo de compromisso">
           <button type="button" role="tab" id="segbtn-dividas" aria-controls="tab-dividas" data-sub="dividas" aria-selected="true">Eu devo</button>
           <button type="button" role="tab" id="segbtn-receber" aria-controls="tab-receber" data-sub="receber" aria-selected="false" tabindex="-1">Me devem</button>
-          <button type="button" role="tab" id="segbtn-fixas" aria-controls="tab-fixas" data-sub="fixas" aria-selected="false" tabindex="-1">Contas fixas</button>
         </div>
       <!-- Dívidas -->
       <div id="tab-dividas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-dividas">
@@ -579,31 +621,6 @@
           </form>
         </div>
         <div id="recvGrid" class="debt-grid"></div>
-      </div>
-      <!-- Contas fixas -->
-      <div id="tab-fixas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-fixas" hidden>
-        <p class="tab-intro">Contas que se repetem: água, luz, internet, aluguel, assinaturas. O app mostra os vencimentos de cada mês e, ao pagar, lança o gasto sozinho.</p>
-        <div class="card">
-          <div class="card-head"><h3>Nova conta fixa</h3></div>
-          <form id="billForm" class="new-item-form">
-            <div class="field"><label for="billName">Nome</label><input id="billName" type="text" list="billNames" autocomplete="off" maxlength="60" required placeholder="Ex: Internet"><datalist id="billNames"></datalist></div>
-            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
-            <div class="field"><label for="billDay">Dia do vencimento</label><input id="billDay" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
-            <div class="field"><label for="billEvery">Frequência</label><select id="billEvery"></select></div>
-            <div class="field"><label for="billCat">Categoria</label><select id="billCat"></select></div>
-            <div class="field"><label for="billPay">Forma de pagamento</label><select id="billPay"></select></div>
-            <div class="field"><label for="billStart">A partir de</label><input id="billStart" type="month" required></div>
-            <div class="f-submit-inline"><button class="btn btn-primary" type="submit">Adicionar conta</button></div>
-          </form>
-        </div>
-        <div class="card">
-          <div class="card-head"><h3>Vencimentos</h3>
-            <div class="month-switch"><button type="button" id="billPrev" aria-label="Mês anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
-              <strong id="billMonthLabel"></strong>
-              <button type="button" id="billNext" aria-label="Próximo mês"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div></div>
-          <div id="billMonth"></div>
-        </div>
-        <div id="billGrid" class="debt-grid"></div>
       </div>
       </div>
 

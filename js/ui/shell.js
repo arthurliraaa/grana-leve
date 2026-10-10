@@ -132,33 +132,44 @@ export function renderAll(){
 // Áreas do app e o endereço de cada uma (#/metas). O endereço permite usar o botão Voltar do navegador.
 export var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
 export var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
-// "Dívidas" e "A receber" agora são as duas partes de Compromissos.
-export var SUBTABS = {dividas: 'eu-devo', receber: 'me-devem', fixas: 'contas-fixas'};
+// Partes (subabas) de uma área: Compromissos = Eu devo | Me devem; Ganhos e gastos = Lançamentos |
+// Contas fixas. slug é o pedaço do endereço (#/compromissos/me-devem); vazio = a parte padrão.
+export var SUBTABS = {
+  dividas: {parent: 'compromissos', slug: 'eu-devo'}, receber: {parent: 'compromissos', slug: 'me-devem'},
+  lanc: {parent: 'lancamentos', slug: ''}, fixas: {parent: 'lancamentos', slug: 'contas-fixas'}
+};
+function subsOf(parent){ return Object.keys(SUBTABS).filter(function(k){ return SUBTABS[k].parent === parent; }); }
+function currentSub(parent){ return (State.subTab || {})[parent] || subsOf(parent)[0]; }
 
-export function routeOf(name){ return name in SUBTABS ? 'compromissos/' + SUBTABS[name] : ROUTES[name]; }
+export function routeOf(name){
+  var s = SUBTABS[name];
+  return s ? ROUTES[s.parent] + (s.slug ? '/' + s.slug : '') : ROUTES[name];
+}
 export function tabFromHash(){
   var parts = location.hash.replace(/^#\/?/, '').split('/');
   var tab = Object.keys(ROUTES).filter(function(t){ return ROUTES[t] === parts[0]; })[0];
   if (!tab) return null;
-  if (tab === 'compromissos' && parts[1]) return Object.keys(SUBTABS).filter(function(k){ return SUBTABS[k] === parts[1]; })[0] || tab;
+  if (parts[1]) return subsOf(tab).filter(function(k){ return SUBTABS[k].slug === parts[1]; })[0] || tab;
   return tab;
 }
-export function showSubTab(sub){
-  State.commitTab = sub;
-  qsa('#tab-compromissos [data-sub]').forEach(function(b){
+export function showSubTab(parent, sub){
+  State.subTab = State.subTab || {};
+  State.subTab[parent] = sub;
+  if (parent === 'compromissos') State.commitTab = sub;
+  qsa('#tab-' + parent + ' [data-sub]').forEach(function(b){
     var on = b.getAttribute('data-sub') === sub;
     b.classList.toggle('active', on);
     b.setAttribute('aria-selected', on ? 'true' : 'false');
     b.tabIndex = on ? 0 : -1;
   });
-  ['dividas', 'receber', 'fixas'].forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
+  subsOf(parent).forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
 }
-// name pode ser uma área (TABS) ou uma parte de Compromissos ('dividas', 'receber').
+// name pode ser uma área (TABS) ou uma parte dela (SUBTABS: 'dividas', 'receber', 'lanc', 'fixas').
 export function showTab(name){
-  var sub = name in SUBTABS ? name : null;
-  if (sub) name = 'compromissos';
+  var sub = SUBTABS[name] ? name : null;
+  if (sub) name = SUBTABS[sub].parent;
   if (TABS.indexOf(name) < 0 || (name === 'admin' && !State.isAdmin)) name = 'dashboard';
-  if (name === 'compromissos') showSubTab(sub || State.commitTab || 'dividas');
+  if (subsOf(name).length) showSubTab(name, sub || currentSub(name));
   var changed = State.activeTab !== name;
   State.activeTab = name;
   qsa('.sidenav [data-tab], .bottomnav [data-tab]').forEach(function(a){
@@ -171,7 +182,7 @@ export function showTab(name){
   TABS.forEach(function(t){ document.getElementById('tab-' + t).hidden = (t !== name); });
   // Cada troca de área vira uma entrada no histórico (o Voltar do navegador volta à área anterior);
   // ao entrar no app, só corrige o endereço.
-  var route = '#/' + routeOf(name === 'compromissos' ? State.commitTab : name);
+  var route = '#/' + routeOf(subsOf(name).length ? currentSub(name) : name);
   if (location.hash !== route){
     if (State.navReady) history.pushState(null, '', route); else history.replaceState(null, '', route);
   }
@@ -636,13 +647,13 @@ export function wireShell(){
     showTab(a.getAttribute('data-tab'));
   });
   document.getElementById('moreBtn').addEventListener('click', openMoreMenu);
-  // Eu devo / Me devem: abas com setas, como no padrão da WAI-ARIA.
-  qsa('#tab-compromissos [data-sub]').forEach(function(b){
+  // Partes das áreas (Eu devo / Me devem; Lançamentos / Contas fixas): abas com setas (padrão WAI-ARIA).
+  qsa('[data-sub]').forEach(function(b){
     b.addEventListener('click', function(){ showTab(b.getAttribute('data-sub')); });
     b.addEventListener('keydown', function(e){
       if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
       e.preventDefault();
-      var order = ['dividas', 'receber', 'fixas'], i = order.indexOf(b.getAttribute('data-sub'));
+      var order = subsOf(SUBTABS[b.getAttribute('data-sub')].parent), i = order.indexOf(b.getAttribute('data-sub'));
       var next = order[(i + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
       showTab(next);
       document.getElementById('segbtn-' + next).focus();

@@ -58,8 +58,10 @@ export async function reload(page){
 const ROUTES = {dashboard: 'inicio', lancamentos: 'lancamentos', cartoes: 'contas', limites: 'planejar', metas: 'metas',
   compromissos: 'compromissos', aprenda: 'aprenda', conexoes: 'conexoes', perfil: 'perfil'};
 export async function tab(page, name){
-  const sub = ['dividas', 'receber', 'fixas'].includes(name) ? name : null;
-  const area = sub ? 'compromissos' : name;
+  // Partes de áreas: Compromissos (Eu devo | Me devem) e Ganhos e gastos (Lançamentos | Contas fixas).
+  const SUBS = {dividas: 'compromissos', receber: 'compromissos', lanc: 'lancamentos', fixas: 'lancamentos'};
+  const sub = SUBS[name] ? name : (name === 'lancamentos' ? 'lanc' : null);
+  const area = SUBS[name] || name;
   const link = '.sidenav [data-tab="' + area + '"]';
   // Tira o foco do campo atual (fecha sugestões de nomes que possam ficar por cima do menu).
   await page.evaluate(() => { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); });

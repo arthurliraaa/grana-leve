@@ -150,6 +150,9 @@ export function syncTxFormVisibility(){
   document.getElementById('txOtherName').hidden = !other;
   document.getElementById('txOtherHint').hidden = !other;
   var split = isExpense && document.getElementById('txSplit').checked;
+  // "Mais opções" fica aberto enquanto uma delas estiver marcada; o botão diz o que vai salvar.
+  if (other || split) document.getElementById('txForOtherField').open = true;
+  document.getElementById('txSubmit').textContent = isExpense ? 'Salvar gasto' : 'Salvar ganho';
   document.getElementById('txSplitBox').hidden = !split;
   if (split && !qs('#txSplitRows .split-row')) addSplitRow();
   updateSplitSummary();
@@ -391,8 +394,7 @@ export function wireTransactions(){
   document.getElementById('typeToggle').addEventListener('click', function(e){
     var btn = e.target.closest('button[data-type]');
     if (!btn) return;
-    qsa('button', document.getElementById('typeToggle')).forEach(function(b){ b.classList.remove('active'); });
-    btn.classList.add('active');
+    qsa('button', document.getElementById('typeToggle')).forEach(function(b){ b.classList.toggle('active', b === btn); b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
     populateCategorySelect();
     syncTxFormVisibility();
   });
@@ -491,6 +493,7 @@ export function wireTransactions(){
       syncTxFormVisibility();
     }
     await saveTransactions(parts);
+  document.getElementById('txForOtherField').open = false;
     resetInstallExtras(document, 'txIx');
     document.getElementById('txAmount').value = '';
     document.getElementById('txDesc').value = '';

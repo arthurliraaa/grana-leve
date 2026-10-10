@@ -140,7 +140,7 @@ L.run(async ({page}) => {
   await page.type('#txAmount', '400');
   await L.setVal(page, '#txPayment', 'card:' + card.id);
   await L.setVal(page, '#txInstall', '4');
-  await page.click('#txForOther');
+  await page.click('#txForOtherField summary'); await page.click('#txForOther');
   await page.type('#txOtherName', 'Pedro');
   await page.click('#txForm button[type=submit]'); await L.sleep(300);
   d = await L.db(page);

@@ -12,7 +12,7 @@ L.run(async ({page}) => {
   const cur = L.monthKey(0), next = L.monthKey(1);
 
   L.section('Cadastro');
-  await page.goto(L.BASE + '#/compromissos/contas-fixas'); await L.sleep(300);
+  await page.goto(L.BASE + '#/lancamentos/contas-fixas'); await L.sleep(300);
   L.ok(!(await page.$eval('#tab-fixas', el => el.hidden)) && await page.$eval('#segbtn-fixas', el => el.getAttribute('aria-selected')) === 'true', 'Compromissos tem a aba “Contas fixas” (com endereço próprio)');
   L.ok(await page.$eval('#billStart', el => el.value) === cur && /Nenhuma conta fixa/.test(await L.text(page, '#billMonth')), 'começa no mês atual e sem contas');
   L.ok(await page.$$eval('#billNames option', o => o.length) > 5, 'sugere nomes (água, luz, internet…)');
@@ -37,7 +37,7 @@ L.run(async ({page}) => {
   L.ok(/já tirando R\$\s?820,00 de contas fixas/.test(await L.text(page, '#statTiles')), 'saldo previsto do mês já desconta as contas fixas');
 
   L.section('Pagar');
-  await page.goto(L.BASE + '#/compromissos/contas-fixas'); await L.sleep(300);
+  await page.goto(L.BASE + '#/lancamentos/contas-fixas'); await L.sleep(300);
   const luz = d.bills.find(b => b.name === 'Luz');
   await page.click('[data-bill-pay="' + luz.id + '"]'); await L.sleep(150);
   L.ok(await page.$eval('#bpAmount', el => el.value) === '120' && await page.$eval('#bpPay', el => el.value) === 'acc:' + acc.id, 'vem com o valor e a forma de pagamento da conta');
@@ -56,7 +56,7 @@ L.run(async ({page}) => {
   L.ok(L.moneyOf(await L.text(page, '#bankList .account-balance')) === 865, 'saldo da conta 1000 → 865');
 
   L.section('Próximo mês');
-  await page.goto(L.BASE + '#/compromissos/contas-fixas'); await L.sleep(300);
+  await page.goto(L.BASE + '#/lancamentos/contas-fixas'); await L.sleep(300);
   await page.click('#billNext'); await L.sleep(100);
   const nm = await L.text(page, '#billMonth');
   L.ok(/2 conta\(s\) · total R\$\s?235,00/.test(nm) && !/Seguro/.test(nm), 'mês que vem: Luz (135) e Internet; Seguro só a cada 6 meses');

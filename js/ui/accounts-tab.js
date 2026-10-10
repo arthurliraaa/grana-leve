@@ -51,17 +51,24 @@ export function bankGroups(){
   State.cards.forEach(function(c){ if (!used[c.id]) out.push({acc: null, cards: [c]}); });
   return out;
 }
+// Uma conta: saldo em destaque, entradas e saídas do mês, movimentações recolhidas; transferir à
+// frente, editar/excluir separados no fim.
 export function accountHtml(a){
   var cur = monthBounds(0).key, bal = accountBalance(a), moves = accountMoves(a);
   var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
+  var inM = sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; });
+  var outM = -sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; });
   return '<div class="goal-card account-card">' +
     '<div class="budget-top"><h4>' + badgeHtml(a) + '<span class="acc-name">' + escapeHtml(a.name) + '</span></h4><span class="pill">Conta</span></div>' +
-    '<div class="goal-figs"><span>Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
-    '<div class="meta-line"><span>Entrou no mês: ' + fmtMoney(sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; })) + '</span>' +
-      '<span>Saiu no mês: ' + fmtMoney(-sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; })) + '</span></div>' +
+    '<div class="account-kpis">' +
+      '<div class="kpi kpi-main"><span class="kpi-lbl">Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
+      '<div class="kpi"><span class="kpi-lbl">Entrou no mês</span><strong class="tabular pos-text">' + fmtMoney(inM) + '</strong></div>' +
+      '<div class="kpi"><span class="kpi-lbl">Saiu no mês</span><strong class="tabular">' + fmtMoney(outM) + '</strong></div>' +
+    '</div>' +
     (moves.length ? '<details class="budget-details"><summary>Ver movimentações (' + moves.length + ')</summary>' + moves.slice(0, 40).map(moveRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma movimentação desde o cadastro.</p>') +
-    '<div class="card-actions">' +
+    '<div class="card-actions split-actions">' +
       (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
+      '<span class="actions-gap" aria-hidden="true"></span>' +
       '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar conta</button>' +
       '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir conta</button>' +
     '</div></div>';
