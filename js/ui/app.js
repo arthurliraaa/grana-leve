@@ -3,7 +3,7 @@
  * Regras de dinheiro, datas, faturas e saldos ficam em ../domain/; persistência em ../data/.
  */
 import {toDateKey, todayKey, monthKeyOf, parseDate, formatDateBr, formatDateFull, validDateStr,
-  monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
+  monthBounds, monthLabelOf, shiftMonthKey, monthsBetween} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
@@ -24,7 +24,8 @@ import * as Research from '../domain/research.js';
 import {termHtml} from './research-term.js';
 import {initAdmin, renderAdmin} from './admin.js';
 import {initProfile, renderProfile} from './profile.js';
-import {initBills, renderBills, fillBillForm, pendingBills, resetBillsView} from './bills.js';
+import {initBills, renderBills, fillBillForm, pendingBills, resetBillsView, billMonth} from './bills.js';
+import {monthGridHtml, dayEventsHtml, yearHtml} from './calendar.js';
 import {passwordRulesHtml, wirePasswordRules} from './password.js';
 import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
 import {lookOf, cardPaint} from '../domain/brands.js';
@@ -973,10 +974,59 @@ async function addLinkedReceivable(person, total, parts, tx, description){
 }
 
 
+// Filtros de categoria e de conta/cartão específicos (as opções mudam com o cadastro).
+function populateTxFilters(){
+  var cat = document.getElementById('txFilterCat'), pay = document.getElementById('txFilterPay');
+  var pc = cat.value || 'all', pp = pay.value || 'all';
+  cat.innerHTML = optionsHtml([{id: 'all', label: 'Todas as categorias'}].concat(
+    expenseCats().map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label}; }),
+    incomeCats().map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label + ' (ganho)'}; })), pc);
+  if (cat.value !== pc) cat.value = 'all';
+  pay.innerHTML = optionsHtml([{id: 'all', label: 'Qualquer pagamento'}, {id: 'conta', label: 'Dinheiro, Pix ou débito'}, {id: 'cartao', label: 'Cartão de crédito'}, {id: 'vale', label: 'Vale'}].concat(
+    State.accounts.map(function(a){ return {id: 'acc:' + a.id, label: 'Conta ' + a.name}; }),
+    State.cards.map(function(c){ return {id: 'card:' + c.id, label: 'Cartão ' + c.name}; })), pp);
+  if (pay.value !== pp) pay.value = 'all';
+}
+// Previsto no mês (para o calendário): entradas previstas, contas fixas, faturas e valores a receber.
+function monthEvents(key){
+  var out = [];
+  forecastOccurrences(key).forEach(function(o){ if (o.received === undefined) out.push({date: o.date, kind: 'previsto', label: o.f.description, amount: Number(o.f.amount)}); });
+  billMonth(key).forEach(function(o){ if (!o.paid) out.push({date: o.date, kind: 'fixa', label: o.b.name, amount: o.amount}); });
+  State.cards.forEach(function(c){
+    [shiftMonthKey(key, -1), key].forEach(function(ik){
+      var dts = invoiceDates(ik, c), total = Cards.invoiceTotal(State.transactions, c, ik);
+      if (dts.due.slice(0, 7) === key && total > 0 && invoiceStatus(c, ik) !== 'paga') out.push({date: dts.due, kind: 'fatura', label: 'Fatura ' + c.name, amount: total});
+    });
+  });
+  State.receivables.forEach(function(r){
+    var left = recvRemaining(r), due = recvNextDue(r), info = recvInstallInfo(r);
+    if (left > 0 && due && due.slice(0, 7) === key) out.push({date: due, kind: 'receber', label: r.person + (r.description ? ' · ' + r.description : ''), amount: info ? Math.min(info.per, left) : left});
+  });
+  var type = document.getElementById('txFilterType').value;
+  var other = !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterCat').value !== 'all' || document.getElementById('txFilterPay').value !== 'all';
+  return out.filter(function(e){
+    if (other || type === 'others') return false;
+    if (type === 'income') return e.kind === 'previsto' || e.kind === 'receber';
+    if (type === 'expense') return e.kind === 'fixa' || e.kind === 'fatura';
+    return true;
+  });
+}
+function setTxView(v){
+  State.txView = v;
+  setPref('txView', v);
+  qsa('[data-txview]').forEach(function(b){ var on = b.getAttribute('data-txview') === v; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+  renderTransactionsTab();
+}
 function renderTransactionsTab(){
+  populateTxFilters();
+  var view = State.txView || 'list';
   var mb = monthBounds(State.txMonthOffset);
-  document.getElementById('txMonthLabel').textContent = mb.label;
-  document.getElementById('nextMonth').disabled = State.txMonthOffset >= maxTxMonthOffset();
+  document.getElementById('txMonthLabel').textContent = view === 'year' ? mb.key.slice(0, 4) : mb.label;
+  document.getElementById('nextMonth').disabled = State.txMonthOffset >= maxTxMonthOffset() && view !== 'year';
+  document.getElementById('txSort').hidden = view !== 'list';
+  var calEl = document.getElementById('txCal');
+  calEl.hidden = view === 'list';
+  if (view === 'year'){ renderTxYear(mb); return; }
   var tx = filterTransactions(txForMonth(mb.key));
   var filtering = tx.length !== txForMonth(mb.key).length || isFiltering();
   var income = sum(tx.filter(function(t){ return t.type==='income' && isPersonal(t); }), function(t){ return t.amount; });
@@ -989,14 +1039,47 @@ function renderTransactionsTab(){
     (onCard ? ' (no cartão ' + fmtMoney(onCard) + ')' : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '') +
     (others ? ' · pagos por outras pessoas ' + fmtMoney(others) + ' (fora dos gastos)' : '');
   var list = document.getElementById('txList');
+  if (view === 'cal'){ renderTxCalendar(mb, tx, list); return; }
   if (!tx.length){ list.innerHTML = '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
   list.innerHTML = sortTxView(tx).map(txRowHtml).join('');
+}
+function renderTxCalendar(mb, tx, list){
+  var days = {}, events = monthEvents(mb.key);
+  function day(d){ return days[d] || (days[d] = {income: 0, expense: 0, count: 0, events: [], tx: []}); }
+  tx.forEach(function(t){
+    var x = day(t.date);
+    x.count++; x.tx.push(t);
+    if (t.type === 'income' && isPersonal(t)) x.income = money(x.income + Number(t.amount));
+    if (t.type === 'expense') x.expense = money(x.expense + myShare(t));
+  });
+  events.forEach(function(e){ day(e.date).events.push(e); });
+  var today = todayKey();
+  var sel = State.calDay && State.calDay.slice(0, 7) === mb.key ? State.calDay : (today.slice(0, 7) === mb.key ? today : null);
+  document.getElementById('txCal').innerHTML = monthGridHtml(mb.key, days, sel);
+  if (!sel){ list.innerHTML = '<p class="empty-state">Toque num dia para ver os lançamentos e o que está previsto.</p>'; return; }
+  var d = days[sel] || {tx: [], events: []};
+  list.innerHTML = '<p class="tiles-group">' + formatDateFull(sel) + '</p>' +
+    (d.tx.length ? sortTxView(d.tx).map(txRowHtml).join('') : '<p class="tx-meta">Nenhum lançamento neste dia.</p>') + dayEventsHtml(d.events);
+}
+function renderTxYear(mb){
+  var year = mb.key.slice(0, 4), months = [], totInc = 0, totExp = 0;
+  for (var m = 1; m <= 12; m++){
+    var key = year + '-' + (m < 10 ? '0' : '') + m, tx = filterTransactions(txForMonth(key));
+    var inc = sum(tx.filter(function(t){ return t.type === 'income' && isPersonal(t); }), function(t){ return t.amount; });
+    var exp = sum(tx.filter(function(t){ return t.type === 'expense'; }), myShare);
+    totInc += inc; totExp += exp;
+    months.push({key: key, income: money(inc), expense: money(exp)});
+  }
+  document.getElementById('txSummary').textContent = (isFiltering() ? 'Filtrando: ' : '') + 'Ano de ' + year + ' · ganhos ' + fmtMoney(totInc) + ' · gastos ' + fmtMoney(totExp) + ' · saldo ' + fmtMoney(totInc - totExp);
+  document.getElementById('txCal').innerHTML = yearHtml(year, months, monthBounds(0).key);
+  document.getElementById('txList').innerHTML = '<p class="tx-meta">Toque num mês para ver o calendário dele.</p>';
 }
 
 // Busca sem diferenciar acentos e maiúsculas ("almoco" encontra "Almoço").
 function fold(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
 function isFiltering(){
-  return !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterType').value !== 'all' || document.getElementById('txFilterPay').value !== 'all';
+  return !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterType').value !== 'all' || document.getElementById('txFilterPay').value !== 'all' ||
+    document.getElementById('txFilterCat').value !== 'all';
 }
 // Ordem da lista de "Ganhos e gastos" (lembrada por pessoa): data, ordem de cadastro ou valor.
 var TX_SORTS = {
@@ -1009,10 +1092,14 @@ function filterTransactions(list){
   var q = fold(document.getElementById('txSearch').value.trim());
   var type = document.getElementById('txFilterType').value;
   var pay = document.getElementById('txFilterPay').value;
+  var cat = document.getElementById('txFilterCat').value;
   return list.filter(function(t){
     if (type === 'others'){ if (!isForOther(t) && !isRefund(t)) return false; }
     else if (type !== 'all' && t.type !== type) return false;
-    if (pay !== 'all' && (t.type !== 'expense' || (t.paymentMethod || 'conta') !== pay)) return false;
+    if (cat !== 'all' && t.category !== cat) return false;
+    if (pay.indexOf('acc:') === 0){ if (t.accountId !== pay.slice(4)) return false; }
+    else if (pay.indexOf('card:') === 0){ if (t.paymentMethod !== 'cartao' || t.cardId !== pay.slice(5)) return false; }
+    else if (pay !== 'all' && (t.type !== 'expense' || (t.paymentMethod || 'conta') !== pay)) return false;
     if (q && fold((t.description || '') + ' ' + catLabel(t.category, t.type, t.categoryLabel) + ' ' + paymentLabel(t)).indexOf(q) < 0) return false;
     return true;
   });
@@ -2977,6 +3064,8 @@ function showAuthTab(name){
 async function enterApp(){
   setPrefsOwner(k());
   document.getElementById('txSort').value = TX_SORTS[getPrefs().txSort] ? getPrefs().txSort : 'recent';
+  State.txView = ['list', 'cal', 'year'].indexOf(getPrefs().txView) >= 0 ? getPrefs().txView : 'list';
+  qsa('[data-txview]').forEach(function(b){ var on = b.getAttribute('data-txview') === State.txView; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
   showView('viewApp');
   await Store.migrate(k());
   await loadAllData();
@@ -3584,7 +3673,7 @@ document.getElementById('txIxWrap').innerHTML = installExtrasHtml('txIx');
 document.getElementById('txIxWrap').addEventListener('input', populateInstallSelect);
 document.getElementById('txIxWrap').addEventListener('change', populateInstallSelect);
 document.getElementById('txSort').addEventListener('change', function(e){ setPref('txSort', e.target.value); });
-['txSearch','txFilterType','txFilterPay','txSort'].forEach(function(id){
+['txSearch','txFilterType','txFilterPay','txSort','txFilterCat'].forEach(function(id){
   document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
 });
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
@@ -3670,8 +3759,17 @@ qsa('#tab-compromissos [data-sub]').forEach(function(b){
 
 document.getElementById('fabAdd').addEventListener('click', function(){ openTxModal(); });
 
-document.getElementById('prevMonth').addEventListener('click', function(){ State.txMonthOffset--; renderTransactionsTab(); });
-document.getElementById('nextMonth').addEventListener('click', function(){ if (State.txMonthOffset < maxTxMonthOffset()){ State.txMonthOffset++; renderTransactionsTab(); } });
+document.getElementById('prevMonth').addEventListener('click', function(){ State.txMonthOffset -= State.txView === 'year' ? 12 : 1; renderTransactionsTab(); });
+qsa('[data-txview]').forEach(function(b){ b.addEventListener('click', function(){ setTxView(b.getAttribute('data-txview')); }); });
+document.getElementById('txCal').addEventListener('click', function(e){
+  var d = e.target.closest('[data-cal-day]'), mth = e.target.closest('[data-cal-month]');
+  if (d){ State.calDay = d.getAttribute('data-cal-day'); renderTransactionsTab(); var b = qs('[data-cal-day="' + State.calDay + '"]'); if (b) b.focus(); }
+  if (mth){ State.txMonthOffset = monthsBetween(monthBounds(0).key, mth.getAttribute('data-cal-month')); State.calDay = null; setTxView('cal'); }
+});
+document.getElementById('nextMonth').addEventListener('click', function(){
+  if (State.txView === 'year'){ State.txMonthOffset += 12; renderTransactionsTab(); return; }
+  if (State.txMonthOffset < maxTxMonthOffset()){ State.txMonthOffset++; renderTransactionsTab(); }
+});
 document.getElementById('budgetPrev').addEventListener('click', function(){ State.budgetMonthOffset--; renderBudgets(); });
 document.getElementById('budgetNext').addEventListener('click', function(){ if (State.budgetMonthOffset < 1){ State.budgetMonthOffset++; renderBudgets(); } });
 document.getElementById('budgetNewCat').addEventListener('click', async function(){
