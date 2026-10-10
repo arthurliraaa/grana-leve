@@ -23,6 +23,7 @@ import {URGENCY, DEFAULT_URGENCY, urgencyOf, urgencyLabel, byUrgency} from '../d
 import * as Research from '../domain/research.js';
 import {termHtml} from './research-term.js';
 import {initAdmin, renderAdmin} from './admin.js';
+import {initProfile, renderProfile} from './profile.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
 import {validateNewTransaction} from '../domain/validate.js';
@@ -277,6 +278,18 @@ function applyTheme(t){
   btn.setAttribute('aria-label', isDark ? 'Mudar para o modo claro' : 'Mudar para o modo escuro');
   btn.title = isDark ? 'Modo claro' : 'Modo escuro';
 }
+// 'system' segue o aparelho; 'light' e 'dark' ficam fixos.
+function themePref(){
+  var saved = null;
+  try{ saved = localStorage.getItem(THEME_KEY); } catch(e){}
+  return saved === 'dark' || saved === 'light' ? saved : 'system';
+}
+function setThemePref(v){
+  try{ if (v === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, v); } catch(e){}
+  if (v === 'system') document.documentElement.removeAttribute('data-theme');
+  applyTheme(v === 'system' ? null : v);
+  if (State.session) renderAll();
+}
 function toggleTheme(){
   var next = currentTheme() === 'dark' ? 'light' : 'dark';
   try{ localStorage.setItem(THEME_KEY, next); } catch(e){}
@@ -308,10 +321,14 @@ function renderTopbar(){
       '<button type="button" class="sync-badge" id="storageBtn" title="' + where + ' Toque para ver detalhes e backup." aria-label="' + where + ' Ver detalhes e backup">' +
         '<span class="sync-dot ' + (cloud ? 'cloud' : 'local') + '" aria-hidden="true"></span><span class="sync-text">' + (Store.mode === 'supabase' ? 'Sincronizado' : cloud ? 'Na nuvem' : 'Só neste navegador') + '</span>' +
       '</button>' +
-      '<span class="user-chip">Olá, <strong>' + escapeHtml(State.session.name.split(' ')[0]) + '</strong></span>' +
+      // O nome lido pelo leitor de tela começa pelo texto visível (“Olá, Arthur”) e diz para onde leva.
+      '<button type="button" class="user-chip" id="profileBtn" title="Perfil e conta">' +
+        '<span class="avatar" aria-hidden="true">' + escapeHtml((State.session.name.trim()[0] || '?').toUpperCase()) + '</span>' +
+        '<span class="user-name">Olá, <strong>' + escapeHtml(State.session.name.split(' ')[0]) + '</strong></span><span class="sr-only">: perfil e conta</span></button>' +
       '<button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Sair</button>';
     qs('#logoutBtn').addEventListener('click', logout);
     qs('#storageBtn').addEventListener('click', dataModal);
+    qs('#profileBtn').addEventListener('click', function(){ showTab('perfil'); });
   } else {
     wrap.innerHTML =
       '<button class="btn btn-ghost btn-sm" data-action="go-login">Entrar</button>' +
@@ -2302,8 +2319,8 @@ function renderAll(){
 
 /* ============ Tabs / navigation ============ */
 // Áreas do app e o endereço de cada uma (#/metas). O endereço permite usar o botão Voltar do navegador.
-var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','admin'];
-var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', admin:'admin'};
+var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
+var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
 // "Dívidas" e "A receber" agora são as duas partes de Compromissos.
 var SUBTABS = {dividas: 'eu-devo', receber: 'me-devem'};
 
@@ -2349,13 +2366,14 @@ function showTab(name){
   }
   if (changed && name !== 'admin') track('abriu:' + ROUTES[name], null, 30 * 60000);
   if (name === 'admin') renderAdmin();
+  if (name === 'perfil') renderProfile();
   if (changed) window.scrollTo(0, 0);
 }
 
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 async function openMoreMenu(){
   var items = [['cartoes','wallet','Contas e cartões'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
-    ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
+    ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões'], ['perfil','user','Perfil e conta']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
   await openModal({
     title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',
     body: '<nav class="more-menu" aria-label="Outras áreas">' + items.map(function(it){
@@ -2394,6 +2412,7 @@ async function enterApp(){
   await loadAllData();
   var profile = await Store.getUser(k());
   State.research = (profile && profile.research) || null;
+  State.profileCreatedAt = profile ? (profile.created_at || (profile.createdAt ? new Date(profile.createdAt).toISOString() : null)) : null;
   State.isAdmin = Store.isAdmin ? await Store.isAdmin() : false;
   State.content = Store.listContent ? await Store.listContent().catch(function(){ return []; }) : [];
   document.getElementById('navAdmin').hidden = !State.isAdmin;
@@ -2639,6 +2658,7 @@ async function researchModal(){
     }
   } catch(err){ toast('Não foi possível registrar sua escolha agora. Tente de novo.'); return; }
   toast(r.accept ? 'Obrigado! Sua participação no estudo foi registrada.' : 'Você saiu do estudo.');
+  if (State.activeTab === 'perfil') renderProfile();
 }
 function ufOptions(){ return [{id: '', label: 'Prefiro não dizer'}].concat(Research.UFS.map(function(u){ return {id: u, label: u}; })); }
 
@@ -2987,6 +3007,17 @@ document.getElementById('txInstall').addEventListener('input', populateInstallSe
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
 document.getElementById('forgotBtn').addEventListener('click', forgotPassword);
 initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn});
+initProfile({
+  state: function(){ return State; },
+  onNameChange: function(name){
+    State.session.name = name;
+    if (Store.mode !== 'supabase') saveSession(State.session);
+    renderAll();
+  },
+  themePref: themePref, setThemePref: setThemePref,
+  openResearch: researchModal, researchStatus: researchStatusHtml,
+  openData: dataModal, deleteAccount: deleteMyAccount, logout: logout, siteUrl: siteUrl
+});
 // Qualquer falha de rede que escapar vira um aviso, em vez de travar a tela em silêncio.
 window.addEventListener('unhandledrejection', function(e){
   if (Store.mode !== 'supabase') return;
@@ -3365,6 +3396,7 @@ async function boot(){
       if (current){
         await startOnlineSession(current.user);
         if (link && link.ok && link.type === 'recovery') newPasswordModal();
+        else if (link && link.ok && link.type === 'email_change') toast('Confirmação recebida. Se a troca pedir, confirme também pelo link enviado ao outro e-mail.');
         else if (link && link.ok) toast('E-mail confirmado! Bem-vindo(a) ao Grana Leve.');
         return;
       }

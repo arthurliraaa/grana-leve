@@ -18,6 +18,9 @@ pessoas sobre hábitos financeiros.
   (36 sugestões ou qualquer um digitado) e cor em “Personalizar categorias”. As padrão
   podem voltar ao original. O emoji aparece nas listas, nos campos, no planejamento e nos
   gráficos.
+- **Perfil e conta** (pelo nome no topo ou pelo “Mais”): trocar nome, e-mail (com
+  confirmação nos dois endereços) e senha (pedindo a atual), tema claro/escuro/automático,
+  pergunta ao entrar, confirmações, pesquisa, sair de todos os aparelhos e excluir a conta.
 - **Previsões de entrada** recolhidas num ícone com contador no card “Novo lançamento”.
 - **Pesquisa acadêmica opcional**: consentimento separado no cadastro (18+), termo completo,
   perfil opcional (faixa etária e estado) e opção de sair em “Seus dados e backup”. Nesta

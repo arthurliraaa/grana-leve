@@ -3,10 +3,10 @@
  * Estratégia "rede primeiro": com internet, sempre busca a versão mais nova
  * (não atrapalha o desenvolvimento); sem internet, usa a última cópia salva.
  */
-var CACHE = 'grana-leve-v11';
+var CACHE = 'grana-leve-v14';
 // Todos os módulos de js/ precisam estar aqui para o app abrir sem internet (tests/unit/sw.test.js confere).
 var SHELL = ['./', 'index.html', 'css/style.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
-  'js/app.js', 'js/config.js', 'js/data/auth.js', 'js/data/backup.js', 'js/data/migrations.js', 'js/data/session.js', 'js/data/store.js', 'js/data/supabase.js', 'js/domain/accounts.js', 'js/domain/budgets.js', 'js/domain/cards.js', 'js/domain/categories.js', 'js/domain/dates.js', 'js/domain/forecasts.js', 'js/domain/money.js', 'js/domain/parser.js', 'js/domain/receivables.js', 'js/domain/research.js', 'js/domain/transactions.js', 'js/domain/urgency.js', 'js/domain/util.js', 'js/domain/validate.js', 'js/domain/vouchers.js', 'js/ui/admin.js', 'js/ui/app.js', 'js/ui/charts.js', 'js/ui/dom.js', 'js/ui/modal.js', 'js/ui/pdf.js', 'js/ui/research-term.js', 'js/vendor/supabase.umd.js'];
+  'js/app.js', 'js/config.js', 'js/data/auth.js', 'js/data/backup.js', 'js/data/migrations.js', 'js/data/session.js', 'js/data/store.js', 'js/data/supabase.js', 'js/domain/accounts.js', 'js/domain/budgets.js', 'js/domain/cards.js', 'js/domain/categories.js', 'js/domain/dates.js', 'js/domain/forecasts.js', 'js/domain/money.js', 'js/domain/parser.js', 'js/domain/receivables.js', 'js/domain/research.js', 'js/domain/transactions.js', 'js/domain/urgency.js', 'js/domain/util.js', 'js/domain/validate.js', 'js/domain/vouchers.js', 'js/ui/admin.js', 'js/ui/app.js', 'js/ui/charts.js', 'js/ui/dom.js', 'js/ui/modal.js', 'js/ui/pdf.js', 'js/ui/profile.js', 'js/ui/research-term.js', 'js/vendor/supabase.umd.js'];
 
 self.addEventListener('install', function(e){
   e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(SHELL); }).then(function(){ return self.skipWaiting(); }));

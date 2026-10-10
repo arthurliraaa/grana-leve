@@ -138,3 +138,19 @@ test('mensagens de login em português', () => {
   assert.match(authMessage({message: 'Error sending confirmation email'}), /Não conseguimos enviar o e-mail/);
   console.warn = warn;
 });
+
+test('perfil: trocar e-mail, conferir senha e sair de todos os aparelhos chamam o Supabase do jeito certo', async () => {
+  const c = fakeClient(), log = [];
+  c.auth = {
+    async updateUser(attrs, opts){ log.push(['updateUser', attrs, opts]); return {data: {user: {}}, error: null}; },
+    async signInWithPassword(cred){ log.push(['signIn', cred.email]); return cred.password === 'certa1' ? {data: {user: {}}, error: null} : {data: null, error: {message: 'Invalid login credentials'}}; },
+    async signOut(opts){ log.push(['signOut', opts]); return {error: null}; }
+  };
+  const S = createSupabaseStore(c, COLLS);
+  await S.updateEmail('novo@teste.com', 'https://grana-leve.vercel.app/');
+  assert.deepEqual(log[0], ['updateUser', {email: 'novo@teste.com'}, {emailRedirectTo: 'https://grana-leve.vercel.app/'}]);
+  await S.checkPassword('a@teste.com', 'certa1');
+  await assert.rejects(S.checkPassword('a@teste.com', 'errada'), /Invalid login credentials/);
+  await S.signOutAll();
+  assert.deepEqual(log[log.length - 1], ['signOut', {scope: 'global'}]);
+});

@@ -56,7 +56,7 @@ export async function reload(page){
 // Abre uma área do app: pelo menu lateral quando ele aparece (computador) ou pelo endereço (celular).
 // 'dividas' e 'receber' são as duas partes de Compromissos (Eu devo / Me devem).
 const ROUTES = {dashboard: 'inicio', lancamentos: 'lancamentos', cartoes: 'contas', limites: 'planejar', metas: 'metas',
-  compromissos: 'compromissos', aprenda: 'aprenda', conexoes: 'conexoes'};
+  compromissos: 'compromissos', aprenda: 'aprenda', conexoes: 'conexoes', perfil: 'perfil'};
 export async function tab(page, name){
   const sub = name === 'dividas' || name === 'receber' ? name : null;
   const area = sub ? 'compromissos' : name;
