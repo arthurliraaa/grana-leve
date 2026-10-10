@@ -4,11 +4,12 @@
  * Esta área nunca lê lançamentos nem valores de ninguém.
  */
 import {Store} from '../data/store.js';
+import {authMessage} from '../data/supabase.js';
 import {qs, qsa, escapeHtml, optionsHtml, icon, toast, saveFile, csvCell} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {formatDateFull, todayKey} from '../domain/dates.js';
 
-var ctx = null;          // {state(): State, defaults: {tip: [...], tip_grow: [...]}, onContentChange()}
+var ctx = null;          // {state(): State, defaults: {tip: [...], tip_grow: [...]}, onContentChange(), siteUrl()}
 var section = 'metricas';
 var accounts = [];        // última lista de contas carregada
 var accountFilter = '';
@@ -74,6 +75,7 @@ function accountRows(){
         '<td>' + (a.participating ? 'Participa' : '—') + '</td>' +
         '<td>' + (a.role === 'admin' ? '<span class="pill brand">Admin</span> ' : '') + (a.blocked ? '<span class="status-pill critical">Bloqueada</span>' : '<span class="status-pill good">Ativa</span>') + '</td>' +
         '<td class="admin-actions">' + (self ? '<span class="tx-meta">você</span>' :
+          '<button class="btn btn-ghost btn-sm" type="button" data-adm-reset="' + a.id + '">Redefinir senha</button>' +
           '<button class="btn btn-ghost btn-sm" type="button" data-adm-block="' + a.id + '" data-blocked="' + a.blocked + '">' + (a.blocked ? 'Desbloquear' : 'Bloquear') + '</button>' +
           '<button class="btn btn-danger btn-sm" type="button" data-adm-delete="' + a.id + '">Excluir</button>') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
@@ -86,7 +88,7 @@ async function renderAccounts(reload){
   body().innerHTML =
     '<div class="admin-toolbar"><input type="search" id="admSearch" class="chat-input" maxlength="80" placeholder="Buscar por nome ou e-mail" aria-label="Buscar contas" value="' + escapeHtml(accountFilter) + '">' +
       '<span class="tx-meta">' + accounts.length + ' conta(s)</span></div>' +
-    '<p class="field-hint">Excluir apaga a conta, os dados e a participação no estudo, sem volta. Use só a pedido da pessoa (direito de exclusão da LGPD).</p>' +
+    '<p class="field-hint">“Redefinir senha” manda para a pessoa o e-mail de criar nova senha; você não vê nem define a senha. Excluir apaga a conta, os dados e a participação no estudo, sem volta: use só a pedido da pessoa (direito de exclusão da LGPD).</p>' +
     '<div id="admAccounts">' + accountRows() + '</div>';
 }
 
@@ -196,6 +198,16 @@ export function initAdmin(context){
       if (!(await confirmAction({title: 'Excluir dica?', message: 'A dica sai da aba Aprenda para todo mundo.'}))) return;
       try { await Store.adminDeleteContent(cid); } catch(err){ toast('Não foi possível excluir agora.'); return; }
       await reloadContent(); renderContents();
+      return;
+    }
+    if ((b = e.target.closest('[data-adm-reset]'))){
+      var racc = accounts.filter(function(a){ return a.id === b.getAttribute('data-adm-reset'); })[0];
+      if (!(await confirmAction({title: 'Enviar redefinição de senha?', danger: false, confirmLabel: 'Enviar e-mail',
+        message: 'Vamos mandar para ' + racc.email + ' o e-mail com o link para criar uma nova senha. Você não vê nem define a senha, e a senha atual continua valendo até a pessoa criar a nova.' +
+          (racc.blocked ? ' Atenção: a conta está bloqueada; mesmo com a senha nova, ela só volta a acessar depois de desbloqueada.' : '')}))) return;
+      try { await Store.resetPassword(racc.email, ctx.siteUrl()); }
+      catch(err){ toast(authMessage(err.cause || err)); return; }
+      toast('E-mail de redefinição enviado para ' + racc.email + '.');
       return;
     }
     if ((b = e.target.closest('[data-adm-block]'))){

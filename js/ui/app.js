@@ -3010,7 +3010,7 @@ document.getElementById('manageCatsBtn').addEventListener('click', manageCategor
 document.getElementById('forgotBtn').addEventListener('click', forgotPassword);
 document.getElementById('signupPwRulesWrap').innerHTML = passwordRulesHtml('signupPwRules');
 wirePasswordRules(document.getElementById('signupPassword'), document.getElementById('signupPwRules'));
-initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn});
+initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn, siteUrl: siteUrl});
 initProfile({
   state: function(){ return State; },
   onNameChange: function(name){

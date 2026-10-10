@@ -154,3 +154,10 @@ test('perfil: trocar e-mail, conferir senha e sair de todos os aparelhos chamam 
   await S.signOutAll();
   assert.deepEqual(log[log.length - 1], ['signOut', {scope: 'global'}]);
 });
+
+test('redefinir senha (perfil e painel adm) pede o e-mail ao Supabase com o endereço de volta do app', async () => {
+  const c = fakeClient(), log = [];
+  c.auth = {async resetPasswordForEmail(email, opts){ log.push([email, opts]); return {data: {}, error: null}; }};
+  await createSupabaseStore(c, COLLS).resetPassword('pessoa@teste.com', 'https://grana-leve.vercel.app/');
+  assert.deepEqual(log, [['pessoa@teste.com', {redirectTo: 'https://grana-leve.vercel.app/'}]]);
+});
