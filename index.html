@@ -384,8 +384,19 @@
             <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             <div class="field f-half" id="txForOtherField">
               <label class="check"><input type="checkbox" id="txForOther"> Paguei por outra pessoa e ela vai me devolver</label>
-              <span class="field-hint" id="txOtherHint" hidden>O valor entra nos seus gastos e também em “A receber”, para você acompanhar e cobrar depois.</span>
+              <span class="field-hint" id="txOtherHint" hidden>O valor fica fora dos seus gastos e vai para “A receber”, para você acompanhar e cobrar depois.</span>
               <input id="txOtherName" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Quem vai te devolver?" hidden>
+              <label class="check"><input type="checkbox" id="txSplit"> Dividir com outras pessoas (ex.: família)</label>
+            </div>
+            <div class="field f-full split-box" id="txSplitBox" hidden>
+              <fieldset class="radio-group split-head"><legend>Dividir por</legend>
+                <label class="check"><input type="radio" name="txSplitMode" value="valor" checked> valor (R$)</label>
+                <label class="check"><input type="radio" name="txSplitMode" value="pct"> porcentagem (%)</label>
+                <button type="button" class="btn btn-ghost btn-sm" id="txSplitEqual">Dividir igualmente</button>
+              </fieldset>
+              <div id="txSplitRows"></div>
+              <button type="button" class="btn btn-ghost btn-sm" id="txSplitAdd" style="justify-self:start">+ Adicionar pessoa</button>
+              <p class="field-hint tabular" id="txSplitSummary" aria-live="polite"></p>
             </div>
             <div class="f-full"><button class="btn btn-primary" type="submit">Adicionar lançamento</button></div>
           </form>

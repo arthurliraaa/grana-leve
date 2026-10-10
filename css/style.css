@@ -833,3 +833,9 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .person-total strong{ font-size:1.1rem; }
 .person-items{ margin:0; }
 .tx-tag.good{ color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--border)); }
+
+/* Dividir compra */
+.split-box{ display:grid; gap:8px; padding:12px; border:1px dashed var(--border); border-radius: var(--radius); }
+.split-head{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:0; }
+.split-row{ display:grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) auto; gap:8px; align-items:center; }
+.split-row input{ min-width:0; }

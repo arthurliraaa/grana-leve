@@ -151,3 +151,15 @@ test('estornos: crédito na fatura escolhida, limite e gastos do mês', async ()
   assert.equal(validateRecord('transactions', {...rev, reversal: undefined}), 'valor inválido', 'valor negativo sem ser estorno é recusado');
   assert.equal(validateRecord('transactions', {...rev, amount: 10}), 'valor inválido', 'estorno precisa ser negativo');
 });
+
+test('compra dividida: só a sua parte é gasto seu', async () => {
+  const {myShare, othersShare, splitShares, monthTotals} = await import('../../js/domain/transactions.js');
+  assert.deepEqual(splitShares(300, [{person: 'Ana', value: 100}, {person: 'Bia', value: 50}], false), {people: [{person: 'Ana', amount: 100}, {person: 'Bia', amount: 50}], others: 150, mine: 150});
+  assert.deepEqual(splitShares(300, [{person: 'Ana', value: 25}], true).mine, 225, '25% para a Ana');
+  const split = {total: 300, mine: 100, people: []};
+  const parcel = {type: 'expense', amount: 100, date: '2026-10-10', split};
+  assert.equal(myShare(parcel), 33.33, 'parcela de 100: sua parte proporcional');
+  assert.equal(othersShare(parcel), 66.67);
+  assert.equal(monthTotals([parcel], '2026-10').expense, 33.33);
+  assert.equal(monthTotals([parcel], '2026-10').forOther, 66.67);
+});

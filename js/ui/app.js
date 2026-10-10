@@ -9,7 +9,7 @@ import {findById, sum, uid} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
 import {CUSTOM_COLORS} from '../domain/categories.js';
 import * as Tx from '../domain/transactions.js';
-import {MAX_INSTALLMENTS, clampInstall, isForOther, isRefund, isPersonal, isReversal, reversalsOf} from '../domain/transactions.js';
+import {MAX_INSTALLMENTS, clampInstall, isForOther, isRefund, isPersonal, isReversal, reversalsOf, myShare, othersShare, splitShares} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceDates, invoiceLabel} from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
@@ -536,7 +536,7 @@ function renderSummary(){
   var status = statusForPct(pct);
   var bar = planned > 0 ? '<div class="progress" role="img" aria-label="' + Math.round(pct * 100) + '% do planejado"><span style="width:' + Math.min(100, pct * 100) + '%; background:' +
     (status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)') + '"></span></div>' : '';
-  var cats = expenseCats().map(function(c){ return {c: c, v: sumMoney(txForMonth(cur).filter(function(x){ return x.type === 'expense' && isPersonal(x) && x.category === c.id && x.date <= todayKey(); }), function(x){ return x.amount; })}; })
+  var cats = expenseCats().map(function(c){ return {c: c, v: sumMoney(txForMonth(cur).filter(function(x){ return x.type === 'expense' && isPersonal(x) && x.category === c.id && x.date <= todayKey(); }), myShare)}; })
     .filter(function(x){ return x.v > 0; }).sort(function(a, b){ return b.v - a.v; }).slice(0, 3);
   var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(spent), '',
     planned > 0 ? Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' · passou ' + fmtMoney(spent - planned) : '') :
@@ -626,7 +626,7 @@ function renderDonut(monthTx){
   setToggleLabel('donut');
   var byCat = {};
   monthTx.filter(function(t){ return t.type==='expense' && isPersonal(t); }).forEach(function(t){
-    byCat[t.category] = (byCat[t.category]||0) + Number(t.amount||0);
+    byCat[t.category] = (byCat[t.category]||0) + myShare(t);
   });
   var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0}; }).filter(function(e){ return e.value>0; });
   var total = sum(entries, function(e){ return e.value; });
@@ -750,6 +750,7 @@ function otherTagHtml(t){
   return forOtherTag(t);
 }
 function forOtherTag(t){
+  if (t.split && t.type === 'expense') return '<span class="tx-tag">Dividida: sua parte ' + fmtMoney(myShare(t)) + ' · ' + escapeHtml(t.split.people.map(function(p){ return p.person; }).join(', ')) + '</span>';
   if (isRefund(t)) return '<span class="tx-tag">Devolução · não conta como ganho</span>';
   if (!isForOther(t)) return '';
   var r = findById(State.receivables, t.forOther.receivableId);
@@ -901,6 +902,74 @@ function syncTxFormVisibility(){
   var other = document.getElementById('txForOther').checked;
   document.getElementById('txOtherName').hidden = !other;
   document.getElementById('txOtherHint').hidden = !other;
+  var split = isExpense && document.getElementById('txSplit').checked;
+  document.getElementById('txSplitBox').hidden = !split;
+  if (split && !qs('#txSplitRows .split-row')) addSplitRow();
+  updateSplitSummary();
+}
+
+/* ---------- Dividir uma compra com outras pessoas ---------- */
+function addSplitRow(){
+  var wrap = document.getElementById('txSplitRows'), i = wrap.children.length + 1;
+  var row = document.createElement('div');
+  row.className = 'split-row';
+  row.innerHTML = '<input class="sp-name" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Nome" aria-label="Nome da pessoa ' + i + '">' +
+    '<span class="money-input"><span class="sp-unit">R$</span><input class="sp-val" type="number" step="0.01" min="0" max="99999999" inputmode="decimal" aria-label="Parte da pessoa ' + i + '"></span>' +
+    '<button type="button" class="tx-del" data-sp-del aria-label="Remover pessoa ' + i + '" title="Remover">' + icon('trash') + '</button>';
+  wrap.appendChild(row);
+  syncSplitUnits();
+  return row;
+}
+function splitPercent(){ return qs('input[name=txSplitMode]:checked').value === 'pct'; }
+function syncSplitUnits(){ qsa('#txSplitRows .sp-unit').forEach(function(u){ u.textContent = splitPercent() ? '%' : 'R$'; }); }
+function splitTotal(){
+  var n = document.getElementById('txPayment').value.indexOf('card:') === 0 ? clampInstall(document.getElementById('txInstall').value) : 1;
+  return Tx.purchaseTotal(money(document.getElementById('txAmount').value), n, readInstallExtras(document, 'txIx', n).per);
+}
+function readSplit(){
+  return qsa('#txSplitRows .split-row').map(function(r){ return {person: qs('.sp-name', r).value.trim(), value: money(qs('.sp-val', r).value)}; })
+    .filter(function(e){ return e.person || e.value; });
+}
+function updateSplitSummary(){
+  var box = document.getElementById('txSplitBox');
+  if (box.hidden) return;
+  var total = splitTotal(), sh = splitShares(total, readSplit(), splitPercent());
+  var el = document.getElementById('txSplitSummary');
+  el.classList.toggle('neg-text', sh.mine < -0.004);
+  el.textContent = !(total > 0) ? 'Informe o valor da compra para ver a sua parte.' :
+    sh.mine < -0.004 ? 'As partes passam do total (' + fmtMoney(total) + ').' :
+    'Sua parte: ' + fmtMoney(sh.mine) + ' de ' + fmtMoney(total) + (sh.people.length ? ' · ' + sh.people.map(function(p){ return (p.person || '?') + ' ' + fmtMoney(p.amount); }).join(' · ') : '');
+}
+document.getElementById('txSplitAdd').addEventListener('click', function(){ qs('.sp-name', addSplitRow()).focus(); updateSplitSummary(); });
+document.getElementById('txSplitEqual').addEventListener('click', function(){
+  var rows = qsa('#txSplitRows .split-row'), total = splitTotal();
+  if (!rows.length) return;
+  var each = splitPercent() ? Math.floor(10000 / (rows.length + 1)) / 100 : Math.floor(total * 100 / (rows.length + 1)) / 100;
+  rows.forEach(function(r){ qs('.sp-val', r).value = each; });
+  updateSplitSummary();
+});
+document.getElementById('txSplitRows').addEventListener('click', function(e){
+  var b = e.target.closest('[data-sp-del]');
+  if (!b) return;
+  b.closest('.split-row').remove();
+  if (!qs('#txSplitRows .split-row')){ document.getElementById('txSplit').checked = false; syncTxFormVisibility(); }
+  updateSplitSummary();
+});
+document.getElementById('txSplitBox').addEventListener('input', updateSplitSummary);
+document.getElementById('txSplitBox').addEventListener('change', function(){ syncSplitUnits(); updateSplitSummary(); });
+['txAmount', 'txInstall'].forEach(function(id){ document.getElementById(id).addEventListener('input', updateSplitSummary); });
+function resetSplit(){ document.getElementById('txSplit').checked = false; document.getElementById('txSplitRows').innerHTML = ''; qs('input[name=txSplitMode][value=valor]').checked = true; }
+
+// "A receber" ligado a um gasto (pago pela pessoa ou a parte dela numa compra dividida).
+async function addLinkedReceivable(person, total, parts, tx, description){
+  var r = {person: person, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: description, totalAmount: money(total), receivedAmount: 0, dueDate: null,
+    linked: true, category: tx.category, createdAt: Date.now()};
+  var usedCard = tx.paymentMethod === 'cartao' ? findById(State.cards, tx.cardId) : null;
+  if (usedCard){ r.cardId = usedCard.id; r.dueDate = invoiceDates(invoiceKeyFor(parts[0].date, usedCard), usedCard).due; }
+  if (parts.length > 1){ r.installments = parts.length; r.installmentAmount = money(total / parts.length); }
+  var saved = await Store.add(k(), 'receivables', r);
+  State.receivables.push(saved);
+  return saved;
 }
 
 
@@ -912,10 +981,10 @@ function renderTransactionsTab(){
   var filtering = tx.length !== txForMonth(mb.key).length || isFiltering();
   var income = sum(tx.filter(function(t){ return t.type==='income' && isPersonal(t); }), function(t){ return t.amount; });
   var expenseTx = tx.filter(function(t){ return t.type==='expense' && isPersonal(t); });
-  var others = sum(tx.filter(isForOther), function(t){ return t.amount; });
-  var expense = sum(expenseTx, function(t){ return t.amount; });
-  var onCard = sum(expenseTx.filter(function(t){ return t.paymentMethod==='cartao'; }), function(t){ return t.amount; });
-  var onVale = sum(expenseTx.filter(function(t){ return t.paymentMethod==='vale'; }), function(t){ return t.amount; });
+  var others = sum(tx, othersShare);
+  var expense = sum(expenseTx, myShare);
+  var onCard = sum(expenseTx.filter(function(t){ return t.paymentMethod==='cartao'; }), myShare);
+  var onVale = sum(expenseTx.filter(function(t){ return t.paymentMethod==='vale'; }), myShare);
   document.getElementById('txSummary').textContent = (filtering ? 'Filtrando: ' : '') + tx.length + ' lançamento(s) · ganhos ' + fmtMoney(income) + ' · gastos ' + fmtMoney(expense) +
     (onCard ? ' (no cartão ' + fmtMoney(onCard) + ')' : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '') +
     (others ? ' · pagos por outras pessoas ' + fmtMoney(others) + ' (fora dos gastos)' : '');
@@ -1128,6 +1197,7 @@ async function reverseTx(id){
       reversal: {of: of.id}, createdAt: Date.now()};
     if (invKey) r.invoiceKey = invKey;
     if (of.forOther) r.forOther = of.forOther;
+    if (of.split) r.split = of.split;
     return r;
   }
   var list = [];
@@ -1378,7 +1448,7 @@ async function saveTransactions(list){
 // Avisa na hora quando um gasto do mês atual faz a categoria chegar a 80% ou passar do planejado.
 function checkBudgetAlerts(newTx){
   var cur = monthBounds(0).key, added = {};
-  newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + Number(t.amount); });
+  newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + myShare(t); });
   var spentNow = expenseCategoryTotals(cur);
   Object.keys(added).forEach(function(cat){
     var limit = budgetLimit(cur, cat);
@@ -1878,7 +1948,7 @@ function renderBudgets(){
   list.innerHTML = expenseCats().map(function(c){
     var catTx = monthTx.filter(function(t){ return t.category === c.id; });
     var limit = budgetLimit(mb.key, c.id);
-    var spent = sum(catTx, function(t){ return t.amount; });
+    var spent = sum(catTx, myShare);
     var pct = limit > 0 ? spent/limit : 0;
     var status = limit > 0 ? statusForPct(pct) : 'good';
     var barColor = status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)';
@@ -3474,7 +3544,8 @@ document.getElementById('txCategory').addEventListener('change', async function(
   populateCategorySelect(id || undefined);
   if (id){ renderBudgets(); }
 });
-document.getElementById('txForOther').addEventListener('change', syncTxFormVisibility);
+document.getElementById('txForOther').addEventListener('change', function(e){ if (e.target.checked) resetSplit(); syncTxFormVisibility(); });
+document.getElementById('txSplit').addEventListener('change', function(e){ if (e.target.checked) document.getElementById('txForOther').checked = false; syncTxFormVisibility(); });
 // Pagou com vale: já sugere a categoria Alimentação.
 document.getElementById('txPayment').addEventListener('change', function(e){
   if (e.target.value.indexOf('vale') === 0 && currentTxType() === 'expense') document.getElementById('txCategory').value = 'alimentacao';
@@ -3680,21 +3751,33 @@ document.getElementById('txForm').addEventListener('submit', async function(e){
       if (!forOther){ toast('Informe quem vai te devolver o valor.'); return; }
     }
   }
+  var splitList = type === 'expense' && !forOther && document.getElementById('txSplit').checked ? readSplit() : null;
+  if (splitList){
+    if (!splitList.length){ toast('Adicione quem vai dividir a compra com você.'); return; }
+    if (splitList.some(function(e){ return !e.person || !(e.value > 0); })){ toast('Informe o nome e a parte de cada pessoa.'); return; }
+  }
   var n = tx.paymentMethod === 'cartao' ? clampInstall(document.getElementById('txInstall').value) : 1;
   var ex = readInstallExtras(document, 'txIx', n);
   tx.amount = Tx.purchaseTotal(amount, n, ex.per);
   var parts = expandInstallments(tx, n, ex.start);
+  var charged = sumMoney(parts, function(t){ return t.amount; });
+  var shares = null;
+  if (splitList){
+    shares = splitShares(tx.amount, splitList, splitPercent());
+    if (shares.mine < -0.004){ toast('As partes das outras pessoas passam do total da compra (' + fmtMoney(tx.amount) + ').'); return; }
+    // Cada pessoa vira um "A receber" com a parte dela do que vai ser cobrado; só a sua parte é gasto seu.
+    var split = {total: tx.amount, mine: shares.mine, people: []};
+    for (var si = 0; si < shares.people.length; si++){
+      var sp = shares.people[si];
+      var sr = await addLinkedReceivable(sp.person, charged * sp.amount / tx.amount, parts, tx, (desc || catLabel(category, type)) + ' (parte de ' + sp.person.split(' ')[0] + ')');
+      split.people.push({person: sp.person, receivableId: sr.id, amount: sp.amount});
+    }
+    parts.forEach(function(t){ t.split = split; });
+    resetSplit(); syncTxFormVisibility();
+  }
   if (forOther){
     // O gasto fica ligado ao "A receber": não conta como gasto seu, e o que voltar é devolução, não ganho.
-    var recvData = {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: sumMoney(parts, function(t){ return t.amount; }), receivedAmount: 0, dueDate: null,
-      linked: true, category: category, createdAt: Date.now()};
-    if (parts.length > 1){
-      var usedCard = findById(State.cards, tx.cardId);
-      recvData.installments = parts.length; recvData.installmentAmount = parts[parts.length - 1].amount; recvData.cardId = tx.cardId;
-      if (usedCard) recvData.dueDate = invoiceDates(invoiceKeyFor(date, usedCard), usedCard).due;
-    }
-    var recv = await Store.add(k(), 'receivables', recvData);
-    State.receivables.push(recv);
+    var recv = await addLinkedReceivable(forOther, charged, parts, tx, desc || catLabel(category, type));
     parts.forEach(function(t){ t.forOther = {person: forOther, receivableId: recv.id}; });
     document.getElementById('txForOther').checked = false;
     document.getElementById('txOtherName').value = '';
@@ -3707,7 +3790,7 @@ document.getElementById('txForm').addEventListener('submit', async function(e){
   document.getElementById('txInstall').value = '1';
   populateInstallSelect();
   renderAll();
-  toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.' + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
+  toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.' + (shares ? ' Sua parte: ' + fmtMoney(shares.mine) + '; ' + shares.people.length + ' pessoa(s) em “A receber”.' : '') + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
 });
 
 document.getElementById('forecastForm').addEventListener('submit', async function(e){
