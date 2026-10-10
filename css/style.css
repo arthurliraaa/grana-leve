@@ -891,3 +891,4 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .bank-add-card{ justify-self:start; }
 .bank-parts{ display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center; margin:0; }
 .cc-title .sub{ display:block; }
+.captcha-slot[data-captcha]{ min-height:65px; margin:4px 0 8px; }

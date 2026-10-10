@@ -14,7 +14,7 @@ import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup} from '../data/backup.js';
 import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../data/session.js';
 
-import {captchaEnabled, getCaptchaToken, prefetchCaptcha} from './captcha.js';
+import {captchaEnabled, getCaptchaToken, mountCaptcha} from './captcha.js';
 import {qs, qsa, escapeHtml, icon, saveFile, toast} from './dom.js';
 import {openModal, confirmAction, attachCounters} from './modal.js';
 import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid} from './accounts-tab.js';
@@ -205,8 +205,8 @@ export async function openMoreMenu(){
 }
 
 export function showAuthTab(name){
-  // Com captcha, o token já vai sendo preparado enquanto a pessoa digita.
-  if (Store.mode === 'supabase' && captchaEnabled()) setTimeout(prefetchCaptcha, 0);
+  // Com captcha, o widget aparece no formulário (acima do botão) assim que a tela abre.
+  if (Store.mode === 'supabase' && captchaEnabled()) setTimeout(mountCaptcha, 0);
   State.authTab = name;
   qsa('[data-authtab]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-authtab') === name); });
   document.getElementById('loginForm').hidden = (name !== 'login');

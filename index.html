@@ -200,6 +200,7 @@
               <label for="loginPassword">Senha</label>
               <input id="loginPassword" type="password" autocomplete="current-password" maxlength="128" required>
             </div>
+            <div class="captcha-slot" data-captcha hidden></div>
             <p class="form-error" id="loginError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Entrar</button>
             <p class="auth-foot" data-local-only>Só funciona com uma conta criada <strong>neste navegador</strong>.</p>
@@ -248,6 +249,7 @@
                 <div class="field"><label for="signupUf">Estado (opcional)</label><select id="signupUf" data-uf-options></select></div>
               </div>
             </fieldset>
+            <div class="captcha-slot" data-captcha hidden></div>
             <p class="form-error" id="signupError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
             <p class="auth-foot">Não pedimos cartão de crédito.</p>
