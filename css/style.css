@@ -822,3 +822,13 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .bill-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0; border-top:1px solid var(--border); }
 .bill-row .tx-main{ flex:1 1 180px; min-width:0; }
 .bill-amount{ font-weight:700; }
+
+/* Me devem agrupado por pessoa */
+.person-group{ border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding:14px; display:grid; gap:12px; grid-column: 1 / -1; }
+.person-group.all-done{ opacity:.85; }
+.person-head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.person-info{ flex:1 1 160px; min-width:0; }
+.person-info h4{ font-size:1.05rem; }
+.person-total{ display:grid; text-align:right; }
+.person-total strong{ font-size:1.1rem; }
+.person-items{ margin:0; }

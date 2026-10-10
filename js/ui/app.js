@@ -2136,34 +2136,54 @@ function renderReceivables(){
     var ad = recvRemaining(a) <= 0, bd = recvRemaining(b) <= 0;
     return (ad - bd) || (URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)]) || String(recvNextDue(a)||'9999').localeCompare(String(recvNextDue(b)||'9999'));
   });
-  grid.innerHTML = items.map(function(r){
-    var remaining = recvRemaining(r);
-    var pct = r.totalAmount > 0 ? Math.min(1, Number(r.receivedAmount||0)/Number(r.totalAmount)) : 0;
-    var done = remaining <= 0;
-    var info = recvInstallInfo(r);
-    var due = recvNextDue(r);
-    var late = !done && due && due < todayKey();
-    var lateHtml = late ? ' · <strong style="color:var(--critical)">atrasado</strong>' : '';
-    return '<div class="debt-card">' +
-      '<div class="budget-top"><h4>'+escapeHtml(r.person)+'</h4><span class="card-tags"><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span>' +
-        (done ? '' : urgencySelectHtml('receivables', r, r.person)) + '</span></div>' +
-      (r.description ? '<span class="tx-meta">' + escapeHtml(r.description) + '</span>' : '') +
-      (recvCardLine(r) && !done ? '<span class="tx-meta">' + recvCardLine(r) + '</span>' : '') +
-      '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
-      '<div class="debt-figs"><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
-      (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
-          'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
-        (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +
-      '<div class="card-actions">' +
-        (r.forgiven ? '<span class="status-pill warning">Não vai devolver (' + fmtMoney(r.forgivenAmount || 0) + ')</span>' :
-          done ? '<span class="status-pill good">Recebido</span>' :
-          '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
-        (!r.linked && !r.forgiven && r.kind !== 'emprestimo' ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-link="'+r.id+'" title="Para “A receber” anotados antes: escolha o gasto que você pagou pela pessoa">Ligar à compra</button>' : '') +
-        '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
-      '</div>' + paymentLogHtml(r.payments, 'recv', r.id) + '</div>';
+  // Agrupado por pessoa: um bloco por nome (sem diferenciar maiúscula e acento), com o total que falta.
+  var groups = {}, order = [];
+  items.forEach(function(r){
+    var key = fold(String(r.person || '').trim());
+    if (!groups[key]){ groups[key] = {name: String(r.person || '').trim(), list: []}; order.push(key); }
+    groups[key].list.push(r);
+  });
+  grid.innerHTML = order.map(function(key){
+    var g = groups[key], open = g.list.filter(function(r){ return recvRemaining(r) > 0; });
+    var left = sumMoney(open, recvRemaining);
+    var late = open.filter(function(r){ var d = recvNextDue(r); return d && d < todayKey(); }).length;
+    return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="' + escapeHtml(g.name) + '">' +
+      '<div class="person-head"><span class="avatar" aria-hidden="true">' + escapeHtml((g.name[0] || '?').toUpperCase()) + '</span>' +
+        '<div class="person-info"><h4>' + escapeHtml(g.name) + '</h4><span class="tx-meta">' + g.list.length + ' registro(s)' + (open.length ? ' · ' + open.length + ' em aberto' : ' · tudo recebido') +
+          (late ? ' · <strong class="neg-text">' + late + ' atrasado(s)</strong>' : '') + '</span></div>' +
+        '<div class="person-total"><span class="tx-meta">Falta receber</span><strong class="tabular">' + fmtMoney(left) + '</strong></div>' +
+        (open.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge-all="' + escapeHtml(key) + '">' + icon('chat') + 'Cobrar tudo</button>' : '') +
+      '</div>' +
+      '<div class="debt-grid person-items">' + g.list.map(recvCardHtml).join('') + '</div></section>';
   }).join('');
+}
+
+function recvCardHtml(r){
+  var remaining = recvRemaining(r);
+  var pct = r.totalAmount > 0 ? Math.min(1, Number(r.receivedAmount||0)/Number(r.totalAmount)) : 0;
+  var done = remaining <= 0;
+  var info = recvInstallInfo(r);
+  var due = recvNextDue(r);
+  var late = !done && due && due < todayKey();
+  var lateHtml = late ? ' · <strong style="color:var(--critical)">atrasado</strong>' : '';
+  return '<div class="debt-card">' +
+    '<div class="budget-top"><h4>'+escapeHtml(r.description || labelOf(RECV_KINDS, r.kind))+'</h4><span class="card-tags"><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span>' +
+      (done ? '' : urgencySelectHtml('receivables', r, r.person)) + '</span></div>' +
+    (recvCardLine(r) && !done ? '<span class="tx-meta">' + recvCardLine(r) + '</span>' : '') +
+    '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
+    '<div class="debt-figs"><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
+    (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
+        'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
+      (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +
+    '<div class="card-actions">' +
+      (r.forgiven ? '<span class="status-pill warning">Não vai devolver (' + fmtMoney(r.forgivenAmount || 0) + ')</span>' :
+        done ? '<span class="status-pill good">Recebido</span>' :
+        '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
+      (!r.linked && !r.forgiven && r.kind !== 'emprestimo' ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-link="'+r.id+'" title="Para “A receber” anotados antes: escolha o gasto que você pagou pela pessoa">Ligar à compra</button>' : '') +
+      '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
+    '</div>' + paymentLogHtml(r.payments, 'recv', r.id) + '</div>';
 }
 
 // "A receber" antigo (de antes do vínculo): liga a um gasto já lançado. O gasto passa a ser "pago por"
@@ -2310,18 +2330,32 @@ async function forgiveReceivable(id){
 
 function onlyDigits(s){ return String(s||'').replace(/\D/g,''); }
 
-async function chargeReceivable(id){
+// Cobrar uma pendência, ou todas as da mesma pessoa numa mensagem só ("Cobrar tudo").
+async function chargePerson(key){
+  var list = State.receivables.filter(function(r){ return fold(String(r.person || '').trim()) === key && recvRemaining(r) > 0; });
+  if (list.length) chargeReceivable(list[0].id, list);
+}
+function chargeItem(r){
+  var remaining = recvRemaining(r), info = recvInstallInfo(r), due = recvNextDue(r);
+  return {what: info ? 'parcela ' + info.next + ' de ' + info.n + ', de ' + fmtMoney(Math.min(info.per, remaining)) : fmtMoney(remaining),
+    due: due ? (info ? 'combinada' : 'combinado') + ' para ' + formatDateFull(due) : ''};
+}
+async function chargeReceivable(id, all){
   var r = findById(State.receivables, id);
-  var remaining = Math.max(0, Number(r.totalAmount) - Number(r.receivedAmount||0));
-  var first = State.session.name.split(' ')[0];
-  var info = recvInstallInfo(r), due = recvNextDue(r);
-  var what = info ? 'da parcela ' + info.next + ' de ' + info.n + ', de ' + fmtMoney(Math.min(info.per, remaining)) : 'do valor de ' + fmtMoney(remaining);
-  var msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar ' + what +
-    (r.description ? ' (' + r.description + ')' : '') + (due ? ', combinad' + (info ? 'a' : 'o') + ' para ' + formatDateFull(due) : '') +
-    '. Quando puder, me avisa. Obrigado! ' + first;
+  var first = State.session.name.split(' ')[0], msg;
+  if (all && all.length > 1){
+    msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar o que ficou combinado:\n' +
+      all.map(function(x){ var c = chargeItem(x); return '• ' + (x.description || labelOf(RECV_KINDS, x.kind)) + ': ' + c.what + (c.due ? ' (' + c.due + ')' : ''); }).join('\n') +
+      '\nTotal em aberto: ' + fmtMoney(sumMoney(all, recvRemaining)) + '. Quando puder, me avisa. Obrigado! ' + first;
+  } else {
+    var c = chargeItem(r), info = recvInstallInfo(r);
+    msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar ' + (info ? 'da ' : 'do valor de ') + c.what +
+      (r.description ? ' (' + r.description + ')' : '') + (c.due ? ', ' + c.due : '') +
+      '. Quando puder, me avisa. Obrigado! ' + first;
+  }
   await openModal({
     title: 'Cobrar ' + r.person,
-    body: '<div class="field"><label for="chargeMsg">Mensagem (pode editar)</label><textarea id="chargeMsg" name="msg" rows="5" maxlength="600">' + escapeHtml(msg) + '</textarea></div>' +
+    body: '<div class="field"><label for="chargeMsg">Mensagem (pode editar)</label><textarea id="chargeMsg" name="msg" rows="' + (all && all.length > 1 ? 8 : 5) + '" maxlength="1200">' + escapeHtml(msg) + '</textarea></div>' +
       '<div class="field"><label for="chargePhone">WhatsApp da pessoa (opcional)</label><input id="chargePhone" name="phone" type="tel" maxlength="20" value="' + escapeHtml(r.phone||'') + '" placeholder="(11) 98888-7777"></div>' +
       '<div class="pdf-actions"><button type="button" class="btn btn-ghost btn-sm" data-charge="copy">Copiar mensagem</button></div>',
     submitLabel: 'Abrir no WhatsApp', cancelLabel: 'Fechar',
@@ -2334,7 +2368,10 @@ async function chargeReceivable(id){
     onSubmit: async function(form){
       var phone = onlyDigits(form.phone.value);
       if (phone && phone.length >= 10 && phone.length <= 11) phone = '55' + phone;
-      if (phone !== onlyDigits(r.phone) && form.phone.value.trim()){ await Store.update(k(), 'receivables', id, {phone: form.phone.value.trim()}); r.phone = form.phone.value.trim(); }
+      if (phone !== onlyDigits(r.phone) && form.phone.value.trim()){
+        var targets = all && all.length > 1 ? all : [r];
+        for (var i = 0; i < targets.length; i++){ await Store.update(k(), 'receivables', targets[i].id, {phone: form.phone.value.trim()}); targets[i].phone = form.phone.value.trim(); }
+      }
       window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(form.msg.value), '_blank', 'noopener');
       return true;
     }
@@ -3303,6 +3340,7 @@ document.addEventListener('click', async function(e){
   if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
   if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
   if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
+  if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return; }
   if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return; }
   if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
   if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
