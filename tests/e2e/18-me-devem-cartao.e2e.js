@@ -14,7 +14,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#recvKind', 'cartao');
   L.ok(await page.$eval('#recvCard', el => el.value) === inter.id, 'cartão sugerido: o da compra mais recente (Inter), não o primeiro da lista');
   const opts = await page.$$eval('#recvLink option', o => o.map(x => x.textContent));
-  L.ok(opts.length === 2 && /^Fone · 3x de R\$\s?100,00 · Inter/.test(opts[1]), 'lista a compra parcelada já lançada');
+  L.ok(opts.length === 2 && /^Fone · 3x de R\$\s?100,00 · Cartão Inter/.test(opts[1]), 'lista a compra parcelada já lançada');
   d = await L.db(page);
   const gid = d.transactions.find(t => t.installment).installment.group;
   await L.setVal(page, '#recvLink', 'g:' + gid);
