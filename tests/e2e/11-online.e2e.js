@@ -57,7 +57,7 @@ L.run(async ({page, errors}) => {
   await page.click('[data-authtab="login"]').catch(() => {});
   await page.click('[data-action="go-login"]').catch(() => {});
   await L.sleep(100);
-  await page.type('#loginEmail', 'ninguem@teste.com'); await page.type('#loginPassword', 'senha123');
+  await page.type('#loginEmail', 'ninguem@teste.com'); await page.type('#loginPassword', 'senha@123');
   await page.click('#loginForm button[type=submit]'); await L.sleep(1500);
   L.ok(/Sem conexão/.test(await L.text(page, '#loginError')), 'login sem internet explica que falta conexão');
   await page.setOfflineMode(false);

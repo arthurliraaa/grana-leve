@@ -8,6 +8,7 @@ import {verifyPassword, makePasswordRecord, passwordProblem, validEmail} from '.
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, escapeHtml, icon, toast} from './dom.js';
 import {formatDateFull} from '../domain/dates.js';
+import {passwordRulesHtml, wirePasswordRules} from './password.js';
 
 // ctx: {state(), onNameChange(name), themePref(), setThemePref(v), openResearch(), researchStatus(),
 //       openData(), deleteAccount(), logout(), siteUrl()}
@@ -49,7 +50,8 @@ export function renderProfile(){
         field('pfCurrent', 'Senha atual', '<input id="pfCurrent" type="password" autocomplete="current-password" maxlength="128">') +
         field('pfNew', 'Nova senha', '<input id="pfNew" type="password" autocomplete="new-password" maxlength="128">') +
         field('pfNew2', 'Repita a nova senha', '<input id="pfNew2" type="password" autocomplete="new-password" maxlength="128">') +
-        '<p class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.' + (online() ? ' Esqueceu a atual? Saia e use “Esqueci minha senha”.' : '') + '</p>' +
+        passwordRulesHtml('pfPwRules') +
+        (online() ? '<p class="field-hint">Esqueceu a atual? Saia e use “Esqueci minha senha”.</p>' : '') +
         formMsg('pfPassMsg') + '<div class="card-actions"><button class="btn btn-primary btn-sm" type="submit">Trocar senha</button></div></form>') +
 
     card('pfT4', 'sun', 'Preferências',
@@ -70,6 +72,7 @@ export function renderProfile(){
     card('pfT7', 'trash', 'Excluir conta',
       '<p class="card-sub">Apaga a conta e todos os seus dados' + (online() ? ' do servidor' : ' deste navegador') + ', inclusive a participação no estudo. Não dá para desfazer: se quiser guardar, salve um backup antes.</p>' +
       '<div class="card-actions"><button class="btn btn-danger btn-sm" type="button" id="pfDelete">Excluir minha conta</button></div>', 'profile-danger');
+  wirePasswordRules(qs('#pfNew'), qs('#pfPwRules'));
 }
 
 function msg(id, text, ok){
@@ -122,6 +125,7 @@ async function changePassword(e){
     }
   } catch(err){ msg('pfPassMsg', err.userMessage || authMessage(err.cause || err)); return; }
   ['#pfCurrent', '#pfNew', '#pfNew2'].forEach(function(sel){ qs(sel).value = ''; });
+  qs('#pfNew').dispatchEvent(new Event('input'));
   msg('pfPassMsg', 'Senha trocada. Use a nova senha nas próximas entradas.', true);
   toast('Senha trocada.');
 }

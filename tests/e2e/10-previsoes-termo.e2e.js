@@ -15,6 +15,11 @@ L.run(async ({page}) => {
   const term = await L.text(page, '#modalRoot');
   L.ok(/O que nunca é coletado/.test(term) && /Valores, descrições/.test(term) && /art\. 7º, I/.test(term) && /não envia nenhum dado/.test(term), 'termo diz o que não é coletado, a base legal e que nada é enviado nesta versão');
   await L.closeModal(page);
+  L.ok(await page.$$eval('#signupPwRules li.bad', els => els.length) === 4, 'cadastro mostra as 4 regras da senha em vermelho antes de digitar');
+  await page.type('#signupPassword', 'abc1');
+  L.ok(await page.$$eval('#signupPwRules li.ok', els => els.map(e => e.dataset.rule).join(',')) === 'letter,number', 'regras cumpridas ficam verdes');
+  L.ok(await page.$eval('#signupPassword', el => el.getAttribute('aria-describedby')) === 'signupPwRules', 'leitor de tela lê as regras junto com o campo');
+  await page.$eval('#signupPassword', el => { el.value = ''; });
   await page.click('#signupResearch');
   L.ok(!(await page.$eval('#signupResearchProfile', el => el.hidden)), 'aceitar mostra faixa etária e estado');
   L.ok(await page.$$eval('#signupAge option', os => os.map(o => o.value)).then(v => v[0] === '' && !v.includes('15-17')), 'faixas etárias começam em 18 e há “Prefiro não dizer”');
@@ -22,7 +27,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#signupUf', 'PR');
   const email = 'pesq' + Date.now() + '@teste.com';
   await page.evaluate((key) => localStorage.setItem('granaleve_prefs_' + key, JSON.stringify({quickEntryOff: true})), email);
-  await page.type('#signupName', 'Bia'); await page.type('#signupEmail', email); await page.type('#signupPassword', 'senha123');
+  await page.type('#signupName', 'Bia'); await page.type('#signupEmail', email); await page.type('#signupPassword', 'senha@123');
   await page.click('#signupStorageOk');
   await page.click('#signupForm button[type=submit]');
   await page.waitForSelector('#viewApp:not([hidden])'); await L.sleep(300);

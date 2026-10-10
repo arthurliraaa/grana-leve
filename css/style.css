@@ -776,3 +776,10 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .profile-danger{ border-color: color-mix(in srgb, var(--critical) 40%, var(--border)); }
 .profile-danger .profile-title .ico{ color: var(--critical); }
 .profile-form .form-error:empty{ display:none; }
+
+/* Regras da senha ao vivo: vermelho até cumprir, verde depois */
+.pw-rules{ list-style:none; margin:2px 0 0; padding:0; display:grid; gap:2px; font-size:.78rem; }
+.pw-rules li{ display:flex; align-items:center; gap:6px; }
+.pw-rules li.bad{ color: var(--critical); }
+.pw-rules li.ok{ color: var(--good); }
+.pw-mark{ width:14px; font-weight:700; text-align:center; }

@@ -40,7 +40,7 @@ export async function signup(page, opts = {}){
   await page.click('[data-action="go-signup"]');
   await page.type('#signupName', 'Arthur Teste');
   await page.type('#signupEmail', email);
-  await page.type('#signupPassword', 'senha123');
+  await page.type('#signupPassword', 'senha@123');
   if (await page.$('#signupStorageOk')) await page.click('#signupStorageOk');
   await page.click('#signupForm button[type=submit]');
   await page.waitForSelector('#viewApp:not([hidden])');
