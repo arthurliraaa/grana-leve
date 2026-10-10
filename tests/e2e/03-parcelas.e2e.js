@@ -72,6 +72,10 @@ L.run(async ({page}) => {
   L.section('Registrar recebimento: valor da parcela ou outro valor');
   await page.click('[data-recv-get="' + maria.id + '"]'); await L.sleep(150);
   L.ok(/Valor da parcela \(R\$\s?200,00\)/.test(await L.text(page, '#modalRoot')), 'oferece o valor da parcela');
+  L.ok(await page.$eval('input[name=as][value=refund]', el => el.checked), 'empréstimo: recebimento começa como devolução');
+  L.ok(/não conta como ganho \(é devolução\)/.test(await L.text(page, '#rcvEffect')), 'explica o que vai acontecer');
+  await page.click('input[name=as][value=income]'); await L.sleep(50);
+  L.ok(/conta como ganho do mês/.test(await L.text(page, '#rcvEffect')), 'explicação muda ao escolher “ganho”');
   L.ok(await page.$eval('#rcvOtherField', el => el.hidden), 'campo de outro valor escondido');
   await L.submitModal(page);
   d = await L.db(page);
@@ -88,12 +92,11 @@ L.run(async ({page}) => {
   L.ok(/não pode passar de R\$\s?400,00/.test(await L.modalError(page)), 'recusa valor maior que o restante');
   await page.$eval('#rcvOther', el => { el.value = ''; });
   await page.type('#rcvOther', '50');
-  await page.click('#modalRoot input[name=extra]');
   await L.submitModal(page);
   d = await L.db(page);
   maria = d.receivables.find(r => r.id === maria.id);
   L.ok(maria.receivedAmount === 250, 'outro valor somou 50');
-  L.ok(!d.transactions.some(t => t.type === 'income' && t.amount === 50), 'sem ganho quando desmarcado');
+  L.ok(!d.transactions.some(t => t.type === 'income' && t.amount === 50), 'devolução sem conta não vira ganho');
   L.ok(/Parcela 2 de 3/.test(await L.text(page, '#recvGrid')), 'valor parcial não pula a parcela');
 
   L.section('Cobrar parcela');

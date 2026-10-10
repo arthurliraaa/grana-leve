@@ -103,3 +103,18 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   marcados (`recognized`): categoria não reconhecida, data não dita (“suposto: hoje”),
   forma de pagamento não dita e tipo quando a frase não tem verbo.
 - Antes de gravar, cada lançamento passa pela validação central (`js/domain/validate.js`).
+
+## Pago para outra pessoa e devoluções
+
+- Gasto marcado como "paguei por outra pessoa e ela vai me devolver" fica ligado ao
+  "A receber" da pessoa. O dinheiro sai da conta ou do cartão normalmente, mas o gasto
+  **não entra** em "Gastos do mês", no planejamento nem nos gráficos de gastos. Aparece à
+  parte ("pagos por outras pessoas") e no filtro de mesmo nome em "Ganhos e gastos".
+- Ao registrar um recebimento, a pessoa escolhe **para onde foi o dinheiro** (uma conta ou
+  nenhuma) e **como contar**: *devolução* (empréstimo ou gasto pago pela pessoa: o saldo da
+  conta sobe, mas não é ganho) ou *ganho do mês* (dinheiro novo). Assim o mesmo valor não
+  conta duas vezes.
+- "Não vai devolver": o "A receber" fecha com o que faltava, e (opcional) esse valor vira um
+  gasto seu na data de hoje, sem mexer em conta nem cartão (o dinheiro já tinha saído).
+- Compras parceladas no cartão aparecem só em "Contas e cartões". "Eu devo" e "Dívida
+  restante" mostram apenas as dívidas cadastradas, com as parcelas do cartão citadas à parte.
