@@ -7,6 +7,11 @@ configurados no painel do Supabase, não no código.
 |---|---|---|
 | **Confirm signup** | `Confirme seu e-mail no Grana Leve` | `confirmar-cadastro.html` |
 | **Reset password** | `Crie uma nova senha no Grana Leve` | `nova-senha.html` |
+| **Security → Password changed** (ligar) | `Sua senha do Grana Leve foi alterada` | `aviso-senha-alterada.html` |
+| **Security → Email address changed** (ligar) | `O e-mail da sua conta no Grana Leve foi alterado` | `aviso-email-alterado.html` |
+
+Os outros avisos de segurança (telefone, métodos de entrada, MFA) ficam desligados: o app
+não usa esses recursos.
 
 Para cada um: abra o modelo, troque o assunto, apague o corpo, cole o conteúdo inteiro do
 arquivo e clique em **Save**.

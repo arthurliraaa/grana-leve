@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sua senha foi alterada</title></head>
+<body style="margin:0;padding:0;background:#f1f0ea;">
+<span style="display:none;max-height:0;overflow:hidden;opacity:0;">A senha da sua conta no Grana Leve foi alterada.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f0ea;padding:24px 12px;">
+  <tr><td align="center">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fcfcfb;border:1px solid #e1e0d9;border-radius:14px;font-family:Arial,Helvetica,sans-serif;color:#0b0b0b;">
+      <tr><td style="padding:24px 28px 8px;">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          <td style="width:36px;height:36px;"><img src="{{ .SiteURL }}/icons/icon-192.png" width="36" height="36" alt="" style="display:block;width:36px;height:36px;border:0;border-radius:9px;"></td>
+          <td style="padding-left:10px;font-size:20px;font-weight:bold;color:#0b0b0b;">Grana <span style="color:#0e6b5c;">Leve</span></td>
+        </tr></table>
+      </td></tr>
+      <tr><td style="padding:12px 28px 0;">
+        <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#0b0b0b;">Sua senha foi alterada</h1>
+        <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#52514e;">A senha da conta <strong>{{ .Email }}</strong> no Grana Leve acabou de ser alterada.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto;"><tr><td align="center" style="border-radius:10px;background:#0e6b5c;">
+          <a href="{{ .SiteURL }}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:10px;">Abrir o Grana Leve</a>
+        </td></tr></table>
+        <p style="margin:20px 0 0;font-size:13px;line-height:1.6;color:#68665f;"><strong>Foi você?</strong> Então está tudo certo, não precisa fazer nada.<br><strong>Não foi você?</strong> Abra o Grana Leve, toque em “Esqueci minha senha” e crie uma senha nova agora. Se não conseguir entrar, fale com a equipe pelo contato do projeto.</p>
+      </td></tr>
+      <tr><td style="padding:22px 28px 24px;">
+        <p style="margin:0;padding-top:16px;border-top:1px solid #e1e0d9;font-size:12px;line-height:1.5;color:#68665f;">Este é um aviso de segurança automático. Ele é enviado sempre que a senha muda.<br><a href="{{ .SiteURL }}" style="color:#0e6b5c;text-decoration:none;font-weight:bold;">Grana Leve</a> · controle financeiro simples · projeto de extensão universitária</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
