@@ -9,7 +9,7 @@ import {createSupabaseStore} from './supabase.js';
 import {SUPABASE_URL, SUPABASE_ANON_KEY, BACKEND_OVERRIDE_KEY} from '../config.js';
 import {SCHEMA_VERSION, migrateData} from './migrations.js';
 
-export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers'];
+export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers','bills'];
 
 export var Store = {
   mode: 'local',

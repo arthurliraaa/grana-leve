@@ -45,6 +45,8 @@ select t.ok((select count(*) from public.user_data) = 1, 'Ana grava e lê o pró
 select t.ok((select user_id from public.user_data where id = 't1') = auth.uid(), 'user_id preenchido sozinho');
 select t.ok(t.fails($$insert into public.user_data (user_id, collection, id, doc) values ('bbbbbbbb-0000-0000-0000-000000000002', 'transactions', 'x', '{}')$$), 'não grava em nome de outra pessoa');
 select t.ok(t.fails($$insert into public.user_data (collection, id, doc) values ('senhas', 'x', '{}')$$), 'coleção desconhecida é recusada');
+insert into public.user_data (collection, id, doc) values ('bills', 'b1', '{"name":"Luz","amount":120}');
+select t.ok(true, 'contas fixas (bills) são aceitas depois da migração');
 select t.ok(t.fails($$update public.profiles set role = 'admin' where id = auth.uid()$$), 'não vira admin sozinha');
 select t.ok(t.fails($$update public.profiles set blocked = false where id = auth.uid()$$), 'não mexe no próprio bloqueio');
 update public.profiles set name = 'Ana Lima' where id = auth.uid();

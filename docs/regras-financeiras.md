@@ -138,3 +138,17 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 - Cada pagamento (e cada recebimento em "Me devem") fica num **histórico**. "Desfazer" devolve o
   valor à dívida (ou ao que falta receber) e remove o lançamento ligado, mas o registro continua
   no histórico, marcado como desfeito.
+
+## Contas fixas
+
+- Cada conta fixa tem valor previsto, dia de vencimento, frequência (todo mês, a cada 2, 3 ou
+  6 meses, ou uma vez por ano), categoria, forma de pagamento e mês de início.
+- Os vencimentos de cada mês são calculados (não ficam gravados). Em mês mais curto, o
+  vencimento cai no último dia.
+- **Pagar** cria um gasto na categoria da conta, com a forma de pagamento escolhida (desconta
+  da conta ou entra na fatura do cartão), e marca o mês como pago. Desfazer remove o gasto.
+- Mudar o valor vale **a partir de** um mês; os meses anteriores mantêm o valor antigo.
+  Ao pagar com outro valor, dá para manter o novo valor nos próximos meses.
+- **Encerrar** para os vencimentos depois do mês atual e mantém o histórico.
+- No Início, as contas fixas não pagas (do mês e atrasadas do mês anterior) aparecem em
+  "Próximo compromisso", e o "Previsto no fim do mês" já desconta as que faltam pagar.
