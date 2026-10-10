@@ -427,7 +427,13 @@
       <div id="tab-cartoes" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg>Contas e cartões</h2>
         <p class="tab-intro">Cadastre suas contas de banco, seus cartões de crédito e seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela, as transferências e as faturas pagas. Cada gasto no cartão entra sozinho na fatura certa, e os gastos no vale descontam do saldo.</p>
-        <div class="card">
+        <div id="walletSummary" class="wallet-summary" aria-live="polite"></div>
+        <nav class="jump-chips" aria-label="Ir para uma parte da página">
+          <button type="button" class="chip" data-jump="secAccounts">Contas</button>
+          <button type="button" class="chip" data-jump="secCards">Cartões</button>
+          <button type="button" class="chip" data-jump="secVouchers">Vales</button>
+        </nav>
+        <div class="card" id="secAccounts">
           <div class="card-head">
             <h3>Contas bancárias</h3>
             <button class="btn btn-ghost btn-sm" type="button" id="transferBtn" hidden><svg class="ico"><use href="#i-swap"/></svg>Transferir entre contas</button>
@@ -442,7 +448,7 @@
           <div id="accountList" class="account-grid"></div>
         </div>
 
-        <div class="card">
+        <div class="card" id="secCards">
           <div class="card-head"><h3>Novo cartão</h3></div>
           <form id="cardForm" class="new-item-form">
             <div class="field"><label for="cardName">Nome do cartão</label><input id="cardName" type="text" maxlength="40" placeholder="Ex: Nubank, Inter" required></div>
@@ -455,7 +461,7 @@
         </div>
         <div id="cardList" class="stack-lg"></div>
 
-        <div class="card">
+        <div class="card" id="secVouchers">
           <div class="card-head"><h3>Vale-alimentação / refeição</h3></div>
           <p class="card-sub">Cadastre seu vale para saber quanto ainda tem de saldo. Gastos pagos com o vale entram aqui sozinhos e já vão para a categoria Alimentação.</p>
           <form id="voucherForm" class="new-item-form">
