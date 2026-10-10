@@ -832,3 +832,4 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .person-total{ display:grid; text-align:right; }
 .person-total strong{ font-size:1.1rem; }
 .person-items{ margin:0; }
+.tx-tag.good{ color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--border)); }

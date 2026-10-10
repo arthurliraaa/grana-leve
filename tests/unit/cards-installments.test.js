@@ -129,3 +129,25 @@ test('compra parcelada que já estava em andamento (7 de 18)', async () => {
   assert.equal(expandInstallments(tx, 18, 'g2', 'X', 99).length, 1, 'parcela atual acima do total vira a última');
   assert.equal(expandInstallments(tx, 3, 'g3', 'X').every(t => !('start' in t.installment)), true, 'compra nova não grava start');
 });
+
+test('estornos: crédito na fatura escolhida, limite e gastos do mês', async () => {
+  const {invoiceTotal, cardUsed, invoicesSummary} = await import('../../js/domain/cards.js');
+  const {monthTotals, reversalsOf} = await import('../../js/domain/transactions.js');
+  const {validateRecord} = await import('../../js/domain/validate.js');
+  const c = {id: 'c1', name: 'Nubank', closingDay: 3, dueDay: 10};
+  const buy = {id: 'p', type: 'expense', amount: 200, category: 'compras', date: '2026-09-20', paymentMethod: 'cartao', cardId: 'c1'};
+  // Fatura de outubro (fecha 03/10) já fechou; o estorno de 05/10 cai na seguinte (fecha 03/11).
+  const rev = {id: 'r', type: 'expense', amount: -200, category: 'compras', date: '2026-10-05', paymentMethod: 'cartao', cardId: 'c1', reversal: {of: 'p'}};
+  assert.equal(invoiceTotal([buy, rev], c, '2026-10'), 200, 'fatura fechada não muda');
+  assert.equal(invoiceTotal([buy, rev], c, '2026-11'), -200, 'crédito na próxima');
+  // Estorno lançado direto na fatura da compra (escolhido pela pessoa).
+  const rev2 = {...rev, invoiceKey: '2026-10'};
+  assert.equal(invoiceTotal([buy, rev2], c, '2026-10'), 0);
+  assert.equal(cardUsed([buy, rev2], c, '2026-10-05'), 0, 'limite volta');
+  assert.equal(invoicesSummary([buy, rev2], [c], '2026-10-05').toPay.length, 0, 'nada a pagar');
+  assert.equal(monthTotals([buy, rev], '2026-10').expense, -200, 'estorno abate os gastos do mês em que entrou');
+  assert.deepEqual(reversalsOf([buy, rev], 'p').map(t => t.id), ['r']);
+  assert.equal(validateRecord('transactions', rev), '', 'estorno com valor negativo é válido');
+  assert.equal(validateRecord('transactions', {...rev, reversal: undefined}), 'valor inválido', 'valor negativo sem ser estorno é recusado');
+  assert.equal(validateRecord('transactions', {...rev, amount: 10}), 'valor inválido', 'estorno precisa ser negativo');
+});

@@ -9,7 +9,7 @@ import {findById, sum, uid} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
 import {CUSTOM_COLORS} from '../domain/categories.js';
 import * as Tx from '../domain/transactions.js';
-import {MAX_INSTALLMENTS, clampInstall, isForOther, isRefund, isPersonal} from '../domain/transactions.js';
+import {MAX_INSTALLMENTS, clampInstall, isForOther, isRefund, isPersonal, isReversal, reversalsOf} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceDates, invoiceLabel} from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
@@ -741,6 +741,15 @@ function paymentLabel(t){
 
 // Etiqueta de gasto pago por outra pessoa ou de devolução (não entram nos seus gastos e ganhos).
 function otherTagHtml(t){
+  if (isReversal(t)){
+    var orig = findById(State.transactions, t.reversal.of);
+    return '<span class="tx-tag good">Estorno' + (orig ? ' de ' + escapeHtml(orig.description || catLabel(orig.category, 'expense')) + ' (' + formatDateBr(orig.date) + ')' : ' de compra excluída') + '</span>';
+  }
+  var revs = t.type === 'expense' ? reversalsOf(State.transactions, t.id) : [];
+  if (revs.length) return '<span class="tx-tag good">Estornado: ' + fmtMoney(-sumMoney(revs, function(r){ return r.amount; })) + '</span>' + forOtherTag(t);
+  return forOtherTag(t);
+}
+function forOtherTag(t){
   if (isRefund(t)) return '<span class="tx-tag">Devolução · não conta como ganho</span>';
   if (!isForOther(t)) return '';
   var r = findById(State.receivables, t.forOther.receivableId);
@@ -755,7 +764,7 @@ function txRowHtml(t){
     catBadge(t.category, t.type) +
     '<div class="tx-main"><div class="tx-desc">'+escapeHtml(t.description || cat)+'</div>' +
     '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div>' + otherTagHtml(t) + '</div>' +
-    '<span class="tx-amount ' + (isExpense ? 'expense' : 'income') + ' tabular">' + (isExpense ? '-' : '+') + ' ' + fmtMoney(t.amount) + '</span>' +
+    '<span class="tx-amount ' + (isExpense && t.amount > 0 ? 'expense' : 'income') + ' tabular">' + (isExpense && t.amount > 0 ? '-' : '+') + ' ' + fmtMoney(Math.abs(t.amount)) + '</span>' +
     '<button class="tx-del tx-edit" type="button" data-edit-tx="'+escapeHtml(t.id)+'" aria-label="Editar lançamento" title="Editar">' + icon('edit') + '</button>' +
     '<button class="tx-del" type="button" data-del-tx="'+escapeHtml(t.id)+'" aria-label="Excluir lançamento" title="Excluir">' + icon('trash') + '</button>' +
     '</div>';
@@ -979,6 +988,7 @@ function txModalBody(t, isEdit){
     '<div class="field"><label for="mDesc">Descrição (opcional)</label><input id="mDesc" name="desc" type="text" maxlength="80" placeholder="Ex: mercado da semana" value="' + escapeHtml(inst ? t.installment.baseDescription : (t.description || '')) + '"></div>' +
     (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. Categoria e descrição mudam em todas as parcelas; o valor muda só nesta (ex.: juros). Para mudar o total, o número de parcelas, o cartão ou a data, ou para dividir os valores igualmente de novo, use o botão abaixo.</p>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-m-group style="justify-self:start">' + icon('edit') + 'Editar a compra inteira</button>' : '') +
+    (isEdit && t.type === 'expense' && !t.writeOff ? '<button type="button" class="btn btn-ghost btn-sm" data-m-reversal style="justify-self:start">' + icon('swap') + 'Registrar estorno</button>' : '') +
     (isEdit ? '' : '<button type="button" class="linklike" data-m-chat style="justify-self:start">Prefere escrever? Lance pelo chat</button>');
 }
 
@@ -1029,6 +1039,8 @@ async function openTxModal(t){
       });
       qs('#mAmount', modal).addEventListener('input', fillInstall);
       if (instSel){ instSel.addEventListener('input', fillInstall); modal.addEventListener('input', function(e){ if (e.target.name === 'mIxStart') fillInstall(); }); modal.addEventListener('change', function(e){ if (e.target.name === 'mIxMode') fillInstall(); }); }
+      var revBtn = qs('[data-m-reversal]', modal);
+      if (revBtn) revBtn.addEventListener('click', function(){ close(null); reverseTx(t.id); });
       var grp = qs('[data-m-group]', modal);
       if (grp) grp.addEventListener('click', function(){ close(null); editInstallmentGroup(t.installment.group); });
       var chat = qs('[data-m-chat]', modal);
@@ -1062,6 +1074,68 @@ async function openTxModal(t){
       return true;
     }
   });
+}
+
+// Estorno de uma compra: crédito (valor negativo) ligado à compra, sem apagar nada.
+// Cartão: a pessoa escolhe em qual fatura o crédito aparece (fatura fechada → costuma vir na próxima).
+// Parcelada: pode estornar também as parcelas futuras, cada uma na fatura dela.
+async function reverseTx(id){
+  var t = findById(State.transactions, id);
+  if (!t) return;
+  var today = todayKey(), card = t.paymentMethod === 'cartao' ? findById(State.cards, t.cardId) : null;
+  var group = t.installment ? State.transactions.filter(function(x){ return x.installment && x.installment.group === t.installment.group; }) : [t];
+  var already = sumMoney(group, function(x){ return -sumMoney(reversalsOf(State.transactions, x.id), function(r){ return r.amount; }); });
+  var charged = group.filter(function(x){ return x.date <= today && !reversalsOf(State.transactions, x.id).length; });
+  var future = group.filter(function(x){ return x.date > today && !reversalsOf(State.transactions, x.id).length; });
+  var base = sumMoney(t.installment ? charged : [t], function(x){ return x.amount; }) - (t.installment ? 0 : already);
+  if (!(base > 0) && !future.length){ toast('Esta compra já foi estornada por completo.'); return; }
+  var name = t.installment ? t.installment.baseDescription : (t.description || catLabel(t.category, 'expense'));
+  var keys = [];
+  if (card){
+    var k0 = Cards.txInvoiceKey(t.installment ? (charged[0] || t) : t, card), open = invoiceKeyFor(today, card);
+    for (var key = k0; key <= shiftMonthKey(open, 1); key = shiftMonthKey(key, 1)){
+      var st = invoiceStatus(card, key);
+      keys.push({id: key, label: 'Fatura de ' + invoiceLabel(key, card) + ' (' + st + ')'});
+    }
+  }
+  var a = await openModal({
+    title: 'Registrar estorno',
+    body: '<p><strong>' + escapeHtml(name) + '</strong> · ' + formatDateBr(t.date) + ' · ' + escapeHtml(paymentLabel(t) || 'sem forma de pagamento') +
+        (t.installment ? ' · ' + t.installment.total + 'x' : '') + (already ? ' · já estornado ' + fmtMoney(already) : '') + '</p>' +
+      (t.installment ? '<p class="card-sub">Parcelas já cobradas: ' + charged.length + ' (' + fmtMoney(sumMoney(charged, function(x){ return x.amount; })) + ') · futuras: ' + future.length +
+        ' (' + fmtMoney(sumMoney(future, function(x){ return x.amount; })) + ')</p>' : '') +
+      '<div class="field"><label for="rvAmount">Valor estornado' + (t.installment ? ' das parcelas já cobradas' : '') + '</label><span class="money-input"><span>R$</span><input id="rvAmount" name="amount" type="number" step="0.01" min="0" max="' + Math.max(0, base) + '" inputmode="decimal" value="' + money(Math.max(0, base)) + '"></span>' +
+        '<span class="field-hint">Estorno parcial? Informe só o que voltou.</span></div>' +
+      '<div class="field"><label for="rvDate">Data do estorno</label><input id="rvDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + today + '"></div>' +
+      (card ? '<div class="field"><label for="rvInv">Em qual fatura o estorno aparece?</label><select id="rvInv" name="inv">' + optionsHtml(keys, invoiceKeyFor(today, card)) + '</select>' +
+        '<span class="field-hint">Fatura ainda aberta: o crédito abate nela. Fatura já fechada: o banco costuma lançar o crédito na próxima. Escolha como aparece no app do banco.</span></div>' : '') +
+      (future.length ? '<label class="check"><input type="checkbox" name="future" checked> Estornar também as ' + future.length + ' parcela(s) futura(s) (' + fmtMoney(sumMoney(future, function(x){ return x.amount; })) + '), cada uma na sua fatura</label>' : '') +
+      '<p class="field-hint">' + (card ? 'O crédito abate na fatura escolhida e libera o limite.' : t.paymentMethod === 'conta' && t.accountId ? 'O valor volta para o saldo de ' + escapeHtml(accountName(t.accountId)) + '.' : 'O valor volta para onde saiu.') +
+        ' A compra continua no histórico, marcada como estornada, e o estorno abate os gastos do mês em que entrou.</p>',
+    submitLabel: 'Registrar estorno',
+    onSubmit: function(form){
+      var v = money(form.amount.value), withFuture = !!(form.future && form.future.checked);
+      if (!(v > 0) && !withFuture) return {error: 'Informe o valor estornado.'};
+      if (v > base + 0.001) return {error: 'O estorno não pode passar de ' + fmtMoney(base) + '.'};
+      if (!validDateStr(form.date.value)) return {error: 'Use uma data entre 1900 e 3000.'};
+      return {amount: v, date: form.date.value, inv: form.inv ? form.inv.value : null, future: withFuture};
+    }
+  });
+  if (!a) return;
+  function credit(of, amount, date, invKey, label){
+    var r = {type: 'expense', amount: -money(amount), category: of.category, categoryLabel: catLabel(of.category, 'expense'), date: date,
+      description: 'Estorno: ' + label, paymentMethod: of.paymentMethod, accountId: of.accountId || null, cardId: of.cardId || null, voucherId: of.voucherId || null,
+      reversal: {of: of.id}, createdAt: Date.now()};
+    if (invKey) r.invoiceKey = invKey;
+    if (of.forOther) r.forOther = of.forOther;
+    return r;
+  }
+  var list = [];
+  if (a.amount > 0) list.push(credit(t.installment ? (charged[charged.length - 1] || t) : t, a.amount, a.date, a.inv, name));
+  if (a.future) future.forEach(function(x){ list.push(credit(x, x.amount, x.date, null, name + ' (' + x.installment.n + '/' + x.installment.total + ')')); });
+  await saveTransactions(list);
+  renderAll();
+  toast('Estorno de ' + fmtMoney(sumMoney(list, function(r){ return -r.amount; })) + ' registrado' + (card && a.inv ? ' na fatura de ' + invoiceLabel(a.inv, card) : '') + '.');
 }
 
 // Compra parcelada inteira: valor (total ou por parcela), número de parcelas, parcela atual, cartão, data,
@@ -3179,6 +3253,7 @@ document.addEventListener('click', async function(e){
 
   if ((el = t.closest('[data-edit-tx]'))){
     var et = findById(State.transactions, el.getAttribute('data-edit-tx'));
+    if (et && isReversal(et)){ toast('Estornos não são editados: para corrigir, exclua este estorno e registre de novo pela compra.'); return; }
     if (et) openTxModal(et);
     return;
   }

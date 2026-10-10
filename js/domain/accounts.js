@@ -21,7 +21,7 @@ export function accountMoves(a, data, today, txLabel){
   data.transactions.forEach(function(t){
     if (t.accountId !== a.id) return;
     if (t.type === 'income') add(t.date, t.createdAt, Number(t.amount), txLabel(t), 'Ganho');
-    else if (t.type === 'expense' && t.paymentMethod === 'conta') add(t.date, t.createdAt, -Number(t.amount), txLabel(t), 'Gasto');
+    else if (t.type === 'expense' && t.paymentMethod === 'conta') add(t.date, t.createdAt, -Number(t.amount), txLabel(t), t.reversal ? 'Estorno' : 'Gasto');
   });
   data.transfers.forEach(function(x){
     var note = x.description ? ' · ' + x.description : '';

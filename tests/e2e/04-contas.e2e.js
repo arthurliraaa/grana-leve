@@ -170,7 +170,9 @@ L.run(async ({page}) => {
   await page.click('[data-recv-get]'); await L.sleep(150);
   await L.setVal(page, '#rcvAcc', it.id);
   await L.submitModal(page);
+  await page.waitForFunction(() => document.getElementById('modalRoot').hidden);
   await L.tab(page, 'cartoes');
+  await L.sleep(400);
   L.ok(await bal('Nubank PF') === 5000, 'salário de 3000 entrou no Nubank (5000)');
   L.ok(await bal('Itaú') === 730, 'Itaú: −100 da dívida +80 da Bia (730)');
 
