@@ -53,7 +53,12 @@ export function createSupabaseStore(client, collections){
   async function cap(){
     if (!captcha) return undefined;
     try { return await captcha(); }
-    catch(e){ throw Object.assign(new Error('captcha failed'), {cause: {message: 'captcha failed'}, userMessage: AUTH_MESSAGES[0][1]}); }
+    catch(e){
+      // Sem internet o captcha nem carrega: a mensagem certa é a de conexão, não a de robô.
+      var off = typeof navigator !== 'undefined' && navigator.onLine === false;
+      throw Object.assign(new Error(off ? 'Failed to fetch' : 'captcha failed'), {cause: {message: off ? 'Failed to fetch' : 'captcha failed'}, offline: off,
+        userMessage: off ? OFFLINE_MESSAGE : AUTH_MESSAGES[0][1]});
+    }
   }
 
   return {

@@ -189,3 +189,14 @@ test('captcha: o token vai em cadastro, login, nova senha, reenvio e conferênci
   S.setCaptcha(async () => { throw new Error('bloqueado'); });
   await assert.rejects(S.signIn('a@b.com', 'x'), e => /não é um robô/.test(e.userMessage));
 });
+
+test('captcha sem internet: mensagem de conexão, não de robô', async () => {
+  const c = fakeClient();
+  c.auth = {async signInWithPassword(){ return {data: {}, error: null}; }};
+  const S = createSupabaseStore(c, COLLS);
+  S.setCaptcha(async () => { throw new Error('script não carregou'); });
+  const orig = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', {value: {onLine: false}, configurable: true});
+  try { await assert.rejects(S.signIn('a@b.com', 'x'), e => e.offline === true && /Failed to fetch/.test(e.cause.message)); }
+  finally { if (orig) Object.defineProperty(globalThis, 'navigator', orig); else delete globalThis.navigator; }
+});
