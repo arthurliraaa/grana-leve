@@ -10,7 +10,7 @@ function fakeClient(){
   const me = {id: 'u1'};
   const db = {user_data: [], profiles: [{id: 'u1', name: 'Ana', role: 'user', blocked: false, research: null}], study_events: []};
   const calls = [];
-  let studyCode = 'code-1', rpcFail = false;
+  let studyCode = 'code-1', rpcFail = false, noPatch = false;
   function table(name){
     const st = {op: 'select', filters: [], range: null, limit: null};
     const own = r => name !== 'user_data' || r.user_id === me.id;
@@ -52,12 +52,18 @@ function fakeClient(){
   }
   return {
     me, db, calls,
-    setStudyCode(c){ studyCode = c; }, failRpc(v){ rpcFail = v; },
+    setStudyCode(c){ studyCode = c; }, failRpc(v){ rpcFail = v; }, withoutPatchDocs(){ noPatch = true; },
     from: table,
-    async rpc(fn){
+    async rpc(fn, args){
       calls.push('rpc:' + fn);
       if (rpcFail) return {data: null, error: {message: 'network'}};
       if (fn === 'my_study_code') return {data: studyCode, error: null};
+      if (fn === 'patch_docs'){
+        if (noPatch) return {data: null, error: {code: 'PGRST202', message: 'Could not find the function public.patch_docs'}};
+        const p = args;
+        p.p_items.forEach(it => { const r = db.user_data.find(x => x.user_id === me.id && x.collection === p.p_collection && x.id === it.id); if (r) r.doc = {...r.doc, ...it.patch}; });
+        return {data: null, error: null};
+      }
       if (fn === 'is_admin') return {data: false, error: null};
       return {data: null, error: null};
     },
@@ -199,4 +205,25 @@ test('captcha sem internet: mensagem de conexão, não de robô', async () => {
   Object.defineProperty(globalThis, 'navigator', {value: {onLine: false}, configurable: true});
   try { await assert.rejects(S.signIn('a@b.com', 'x'), e => e.offline === true && /Failed to fetch/.test(e.cause.message)); }
   finally { if (orig) Object.defineProperty(globalThis, 'navigator', orig); else delete globalThis.navigator; }
+});
+
+test('gravação rápida: edição numa ida só, lotes e volta ao jeito antigo sem a migração', async () => {
+  const c = fakeClient(), S = createSupabaseStore(c, COLLS);
+  const list = await S.addMany('u1', 'transactions', [{amount: 1}, {amount: 2}, {amount: 3}]);
+  assert.equal(c.calls.filter(x => x === 'user_data:insert').length, 1, '3 registros numa ida só');
+  assert.ok(list.every(t => t.id) && c.db.user_data.length === 3);
+  c.calls.length = 0;
+  await S.updateMany('u1', 'transactions', list.map(t => ({id: t.id, partial: {category: 'lazer'}})));
+  assert.deepEqual(c.calls, ['rpc:patch_docs'], 'editar 3 registros: uma chamada só');
+  assert.ok(c.db.user_data.every(r => r.doc.category === 'lazer' && r.doc.amount > 0), 'mantém os outros campos');
+  await S.removeMany('u1', 'transactions', [list[0].id, list[1].id]);
+  assert.equal(c.db.user_data.length, 1);
+  const old = fakeClient(); old.withoutPatchDocs();
+  const S2 = createSupabaseStore(old, COLLS);
+  const [t] = await S2.addMany('u1', 'transactions', [{amount: 5, category: 'a'}]);
+  await S2.update('u1', 'transactions', t.id, {category: 'b'});
+  assert.deepEqual(old.db.user_data[0].doc, {amount: 5, category: 'b'}, 'sem a migração, edita do jeito antigo');
+  old.calls.length = 0;
+  await S2.update('u1', 'transactions', t.id, {amount: 6});
+  assert.ok(!old.calls.includes('rpc:patch_docs'), 'depois de saber que falta a migração, não tenta de novo');
 });

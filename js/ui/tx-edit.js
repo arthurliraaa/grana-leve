@@ -236,9 +236,9 @@ export async function editInstallmentGroup(groupId){
       if (first.forOther) tx.forOther = first.forOther;
       if (first.split) tx.split = first.split;
       var fresh = Tx.expandPurchase(tx, n, groupId, base, ex.start);
-      for (var i = 0; i < g.items.length; i++){ await Store.remove(k(), 'transactions', g.items[i].id); }
+      await Store.removeMany(k(), 'transactions', g.items.map(function(t){ return t.id; }));
       State.transactions = State.transactions.filter(function(t){ return !(t.installment && t.installment.group === groupId); });
-      for (var j = 0; j < fresh.length; j++){ State.transactions.unshift(await Store.add(k(), 'transactions', fresh[j])); }
+      State.transactions = (await Store.addMany(k(), 'transactions', fresh)).concat(State.transactions);
       if (first.forOther){
         var r = findById(State.receivables, first.forOther.receivableId);
         if (r){
@@ -263,14 +263,14 @@ export async function saveTxEdit(t, patch){
     var base = patch.description || catLabel(patch.category, 'expense');
     var group = State.transactions.filter(function(x){ return x.installment && x.installment.group === t.installment.group; });
     var delta = money(patch.amount - t.amount);
-    for (var i=0;i<group.length;i++){
-      var x = group[i];
+    var edits = group.map(function(x){
       var p = {category: patch.category, categoryLabel: patch.categoryLabel, description: base + ' (' + x.installment.n + '/' + x.installment.total + ')',
         installment: Object.assign({}, x.installment, {baseDescription: base, totalAmount: money(Number(x.installment.totalAmount) + delta)})};
       if (x.id === t.id) p.amount = patch.amount;
-      await Store.update(k(), 'transactions', x.id, p);
-      Object.assign(x, p);
-    }
+      return {id: x.id, partial: p, x: x};
+    });
+    await Store.updateMany(k(), 'transactions', edits);
+    edits.forEach(function(e){ Object.assign(e.x, e.partial); });
   } else {
     await Store.update(k(), 'transactions', t.id, patch);
     Object.assign(t, patch);
@@ -424,12 +424,9 @@ export async function manageCategories(){
 
 /* ---------- Compras parceladas ---------- */
 export async function saveTransactions(list){
-  var saved = [];
-  for (var i=0;i<list.length;i++){
-    var s = await Store.add(k(), 'transactions', list[i]);
-    State.transactions.unshift(s);
-    saved.push(s);
-  }
+  // Numa ida só ao servidor (ex.: as 12 parcelas de uma compra).
+  var saved = await Store.addMany(k(), 'transactions', list);
+  State.transactions = saved.concat(State.transactions);
   sortTransactions();
   checkBudgetAlerts(saved);
   return saved;
@@ -506,8 +503,8 @@ export async function advanceInstallments(groupId){
   });
   if (!r || !r.n) return;
   var toRemove = g.future.slice(R - r.n);
-  for (var j=0;j<toRemove.length;j++){ await Store.remove(k(), 'transactions', toRemove[j].id); }
   var ids = toRemove.map(function(t){ return t.id; });
+  await Store.removeMany(k(), 'transactions', ids);
   State.transactions = State.transactions.filter(function(t){ return ids.indexOf(t.id) < 0; });
   await saveTransactions([{type:'expense', amount: r.paid, category: g.category, categoryLabel: catLabel(g.category, 'expense'), date: todayKey(),
     description: g.name + ' (adiantamento de ' + r.n + ' parcela' + (r.n > 1 ? 's' : '') + ')', paymentMethod:'cartao', cardId: g.cardId,

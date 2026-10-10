@@ -64,7 +64,7 @@ export async function startOnlineSession(user){
     return;
   }
   State.session = {emailKey: user.id, name: (profile && profile.name) || (user.user_metadata && user.user_metadata.name) || user.email.split('@')[0], email: user.email};
-  try { await enterApp(); }
+  try { await enterApp(profile || null); }
   catch(e){
     // Sem conexão (ou servidor fora do ar): não mostra um app vazio como se não houvesse dados.
     State.session = null;
