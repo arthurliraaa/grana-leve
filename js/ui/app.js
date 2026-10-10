@@ -2048,15 +2048,68 @@ function syncRecvForm(){
   document.getElementById('recvDueLabel').textContent = n <= 1 ? 'Combinado para' : '1ª parcela em';
   document.getElementById('recvInstallHint').textContent = installHint(n, perMode ? money(typed * n) : typed);
   var onCard = document.getElementById('recvKind').value === 'cartao';
+  var linked = onCard && !!document.getElementById('recvLink').value;
   document.getElementById('recvCardField').hidden = !onCard || !State.cards.length;
-  document.getElementById('recvLaunchField').hidden = !onCard || !State.cards.length;
+  document.getElementById('recvLinkField').hidden = !onCard || !document.getElementById('recvLink').options.length || document.getElementById('recvLink').options.length < 2;
+  document.getElementById('recvLaunchField').hidden = !onCard || !State.cards.length || linked;
+  // Ligado a uma compra já lançada: cartão, valor e parcelas vêm dela.
+  ['recvCard', 'recvTotal', 'recvInstall'].forEach(function(id){ document.getElementById(id).disabled = linked; });
+  qsa('#recvForm [data-for="recvInstall"]').forEach(function(b){ b.disabled = linked; });
 }
+// Cartão sugerido: o último escolhido aqui ou, se não houver, o da compra mais recente no cartão.
 function populateRecvCards(){
   var sel = document.getElementById('recvCard');
-  var prev = sel.value;
+  var prev = sel.value || getPrefs().recvCard;
+  if (!findById(State.cards, prev)){
+    var last = State.transactions.filter(function(t){ return t.paymentMethod === 'cartao' && findById(State.cards, t.cardId); })
+      .sort(function(a, b){ return (b.createdAt||0) - (a.createdAt||0); })[0];
+    prev = last ? last.cardId : '';
+  }
   sel.innerHTML = optionsHtml(State.cards.map(function(c){ return {id: c.id, label: c.name}; }), prev);
+  populateRecvLinks();
   syncRecvForm();
 }
+// Compras no cartão que podem virar "A receber" (ainda não ligadas a ninguém), mais recentes primeiro.
+function recvLinkCandidates(){
+  var out = [], seen = {}, since = shiftMonthKey(monthKeyOf(todayKey()), -4) + '-01';
+  State.transactions.forEach(function(t){
+    if (t.type !== 'expense' || t.paymentMethod !== 'cartao' || t.forOther || !findById(State.cards, t.cardId)) return;
+    if (t.installment){
+      var gid = t.installment.group;
+      if (seen[gid]) return;
+      seen[gid] = true;
+      var items = State.transactions.filter(function(x){ return x.installment && x.installment.group === gid; }).sort(function(a, b){ return a.installment.n - b.installment.n; });
+      if (items[items.length - 1].date < todayKey()) return;
+      out.push({id: 'g:' + gid, items: items, date: items[0].date, label: t.installment.baseDescription + ' · ' + items.length + 'x de ' + fmtMoney(items[items.length - 1].amount)});
+    } else if (t.date >= since){
+      out.push({id: 't:' + t.id, items: [t], date: t.date, label: (t.description || catLabel(t.category, 'expense')) + ' · ' + fmtMoney(t.amount)});
+    }
+  });
+  return out.sort(function(a, b){ return b.date.localeCompare(a.date); }).slice(0, 40).map(function(c){
+    c.label += ' · ' + findById(State.cards, c.items[0].cardId).name + ' · ' + formatDateBr(c.date);
+    return c;
+  });
+}
+function populateRecvLinks(){
+  var sel = document.getElementById('recvLink'), prev = sel.value;
+  var list = recvLinkCandidates();
+  sel.innerHTML = optionsHtml([{id: '', label: 'Nenhuma: vou informar os dados'}].concat(list), list.some(function(c){ return c.id === prev; }) ? prev : '');
+}
+function recvLinkOf(id){ return recvLinkCandidates().filter(function(c){ return c.id === id; })[0] || null; }
+document.getElementById('recvLink').addEventListener('change', function(e){
+  var c = recvLinkOf(e.target.value);
+  if (c){
+    var first = c.items[0], card = findById(State.cards, first.cardId);
+    document.getElementById('recvCard').value = first.cardId;
+    document.getElementById('recvTotal').value = sumMoney(c.items, function(t){ return t.amount; });
+    document.getElementById('recvInstall').value = c.items.length;
+    qs('input[name=recvMode][value=total]').checked = true;
+    document.getElementById('recvLaunch').checked = false;
+    if (!document.getElementById('recvDesc').value) document.getElementById('recvDesc').value = first.installment ? first.installment.baseDescription : (first.description || '');
+    if (!document.getElementById('recvDue').value) document.getElementById('recvDue').value = invoiceDates(invoiceKeyFor(first.date, card), card).due;
+  }
+  syncRecvForm();
+});
 
 function renderReceivables(){
   populateRecvCards();
@@ -2081,6 +2134,7 @@ function renderReceivables(){
       '<div class="budget-top"><h4>'+escapeHtml(r.person)+'</h4><span class="card-tags"><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span>' +
         (done ? '' : urgencySelectHtml('receivables', r, r.person)) + '</span></div>' +
       (r.description ? '<span class="tx-meta">' + escapeHtml(r.description) + '</span>' : '') +
+      (recvCardLine(r) && !done ? '<span class="tx-meta">' + recvCardLine(r) + '</span>' : '') +
       '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
       '<div class="debt-figs"><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
       (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
@@ -2097,6 +2151,13 @@ function renderReceivables(){
   }).join('');
 }
 
+// "Cartão Inter · parcela 2 de 3 · fatura de novembro de 2026" (compra feita no seu cartão).
+function recvCardLine(r){
+  var c = r.cardId && findById(State.cards, r.cardId);
+  if (!c) return '';
+  var info = recvInstallInfo(r), due = recvNextDue(r);
+  return 'Cartão ' + escapeHtml(c.name) + (info ? ' · parcela ' + info.next + ' de ' + info.n : '') + (due ? ' · fatura de ' + monthLabelOf(due.slice(0, 7)) : '');
+}
 async function receiveReceivable(id){
   var r = findById(State.receivables, id);
   var remaining = recvRemaining(r);
@@ -2107,6 +2168,7 @@ async function receiveReceivable(id){
   var a = await openModal({
     title: 'Registrar recebimento',
     body: '<p>' + escapeHtml(r.person) + ' te deve ' + fmtMoney(remaining) + (info ? '. Próxima: parcela ' + info.next + ' de ' + info.n : '') + '.</p>' +
+      (recvCardLine(r) ? '<p class="tip-box">' + icon('card') + ' ' + recvCardLine(r) + '</p>' : '') +
       (info ? '<fieldset class="radio-group"><legend>Quanto entrou?</legend>' +
           '<label class="check"><input type="radio" name="mode" value="parcela" checked> Valor da parcela (' + fmtMoney(suggested) + ')</label>' +
           '<label class="check"><input type="radio" name="mode" value="outro"> Outro valor (a mais, a menos ou várias parcelas)</label>' +
@@ -3580,14 +3642,33 @@ document.getElementById('recvForm').addEventListener('submit', async function(e)
   var total = perMode ? money(typed * n) : typed;
   var r = {person:person, kind: kind, description: desc, phone: document.getElementById('recvPhone').value.trim(), totalAmount: total, receivedAmount: 0, dueDate: due || null, urgency: document.getElementById('recvUrgency').value, createdAt: Date.now()};
   if (n > 1){ r.installments = n; r.installmentAmount = perMode ? typed : Math.floor(total * 100 / n) / 100; }
-  // Compra feita no meu cartão: pode entrar também na fatura, já parcelada.
-  var card = kind === 'cartao' && document.getElementById('recvLaunch').checked ? findById(State.cards, document.getElementById('recvCard').value) : null;
-  if (card){
-    r.cardId = card.id; r.linked = true; r.category = 'compras';
-    if (!r.dueDate) r.dueDate = invoiceDates(invoiceKeyFor(todayKey(), card), card).due;
+  // Compra feita no meu cartão: pode ser uma compra já lançada (fica ligada a ela) ou entrar agora
+  // na fatura, já parcelada. Em qualquer caso o "A receber" guarda o cartão.
+  var link = kind === 'cartao' ? recvLinkOf(document.getElementById('recvLink').value) : null;
+  var usedCard = kind === 'cartao' ? findById(State.cards, link ? link.items[0].cardId : document.getElementById('recvCard').value) : null;
+  var card = !link && usedCard && document.getElementById('recvLaunch').checked ? usedCard : null;
+  if (usedCard){
+    r.cardId = usedCard.id;
+    setPref('recvCard', usedCard.id);
+    if (!r.dueDate) r.dueDate = invoiceDates(invoiceKeyFor(link ? link.items[0].date : todayKey(), usedCard), usedCard).due;
+  }
+  if (card){ r.linked = true; r.category = 'compras'; }
+  if (link){
+    var items = link.items;
+    r.linked = true; r.category = items[0].category;
+    r.totalAmount = sumMoney(items, function(t){ return t.amount; });
+    delete r.installments; delete r.installmentAmount;
+    if (items.length > 1){ r.installments = items.length; r.installmentAmount = items[items.length - 1].amount; }
   }
   var saved = await Store.add(k(), 'receivables', r);
   State.receivables.push(saved);
+  if (link){
+    for (var li = 0; li < link.items.length; li++){
+      var fo = {forOther: {person: person, receivableId: saved.id}};
+      await Store.update(k(), 'transactions', link.items[li].id, fo);
+      Object.assign(link.items[li], fo);
+    }
+  }
   if (card){
     var tx = {type:'expense', amount: total, category:'compras', categoryLabel: catLabel('compras', 'expense'), date: todayKey(),
       description: desc || 'Compra para ' + person, paymentMethod:'cartao', cardId: card.id, voucherId: null,
@@ -3595,8 +3676,10 @@ document.getElementById('recvForm').addEventListener('submit', async function(e)
     await saveTransactions(expandInstallments(tx, n));
   }
   e.target.reset();
-  if (card) renderAll(); else { renderReceivables(); renderDashboard(); }
-  toast(person + ' foi adicionado(a) em “A receber”' + (n > 1 ? ' em ' + n + 'x' : '') + '.' + (card ? ' A compra entrou na fatura do ' + card.name + '.' : ''));
+  document.getElementById('recvLink').value = '';
+  if (card || link) renderAll(); else { renderReceivables(); renderDashboard(); }
+  toast(person + ' foi adicionado(a) em “A receber”' + (n > 1 ? ' em ' + n + 'x' : '') + '.' + (card ? ' A compra entrou na fatura do ' + card.name + '.' : '') +
+    (link ? ' Ligado à compra no ' + usedCard.name + ', que deixa de contar como gasto seu.' : ''));
 });
 
 document.getElementById('debtKind').innerHTML = optionsHtml(DEBT_KINDS, 'banco');
