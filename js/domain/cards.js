@@ -1,15 +1,19 @@
 /*
  * Cartões e faturas. Regras (detalhes em docs/regras-financeiras.md):
- * - A fatura é identificada pelo mês em que fecha. Compra feita depois do dia de fechamento vai para a seguinte.
+ * - Internamente a fatura é identificada pelo mês em que fecha (a chave não muda, para não perder
+ *   pagamentos já marcados); na tela ela leva o nome do mês do vencimento, como nos bancos.
+ * - Como nos bancos, a compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.
+ *   Em mês mais curto, o fechamento cai no último dia (fecha 31 → fecha 30/09, 28/02).
  * - O vencimento cai no mesmo mês do fechamento se o dia de vencimento for maior; senão, no mês seguinte.
  * - A compra conta como gasto na data da compra. Pagar a fatura não é um gasto novo: só desconta da conta escolhida.
  */
-import {parseDate, pad2, daysInMonth, toDateKey} from './dates.js';
+import {parseDate, pad2, daysInMonth, toDateKey, monthLabelOf} from './dates.js';
 import {sumMoney} from './money.js';
 
 export function invoiceKeyFor(dateStr, card){
   var d = parseDate(dateStr);
-  var m = d.getMonth() + (d.getDate() > Number(card.closingDay) ? 1 : 0);
+  var closing = Math.min(Number(card.closingDay), daysInMonth(d.getFullYear(), d.getMonth()));
+  var m = d.getMonth() + (d.getDate() >= closing ? 1 : 0);
   var x = new Date(d.getFullYear(), m, 1);
   return x.getFullYear() + '-' + pad2(x.getMonth()+1);
 }
@@ -21,6 +25,11 @@ export function invoiceDates(key, card){
   var due = new Date(dm.getFullYear(), dm.getMonth(), Math.min(Number(card.dueDay), daysInMonth(dm.getFullYear(), dm.getMonth())));
   return {closing: toDateKey(closing), due: toDateKey(due)};
 }
+// Nome da fatura na tela: o mês do vencimento ("fecha 31/10, vence 07/11" = fatura de novembro).
+export function invoiceLabel(key, card){
+  var due = invoiceDates(key, card).due;
+  return monthLabelOf(due.slice(0, 7));
+}
 export function isCardExpense(t, card){ return t.type === 'expense' && t.paymentMethod === 'cartao' && t.cardId === card.id; }
 export function invoiceItems(list, card, key){
   return list.filter(function(t){ return isCardExpense(t, card) && invoiceKeyFor(t.date, card) === key; })
@@ -31,7 +40,7 @@ export function invoiceStatus(card, key, today){
   if ((card.paidInvoices || []).indexOf(key) >= 0) return 'paga';
   var d = invoiceDates(key, card);
   if (today > d.due) return 'vencida';
-  if (today > d.closing) return 'fechada';
+  if (today >= d.closing) return 'fechada'; // no dia do fechamento ela já não recebe compras
   return 'aberta';
 }
 // Limite usado = soma das faturas ainda não pagas (inclui parcelas futuras, que já ocupam o limite).
