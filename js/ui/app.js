@@ -1594,7 +1594,21 @@ async function cardReport(cardId){
 
 var INVOICE_PILL = {aberta:'good', fechada:'warning', vencida:'critical', paga:'good'};
 
+// Resumo de "Contas e cartões": dinheiro nas contas, faturas a pagar e quanto sobra depois.
+function renderWalletSummary(){
+  var el = document.getElementById('walletSummary');
+  if (!State.accounts.length && !State.cards.length){ el.innerHTML = ''; return; }
+  var inv = Cards.invoicesSummary(State.transactions, State.cards, todayKey());
+  var cash = State.accounts.length ? totalAccountsBalance() : null;
+  var next = inv.toPay[0];
+  function box(label, value, sub, cls){ return '<div class="ws-box"><span class="tile-lbl">' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>'; }
+  el.innerHTML = (cash !== null ? box('Nas contas', cash, State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta'), cash < 0 ? 'neg-text' : '') : '') +
+    (State.cards.length ? box('Faturas a pagar', inv.toPayTotal, next ? (next.status === 'vencida' ? 'venceu ' : 'vence ') + formatDateBr(next.due) + ' · ' + escapeHtml(next.card.name) : 'nenhuma fechada') +
+      box('Fatura aberta', inv.openTotal, 'ainda recebe compras') : '') +
+    (cash !== null && State.cards.length ? box('Sobra depois de pagar', money(cash - inv.toPayTotal), 'contas − faturas fechadas', cash - inv.toPayTotal < 0 ? 'neg-text' : '') : '');
+}
 function renderCards(){
+  renderWalletSummary();
   var wrap = document.getElementById('cardList');
   if (!State.cards.length){ wrap.innerHTML = '<p class="empty-state">Nenhum cartão cadastrado. Cadastre acima para acompanhar faturas e limite.</p>'; return; }
   wrap.innerHTML = State.cards.map(function(c){
@@ -1611,7 +1625,8 @@ function renderCards(){
     return '<div class="credit-card">' +
       '<div class="credit-card-top' + (paint ? ' painted' : '') + '"' + (paint ? ' style="background:linear-gradient(135deg,' + paint.from + ',' + paint.to + ');color:' + paint.text + '"' : '') + '>' +
         '<div class="cc-title"><span class="bank-badge on-card" aria-hidden="true">' + escapeHtml(look.mark) + '</span>' +
-          '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span></div></div>' +
+          '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span>' +
+            (State.accounts.length ? '<span class="sub">Paga com ' + escapeHtml(accountName(payAccountFor(c))) + '</span>' : '') + '</div></div>' +
         '<div class="avail"><span class="sub">Limite disponível</span><strong class="tabular">' + fmtMoney(Math.max(0, limit - used)) + '</strong><span class="sub">de ' + fmtMoney(limit) + '</span></div>' +
       '</div>' +
       '<div class="credit-card-body">' +
@@ -1648,6 +1663,9 @@ function cardFormBody(c){
     '<div class="field"><label for="ecLimit">Limite</label><span class="money-input"><span>R$</span><input id="ecLimit" name="limit" type="number" step="0.01" min="0" max="99999999" value="' + (c.limit||'') + '"></span></div>' +
     '<div class="field"><label for="ecClosing">Dia do fechamento</label><input id="ecClosing" name="closing" type="number" min="1" max="31" value="' + (c.closingDay||'') + '"></div>' +
     '<div class="field"><label for="ecDue">Dia do vencimento</label><input id="ecDue" name="due" type="number" min="1" max="31" value="' + (c.dueDay||'') + '"></div>' +
+    (State.accounts.length ? '<div class="field"><label for="ecPayAcc">Conta que paga a fatura</label><select id="ecPayAcc" name="payAcc">' +
+      optionsHtml([{id: '', label: 'Automático (mesmo banco do cartão)'}].concat(State.accounts.map(function(a){ return {id: a.id, label: a.name}; })), c.payAccountId || '') + '</select>' +
+      '<span class="field-hint">Vem marcada ao pagar a fatura. Dá para trocar na hora.</span></div>' : '') +
     '<fieldset class="brand-fieldset"><legend><span id="ecPreview"></span>Cor e ícone</legend>' + pickerHtml('ecP', c) + '</fieldset>';
 }
 function readCardFields(name, limit, closing, due){
@@ -1668,6 +1686,7 @@ async function editCard(id){
       var v = readCardFields(form.name.value, form.limit.value, form.closing.value, form.due.value);
       if (v.error) return v;
       Object.assign(v, readPicker(form, 'ecP'));
+      if (form.payAcc) v.payAccountId = form.payAcc.value || null;
       await Store.update(k(), 'cards', id, v);
       Object.assign(c, v);
       renderCards(); populatePaymentSelect();
@@ -1767,6 +1786,13 @@ async function openTransfer(fromId){
 
 // Marcar fatura como paga: com contas cadastradas, pergunta de qual conta saiu o dinheiro.
 // O pagamento da fatura só desconta da conta; as compras já contaram como gasto quando foram feitas.
+// Conta que paga a fatura: a escolhida no cartão; senão, a do mesmo banco; senão, a primeira.
+function payAccountFor(card){
+  if (card.payAccountId && findById(State.accounts, card.payAccountId)) return card.payAccountId;
+  var bank = lookOf(card).bank;
+  var same = bank && State.accounts.filter(function(a){ var b = lookOf(a).bank; return b && b.id === bank.id; })[0];
+  return same ? same.id : (State.accounts[0] ? State.accounts[0].id : '');
+}
 async function toggleInvoicePaid(cardId, key){
   var card = findById(State.cards, cardId);
   var paid = (card.paidInvoices || []).slice();
@@ -1780,7 +1806,7 @@ async function toggleInvoicePaid(cardId, key){
       var choice = await openModal({
         title: 'Pagar fatura',
         body: '<p>Fatura de ' + invoiceLabel(key, card) + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
-          '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(opts, State.accounts[0].id) + '</select></div>' +
+          '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(opts, payAccountFor(card)) + '</select></div>' +
           '<div class="field"><label for="ipDate">Data do pagamento</label><input id="ipDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
           '<p class="field-hint">Pode ser a conta de outro banco: o valor sai do saldo da conta escolhida.</p>',
         submitLabel: 'Marcar como paga',
@@ -1797,7 +1823,7 @@ async function toggleInvoicePaid(cardId, key){
   }
   await Store.update(k(), 'cards', card.id, {paidInvoices: paid, invoicePayments: pays});
   card.paidInvoices = paid; card.invoicePayments = pays;
-  renderCards(); renderAccounts(); renderStatTiles();
+  renderCards(); renderAccounts(); renderStatTiles(); renderWalletSummary();
   toast(idx >= 0 ? 'Fatura marcada como em aberto.' : 'Fatura marcada como paga' + (pays[key] ? ' com a conta ' + accountName(pays[key].accountId) : '') + '.');
 }
 
@@ -3486,6 +3512,7 @@ document.addEventListener('click', async function(e){
   if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
   if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
   if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return; }
+  if ((el = t.closest('[data-jump]'))){ document.getElementById(el.getAttribute('data-jump')).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); return; }
   if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return; }
   if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
   if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }

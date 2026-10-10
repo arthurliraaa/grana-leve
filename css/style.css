@@ -839,3 +839,13 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .split-head{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:0; }
 .split-row{ display:grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) auto; gap:8px; align-items:center; }
 .split-row input{ min-width:0; }
+
+/* Contas e cartões: resumo e atalhos */
+.wallet-summary{ display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:10px; }
+.wallet-summary:empty{ display:none; }
+.ws-box{ display:grid; gap:2px; padding:12px 14px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.ws-box strong{ font-size:1.15rem; }
+.jump-chips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.jump-chips .chip{ border:1px solid var(--border); background: var(--surface); border-radius:999px; padding:5px 12px; font: inherit; font-size:.85rem; cursor:pointer; color: var(--text-secondary); }
+.jump-chips .chip:hover{ background: var(--surface-2); }
+#secAccounts, #secCards, #secVouchers{ scroll-margin-top: 80px; }
