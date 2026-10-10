@@ -302,11 +302,11 @@ function showView(name){
 function renderTopbar(){
   var wrap = document.getElementById('topbarActions');
   if (State.session){
-    var cloud = Store.mode === 'cloud';
-    var where = cloud ? 'Dados salvos na nuvem do app.' : 'Dados salvos só neste navegador.';
+    var cloud = Store.mode === 'cloud' || Store.mode === 'supabase';
+    var where = Store.mode === 'supabase' ? 'Dados salvos na sua conta, em servidor no Brasil.' : cloud ? 'Dados salvos na nuvem do app.' : 'Dados salvos só neste navegador.';
     wrap.innerHTML =
       '<button type="button" class="sync-badge" id="storageBtn" title="' + where + ' Toque para ver detalhes e backup." aria-label="' + where + ' Ver detalhes e backup">' +
-        '<span class="sync-dot ' + (cloud ? 'cloud' : 'local') + '" aria-hidden="true"></span><span class="sync-text">' + (cloud ? 'Na nuvem' : 'Só neste navegador') + '</span>' +
+        '<span class="sync-dot ' + (cloud ? 'cloud' : 'local') + '" aria-hidden="true"></span><span class="sync-text">' + (Store.mode === 'supabase' ? 'Sincronizado' : cloud ? 'Na nuvem' : 'Só neste navegador') + '</span>' +
       '</button>' +
       '<span class="user-chip">Olá, <strong>' + escapeHtml(State.session.name.split(' ')[0]) + '</strong></span>' +
       '<button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Sair</button>';
@@ -2546,10 +2546,14 @@ async function forgotPassword(){
   });
   if (r) toast('Se houver uma conta com esse e-mail, o link chega em alguns minutos.');
 }
+// Quem entra pelo link de nova senha precisa definir a senha antes de usar o app:
+// cancelar ou fechar encerra a sessão aberta pelo link.
 async function newPasswordModal(){
-  await openModal({
+  var done = await openModal({
     title: 'Escolha a nova senha',
-    body: '<div class="field"><label for="npPass">Nova senha</label><input id="npPass" name="pass" type="password" autocomplete="new-password" minlength="6" maxlength="128">' +
+    cancelLabel: 'Cancelar e sair',
+    body: '<p>Por segurança, defina a nova senha para continuar. Se cancelar, você sai da conta.</p>' +
+      '<div class="field"><label for="npPass">Nova senha</label><input id="npPass" name="pass" type="password" autocomplete="new-password" minlength="6" maxlength="128">' +
       '<span class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.</span></div>' +
       '<div class="field"><label for="npPass2">Repita a nova senha</label><input id="npPass2" name="pass2" type="password" autocomplete="new-password" maxlength="128"></div>',
     submitLabel: 'Salvar nova senha',
@@ -2561,7 +2565,9 @@ async function newPasswordModal(){
       return true;
     }
   });
-  toast('Senha atualizada.');
+  if (done){ toast('Senha atualizada. Use a nova senha nas próximas entradas.'); return; }
+  logout();
+  toast('Você saiu da conta. Quando quiser trocar a senha, peça um novo link.');
 }
 // Primeira entrada online: se este navegador tem dados da versão local com o mesmo e-mail,
 // oferece levar para a conta (só quando a conta ainda está vazia). Retorna true se mostrou a oferta.
