@@ -878,3 +878,8 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .year-cell:hover{ background: var(--surface-2); }
 .year-cell strong{ text-transform: capitalize; font-size:.92rem; }
 @media (max-width:620px){ .cal-cell{ min-height:54px; padding:3px; font-size:.66rem; } }
+
+/* Captcha (só aparece se a Cloudflare pedir confirmação) */
+.captcha-box{ display:none; position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:2000; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18); max-width: calc(100vw - 32px); }
+.captcha-box.show{ display:block; }
+.captcha-box p{ margin:0 0 8px; font-size:.88rem; }

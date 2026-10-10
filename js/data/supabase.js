@@ -8,6 +8,7 @@ import {uid} from '../domain/util.js';
 
 // Mensagens do Supabase Auth traduzidas para o que a pessoa entende.
 var AUTH_MESSAGES = [
+  [/captcha/i, 'Não conseguimos confirmar que você não é um robô. Recarregue a página e tente de novo.'],
   [/invalid login credentials/i, 'E-mail ou senha incorretos.'],
   [/email not confirmed/i, 'Confirme seu e-mail antes de entrar: abra o link que enviamos para a sua caixa de entrada.'],
   [/user already registered|already been registered/i, 'Já existe uma conta com esse e-mail. Tente entrar.'],
@@ -47,6 +48,13 @@ function docOf(obj){ var d = Object.assign({}, obj); delete d.id; return d; }
 
 export function createSupabaseStore(client, collections){
   var studyCode;   // código do estudo da pessoa (undefined = ainda não buscado; null = não participa)
+  var captcha = null;   // fornecedor do token do captcha (Turnstile), quando ligado
+  // Token novo a cada ação de login (cada token só vale uma vez). Sem captcha: undefined.
+  async function cap(){
+    if (!captcha) return undefined;
+    try { return await captcha(); }
+    catch(e){ throw Object.assign(new Error('captcha failed'), {cause: {message: 'captcha failed'}, userMessage: AUTH_MESSAGES[0][1]}); }
+  }
 
   return {
     mode: 'supabase',
@@ -57,12 +65,14 @@ export function createSupabaseStore(client, collections){
     /* ---------- Login ---------- */
     async getSession(){ return check(await client.auth.getSession()).session; },
     onAuthChange(fn){ return client.auth.onAuthStateChange(fn); },
+    setCaptcha(fn){ captcha = fn; },
     async signUp(email, password, meta, redirectTo){
-      return check(await client.auth.signUp({email: email, password: password, options: {data: meta, emailRedirectTo: redirectTo}}));
+      var token = await cap();
+      return check(await client.auth.signUp({email: email, password: password, options: {data: meta, emailRedirectTo: redirectTo, captchaToken: token}}));
     },
-    async signIn(email, password){ return check(await client.auth.signInWithPassword({email: email, password: password})); },
+    async signIn(email, password){ var token = await cap(); return check(await client.auth.signInWithPassword({email: email, password: password, options: {captchaToken: token}})); },
     async signOut(){ studyCode = undefined; await client.auth.signOut(); },
-    async resetPassword(email, redirectTo){ return check(await client.auth.resetPasswordForEmail(email, {redirectTo: redirectTo})); },
+    async resetPassword(email, redirectTo){ var token = await cap(); return check(await client.auth.resetPasswordForEmail(email, {redirectTo: redirectTo, captchaToken: token})); },
     async updatePassword(password){ return check(await client.auth.updateUser({password: password})); },
     // Link do e-mail (modelos em supabase/templates): o token vem no endereço e só é usado aqui,
     // quando o app abre de verdade. Pré-visualização de link (Gmail, antivírus) não o gasta.
@@ -71,9 +81,9 @@ export function createSupabaseStore(client, collections){
     // e outro no novo; a troca só vale depois de confirmar.
     async updateEmail(email, redirectTo){ return check(await client.auth.updateUser({email: email}, {emailRedirectTo: redirectTo})); },
     // Confere a senha atual antes de trocar (entrar de novo com ela; erro = senha errada).
-    async checkPassword(email, password){ return check(await client.auth.signInWithPassword({email: email, password: password})); },
+    async checkPassword(email, password){ var token = await cap(); return check(await client.auth.signInWithPassword({email: email, password: password, options: {captchaToken: token}})); },
     async signOutAll(){ studyCode = undefined; await client.auth.signOut({scope: 'global'}); },
-    async resendConfirmation(email, redirectTo){ return check(await client.auth.resend({type: 'signup', email: email, options: {emailRedirectTo: redirectTo}})); },
+    async resendConfirmation(email, redirectTo){ var token = await cap(); return check(await client.auth.resend({type: 'signup', email: email, options: {emailRedirectTo: redirectTo, captchaToken: token}})); },
 
     /* ---------- Perfil ---------- */
     async getUser(id){

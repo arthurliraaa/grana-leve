@@ -159,7 +159,7 @@ test('redefinir senha (perfil e painel adm) pede o e-mail ao Supabase com o ende
   const c = fakeClient(), log = [];
   c.auth = {async resetPasswordForEmail(email, opts){ log.push([email, opts]); return {data: {}, error: null}; }};
   await createSupabaseStore(c, COLLS).resetPassword('pessoa@teste.com', 'https://grana-leve.vercel.app/');
-  assert.deepEqual(log, [['pessoa@teste.com', {redirectTo: 'https://grana-leve.vercel.app/'}]]);
+  assert.deepEqual(log, [['pessoa@teste.com', {redirectTo: 'https://grana-leve.vercel.app/', captchaToken: undefined}]]);
 });
 
 test('mensagens claras para os limites do banco', async () => {
@@ -168,4 +168,24 @@ test('mensagens claras para os limites do banco', async () => {
     insert: async () => ({data: null, error: {message: 'new row violates check constraint "user_data_collection_check"'}})});
   const S = createSupabaseStore(c, COLLS);
   await assert.rejects(S.put('k', 'transactions', 'x', {amount: 1}), e => /limite de 20 mil registros/.test(e.userMessage));
+});
+
+test('captcha: o token vai em cadastro, login, nova senha, reenvio e conferência de senha', async () => {
+  const c = fakeClient(), seen = [];
+  let n = 0;
+  c.auth = {
+    async signUp(a){ seen.push(['signUp', a.options.captchaToken]); return {data: {}, error: null}; },
+    async signInWithPassword(a){ seen.push(['signIn', a.options.captchaToken]); return {data: {}, error: null}; },
+    async resetPasswordForEmail(e, o){ seen.push(['reset', o.captchaToken]); return {data: {}, error: null}; },
+    async resend(a){ seen.push(['resend', a.options.captchaToken]); return {data: {}, error: null}; }
+  };
+  const S = createSupabaseStore(c, COLLS);
+  await S.signIn('a@b.com', 'x');
+  assert.deepEqual(seen.pop(), ['signIn', undefined], 'sem captcha configurado: nenhum token');
+  S.setCaptcha(async () => 'tok' + (++n));
+  await S.signUp('a@b.com', 'x', {}, 'u'); await S.signIn('a@b.com', 'x'); await S.resetPassword('a@b.com', 'u');
+  await S.resendConfirmation('a@b.com', 'u'); await S.checkPassword('a@b.com', 'x');
+  assert.deepEqual(seen, [['signUp', 'tok1'], ['signIn', 'tok2'], ['reset', 'tok3'], ['resend', 'tok4'], ['signIn', 'tok5']], 'um token novo por ação');
+  S.setCaptcha(async () => { throw new Error('bloqueado'); });
+  await assert.rejects(S.signIn('a@b.com', 'x'), e => /não é um robô/.test(e.userMessage));
 });
