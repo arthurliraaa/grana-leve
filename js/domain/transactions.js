@@ -18,7 +18,8 @@ export function sortTransactions(list){
 // ("não devolvido") passa a contar como gasto seu.
 export function isForOther(t){ return t.type === 'expense' && !!t.forOther; }
 export function isRefund(t){ return t.type === 'income' && !!t.refund; }
-export function isPersonal(t){ return !isForOther(t) && !isRefund(t); }
+// outsideTotals: movimento só de saldo (ex.: pagamento de dívida que você pediu para não contar como gasto).
+export function isPersonal(t){ return !isForOther(t) && !isRefund(t) && !t.outsideTotals; }
 
 export function txForMonth(list, key){ return list.filter(function(t){ return monthKeyOf(t.date) === key; }); }
 
@@ -53,27 +54,43 @@ export function maxMonthOffset(list, curKey){
 
 // Divide uma compra no cartão em N lançamentos, um por mês. Os centavos que sobram ficam na 1ª parcela.
 // name: descrição base das parcelas (a descrição digitada ou o nome da categoria).
-export function expandInstallments(tx, n, group, name){
+// start: parcela atual de uma compra que já estava em andamento (ex.: 7 de 18). As anteriores foram
+// pagas antes do cadastro e não viram lançamento; a parcela atual cai na data informada.
+export function expandInstallments(tx, n, group, name, start){
   if (!(n > 1) || tx.paymentMethod !== 'cartao') return [tx];
-  return splitAmount(tx.amount, n).map(function(amount, i){
-    return Object.assign({}, tx, {
-      amount: amount,
-      date: addMonthsIso(tx.date, i),
-      description: name + ' (' + (i+1) + '/' + n + ')',
-      installment: {group: group, n: i+1, total: n, totalAmount: tx.amount, baseDescription: name},
-      createdAt: tx.createdAt + i
-    });
-  });
+  start = clampStart(start, n);
+  var parts = splitAmount(tx.amount, n), out = [];
+  for (var i = start; i <= n; i++){
+    var inst = {group: group, n: i, total: n, totalAmount: tx.amount, baseDescription: name};
+    if (start > 1) inst.start = start;
+    out.push(Object.assign({}, tx, {
+      amount: parts[i-1],
+      date: addMonthsIso(tx.date, i - start),
+      description: name + ' (' + i + '/' + n + ')',
+      installment: inst,
+      createdAt: tx.createdAt + (i - start)
+    }));
+  }
+  return out;
 }
-export function installHint(n, amount, fmt){
+export function clampStart(start, n){ var s = Math.round(Number(start)); return s >= 1 ? Math.min(n, s) : 1; }
+// Valor total da compra a partir do que foi digitado: o total, ou o valor de cada parcela × N.
+export function purchaseTotal(typed, n, perInstallment){ return perInstallment && n > 1 ? money(typed * n) : money(typed); }
+export function installHint(n, amount, fmt, start){
   if (n <= 1) return 'À vista';
   if (!(amount > 0)) return n + ' parcelas';
   var parts = splitAmount(amount, n);
-  return n + 'x de ' + fmt(parts[n-1]) + ' · total ' + fmt(amount);
+  var out = n + 'x de ' + fmt(parts[n-1]) + ' · total ' + fmt(amount);
+  start = clampStart(start, n);
+  if (start > 1){
+    var left = n - start + 1;
+    out += ' · começa na ' + start + 'ª: ' + (left === 1 ? 'falta 1' : 'faltam ' + left) + ' (' + fmt(sumMoney(parts.slice(start - 1), function(v){ return v; })) + ')';
+  }
+  return out;
 }
 
 // Agrupa as parcelas de cada compra. "Pagas" = parcelas com data até hoje (já entraram em fatura).
-// Parcelas adiantadas saem da lista e contam em "advanced".
+// Parcelas adiantadas saem da lista e contam em "advanced"; as pagas antes do cadastro, em "before".
 export function installmentGroups(list, cards, today){
   var map = {};
   list.forEach(function(t){
@@ -88,7 +105,9 @@ export function installmentGroups(list, cards, today){
     g.items.sort(function(a,b){ return a.installment.n - b.installment.n; });
     g.paid = g.items.filter(function(t){ return t.date <= today; });
     g.future = g.items.filter(function(t){ return t.date > today; });
-    g.advanced = g.total - g.items.length;
+    g.before = Math.max(0, (Number(g.items.length && g.items[0].installment.start) || 1) - 1);
+    g.advanced = Math.max(0, g.total - g.items.length - g.before);
+    g.done = g.paid.length + g.advanced + g.before;
     g.remaining = sumMoney(g.future, function(t){ return t.amount; });
     g.perInstallment = g.items.length ? g.items[g.items.length-1].amount : 0;
     g.lastDate = g.items.length ? g.items[g.items.length-1].date : '';

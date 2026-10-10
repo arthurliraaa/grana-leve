@@ -130,7 +130,7 @@ L.run(async ({page}) => {
   const id1 = await page.$eval('#txList [data-edit-tx]', el => el.getAttribute('data-edit-tx'));
   L.ok(parts.some(t => t.id === id1), 'primeiro item do mês é a parcela');
   await page.click('#txList [data-edit-tx]'); await L.sleep(150);
-  L.ok(await page.$eval('#mAmount', el => el.disabled) && await page.$eval('#mDate', el => el.disabled), 'valor e data travados na parcela');
+  L.ok(!(await page.$eval('#mAmount', el => el.disabled)) && await page.$eval('#mDate', el => el.disabled) && await page.$('#modalRoot [data-m-group]') !== null, 'valor da parcela editável, data travada e “Editar a compra inteira” disponível');
   L.ok(/Parcela 1 de 3/.test(await L.text(page, '#modalRoot')), 'aviso mostra a parcela');
   await L.setVal(page, '#mCategory', 'lazer');
   await page.$eval('#mDesc', el => { el.value = ''; });

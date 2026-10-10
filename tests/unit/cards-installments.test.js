@@ -112,3 +112,20 @@ test('cartão que fecha dia 31 e vence dia 7 (exemplo do Inter)', () => {
 test('vencimento depois do fechamento no mesmo mês: nome é o próprio mês', () => {
   assert.equal(invoiceLabel('2026-10', card), 'outubro de 2026');
 });
+
+test('compra parcelada que já estava em andamento (7 de 18)', async () => {
+  const {expandInstallments, installmentGroups, installHint, purchaseTotal} = await import('../../js/domain/transactions.js');
+  const total = purchaseTotal(50, 18, true);
+  assert.equal(total, 900, 'valor de cada parcela × 18');
+  const tx = {type: 'expense', amount: total, category: 'compras', date: '2026-10-10', paymentMethod: 'cartao', cardId: 'c1', createdAt: 1};
+  const list = expandInstallments(tx, 18, 'g1', 'Notebook', 7);
+  assert.equal(list.length, 12, 'cria só da 7ª à 18ª');
+  assert.deepEqual([list[0].installment.n, list[0].date, list[0].description], [7, '2026-10-10', 'Notebook (7/18)']);
+  assert.deepEqual([list[11].installment.n, list[11].date], [18, '2027-09-10']);
+  assert.ok(list.every(t => t.amount === 50 && t.installment.start === 7 && t.installment.totalAmount === 900));
+  const g = installmentGroups(list, [], '2026-10-15')[0];
+  assert.deepEqual([g.before, g.advanced, g.paid.length, g.done, g.remaining], [6, 0, 1, 7, 550], 'parcela 7 de 18: 6 pagas antes, nenhuma “adiantada”');
+  assert.equal(installHint(18, 900, v => 'R$ ' + v, 7), '18x de R$ 50 · total R$ 900 · começa na 7ª: faltam 12 (R$ 600)');
+  assert.equal(expandInstallments(tx, 18, 'g2', 'X', 99).length, 1, 'parcela atual acima do total vira a última');
+  assert.equal(expandInstallments(tx, 3, 'g3', 'X').every(t => !('start' in t.installment)), true, 'compra nova não grava start');
+});

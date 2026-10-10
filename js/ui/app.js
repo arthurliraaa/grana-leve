@@ -4,7 +4,7 @@
  */
 import {toDateKey, todayKey, monthKeyOf, parseDate, formatDateBr, formatDateFull, validDateStr,
   monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
-import {money, sumMoney, fmtMoney} from '../domain/money.js';
+import {money, sumMoney, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
 import {CUSTOM_COLORS} from '../domain/categories.js';
@@ -207,8 +207,8 @@ function txForMonth(key){ return Tx.txForMonth(State.transactions, key); }
 function monthTotals(key){ return Tx.monthTotals(State.transactions, key, todayKey()); }
 function expenseCategoryTotals(key){ return Tx.expenseCategoryTotals(State.transactions, key); }
 function maxTxMonthOffset(){ return Tx.maxMonthOffset(State.transactions, monthBounds(0).key); }
-function expandInstallments(tx, n){ return Tx.expandInstallments(tx, n, uid(), tx.description || catLabel(tx.category, tx.type)); }
-function installHint(n, amount){ return Tx.installHint(n, amount, fmtMoney); }
+function expandInstallments(tx, n, start){ return Tx.expandInstallments(tx, n, uid(), tx.description || catLabel(tx.category, tx.type), start); }
+function installHint(n, amount, start){ return Tx.installHint(n, amount, fmtMoney, start); }
 function installmentGroups(){ return Tx.installmentGroups(State.transactions, State.cards, todayKey()); }
 function invoiceItems(card, key){ return Cards.invoiceItems(State.transactions, card, key); }
 function invoiceStatus(card, key){ return Cards.invoiceStatus(card, key, todayKey()); }
@@ -820,9 +820,45 @@ function installStepperHtml(id, name){
     '<input id="' + id + '" name="' + name + '" type="number" min="1" max="' + MAX_INSTALLMENTS + '" step="1" value="1" inputmode="numeric">' +
     '<span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="' + id + '" aria-label="Mais parcelas">+</button></div>';
 }
+// Opções de compra parcelada: se o valor digitado é o total ou a parcela, e a parcela atual
+// (compra que já estava em andamento, ex.: 7 de 18). Aparecem só com 2 parcelas ou mais.
+function installExtrasHtml(p){
+  return '<div class="install-extras" id="' + p + 'Extras" hidden>' +
+    '<fieldset class="radio-group"><legend>O valor digitado é</legend>' +
+      '<label class="check"><input type="radio" name="' + p + 'Mode" value="total" checked> o total da compra</label>' +
+      '<label class="check"><input type="radio" name="' + p + 'Mode" value="parcela"> o valor de cada parcela</label></fieldset>' +
+    '<div class="field"><label for="' + p + 'Start">Parcela atual</label>' +
+      '<div class="stepper"><button type="button" data-step="-1" data-for="' + p + 'Start" aria-label="Parcela anterior">−</button>' +
+      '<input id="' + p + 'Start" name="' + p + 'Start" type="number" min="1" max="' + MAX_INSTALLMENTS + '" step="1" value="1" inputmode="numeric">' +
+      '<button type="button" data-step="1" data-for="' + p + 'Start" aria-label="Próxima parcela">+</button></div>' +
+      '<span class="field-hint">A compra já estava em andamento? Informe a parcela que cai nesta fatura (ex.: 7 de 18). As anteriores contam como pagas.</span></div>' +
+    '</div>';
+}
+function readInstallExtras(root, p, n){
+  var box = root.querySelector('#' + p + 'Extras');
+  if (!box || n <= 1) return {per: false, start: 1};
+  return {per: root.querySelector('input[name=' + p + 'Mode]:checked').value === 'parcela', start: Tx.clampStart(root.querySelector('#' + p + 'Start').value, n)};
+}
+function resetInstallExtras(root, p){
+  var box = root.querySelector('#' + p + 'Extras');
+  if (!box) return;
+  root.querySelector('input[name=' + p + 'Mode][value=total]').checked = true;
+  root.querySelector('#' + p + 'Start').value = '1';
+}
+// Texto de resumo das parcelas, já considerando o valor por parcela e a parcela atual.
+function installSummary(root, p, n, typed){
+  var box = root.querySelector('#' + p + 'Extras');
+  if (box){
+    box.hidden = n <= 1;
+    var st = root.querySelector('#' + p + 'Start');
+    if (Number(st.value) > n) st.value = n;
+  }
+  var ex = readInstallExtras(root, p, n);
+  return installHint(n, Tx.purchaseTotal(typed, n, ex.per), ex.start);
+}
 function populateInstallSelect(){
   var inp = document.getElementById('txInstall');
-  document.getElementById('txInstallHint').textContent = installHint(clampInstall(inp.value), money(document.getElementById('txAmount').value));
+  document.getElementById('txInstallHint').textContent = installSummary(document, 'txIx', clampInstall(inp.value), money(document.getElementById('txAmount').value));
 }
 // Os botões − e + funcionam em qualquer seletor de parcelas, inclusive dentro dos popups.
 document.addEventListener('click', function(e){
@@ -840,7 +876,7 @@ function syncTxFormVisibility(){
   var isExpense = currentTxType() === 'expense';
   var onCard = isExpense && document.getElementById('txPayment').value.indexOf('card:') === 0 && document.getElementById('txPayment').value !== 'card:none';
   document.getElementById('txInstallField').hidden = !onCard;
-  if (!onCard){ document.getElementById('txInstall').value = '1'; populateInstallSelect(); }
+  if (!onCard){ document.getElementById('txInstall').value = '1'; resetInstallExtras(document, 'txIx'); populateInstallSelect(); }
   document.getElementById('txPaymentField').hidden = !isExpense;
   document.getElementById('txAccountField').hidden = isExpense || !State.accounts.length;
   document.getElementById('txForOtherField').hidden = !isExpense;
@@ -867,7 +903,7 @@ function renderTransactionsTab(){
     (others ? ' · pagos por outras pessoas ' + fmtMoney(others) + ' (fora dos gastos)' : '');
   var list = document.getElementById('txList');
   if (!tx.length){ list.innerHTML = '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
-  list.innerHTML = tx.map(txRowHtml).join('');
+  list.innerHTML = sortTxView(tx).map(txRowHtml).join('');
 }
 
 // Busca sem diferenciar acentos e maiúsculas ("almoco" encontra "Almoço").
@@ -875,6 +911,13 @@ function fold(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036
 function isFiltering(){
   return !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterType').value !== 'all' || document.getElementById('txFilterPay').value !== 'all';
 }
+// Ordem da lista de "Ganhos e gastos" (lembrada por pessoa): data, ordem de cadastro ou valor.
+var TX_SORTS = {
+  recent: function(a, b){ return (b.date||'').localeCompare(a.date||'') || (b.createdAt||0) - (a.createdAt||0); },
+  added: function(a, b){ return (a.createdAt||0) - (b.createdAt||0) || (a.date||'').localeCompare(b.date||''); },
+  amount: function(a, b){ return Number(b.amount) - Number(a.amount) || (b.date||'').localeCompare(a.date||''); }
+};
+function sortTxView(list){ return list.slice().sort(TX_SORTS[document.getElementById('txSort').value] || TX_SORTS.recent); }
 function filterTransactions(list){
   var q = fold(document.getElementById('txSearch').value.trim());
   var type = document.getElementById('txFilterType').value;
@@ -917,15 +960,16 @@ function txModalBody(t, isEdit){
   var type = t.type || 'expense';
   function typeBtn(id, label){ return '<button type="button" data-type="' + id + '"' + (type === id ? ' class="active"' : '') + (inst ? ' disabled' : '') + '>' + label + '</button>'; }
   return '<div class="type-toggle" id="mType" role="group" aria-label="Tipo de lançamento">' + typeBtn('expense', 'Gasto') + typeBtn('income', 'Ganho') + '</div>' +
-    '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (t.amount || '') + '"' + (inst ? ' disabled' : '') + '></span></div>' +
+    '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (t.amount || '') + '"></span></div>' +
     '<div class="field"><label for="mCategory">Categoria</label><select id="mCategory" name="category"></select></div>' +
     '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
     '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
     '<div class="field" id="mPayField"><label for="mPay">Forma de pagamento</label><select id="mPay" name="pay"' + (inst ? ' disabled' : '') + '></select></div>' +
     accountSelectHtml('mAcc', 'acc', 'Entrou em', isEdit ? (t.type === 'income' ? t.accountId : undefined) : undefined) +
-    (isEdit ? '' : '<div class="field" id="mInstallField" hidden><label for="mInstall">Parcelas</label>' + installStepperHtml('mInstall', 'install') + '<span class="field-hint tabular" id="mInstallHint">À vista</span></div>') +
+    (isEdit ? '' : '<div class="field" id="mInstallField" hidden><label for="mInstall">Parcelas</label>' + installStepperHtml('mInstall', 'install') + '<span class="field-hint tabular" id="mInstallHint">À vista</span>' + installExtrasHtml('mIx') + '</div>') +
     '<div class="field"><label for="mDesc">Descrição (opcional)</label><input id="mDesc" name="desc" type="text" maxlength="80" placeholder="Ex: mercado da semana" value="' + escapeHtml(inst ? t.installment.baseDescription : (t.description || '')) + '"></div>' +
-    (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. A categoria e a descrição mudam em todas as parcelas. Para mudar valor, data ou número de parcelas, exclua a compra e lance de novo.</p>' : '') +
+    (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. Categoria e descrição mudam em todas as parcelas; o valor muda só nesta (ex.: juros). Para mudar o total, o número de parcelas, o cartão ou a data, ou para dividir os valores igualmente de novo, use o botão abaixo.</p>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-m-group style="justify-self:start">' + icon('edit') + 'Editar a compra inteira</button>' : '') +
     (isEdit ? '' : '<button type="button" class="linklike" data-m-chat style="justify-self:start">Prefere escrever? Lance pelo chat</button>');
 }
 
@@ -948,7 +992,7 @@ async function openTxModal(t){
         syncNewCat();
       }
       function fillInstall(){
-        if (instSel) qs('#mInstallHint', modal).textContent = installHint(clampInstall(instSel.value), money(qs('#mAmount', modal).value));
+        if (instSel) qs('#mInstallHint', modal).textContent = installSummary(modal, 'mIx', clampInstall(instSel.value), money(qs('#mAmount', modal).value));
       }
       function sync(){
         var isExp = mType === 'expense';
@@ -975,12 +1019,14 @@ async function openTxModal(t){
         syncNewCat(); sync();
       });
       qs('#mAmount', modal).addEventListener('input', fillInstall);
-      if (instSel) instSel.addEventListener('input', fillInstall);
+      if (instSel){ instSel.addEventListener('input', fillInstall); modal.addEventListener('input', function(e){ if (e.target.name === 'mIxStart') fillInstall(); }); modal.addEventListener('change', function(e){ if (e.target.name === 'mIxMode') fillInstall(); }); }
+      var grp = qs('[data-m-group]', modal);
+      if (grp) grp.addEventListener('click', function(){ close(null); editInstallmentGroup(t.installment.group); });
       var chat = qs('[data-m-chat]', modal);
       if (chat) chat.addEventListener('click', function(){ close(null); openQuickEntry(false); });
     },
     onSubmit: async function(form){
-      var amount = inst ? t.amount : money(form.amount.value);
+      var amount = money(form.amount.value);
       if (!(amount > 0)) return {error:'Informe um valor maior que zero.'};
       var date = inst ? t.date : (form.date.value || todayKey());
       if (!validDateStr(date)) return {error:'Use uma data entre 1900 e 3000.'};
@@ -999,23 +1045,86 @@ async function openTxModal(t){
       if (isEdit){ await saveTxEdit(t, tx); return true; }
       tx.createdAt = Date.now();
       var n = tx.paymentMethod === 'cartao' ? clampInstall(form.install.value) : 1;
-      await saveTransactions(expandInstallments(tx, n));
+      var ex = readInstallExtras(form, 'mIx', n);
+      tx.amount = Tx.purchaseTotal(amount, n, ex.per);
+      await saveTransactions(expandInstallments(tx, n, ex.start));
       renderAll();
-      toast((mType === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(amount) + (n > 1 ? ' em ' + n + 'x' : '') + ' registrado.');
+      toast((mType === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.');
       return true;
     }
   });
 }
 
-// Na compra parcelada, categoria e descrição mudam em todas as parcelas; valor e datas ficam como estão.
+// Compra parcelada inteira: valor (total ou por parcela), número de parcelas, parcela atual, cartão, data,
+// categoria e descrição. As parcelas são refeitas com valores iguais (isso também "redefine" valores
+// mudados um a um). Compras com parcelas adiantadas não podem ser refeitas, para não perder o adiantamento.
+async function editInstallmentGroup(groupId){
+  var g = installmentGroups().filter(function(x){ return x.id === groupId; })[0];
+  if (!g) return;
+  if (g.advanced){ toast('Esta compra tem parcelas adiantadas. Para mudar valor ou parcelas, exclua e lance de novo.'); return; }
+  var first = g.items[0], sumNow = sumMoney(g.items, function(t){ return t.amount; });
+  var cards = State.cards.map(function(c){ return {id: c.id, label: c.name}; });
+  var equalNow = splitAmountEqual(g.totalAmount, g.total, g.items);
+  await openModal({
+    title: 'Editar compra parcelada',
+    body: '<div class="field"><label for="gDesc">Descrição</label><input id="gDesc" name="desc" type="text" maxlength="80" value="' + escapeHtml(g.name) + '"></div>' +
+      '<div class="field"><label for="gCat">Categoria</label><select id="gCat" name="cat">' + optionsHtml(catOptions(expenseCats()), g.category) + '</select></div>' +
+      '<div class="field"><label for="gCard">Cartão</label><select id="gCard" name="card">' + optionsHtml(cards, g.cardId) + '</select></div>' +
+      '<div class="field"><label for="gAmount">Valor</label><span class="money-input"><span>R$</span><input id="gAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + g.totalAmount + '"></span></div>' +
+      '<div class="field"><label for="gInstall">Parcelas</label>' + installStepperHtml('gInstall', 'install') + '<span class="field-hint tabular" id="gHint"></span>' + installExtrasHtml('gIx') + '</div>' +
+      '<div class="field"><label for="gDate">Data da parcela atual</label><input id="gDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(first.date) + '"></div>' +
+      (equalNow ? '' : '<p class="tip-box">Algumas parcelas têm valores diferentes (soma atual: ' + fmtMoney(sumNow) + '). Salvar divide o valor igualmente de novo.</p>') +
+      '<p class="field-hint">As parcelas desta compra são refeitas com valores iguais. Pagamentos de fatura já marcados não mudam.</p>',
+    submitLabel: 'Salvar compra',
+    onOpen: function(modal){
+      qs('#gInstall', modal).value = g.total;
+      qs('#gIxStart', modal).value = first.installment.n;
+      function hint(){ qs('#gHint', modal).textContent = installSummary(modal, 'gIx', clampInstall(qs('#gInstall', modal).value), money(qs('#gAmount', modal).value)); }
+      modal.addEventListener('input', hint); modal.addEventListener('change', hint); hint();
+    },
+    onSubmit: async function(form){
+      var n = clampInstall(form.install.value), typed = money(form.amount.value);
+      if (!(typed > 0)) return {error: 'Informe um valor maior que zero.'};
+      if (n < 2) return {error: 'Uma compra parcelada tem pelo menos 2 parcelas. Para à vista, exclua e lance de novo.'};
+      if (!validDateStr(form.date.value)) return {error: 'Use uma data entre 1900 e 3000.'};
+      var ex = readInstallExtras(form, 'gIx', n);
+      var base = form.desc.value.trim() || catLabel(form.cat.value, 'expense');
+      var tx = {type: 'expense', amount: Tx.purchaseTotal(typed, n, ex.per), category: form.cat.value, categoryLabel: catLabel(form.cat.value, 'expense'),
+        date: form.date.value, description: base, paymentMethod: 'cartao', cardId: form.card.value, accountId: null, voucherId: null, createdAt: first.createdAt || Date.now()};
+      if (first.forOther) tx.forOther = first.forOther;
+      var fresh = Tx.expandInstallments(tx, n, groupId, base, ex.start);
+      for (var i = 0; i < g.items.length; i++){ await Store.remove(k(), 'transactions', g.items[i].id); }
+      State.transactions = State.transactions.filter(function(t){ return !(t.installment && t.installment.group === groupId); });
+      for (var j = 0; j < fresh.length; j++){ State.transactions.unshift(await Store.add(k(), 'transactions', fresh[j])); }
+      if (first.forOther){
+        var r = findById(State.receivables, first.forOther.receivableId);
+        if (r){
+          var patch = {totalAmount: sumMoney(fresh, function(t){ return t.amount; }), installments: fresh.length, installmentAmount: fresh[fresh.length - 1].amount, cardId: tx.cardId};
+          await Store.update(k(), 'receivables', r.id, patch); Object.assign(r, patch);
+        }
+      }
+      sortTransactions(); renderAll();
+      toast('Compra atualizada: ' + n + 'x' + (ex.start > 1 ? ' a partir da ' + ex.start + 'ª' : '') + '.');
+      return true;
+    }
+  });
+}
+function splitAmountEqual(total, n, items){
+  var parts = splitAmount(total, n);
+  return items.every(function(t){ return Math.abs(t.amount - parts[t.installment.n - 1]) < 0.005; });
+}
+
+// Na compra parcelada, categoria e descrição mudam em todas as parcelas; o valor muda só na parcela editada.
 async function saveTxEdit(t, patch){
   if (t.installment){
     var base = patch.description || catLabel(patch.category, 'expense');
     var group = State.transactions.filter(function(x){ return x.installment && x.installment.group === t.installment.group; });
+    var delta = money(patch.amount - t.amount);
     for (var i=0;i<group.length;i++){
       var x = group[i];
       var p = {category: patch.category, categoryLabel: patch.categoryLabel, description: base + ' (' + x.installment.n + '/' + x.installment.total + ')',
-        installment: Object.assign({}, x.installment, {baseDescription: base})};
+        installment: Object.assign({}, x.installment, {baseDescription: base, totalAmount: money(Number(x.installment.totalAmount) + delta)})};
+      if (x.id === t.id) p.amount = patch.amount;
       await Store.update(k(), 'transactions', x.id, p);
       Object.assign(x, p);
     }
@@ -1201,12 +1310,12 @@ function checkBudgetAlerts(newTx){
   });
 }
 function installmentRowHtml(g, withCard){
-  var pct = g.total > 0 ? (g.paid.length + g.advanced) / g.total : 0;
+  var pct = g.total > 0 ? g.done / g.total : 0;
   return '<div class="debt-card">' +
     '<div class="budget-top"><h4>' + escapeHtml(g.name) + '</h4><span class="pill">' + g.total + 'x' + (withCard && g.card ? ' · ' + escapeHtml(g.card.name) : '') + '</span></div>' +
     '<div class="progress"><span style="width:' + (pct*100) + '%; background:var(--good)"></span></div>' +
-    '<div class="debt-figs"><span class="tabular">Parcela ' + Math.min(g.total, g.paid.length + g.advanced) + ' de ' + g.total + ' · ' + fmtMoney(g.perInstallment) + '</span><span class="tabular">Falta: ' + fmtMoney(g.remaining) + '</span></div>' +
-    '<span class="tx-meta">Compra de ' + fmtMoney(g.totalAmount) + (g.advanced ? ' · ' + g.advanced + ' parcela(s) adiantada(s)' : '') + (g.future.length ? ' · última parcela em ' + formatDateFull(g.lastDate) : '') + '</span>' +
+    '<div class="debt-figs"><span class="tabular">Parcela ' + Math.min(g.total, g.done) + ' de ' + g.total + ' · ' + fmtMoney(g.perInstallment) + '</span><span class="tabular">Falta: ' + fmtMoney(g.remaining) + '</span></div>' +
+    '<span class="tx-meta">Compra de ' + fmtMoney(g.totalAmount) + (g.before ? ' · ' + g.before + ' paga(s) antes do cadastro' : '') + (g.advanced ? ' · ' + g.advanced + ' parcela(s) adiantada(s)' : '') + (g.future.length ? ' · última parcela em ' + formatDateFull(g.lastDate) : '') + '</span>' +
     '<div class="card-actions">' + (g.future.length ? '<button class="btn btn-ghost btn-sm" type="button" data-adv-group="' + escapeHtml(g.id) + '">Adiantar pagamento</button>' : '<span class="status-pill good">Quitada</span>') + '</div>' +
     '</div>';
 }
@@ -1654,7 +1763,7 @@ function generateMonthlyReport(){
   if (openGroups.length){
     w.space(8); w.section('Compras parceladas no cartão');
     w.header(['Compra', 'Parcela', 'Falta', 'Total'], [180,110,110,80]);
-    openGroups.forEach(function(g){ w.row([g.name, (g.paid.length + g.advanced) + ' de ' + g.total, fmtMoney(g.remaining), fmtMoney(g.totalAmount)], [180,110,110,80]); });
+    openGroups.forEach(function(g){ w.row([g.name, g.done + ' de ' + g.total, fmtMoney(g.remaining), fmtMoney(g.totalAmount)], [180,110,110,80]); });
   }
   w.space(12);
 
@@ -1838,28 +1947,93 @@ function renderDebts(){
       '<div class="card-actions">' +
         (done ? '<span class="status-pill good">Quitada</span>' : '<button class="btn btn-ghost btn-sm" type="button" data-debt-pay="'+d.id+'">Registrar pagamento</button>') +
         '<button class="btn btn-danger btn-sm" type="button" data-debt-del="'+d.id+'">Excluir</button>' +
-      '</div></div>';
+      '</div>' + paymentLogHtml(d.payments, 'debt', d.id) + '</div>';
   }).join('');
 }
 
+// Registrar pagamento de dívida: quantas parcelas, de qual conta saiu e se conta como gasto do mês.
+// Cada pagamento fica no histórico da dívida e pode ser desfeito (o registro continua, marcado).
 async function payDebt(id){
   var d = findById(State.debts, id);
   var remaining = Math.max(0, Number(d.totalAmount) - Number(d.paidAmount||0));
-  var r = await askAmount({
-    title: 'Registrar pagamento', message: '“' + d.name + '”: faltam ' + fmtMoney(remaining) + '.',
-    value: Number(d.monthlyPayment) > 0 ? Math.min(d.monthlyPayment, remaining) : remaining, max: remaining,
-    checkbox: 'Lançar também como gasto do mês', checkboxDefault: true, submitLabel: 'Registrar', extraHtml: accountSelectHtml('askAcc', 'acc', 'Saiu de')
+  var per = Number(d.monthlyPayment) > 0 ? Number(d.monthlyPayment) : 0;
+  var maxN = per ? Math.max(1, Math.ceil(remaining / per - 0.0001)) : 1;
+  var a = await openModal({
+    title: 'Registrar pagamento',
+    body: '<p>“' + escapeHtml(d.name) + '”: faltam ' + fmtMoney(remaining) + (per ? ' (cerca de ' + maxN + ' parcela(s) de ' + fmtMoney(per) + ')' : '') + '.</p>' +
+      (per ? '<div class="field"><label for="dpN">Quantas parcelas você pagou?</label>' + installStepperHtml('dpN', 'n') + '</div>' : '') +
+      '<div class="field"><label for="dpAmount">Valor pago</label><span class="money-input"><span>R$</span><input id="dpAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + money(per ? Math.min(per, remaining) : remaining) + '"></span>' +
+        (per ? '<span class="field-hint">Muda sozinho com o número de parcelas; ajuste se pagou com juros ou desconto.</span>' : '') + '</div>' +
+      accountSelectHtml('dpAcc', 'acc', 'De onde saiu o dinheiro?') +
+      '<label class="check"><input type="checkbox" name="expense" checked> Contar como gasto do mês (categoria Dívidas)</label>' +
+      '<p class="tip-box" id="dpEffect" aria-live="polite"></p>',
+    submitLabel: 'Registrar',
+    onOpen: function(modal){
+      var amount = qs('#dpAmount', modal), nIn = qs('#dpN', modal);
+      if (nIn){ nIn.max = maxN; nIn.addEventListener('input', function(){ if (Number(nIn.value) > maxN) nIn.value = maxN; amount.value = money(Math.min(remaining, per * Number(nIn.value))); effect(); }); }
+      function effect(){
+        var v = money(amount.value), acc = qs('#dpAcc', modal), accName = acc && acc.value ? acc.options[acc.selectedIndex].text : '';
+        qs('#dpEffect', modal).innerHTML = '<strong>O que vai acontecer:</strong> ' + (v > 0 ? fmtMoney(v) : 'o valor') + ' abate da dívida' + (nIn && Number(nIn.value) > 1 ? ' (' + nIn.value + ' parcelas)' : '') +
+          (accName ? '; sai do saldo de ' + escapeHtml(accName) : '; não mexe no saldo de nenhuma conta') +
+          (qs('input[name=expense]', modal).checked ? '; conta como gasto do mês.' : '; não conta como gasto do mês.');
+      }
+      modal.addEventListener('input', effect); modal.addEventListener('change', effect); effect();
+    },
+    onSubmit: function(form){
+      var v = money(form.amount.value);
+      if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
+      if (v > remaining + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(remaining) + '.'};
+      return {amount: v, n: form.n ? clampInstall(form.n.value) : 1, asExpense: form.expense.checked, accountId: form.acc ? (form.acc.value || null) : null};
+    }
   });
-  if (!r) return;
-  var newPaid = money(Math.min(Number(d.totalAmount), Number(d.paidAmount||0) + r.amount));
-  await Store.update(k(), 'debts', id, {paidAmount: newPaid});
-  d.paidAmount = newPaid;
-  if (r.extra){
-    var saved = await Store.add(k(), 'transactions', {type:'expense', amount:r.amount, category:'dividas', date: todayKey(), description:'Pagamento: ' + d.name, paymentMethod:'conta', accountId: r.accountId, createdAt: Date.now()});
+  if (!a || !a.amount) return;
+  var txId = null;
+  if (a.asExpense || a.accountId){
+    var tx = {type:'expense', amount:a.amount, category:'dividas', categoryLabel: catLabel('dividas', 'expense'), date: todayKey(), description:'Pagamento: ' + d.name + (a.n > 1 ? ' (' + a.n + ' parcelas)' : ''),
+      paymentMethod: a.accountId ? 'conta' : null, accountId: a.accountId, cardId: null, voucherId: null, debtId: d.id, createdAt: Date.now()};
+    if (!a.asExpense) tx.outsideTotals = true;
+    var saved = await Store.add(k(), 'transactions', tx);
     State.transactions.unshift(saved); sortTransactions();
+    txId = saved.id;
   }
+  var pays = (d.payments || []).concat([{id: uid(), date: todayKey(), amount: a.amount, n: a.n, accountId: a.accountId, asExpense: a.asExpense, txId: txId}]);
+  var newPaid = money(Math.min(Number(d.totalAmount), Number(d.paidAmount||0) + a.amount));
+  await Store.update(k(), 'debts', id, {paidAmount: newPaid, payments: pays});
+  d.paidAmount = newPaid; d.payments = pays;
   renderAll();
-  toast('Pagamento de ' + fmtMoney(r.amount) + ' registrado em “' + d.name + '”.');
+  toast('Pagamento de ' + fmtMoney(a.amount) + ' registrado em “' + d.name + '”.');
+}
+
+// Histórico de pagamentos/recebimentos com "Desfazer" (o registro fica, marcado como desfeito).
+function paymentLogHtml(list, kind, ownerId){
+  if (!list || !list.length) return '';
+  return '<details class="budget-details pay-log"><summary>' + (kind === 'debt' ? 'Pagamentos' : 'Recebimentos') + ' (' + list.length + ')</summary>' +
+    list.slice().reverse().map(function(p){
+      var acc = p.accountId ? accountName(p.accountId) : 'sem conta';
+      var how = kind === 'debt' ? (p.asExpense ? 'gasto do mês' : 'não contou como gasto') : (p.asIncome ? 'ganho do mês' : 'devolução');
+      return '<div class="list-row' + (p.undone ? ' undone' : '') + '"><div class="tx-main"><div class="tx-desc tabular">' + fmtMoney(p.amount) + (p.n > 1 ? ' · ' + p.n + ' parcelas' : '') + '</div>' +
+        '<div class="tx-meta">' + formatDateBr(p.date) + ' · ' + escapeHtml(acc) + ' · ' + how + (p.undone ? ' · desfeito em ' + formatDateBr(p.undone) : '') + '</div></div>' +
+        (p.undone ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-pay-undo="' + kind + ':' + escapeHtml(ownerId) + ':' + escapeHtml(p.id) + '">Desfazer</button>') + '</div>';
+    }).join('') + '</details>';
+}
+async function undoPayment(ref){
+  var parts = ref.split(':'), kind = parts[0], owner = findById(kind === 'debt' ? State.debts : State.receivables, parts[1]);
+  var p = owner && (owner.payments || []).filter(function(x){ return x.id === parts[2]; })[0];
+  if (!p || p.undone) return;
+  if (!(await confirmAction({title: 'Desfazer este ' + (kind === 'debt' ? 'pagamento' : 'recebimento') + '?', danger: false, confirmLabel: 'Desfazer',
+    message: fmtMoney(p.amount) + ' de ' + formatDateBr(p.date) + ' volta a ' + (kind === 'debt' ? 'faltar na dívida' : 'faltar receber') + (p.txId ? ', e o lançamento ligado a ele sai de “Ganhos e gastos”' : '') + '. O registro fica no histórico, marcado como desfeito. Depois, registre de novo com os dados certos.'}))) return;
+  if (p.txId && findById(State.transactions, p.txId)){
+    await Store.remove(k(), 'transactions', p.txId);
+    State.transactions = State.transactions.filter(function(t){ return t.id !== p.txId; });
+  }
+  var pays = owner.payments.map(function(x){ return x.id === p.id ? Object.assign({}, x, {undone: todayKey()}) : x; });
+  var patch = {payments: pays};
+  if (kind === 'debt') patch.paidAmount = money(Math.max(0, Number(owner.paidAmount || 0) - p.amount));
+  else patch.receivedAmount = money(Math.max(0, Number(owner.receivedAmount || 0) - p.amount));
+  await Store.update(k(), kind === 'debt' ? 'debts' : 'receivables', owner.id, patch);
+  Object.assign(owner, patch);
+  renderAll();
+  toast((kind === 'debt' ? 'Pagamento' : 'Recebimento') + ' desfeito.');
 }
 
 /* ---------- A receber ---------- */
@@ -1919,7 +2093,7 @@ function renderReceivables(){
           '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
           '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
         '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
-      '</div></div>';
+      '</div>' + paymentLogHtml(r.payments, 'recv', r.id) + '</div>';
   }).join('');
 }
 
@@ -1973,9 +2147,7 @@ async function receiveReceivable(id){
     }
   });
   if (!a || !a.amount) return;
-  var newReceived = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount||0) + a.amount));
-  await Store.update(k(), 'receivables', id, {receivedAmount: newReceived});
-  r.receivedAmount = newReceived;
+  var txId = null;
   // Ganho: sempre vira lançamento. Devolução: só quando entra numa conta (para o saldo subir).
   if (a.asIncome || a.accountId){
     var tx = {type:'income', amount:a.amount, category:'recebimento', categoryLabel: catLabel('recebimento', 'income'), date: todayKey(),
@@ -1983,7 +2155,12 @@ async function receiveReceivable(id){
     if (!a.asIncome) tx.refund = true;
     var saved = await Store.add(k(), 'transactions', tx);
     State.transactions.unshift(saved); sortTransactions();
+    txId = saved.id;
   }
+  var pays = (r.payments || []).concat([{id: uid(), date: todayKey(), amount: a.amount, accountId: a.accountId, asIncome: a.asIncome, txId: txId}]);
+  var newReceived = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount||0) + a.amount));
+  await Store.update(k(), 'receivables', id, {receivedAmount: newReceived, payments: pays});
+  r.receivedAmount = newReceived; r.payments = pays;
   renderAll();
   toast('Recebimento de ' + fmtMoney(a.amount) + ' registrado' + (a.asIncome ? ' como ganho.' : ' como devolução.'));
 }
@@ -2473,6 +2650,7 @@ function showAuthTab(name){
 
 async function enterApp(){
   setPrefsOwner(k());
+  document.getElementById('txSort').value = TX_SORTS[getPrefs().txSort] ? getPrefs().txSort : 'recent';
   showView('viewApp');
   await Store.migrate(k());
   await loadAllData();
@@ -3005,6 +3183,7 @@ document.addEventListener('click', async function(e){
   // A receber
   if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
   if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
+  if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
   if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
   if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
   if ((el = t.closest('[data-recv-del]'))){
@@ -3070,7 +3249,11 @@ document.getElementById('txPayment').addEventListener('change', function(e){
 });
 document.getElementById('txAmount').addEventListener('input', populateInstallSelect);
 document.getElementById('txInstall').addEventListener('input', populateInstallSelect);
-['txSearch','txFilterType','txFilterPay'].forEach(function(id){
+document.getElementById('txIxWrap').innerHTML = installExtrasHtml('txIx');
+document.getElementById('txIxWrap').addEventListener('input', populateInstallSelect);
+document.getElementById('txIxWrap').addEventListener('change', populateInstallSelect);
+document.getElementById('txSort').addEventListener('change', function(e){ setPref('txSort', e.target.value); });
+['txSearch','txFilterType','txFilterPay','txSort'].forEach(function(id){
   document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
 });
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
@@ -3258,29 +3441,33 @@ document.getElementById('txForm').addEventListener('submit', async function(e){
     }
   }
   var n = tx.paymentMethod === 'cartao' ? clampInstall(document.getElementById('txInstall').value) : 1;
+  var ex = readInstallExtras(document, 'txIx', n);
+  tx.amount = Tx.purchaseTotal(amount, n, ex.per);
+  var parts = expandInstallments(tx, n, ex.start);
   if (forOther){
     // O gasto fica ligado ao "A receber": não conta como gasto seu, e o que voltar é devolução, não ganho.
-    var recvData = {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: amount, receivedAmount: 0, dueDate: null,
+    var recvData = {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: sumMoney(parts, function(t){ return t.amount; }), receivedAmount: 0, dueDate: null,
       linked: true, category: category, createdAt: Date.now()};
-    if (n > 1){
+    if (parts.length > 1){
       var usedCard = findById(State.cards, tx.cardId);
-      recvData.installments = n; recvData.installmentAmount = Math.floor(amount * 100 / n) / 100; recvData.cardId = tx.cardId;
+      recvData.installments = parts.length; recvData.installmentAmount = parts[parts.length - 1].amount; recvData.cardId = tx.cardId;
       if (usedCard) recvData.dueDate = invoiceDates(invoiceKeyFor(date, usedCard), usedCard).due;
     }
     var recv = await Store.add(k(), 'receivables', recvData);
     State.receivables.push(recv);
-    tx.forOther = {person: forOther, receivableId: recv.id};
+    parts.forEach(function(t){ t.forOther = {person: forOther, receivableId: recv.id}; });
     document.getElementById('txForOther').checked = false;
     document.getElementById('txOtherName').value = '';
     syncTxFormVisibility();
   }
-  await saveTransactions(expandInstallments(tx, n));
+  await saveTransactions(parts);
+  resetInstallExtras(document, 'txIx');
   document.getElementById('txAmount').value = '';
   document.getElementById('txDesc').value = '';
   document.getElementById('txInstall').value = '1';
   populateInstallSelect();
   renderAll();
-  toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(amount) + (n > 1 ? ' em ' + n + 'x' : '') + ' registrado.' + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
+  toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.' + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
 });
 
 document.getElementById('forecastForm').addEventListener('submit', async function(e){
