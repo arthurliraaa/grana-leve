@@ -7,7 +7,7 @@
  * - O vencimento cai no mesmo mês do fechamento se o dia de vencimento for maior; senão, no mês seguinte.
  * - A compra conta como gasto na data da compra. Pagar a fatura não é um gasto novo: só desconta da conta escolhida.
  */
-import {parseDate, pad2, daysInMonth, toDateKey, monthLabelOf} from './dates.js';
+import {parseDate, pad2, daysInMonth, toDateKey, monthLabelOf, shiftMonthKey} from './dates.js';
 import {sumMoney} from './money.js';
 
 export function invoiceKeyFor(dateStr, card){
@@ -29,6 +29,22 @@ export function invoiceDates(key, card){
 export function invoiceLabel(key, card){
   var due = invoiceDates(key, card).due;
   return monthLabelOf(due.slice(0, 7));
+}
+// Fatura em que entra uma compra feita em `date`: {key, closing, due, label}.
+export function invoiceFor(date, card){
+  var key = invoiceKeyFor(date, card), d = invoiceDates(key, card);
+  return {key: key, closing: d.closing, due: d.due, label: invoiceLabel(key, card)};
+}
+// Compra parcelada feita em `date`: a parcela i cai na i-ésima fatura a partir da fatura da compra.
+// As parcelas de faturas que já venceram (vencimento antes de hoje) contam como pagas. Devolve a
+// primeira parcela ainda a pagar (1..n), ou n+1 se todas já venceram.
+export function firstDueInstallment(date, n, card, today){
+  var key = invoiceKeyFor(date, card);
+  for (var i = 1; i <= n; i++){
+    if (invoiceDates(key, card).due >= today) return i;
+    key = shiftMonthKey(key, 1);
+  }
+  return n + 1;
 }
 export function isCardExpense(t, card){ return t.type === 'expense' && t.paymentMethod === 'cartao' && t.cardId === card.id; }
 // Fatura do lançamento: pela data ou, num estorno, a fatura escolhida (invoiceKey).

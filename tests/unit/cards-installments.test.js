@@ -125,7 +125,7 @@ test('compra parcelada que já estava em andamento (7 de 18)', async () => {
   assert.ok(list.every(t => t.amount === 50 && t.installment.start === 7 && t.installment.totalAmount === 900));
   const g = installmentGroups(list, [], '2026-10-15')[0];
   assert.deepEqual([g.before, g.advanced, g.paid.length, g.done, g.remaining], [6, 0, 1, 7, 550], 'parcela 7 de 18: 6 pagas antes, nenhuma “adiantada”');
-  assert.equal(installHint(18, 900, v => 'R$ ' + v, 7), '18x de R$ 50 · total R$ 900 · começa na 7ª: faltam 12 (R$ 600)');
+  assert.equal(installHint(18, 900, v => 'R$ ' + v, 7), '18x de R$ 50 · total R$ 900 · as parcelas 1 a 6 já venceram (contam como pagas) · faltam 12 (R$ 600)');
   assert.equal(expandInstallments(tx, 18, 'g2', 'X', 99).length, 1, 'parcela atual acima do total vira a última');
   assert.equal(expandInstallments(tx, 3, 'g3', 'X').every(t => !('start' in t.installment)), true, 'compra nova não grava start');
 });
@@ -162,4 +162,24 @@ test('compra dividida: só a sua parte é gasto seu', async () => {
   assert.equal(othersShare(parcel), 66.67);
   assert.equal(monthTotals([parcel], '2026-10').expense, 33.33);
   assert.equal(monthTotals([parcel], '2026-10').forOther, 66.67);
+});
+
+test('fatura da compra e parcelas já vencidas a partir da data da compra', async () => {
+  const {invoiceFor, firstDueInstallment} = await import('../../js/domain/cards.js');
+  const {expandPurchase, installmentGroups} = await import('../../js/domain/transactions.js');
+  const c = {id: 'c', name: 'X', closingDay: 10, dueDay: 20};
+  // Exemplo: fecha dia 10, vence dia 20.
+  assert.deepEqual(invoiceFor('2026-05-08', c), {key: '2026-05', closing: '2026-05-10', due: '2026-05-20', label: 'maio de 2026'});
+  assert.deepEqual(invoiceFor('2026-05-11', c), {key: '2026-06', closing: '2026-06-10', due: '2026-06-20', label: 'junho de 2026'});
+  assert.equal(invoiceFor('2026-05-10', c).key, '2026-06', 'no dia do fechamento vai para a próxima');
+  // Compra de 08/03 em 10x, hoje 15/10: faturas de mar (venc. 20/03) … set (20/09) já venceram = 7 parcelas; a 8ª vence 20/10.
+  assert.equal(firstDueInstallment('2026-03-08', 10, c, '2026-10-15'), 8);
+  assert.equal(firstDueInstallment('2026-03-08', 10, c, '2026-10-21'), 9, 'depois do vencimento de outubro, a 8ª também conta como paga');
+  assert.equal(firstDueInstallment('2026-10-01', 3, c, '2026-10-15'), 1, 'compra recente começa na 1ª');
+  assert.equal(firstDueInstallment('2025-01-01', 3, c, '2026-10-15'), 4, 'todas já venceram');
+  const tx = {type: 'expense', amount: 1000, category: 'compras', date: '2026-03-08', paymentMethod: 'cartao', cardId: 'c', createdAt: 1};
+  const parts = expandPurchase(tx, 10, 'g', 'TV', 8);
+  assert.deepEqual(parts.map(t => [t.installment.n, t.date]), [[8, '2026-10-08'], [9, '2026-11-08'], [10, '2026-12-08']]);
+  assert.ok(parts.every(t => t.purchaseDate === '2026-03-08'));
+  assert.deepEqual(installmentGroups(parts, [c], '2026-10-15').map(g => [g.before, g.done]), [[7, 8]]);
 });

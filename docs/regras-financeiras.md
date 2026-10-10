@@ -123,9 +123,13 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 
 - No cadastro, o valor digitado pode ser **o total da compra** ou **o valor de cada parcela**
   (o total vira parcela × número de parcelas).
-- **Parcela atual**: para uma compra que já estava em andamento (ex.: 7 de 18), só as parcelas
-  7 a 18 viram lançamentos; a 7ª cai na data informada. As anteriores contam como pagas antes
-  do cadastro (não entram em meses passados nem aparecem como atrasadas ou adiantadas).
+- **Data da compra decide as parcelas já pagas** (não há pergunta de "parcela atual"): a parcela
+  i entra na i-ésima fatura a partir da fatura da compra. As parcelas de faturas que já venceram
+  (vencimento antes de hoje) contam como pagas antes do cadastro e não viram lançamentos; as
+  demais são lançadas, cada uma na data da compra + (i − 1) meses. A data da compra fica guardada
+  (`purchaseDate`). Se todas já venceram, não há nada a lançar.
+- O formulário mostra em qual fatura a compra (ou a próxima parcela) entra, com fechamento e
+  vencimento.
 - O valor de **uma parcela** pode ser editado sozinho (ex.: juros); o total da compra acompanha.
 - **Editar a compra inteira** refaz as parcelas com valores iguais (total, número de parcelas,
   parcela atual, cartão, data, categoria e descrição). Compras com parcelas adiantadas não podem
