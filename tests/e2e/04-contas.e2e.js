@@ -109,7 +109,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#ipAcc', it.id);
   await L.submitModal(page);
   L.ok(await bal('Itaú') === 550 && await bal('Nubank') === 900, 'fatura do cartão Nubank paga com o Itaú: Itaú 550');
-  L.ok(/paga com Itaú/.test(await L.text(page, '#bankList')), 'fatura mostra “paga com Itaú”');
+  L.ok(/paga com Itaú/i.test(await L.text(page, '#bankList')), 'fatura mostra “paga com Itaú”');
   L.ok(/conta Itaú/.test(await L.lastToast(page)), 'toast cita a conta');
   await L.tab(page, 'dashboard');
   const tiles2 = await L.text(page, '#statTiles');
@@ -124,6 +124,7 @@ L.run(async ({page}) => {
   L.ok(await bal('Itaú') === 800 && await bal('Nubank') === 900, '“Não descontar de nenhuma conta” marca paga sem mexer em saldo');
 
   L.section('Editar conta: nome e ajuste de saldo');
+  await page.$eval('[data-acc-edit="' + nu.id + '"]', el => el.scrollIntoView({block: 'center'}));
   await page.click('[data-acc-edit="' + nu.id + '"]'); await L.sleep(150);
   L.ok(await page.$eval('#eaBalance', el => el.value) === '900', 'popup traz o saldo atual');
   await page.$eval('#eaName', el => { el.value = ''; });

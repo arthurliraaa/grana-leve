@@ -14,7 +14,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#txPayment', 'card:' + card.id);
   await L.setVal(page, '#txInstall', '3');
   await page.type('#txDesc', 'Geladeira');
-  await page.click('#txForOther');
+  await page.click('#txForOtherField summary'); await page.click('#txForOther');
   await page.click('#txSplit');
   L.ok(!(await page.$eval('#txForOther', el => el.checked)) && !(await page.$eval('#txSplitBox', el => el.hidden)), '“dividir” e “paguei por outra pessoa” não ficam marcados juntos');
   L.ok(await page.$$eval('#txSplitRows .split-row', r => r.length) === 1, 'já vem uma linha para a primeira pessoa');

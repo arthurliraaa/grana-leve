@@ -14,7 +14,7 @@ L.run(async ({page}) => {
   await L.addTx(page, {amount: 1500, type: 'income', desc: 'Salário', category: 'salario'});
   await L.addTx(page, {amount: 300, pay: 'card:' + card.id, install: 3, desc: 'Fone', category: 'compras'});
   // Conta fixa que vence no dia 28 deste mês.
-  await page.goto(L.BASE + '#/compromissos/contas-fixas'); await L.sleep(300);
+  await page.goto(L.BASE + '#/lancamentos/contas-fixas'); await L.sleep(300);
   await page.type('#billName', 'Internet'); await page.type('#billAmount', '100'); await page.type('#billDay', '28');
   await page.click('#billForm button[type=submit]'); await L.sleep(250);
 
