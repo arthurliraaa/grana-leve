@@ -109,7 +109,10 @@ js/domain/            regras puras, sem tela: dinheiro (centavos), datas, lança
                       parcelas, cartões e faturas, contas, planejamento, vale, previsões,
                       a receber e o parser de mensagens (também roda no Node)
 js/data/              persistência (Store local/nuvem), sessão e preferências, senha/login
-js/ui/                tela: app.js (estado, abas e eventos), modal, gráficos, PDF, utilidades
+js/ui/                tela, um arquivo por área (Início, Ganhos e gastos, Contas e cartões,
+                      Planejar, Compromissos, contas fixas, chat, perfil, painel adm…);
+                      js/ui/app.js só liga os eventos e tem o mapa completo no comentário do topo
+supabase/             migrações do banco, testes das regras de acesso e modelos de e-mail
 tests/unit/           testes das regras (node:test)
 tests/e2e/            testes no navegador, com servidor próprio
 docs/                 regras financeiras e decisões
