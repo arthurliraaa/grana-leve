@@ -9,7 +9,7 @@ import {findById, sum, uid} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
 import {CUSTOM_COLORS} from '../domain/categories.js';
 import * as Tx from '../domain/transactions.js';
-import {MAX_INSTALLMENTS, clampInstall} from '../domain/transactions.js';
+import {MAX_INSTALLMENTS, clampInstall, isForOther, isRefund, isPersonal} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceDates, invoiceLabel} from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
@@ -17,7 +17,7 @@ import {statusForPct} from '../domain/budgets.js';
 import * as Accounts from '../domain/accounts.js';
 import * as Vouchers from '../domain/vouchers.js';
 import * as Fc from '../domain/forecasts.js';
-import {recvInstallInfo, recvNextDue, recvRemaining} from '../domain/receivables.js';
+import {recvInstallInfo, recvNextDue, recvRemaining, recvDefaultRefund} from '../domain/receivables.js';
 import {parse as parseMessage} from '../domain/parser.js';
 import {URGENCY, DEFAULT_URGENCY, urgencyOf, urgencyLabel, byUrgency} from '../domain/urgency.js';
 import * as Research from '../domain/research.js';
@@ -441,8 +441,8 @@ function dashboardFigures(){
     balanceEnd: money(balanceDone + expectedIncome - t.expenseScheduled),
     invoices: Cards.invoicesSummary(State.transactions, State.cards, today),
     savedInGoals: sumMoney(State.goals.filter(function(g){ return !g.deletedAt; }), function(g){ return g.currentAmount; }),
-    debtRemaining: money(sumMoney(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); }) +
-      sumMoney(installmentGroups(), function(g){ return g.remaining; })),
+    debtRemaining: money(sumMoney(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); })),
+    installRemaining: money(sumMoney(installmentGroups(), function(g){ return g.remaining; })),
     toReceive: sumMoney(State.receivables, recvRemaining)
   };
 }
@@ -457,12 +457,13 @@ function renderStatTiles(){
     invoiceSub = (next.status === 'vencida' ? '<span class="neg-text">venceu ' : 'vence ') + formatDateBr(next.due) + (next.status === 'vencida' ? '</span>' : '') + (inv.toPay.length > 1 ? ' · ' + inv.toPay.length + ' faturas' : '');
   } else if (inv.openTotal > 0) invoiceSub = 'Fatura aberta: ' + fmtMoney(inv.openTotal);
   var month = tile('Ganhos do mês', t.incomeDone, '', f.expectedIncome > 0 ? 'Esperado ainda: + ' + fmtMoney(f.expectedIncome) : '') +
-    tile('Gastos do mês', t.expenseDone, '', t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : '') +
+    tile('Gastos do mês', t.expenseDone, '', [t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : '',
+      t.forOther > 0 ? 'Fora daqui: ' + fmtMoney(t.forOther) + ' pagos por outras pessoas' : ''].filter(Boolean).join(' · ')) +
     tile('Saldo do mês', f.balanceDone, f.balanceDone < 0 ? 'neg' : 'pos', f.balanceEnd !== f.balanceDone ? 'Previsto no fim do mês: ' + fmtMoney(f.balanceEnd) : '');
   var now = (State.accounts.length ? tile('Disponível nas contas', totalAccountsBalance(), totalAccountsBalance() < 0 ? 'neg' : '', 'hoje, em ' + State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta')) : '') +
     (State.cards.length ? tile('Faturas a pagar', inv.toPayTotal, '', invoiceSub) : '') +
     tile('Guardado nas metas', f.savedInGoals) +
-    tile('Dívida restante', f.debtRemaining) +
+    tile('Dívida restante', f.debtRemaining, '', f.installRemaining > 0 ? 'Parcelas do cartão à parte: ' + fmtMoney(f.installRemaining) : '') +
     tile('A receber', f.toReceive);
   document.getElementById('statTiles').innerHTML =
     '<p class="tiles-group">Neste mês <span>realizado até hoje</span></p><div class="stat-tiles stat-tiles-auto">' + month + '</div>' +
@@ -526,7 +527,7 @@ function renderSummary(){
   var status = statusForPct(pct);
   var bar = planned > 0 ? '<div class="progress" role="img" aria-label="' + Math.round(pct * 100) + '% do planejado"><span style="width:' + Math.min(100, pct * 100) + '%; background:' +
     (status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)') + '"></span></div>' : '';
-  var cats = expenseCats().map(function(c){ return {c: c, v: sumMoney(txForMonth(cur).filter(function(x){ return x.type === 'expense' && x.category === c.id && x.date <= todayKey(); }), function(x){ return x.amount; })}; })
+  var cats = expenseCats().map(function(c){ return {c: c, v: sumMoney(txForMonth(cur).filter(function(x){ return x.type === 'expense' && isPersonal(x) && x.category === c.id && x.date <= todayKey(); }), function(x){ return x.amount; })}; })
     .filter(function(x){ return x.v > 0; }).sort(function(a, b){ return b.v - a.v; }).slice(0, 3);
   var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(spent), '',
     planned > 0 ? Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' · passou ' + fmtMoney(spent - planned) : '') :
@@ -615,7 +616,7 @@ function renderDonut(monthTx){
   var wrap = document.getElementById('donutWrap');
   setToggleLabel('donut');
   var byCat = {};
-  monthTx.filter(function(t){ return t.type==='expense'; }).forEach(function(t){
+  monthTx.filter(function(t){ return t.type==='expense' && isPersonal(t); }).forEach(function(t){
     byCat[t.category] = (byCat[t.category]||0) + Number(t.amount||0);
   });
   var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0}; }).filter(function(e){ return e.value>0; });
@@ -729,6 +730,14 @@ function paymentLabel(t){
   return a ? a.name : '';
 }
 
+// Etiqueta de gasto pago por outra pessoa ou de devolução (não entram nos seus gastos e ganhos).
+function otherTagHtml(t){
+  if (isRefund(t)) return '<span class="tx-tag">Devolução · não conta como ganho</span>';
+  if (!isForOther(t)) return '';
+  var r = findById(State.receivables, t.forOther.receivableId);
+  var st = !r ? '' : r.forgiven ? ' · não vai devolver' : recvRemaining(r) <= 0 ? ' · já devolveu' : ' · vai devolver';
+  return '<span class="tx-tag">Pago por ' + escapeHtml(t.forOther.person) + st + ' · fora dos seus gastos</span>';
+}
 function txRowHtml(t){
   var isExpense = t.type === 'expense';
   var cat = catLabel(t.category, t.type, t.categoryLabel);
@@ -736,7 +745,7 @@ function txRowHtml(t){
   return '<div class="tx-row" data-id="'+escapeHtml(t.id)+'">' +
     catBadge(t.category, t.type) +
     '<div class="tx-main"><div class="tx-desc">'+escapeHtml(t.description || cat)+'</div>' +
-    '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div></div>' +
+    '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div>' + otherTagHtml(t) + '</div>' +
     '<span class="tx-amount ' + (isExpense ? 'expense' : 'income') + ' tabular">' + (isExpense ? '-' : '+') + ' ' + fmtMoney(t.amount) + '</span>' +
     '<button class="tx-del tx-edit" type="button" data-edit-tx="'+escapeHtml(t.id)+'" aria-label="Editar lançamento" title="Editar">' + icon('edit') + '</button>' +
     '<button class="tx-del" type="button" data-del-tx="'+escapeHtml(t.id)+'" aria-label="Excluir lançamento" title="Excluir">' + icon('trash') + '</button>' +
@@ -847,13 +856,15 @@ function renderTransactionsTab(){
   document.getElementById('nextMonth').disabled = State.txMonthOffset >= maxTxMonthOffset();
   var tx = filterTransactions(txForMonth(mb.key));
   var filtering = tx.length !== txForMonth(mb.key).length || isFiltering();
-  var income = sum(tx.filter(function(t){ return t.type==='income'; }), function(t){ return t.amount; });
-  var expenseTx = tx.filter(function(t){ return t.type==='expense'; });
+  var income = sum(tx.filter(function(t){ return t.type==='income' && isPersonal(t); }), function(t){ return t.amount; });
+  var expenseTx = tx.filter(function(t){ return t.type==='expense' && isPersonal(t); });
+  var others = sum(tx.filter(isForOther), function(t){ return t.amount; });
   var expense = sum(expenseTx, function(t){ return t.amount; });
   var onCard = sum(expenseTx.filter(function(t){ return t.paymentMethod==='cartao'; }), function(t){ return t.amount; });
   var onVale = sum(expenseTx.filter(function(t){ return t.paymentMethod==='vale'; }), function(t){ return t.amount; });
   document.getElementById('txSummary').textContent = (filtering ? 'Filtrando: ' : '') + tx.length + ' lançamento(s) · ganhos ' + fmtMoney(income) + ' · gastos ' + fmtMoney(expense) +
-    (onCard ? ' (no cartão ' + fmtMoney(onCard) + ')' : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '');
+    (onCard ? ' (no cartão ' + fmtMoney(onCard) + ')' : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '') +
+    (others ? ' · pagos por outras pessoas ' + fmtMoney(others) + ' (fora dos gastos)' : '');
   var list = document.getElementById('txList');
   if (!tx.length){ list.innerHTML = '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
   list.innerHTML = tx.map(txRowHtml).join('');
@@ -869,7 +880,8 @@ function filterTransactions(list){
   var type = document.getElementById('txFilterType').value;
   var pay = document.getElementById('txFilterPay').value;
   return list.filter(function(t){
-    if (type !== 'all' && t.type !== type) return false;
+    if (type === 'others'){ if (!isForOther(t) && !isRefund(t)) return false; }
+    else if (type !== 'all' && t.type !== type) return false;
     if (pay !== 'all' && (t.type !== 'expense' || (t.paymentMethod || 'conta') !== pay)) return false;
     if (q && fold((t.description || '') + ' ' + catLabel(t.category, t.type, t.categoryLabel) + ' ' + paymentLabel(t)).indexOf(q) < 0) return false;
     return true;
@@ -1174,7 +1186,7 @@ async function saveTransactions(list){
 // Avisa na hora quando um gasto do mês atual faz a categoria chegar a 80% ou passar do planejado.
 function checkBudgetAlerts(newTx){
   var cur = monthBounds(0).key, added = {};
-  newTx.forEach(function(t){ if (t.type === 'expense' && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + Number(t.amount); });
+  newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + Number(t.amount); });
   var spentNow = expenseCategoryTotals(cur);
   Object.keys(added).forEach(function(cat){
     var limit = budgetLimit(cur, cat);
@@ -1669,7 +1681,7 @@ function renderBudgets(){
     (State.budgetMonthOffset > 0 ? 'Planejando o próximo mês. Ele começa com os valores do mês atual.' : 'Os valores valem a partir deste mês. Os meses anteriores continuam como estavam.');
   document.getElementById('budgetNote').classList.toggle('locked', locked);
   document.getElementById('budgetNewCat').hidden = locked;
-  var monthTx = txForMonth(mb.key).filter(function(t){ return t.type==='expense'; });
+  var monthTx = txForMonth(mb.key).filter(function(t){ return t.type==='expense' && isPersonal(t); });
   var list = document.getElementById('budgetList');
   list.innerHTML = expenseCats().map(function(c){
     var catTx = monthTx.filter(function(t){ return t.category === c.id; });
@@ -1802,10 +1814,10 @@ async function editGoal(id){
 /* ---------- Dívidas ---------- */
 function renderDebts(){
   var gs = installmentGroups().filter(function(g){ return g.future.length; });
+  // As compras parceladas no cartão ficam só em "Contas e cartões" (não aparecem duas vezes).
   document.getElementById('installDebtWrap').innerHTML = gs.length ?
-    '<div class="card"><div class="card-head"><h3>Compras parceladas no cartão</h3><span class="pill brand">automático</span></div>' +
-    '<p class="card-sub">Vêm das compras parceladas em “Ganhos e gastos”. Cada parcela entra sozinha na fatura do mês, então não precisa registrar pagamento. Se quiser quitar antes, use “Adiantar pagamento”.</p>' +
-    '<div class="debt-grid">' + gs.map(function(g){ return installmentRowHtml(g, true); }).join('') + '</div></div>' : '';
+    '<div class="tip-box install-note">' + icon('card') + '<span><strong>' + gs.length + ' compra(s) parcelada(s) no cartão</strong> (faltam ' + fmtMoney(sumMoney(gs, function(g){ return g.remaining; })) + ') ficam em “Contas e cartões”, dentro de cada cartão. Elas entram sozinhas na fatura e não precisam ser cadastradas aqui. Se a compra foi no cartão de outra pessoa, cadastre aqui como dívida.</span>' +
+    '<button class="btn btn-ghost btn-sm" type="button" data-goto="cartoes">Ver nos cartões</button></div>' : '';
   var grid = document.getElementById('debtGrid');
   if (!State.debts.length){ grid.innerHTML = gs.length ? '' : '<p class="empty-state">Nenhuma dívida cadastrada. Se você não tem dívidas, ótimo: pode pular esta seção.</p>'; return; }
   var debtLeft = function(d){ return Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0)); };
@@ -1874,14 +1886,17 @@ function populateRecvCards(){
 
 function renderReceivables(){
   populateRecvCards();
+  var people = {};
+  State.receivables.forEach(function(r){ var n = String(r.person || '').trim(); if (n) people[fold(n)] = n; });
+  document.getElementById('peopleList').innerHTML = Object.keys(people).sort().map(function(key){ return '<option value="' + escapeHtml(people[key]) + '">'; }).join('');
   var grid = document.getElementById('recvGrid');
   if (!State.receivables.length){ grid.innerHTML = '<p class="empty-state">Ninguém te deve nada por aqui. Quando emprestar dinheiro ou alguém usar seu cartão, anote acima.</p>'; return; }
   var items = State.receivables.slice().sort(function(a,b){
-    var ad = Number(a.receivedAmount||0) >= Number(a.totalAmount), bd = Number(b.receivedAmount||0) >= Number(b.totalAmount);
+    var ad = recvRemaining(a) <= 0, bd = recvRemaining(b) <= 0;
     return (ad - bd) || (URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)]) || String(recvNextDue(a)||'9999').localeCompare(String(recvNextDue(b)||'9999'));
   });
   grid.innerHTML = items.map(function(r){
-    var remaining = Math.max(0, Number(r.totalAmount||0) - Number(r.receivedAmount||0));
+    var remaining = recvRemaining(r);
     var pct = r.totalAmount > 0 ? Math.min(1, Number(r.receivedAmount||0)/Number(r.totalAmount)) : 0;
     var done = remaining <= 0;
     var info = recvInstallInfo(r);
@@ -1898,9 +1913,11 @@ function renderReceivables(){
           'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
         (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +
       '<div class="card-actions">' +
-        (done ? '<span class="status-pill good">Recebido</span>' :
+        (r.forgiven ? '<span class="status-pill warning">Não vai devolver (' + fmtMoney(r.forgivenAmount || 0) + ')</span>' :
+          done ? '<span class="status-pill good">Recebido</span>' :
           '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>') +
+          '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
         '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
       '</div></div>';
   }).join('');
@@ -1908,53 +1925,92 @@ function renderReceivables(){
 
 async function receiveReceivable(id){
   var r = findById(State.receivables, id);
-  var remaining = Math.max(0, Number(r.totalAmount) - Number(r.receivedAmount||0));
+  var remaining = recvRemaining(r);
   var info = recvInstallInfo(r);
-  var a;
-  if (info){
-    // Parcelado: registra o valor da parcela com um toque, ou outro valor (pagou a mais, a menos ou várias de uma vez).
-    var suggested = money(Math.min(info.next === info.n ? remaining : info.per, remaining));
-    a = await openModal({
-      title: 'Registrar recebimento',
-      body: '<p>' + escapeHtml(r.person) + ' te deve ' + fmtMoney(remaining) + '. Próxima: parcela ' + info.next + ' de ' + info.n + '.</p>' +
-        '<fieldset class="radio-group"><legend>Quanto entrou?</legend>' +
+  var suggested = info ? money(Math.min(info.next === info.n ? remaining : info.per, remaining)) : remaining;
+  var refundDefault = recvDefaultRefund(r);
+  // Duas perguntas separadas: para onde foi o dinheiro e se ele conta como ganho.
+  var a = await openModal({
+    title: 'Registrar recebimento',
+    body: '<p>' + escapeHtml(r.person) + ' te deve ' + fmtMoney(remaining) + (info ? '. Próxima: parcela ' + info.next + ' de ' + info.n : '') + '.</p>' +
+      (info ? '<fieldset class="radio-group"><legend>Quanto entrou?</legend>' +
           '<label class="check"><input type="radio" name="mode" value="parcela" checked> Valor da parcela (' + fmtMoney(suggested) + ')</label>' +
-          '<label class="check"><input type="radio" name="mode" value="outro"> Outro valor</label>' +
-        '</fieldset>' +
-        '<div class="field" id="rcvOtherField" hidden><label for="rcvOther">Valor recebido</label><span class="money-input"><span>R$</span><input id="rcvOther" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal"></span></div>' +
-        '<label class="check"><input type="checkbox" name="extra"' + (r.kind !== 'cartao' ? ' checked' : '') + '> Lançar também como ganho do mês</label>' +
-        accountSelectHtml('rcvAcc', 'acc', 'Entrou em'),
-      submitLabel: 'Registrar',
-      onOpen: function(modal){
-        modal.addEventListener('change', function(e){
-          if (e.target.name !== 'mode') return;
+          '<label class="check"><input type="radio" name="mode" value="outro"> Outro valor (a mais, a menos ou várias parcelas)</label>' +
+        '</fieldset>' : '') +
+      '<div class="field" id="rcvOtherField"' + (info ? ' hidden' : '') + '><label for="rcvOther">Valor recebido</label><span class="money-input"><span>R$</span><input id="rcvOther" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (info ? '' : remaining) + '"></span></div>' +
+      (State.accounts.length ? accountSelectHtml('rcvAcc', 'acc', 'Para onde foi o dinheiro?') : '') +
+      '<fieldset class="radio-group"><legend>Como contar?</legend>' +
+        '<label class="check"><input type="radio" name="as" value="refund"' + (refundDefault ? ' checked' : '') + '> Devolução: é dinheiro meu voltando (empréstimo ou algo que paguei pela pessoa). Não conta como ganho.</label>' +
+        '<label class="check"><input type="radio" name="as" value="income"' + (refundDefault ? '' : ' checked') + '> Ganho do mês: é dinheiro novo (venda, serviço, acerto combinado).</label>' +
+      '</fieldset>' +
+      '<p class="tip-box" id="rcvEffect" aria-live="polite"></p>',
+    submitLabel: 'Registrar',
+    onOpen: function(modal){
+      function value(){ var m = qs('input[name=mode]:checked', modal); return m && m.value === 'parcela' ? suggested : money(qs('#rcvOther', modal).value); }
+      function effect(){
+        var v = value(), acc = qs('#rcvAcc', modal), accName = acc && acc.value ? acc.options[acc.selectedIndex].text : '';
+        var asIncome = qs('input[name=as]:checked', modal).value === 'income';
+        qs('#rcvEffect', modal).innerHTML = '<strong>O que vai acontecer:</strong> ' + (v > 0 ? fmtMoney(v) : 'o valor') + ' sai do que ' + escapeHtml(r.person) + ' te deve' +
+          (accName ? '; entra no saldo de ' + escapeHtml(accName) : '; não mexe no saldo de nenhuma conta') +
+          (asIncome ? '; conta como ganho do mês.' : '; não conta como ganho (é devolução).');
+      }
+      modal.addEventListener('change', function(e){
+        if (e.target.name === 'mode'){
           var other = e.target.value === 'outro';
           qs('#rcvOtherField', modal).hidden = !other;
           if (other) qs('#rcvOther', modal).focus();
-        });
-      },
-      onSubmit: function(form){
-        var v = form.mode.value === 'outro' ? money(form.amount.value) : suggested;
-        if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
-        if (v > remaining + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(remaining) + '.'};
-        return {amount: v, extra: form.extra.checked, accountId: form.acc ? (form.acc.value || null) : null};
-      }
-    });
-    if (!a || !a.amount) return;
-  } else {
-    a = await askAmount({title:'Registrar recebimento', message: r.person + ' te deve ' + fmtMoney(remaining) + '.', value: remaining, max: remaining,
-      checkbox:'Lançar também como ganho do mês', checkboxDefault: r.kind !== 'cartao', submitLabel:'Registrar', extraHtml: accountSelectHtml('askAcc', 'acc', 'Entrou em')});
-    if (!a) return;
-  }
+        }
+        effect();
+      });
+      modal.addEventListener('input', effect);
+      effect();
+    },
+    onSubmit: function(form){
+      var v = info && form.mode.value === 'parcela' ? suggested : money(form.amount.value);
+      if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
+      if (v > remaining + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(remaining) + '.'};
+      return {amount: v, asIncome: form.as.value === 'income', accountId: form.acc ? (form.acc.value || null) : null};
+    }
+  });
+  if (!a || !a.amount) return;
   var newReceived = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount||0) + a.amount));
   await Store.update(k(), 'receivables', id, {receivedAmount: newReceived});
   r.receivedAmount = newReceived;
-  if (a.extra){
-    var saved = await Store.add(k(), 'transactions', {type:'income', amount:a.amount, category:'recebimento', date: todayKey(), description:'Recebido de ' + r.person, paymentMethod:null, accountId: a.accountId, createdAt: Date.now()});
+  // Ganho: sempre vira lançamento. Devolução: só quando entra numa conta (para o saldo subir).
+  if (a.asIncome || a.accountId){
+    var tx = {type:'income', amount:a.amount, category:'recebimento', categoryLabel: catLabel('recebimento', 'income'), date: todayKey(),
+      description: (a.asIncome ? 'Recebido de ' : 'Devolução de ') + r.person, paymentMethod:null, accountId: a.accountId, receivableId: r.id, createdAt: Date.now()};
+    if (!a.asIncome) tx.refund = true;
+    var saved = await Store.add(k(), 'transactions', tx);
     State.transactions.unshift(saved); sortTransactions();
   }
   renderAll();
-  toast('Recebimento de ' + fmtMoney(a.amount) + ' registrado.');
+  toast('Recebimento de ' + fmtMoney(a.amount) + ' registrado' + (a.asIncome ? ' como ganho.' : ' como devolução.'));
+}
+
+// A pessoa não vai devolver o que falta: o "A receber" fecha e, se você quiser, o valor vira gasto seu.
+async function forgiveReceivable(id){
+  var r = findById(State.receivables, id);
+  var remaining = recvRemaining(r);
+  var cat = r.category || 'outros';
+  var a = await openModal({title: 'Não vai devolver?', submitLabel: 'Confirmar',
+    body: '<p>' + escapeHtml(r.person) + ' não vai devolver os <strong class="tabular">' + fmtMoney(remaining) + '</strong> que faltam. O registro continua no histórico, marcado como “não vai devolver”.</p>' +
+      '<label class="check"><input type="checkbox" name="own"' + (r.linked ? ' checked' : '') + '> Contar ' + fmtMoney(remaining) + ' como gasto meu (em ' + escapeHtml(catLabel(cat, 'expense')) + ')</label>' +
+      '<p class="field-hint">Marque se o dinheiro saiu do seu bolso (você pagou ou emprestou). O lançamento não mexe em conta nem em cartão, porque o dinheiro já tinha saído antes.</p>',
+    onSubmit: function(form){ return {extra: form.own.checked}; }
+  });
+  if (!a) return;
+  await Store.update(k(), 'receivables', id, {forgiven: true, forgivenAmount: remaining, forgivenAt: todayKey()});
+  r.forgiven = true; r.forgivenAmount = remaining; r.forgivenAt = todayKey();
+  if (a.extra){
+    // Só conta como gasto: o dinheiro já tinha saído no dia da compra, então não mexe em conta nem cartão.
+    var saved = await Store.add(k(), 'transactions', {type:'expense', amount: remaining, category: cat, categoryLabel: catLabel(cat, 'expense'), date: todayKey(),
+      description: 'Não devolvido por ' + r.person + (r.description ? ': ' + r.description : ''), paymentMethod: null, accountId: null, cardId: null, voucherId: null,
+      writeOff: true, receivableId: r.id, createdAt: Date.now()});
+    State.transactions.unshift(saved); sortTransactions();
+  }
+  renderAll();
+  toast('Registrado: ' + r.person + ' não vai devolver.' + (a.extra ? ' O valor entrou nos seus gastos.' : ''));
 }
 
 function onlyDigits(s){ return String(s||'').replace(/\D/g,''); }
@@ -2949,6 +3005,8 @@ document.addEventListener('click', async function(e){
   // A receber
   if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
   if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
+  if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
+  if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
   if ((el = t.closest('[data-recv-del]'))){
     var r = findById(State.receivables, el.getAttribute('data-recv-del'));
     if (!(await confirmAction({title:'Excluir?', message:'Tem certeza que deseja excluir o valor a receber de ' + r.person + '?'}))) return;
@@ -3200,9 +3258,10 @@ document.getElementById('txForm').addEventListener('submit', async function(e){
     }
   }
   var n = tx.paymentMethod === 'cartao' ? clampInstall(document.getElementById('txInstall').value) : 1;
-  await saveTransactions(expandInstallments(tx, n));
   if (forOther){
-    var recvData = {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: amount, receivedAmount: 0, dueDate: null, createdAt: Date.now()};
+    // O gasto fica ligado ao "A receber": não conta como gasto seu, e o que voltar é devolução, não ganho.
+    var recvData = {person:forOther, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: desc || catLabel(category, type), totalAmount: amount, receivedAmount: 0, dueDate: null,
+      linked: true, category: category, createdAt: Date.now()};
     if (n > 1){
       var usedCard = findById(State.cards, tx.cardId);
       recvData.installments = n; recvData.installmentAmount = Math.floor(amount * 100 / n) / 100; recvData.cardId = tx.cardId;
@@ -3210,10 +3269,12 @@ document.getElementById('txForm').addEventListener('submit', async function(e){
     }
     var recv = await Store.add(k(), 'receivables', recvData);
     State.receivables.push(recv);
+    tx.forOther = {person: forOther, receivableId: recv.id};
     document.getElementById('txForOther').checked = false;
     document.getElementById('txOtherName').value = '';
     syncTxFormVisibility();
   }
+  await saveTransactions(expandInstallments(tx, n));
   document.getElementById('txAmount').value = '';
   document.getElementById('txDesc').value = '';
   document.getElementById('txInstall').value = '1';
@@ -3335,14 +3396,17 @@ document.getElementById('recvForm').addEventListener('submit', async function(e)
   // Compra feita no meu cartão: pode entrar também na fatura, já parcelada.
   var card = kind === 'cartao' && document.getElementById('recvLaunch').checked ? findById(State.cards, document.getElementById('recvCard').value) : null;
   if (card){
-    r.cardId = card.id;
+    r.cardId = card.id; r.linked = true; r.category = 'compras';
     if (!r.dueDate) r.dueDate = invoiceDates(invoiceKeyFor(todayKey(), card), card).due;
-    var tx = {type:'expense', amount: total, category:'compras', categoryLabel: catLabel('compras', 'expense'), date: todayKey(),
-      description: desc || 'Compra para ' + person, paymentMethod:'cartao', cardId: card.id, voucherId: null, createdAt: Date.now()};
-    await saveTransactions(expandInstallments(tx, n));
   }
   var saved = await Store.add(k(), 'receivables', r);
   State.receivables.push(saved);
+  if (card){
+    var tx = {type:'expense', amount: total, category:'compras', categoryLabel: catLabel('compras', 'expense'), date: todayKey(),
+      description: desc || 'Compra para ' + person, paymentMethod:'cartao', cardId: card.id, voucherId: null,
+      forOther: {person: person, receivableId: saved.id}, createdAt: Date.now()};
+    await saveTransactions(expandInstallments(tx, n));
+  }
   e.target.reset();
   if (card) renderAll(); else { renderReceivables(); renderDashboard(); }
   toast(person + ' foi adicionado(a) em “A receber”' + (n > 1 ? ' em ' + n + 'x' : '') + '.' + (card ? ' A compra entrou na fatura do ' + card.name + '.' : ''));

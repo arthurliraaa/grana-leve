@@ -157,7 +157,7 @@ L.run(async ({page}) => {
       const a = g.getBoundingClientRect(), b = p.getBoundingClientRect();
       return {off: Math.abs((a.left + a.width / 2) - (b.left + b.width / 2)), ta: getComputedStyle(p).textAlign};
     }, grid);
-    if (!c && tb === 'dividas'){ L.ok(/Compras parceladas/.test(await L.text(page, '#installDebtWrap')), 'Dívidas mostra as compras parceladas no lugar da mensagem vazia'); continue; }
+    if (!c && tb === 'dividas'){ L.ok(/parcelada\(s\) no cartão/.test(await L.text(page, '#installDebtWrap')), 'Dívidas avisa que as parceladas ficam nos cartões (sem repetir a lista)'); continue; }
     L.ok(c && c.off < 2 && c.ta === 'center', 'mensagem vazia de ' + tb + ' centralizada');
   }
   await L.tab(page, 'aprenda');

@@ -168,7 +168,7 @@ L.run(async ({page}) => {
   await page.type('#recvPerson', 'Bia'); await page.type('#recvTotal', '80');
   await page.click('#recvForm button[type=submit]'); await L.sleep(200);
   await page.click('[data-recv-get]'); await L.sleep(150);
-  await L.setVal(page, '#askAcc', it.id);
+  await L.setVal(page, '#rcvAcc', it.id);
   await L.submitModal(page);
   await L.tab(page, 'cartoes');
   L.ok(await bal('Nubank PF') === 5000, 'salário de 3000 entrou no Nubank (5000)');

@@ -12,16 +12,25 @@ export function clampInstall(v){ var n = Math.round(Number(v)); return n >= 1 ? 
 export function sortTransactions(list){
   return list.sort(function(a,b){ return (b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0); });
 }
+// Gasto pago por outra pessoa, que vai devolver (forOther: {person, receivableId}): o dinheiro saiu
+// da conta ou do cartão, mas não é gasto seu. A devolução (refund) volta para a conta, mas não é ganho.
+// Assim o mesmo dinheiro não conta duas vezes. Se a pessoa não devolver, um lançamento à parte
+// ("não devolvido") passa a contar como gasto seu.
+export function isForOther(t){ return t.type === 'expense' && !!t.forOther; }
+export function isRefund(t){ return t.type === 'income' && !!t.refund; }
+export function isPersonal(t){ return !isForOther(t) && !isRefund(t); }
+
 export function txForMonth(list, key){ return list.filter(function(t){ return monthKeyOf(t.date) === key; }); }
 
 // Realizado = data até hoje; agendado = data futura dentro do mês (ex.: parcela que ainda vai cair).
 export function monthTotals(list, key, today){
-  var tx = txForMonth(list, key);
+  var all = txForMonth(list, key), tx = all.filter(isPersonal);
   function total(type, when){
     return sumMoney(tx.filter(function(t){ return t.type === type && (!when || (when === 'done' ? t.date <= today : t.date > today)); }), function(t){ return t.amount; });
   }
   var income = total('income'), expense = total('expense');
-  var out = {income: income, expense: expense, saldo: money(income - expense)};
+  var out = {income: income, expense: expense, saldo: money(income - expense),
+    forOther: sumMoney(all.filter(function(t){ return isForOther(t) && (!today || t.date <= today); }), function(t){ return t.amount; })};
   if (today){
     out.incomeDone = total('income', 'done'); out.expenseDone = total('expense', 'done');
     out.incomeScheduled = total('income', 'later'); out.expenseScheduled = total('expense', 'later');
@@ -30,7 +39,7 @@ export function monthTotals(list, key, today){
 }
 export function expenseCategoryTotals(list, key){
   var out = {};
-  txForMonth(list, key).filter(function(t){ return t.type === 'expense'; }).forEach(function(t){
+  txForMonth(list, key).filter(function(t){ return t.type === 'expense' && isPersonal(t); }).forEach(function(t){
     out[t.category] = money((out[t.category] || 0) + Number(t.amount || 0));
   });
   return out;

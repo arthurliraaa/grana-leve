@@ -803,3 +803,8 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
   .brand-picker{ grid-template-columns: 84px minmax(0,1fr); }
   .brand-picker .field:first-child{ grid-column: 1 / -1; }
 }
+
+/* Gasto pago por outra pessoa e devolução */
+.tx-tag{ display:inline-block; margin-top:3px; font-size:.72rem; font-weight:600; color: var(--text-secondary); background: var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:1px 8px; }
+.install-note{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.install-note > span{ flex:1 1 260px; }
