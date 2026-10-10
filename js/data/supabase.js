@@ -28,11 +28,18 @@ export function authMessage(error){
 export var OFFLINE_MESSAGE = 'Sem internet: nada foi salvo. Tente de novo quando a conexão voltar.';
 function isNetworkError(e){ return /failed to fetch|network|load failed|fetch/i.test(String(e && (e.message || e))); }
 // Erro com uma mensagem pronta para a tela (userMessage).
+// Mensagens dos limites do banco (migração 20261010010000_limites.sql) e da coleção nova.
+function serverMessage(err){
+  var m = String((err && (err.message + ' ' + (err.hint || ''))) || '');
+  if (/limite_registros|Limite de 20 mil/.test(m)) return 'Sua conta chegou ao limite de 20 mil registros. Apague lançamentos antigos (ou baixe um backup e comece de novo) para continuar.';
+  if (/user_data_collection_check/.test(m)) return 'O servidor ainda não aceita este tipo de registro. Avise quem cuida do app: falta rodar uma atualização do banco.';
+  return 'O servidor recusou a operação. Recarregue a página e tente de novo.';
+}
 function check(res){
   if (res.error){
     var offline = isNetworkError(res.error) || (typeof navigator !== 'undefined' && navigator.onLine === false);
     throw Object.assign(new Error(res.error.message || 'Erro no servidor'), {cause: res.error, offline: offline,
-      userMessage: offline ? OFFLINE_MESSAGE : 'O servidor recusou a operação. Recarregue a página e tente de novo.'});
+      userMessage: offline ? OFFLINE_MESSAGE : serverMessage(res.error)});
   }
   return res.data;
 }

@@ -161,3 +161,11 @@ test('redefinir senha (perfil e painel adm) pede o e-mail ao Supabase com o ende
   await createSupabaseStore(c, COLLS).resetPassword('pessoa@teste.com', 'https://grana-leve.vercel.app/');
   assert.deepEqual(log, [['pessoa@teste.com', {redirectTo: 'https://grana-leve.vercel.app/'}]]);
 });
+
+test('mensagens claras para os limites do banco', async () => {
+  const c = fakeClient();
+  c.from = () => ({upsert: async () => ({data: null, error: {message: 'Limite de 20 mil registros por conta atingido.', hint: 'limite_registros'}}),
+    insert: async () => ({data: null, error: {message: 'new row violates check constraint "user_data_collection_check"'}})});
+  const S = createSupabaseStore(c, COLLS);
+  await assert.rejects(S.put('k', 'transactions', 'x', {amount: 1}), e => /limite de 20 mil registros/.test(e.userMessage));
+});

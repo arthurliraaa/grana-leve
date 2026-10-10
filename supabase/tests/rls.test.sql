@@ -151,3 +151,21 @@ select t.ok((select count(*) from public.study_events e where not exists (select
 set role anon;
 select t.ok(t.fails($$select public.delete_my_account()$$), 'visitante não chama a função');
 reset role;
+
+select t.section('Limites contra abuso');
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('eeeeeeee-0000-0000-0000-000000000005', 'e@teste.com', '{"name":"Eva","research":{"consent":true,"version":"2"}}');
+insert into public.user_data (user_id, collection, id, doc)
+  select 'eeeeeeee-0000-0000-0000-000000000005', 'transactions', 'x' || g, '{}' from generate_series(1, 20000) g;
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'eeeeeeee-0000-0000-0000-000000000005', false);
+select t.ok(t.fails($$insert into public.user_data (collection, id, doc) values ('transactions', 'novo', '{}')$$), 'registro novo acima de 20 mil é recusado');
+insert into public.user_data (collection, id, doc) values ('transactions', 'x1', '{"amount":5}')
+  on conflict (user_id, collection, id) do update set doc = excluded.doc;
+select t.ok((select doc ->> 'amount' from public.user_data where user_id = 'eeeeeeee-0000-0000-0000-000000000005' and id = 'x1') = '5', 'editar um registro existente continua funcionando no limite');
+reset role;
+insert into public.study_events (code, event)
+  select (select research_code from public.profiles where id = 'eeeeeeee-0000-0000-0000-000000000005'), 'usou:chat' from generate_series(1, 300);
+set role authenticated;
+select t.ok(t.fails($$insert into public.study_events (code, event) values (public.my_study_code(), 'usou:chat')$$), 'mais de 300 eventos do estudo em 24h é recusado');
+reset role;

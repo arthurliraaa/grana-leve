@@ -72,7 +72,7 @@ do estudo e do painel de administração.
 
 1. No painel do Supabase, abra **SQL Editor** e rode, **nesta ordem**, cada arquivo de
    `supabase/migrations/` (cole o conteúdo e clique em **Run**):
-   `20261009000000_inicial.sql`, `20261009010000_excluir_propria_conta.sql` e `20261010000000_contas_fixas.sql`, nessa ordem.
+   `20261009000000_inicial.sql`, `20261009010000_excluir_propria_conta.sql`, `20261010000000_contas_fixas.sql` e `20261010010000_limites.sql`, nessa ordem.
 2. Crie sua conta no app. Depois, no SQL Editor, rode `supabase/tornar-admin.sql` trocando o
    e-mail pelo seu. Só quem tem `role = 'admin'` acessa o painel, e isso é verificado no
    banco, não na tela.

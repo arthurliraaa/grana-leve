@@ -52,5 +52,9 @@ with checks(ordem, verificacao, ok, detalhe) as (
   select 12, 'Contas fixas liberadas (migração 20261010000000)',
     coalesce((select pg_get_constraintdef(oid) like '%bills%' from pg_constraint where conname = 'user_data_collection_check'), false),
     'coleção bills em user_data'
+  union all
+  select 13, 'Limites contra abuso (migração 20261010010000)',
+    (select count(*) from pg_trigger where tgname in ('user_data_limit', 'study_events_limit') and not tgisinternal) = 2,
+    (select count(*) from pg_trigger where tgname in ('user_data_limit', 'study_events_limit') and not tgisinternal) || ' de 2 gatilhos'
 )
 select case when ok then '✅' else '❌' end as status, verificacao, detalhe from checks order by ordem;
