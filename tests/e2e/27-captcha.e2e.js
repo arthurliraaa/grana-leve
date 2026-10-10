@@ -6,7 +6,9 @@ L.run(async ({page}) => {
   await page.goto(L.BASE, {waitUntil: 'domcontentloaded'});
   const online = await fetch('https://challenges.cloudflare.com/turnstile/v0/api.js').then(r => r.ok, () => false);
   if (!online){ console.log('Pulado: sem internet para carregar o Turnstile.'); return; }
-  L.ok(await page.evaluate(async () => (await import('/js/ui/captcha.js')).captchaEnabled()) === false, 'sem site key em config.js, o captcha fica desligado');
+  const cfg = await page.evaluate(async () => ({on: (await import('/js/ui/captcha.js')).captchaEnabled(), key: (await import('/js/config.js')).TURNSTILE_SITE_KEY}));
+  L.ok(cfg.on === !!cfg.key, 'captcha ligado só quando há site key em config.js (' + (cfg.key ? 'ligado' : 'desligado') + ')');
+  L.ok(await page.evaluate(async () => (await import('/js/ui/captcha.js')).captchaEnabled('')) === false, 'sem site key, fica desligado');
   const r = await page.evaluate(async () => {
     const m = await import('/js/ui/captcha.js');
     try { const a = await m.getCaptchaToken('1x00000000000000000000AA'); const b = await m.getCaptchaToken('1x00000000000000000000AA'); return {a, b}; }

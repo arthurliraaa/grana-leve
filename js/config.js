@@ -7,7 +7,7 @@ export var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
 export var BACKEND_OVERRIDE_KEY = 'granaleve_backend';
 // E-mail para pedidos sobre dados pessoais (LGPD). Vazio: a política aponta o GitHub do projeto.
 // Use um e-mail do projeto (não precisa ser o pessoal); ele aparece na Política de privacidade.
-export var CONTACT_EMAIL = '';
+export var CONTACT_EMAIL = 'contato.granaleve@gmail.com';
 // Captcha do cadastro e do "Esqueci minha senha" (Cloudflare Turnstile). A site key é pública;
 // a secret key vai só no painel do Supabase (Authentication → Attack Protection). Vazio: sem captcha.
-export var TURNSTILE_SITE_KEY = '';
+export var TURNSTILE_SITE_KEY = '0x4AAAAAAFTUDrhUpC3oUudH';
