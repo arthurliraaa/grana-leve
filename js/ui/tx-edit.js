@@ -2,7 +2,7 @@
  * Lançamento: popup do botão +, edição, estorno, compra parcelada inteira e adiantamento de parcelas.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey} from '../domain/dates.js';
+import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, addMonthsIso} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
@@ -19,7 +19,7 @@ import {openQuickEntry} from './chat.js';
 import {paymentLabel} from './home-tab.js';
 import {renderAll} from './shell.js';
 import {State, accountName, budgetLimit, catBadge, catLabel, catOptions, categoryNameProblem, expandInstallments, expenseCategoryTotals, expenseCats, incomeCats, installmentGroups, invoiceStatus, k, sortTransactions} from './state.js';
-import {accountSelectHtml, addCategory, applyPayment, installExtrasHtml, installStepperHtml, installSummary, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
+import {accountSelectHtml, addCategory, applyPayment, cardIdOf, installExtrasHtml, installStepperHtml, installSummary, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
 
 /* ---------- Popup de lançamento (botão + e edição) ---------- */
 export function txModalBody(t, isEdit){
@@ -60,7 +60,8 @@ export async function openTxModal(t){
         syncNewCat();
       }
       function fillInstall(){
-        if (instSel) qs('#mInstallHint', modal).textContent = installSummary(modal, 'mIx', clampInstall(instSel.value), money(qs('#mAmount', modal).value));
+        if (instSel) qs('#mInstallHint', modal).textContent = installSummary(modal, 'mIx', clampInstall(instSel.value), money(qs('#mAmount', modal).value),
+          qs('#mDate', modal).value, cardIdOf(paySel.value));
       }
       function sync(){
         var isExp = mType === 'expense';
@@ -87,7 +88,11 @@ export async function openTxModal(t){
         syncNewCat(); sync();
       });
       qs('#mAmount', modal).addEventListener('input', fillInstall);
-      if (instSel){ instSel.addEventListener('input', fillInstall); modal.addEventListener('input', function(e){ if (e.target.name === 'mIxStart') fillInstall(); }); modal.addEventListener('change', function(e){ if (e.target.name === 'mIxMode') fillInstall(); }); }
+      if (instSel){
+        instSel.addEventListener('input', fillInstall);
+        modal.addEventListener('change', function(e){ if (e.target.name === 'mIxMode' || e.target.id === 'mDate' || e.target.id === 'mPay') fillInstall(); });
+        qs('#mDate', modal).addEventListener('input', fillInstall);
+      }
       var revBtn = qs('[data-m-reversal]', modal);
       if (revBtn) revBtn.addEventListener('click', function(){ close(null); reverseTx(t.id); });
       var grp = qs('[data-m-group]', modal);
@@ -115,7 +120,8 @@ export async function openTxModal(t){
       if (isEdit){ await saveTxEdit(t, tx); return true; }
       tx.createdAt = Date.now();
       var n = tx.paymentMethod === 'cartao' ? clampInstall(form.install.value) : 1;
-      var ex = readInstallExtras(form, 'mIx', n);
+      var ex = readInstallExtras(form, 'mIx', n, date, tx.cardId);
+      if (n > 1 && ex.start > n) return {error: 'Todas as parcelas dessa compra já venceram. Confira a data da compra.'};
       tx.amount = Tx.purchaseTotal(amount, n, ex.per);
       await saveTransactions(expandInstallments(tx, n, ex.start));
       renderAll();
@@ -188,7 +194,7 @@ export async function reverseTx(id){
   toast('Estorno de ' + fmtMoney(sumMoney(list, function(r){ return -r.amount; })) + ' registrado' + (card && a.inv ? ' na fatura de ' + invoiceLabel(a.inv, card) : '') + '.');
 }
 
-// Compra parcelada inteira: valor (total ou por parcela), número de parcelas, parcela atual, cartão, data,
+// Compra parcelada inteira: valor (total ou por parcela), número de parcelas, cartão, data da compra,
 // categoria e descrição. As parcelas são refeitas com valores iguais (isso também "redefine" valores
 // mudados um a um). Compras com parcelas adiantadas não podem ser refeitas, para não perder o adiantamento.
 export async function editInstallmentGroup(groupId){
@@ -198,6 +204,8 @@ export async function editInstallmentGroup(groupId){
   var first = g.items[0], sumNow = sumMoney(g.items, function(t){ return t.amount; });
   var cards = State.cards.map(function(c){ return {id: c.id, label: c.name}; });
   var equalNow = splitAmountEqual(g.totalAmount, g.total, g.items);
+  // Data da compra: guardada nas compras novas; nas antigas, volta da parcela registrada.
+  var purchaseDate = first.purchaseDate || addMonthsIso(first.date, -(first.installment.n - 1));
   await openModal({
     title: 'Editar compra parcelada',
     body: '<div class="field"><label for="gDesc">Descrição</label><input id="gDesc" name="desc" type="text" maxlength="80" value="' + escapeHtml(g.name) + '"></div>' +
@@ -205,14 +213,14 @@ export async function editInstallmentGroup(groupId){
       '<div class="field"><label for="gCard">Cartão</label><select id="gCard" name="card">' + optionsHtml(cards, g.cardId) + '</select></div>' +
       '<div class="field"><label for="gAmount">Valor</label><span class="money-input"><span>R$</span><input id="gAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + g.totalAmount + '"></span></div>' +
       '<div class="field"><label for="gInstall">Parcelas</label>' + installStepperHtml('gInstall', 'install') + '<span class="field-hint tabular" id="gHint"></span>' + installExtrasHtml('gIx') + '</div>' +
-      '<div class="field"><label for="gDate">Data da parcela atual</label><input id="gDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(first.date) + '"></div>' +
+      '<div class="field"><label for="gDate">Data da compra</label><input id="gDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(purchaseDate) + '">' +
+        '<span class="field-hint">As parcelas que já venceram contam como pagas, pela data da compra e pelo cartão.</span></div>' +
       (equalNow ? '' : '<p class="tip-box">Algumas parcelas têm valores diferentes (soma atual: ' + fmtMoney(sumNow) + '). Salvar divide o valor igualmente de novo.</p>') +
       '<p class="field-hint">As parcelas desta compra são refeitas com valores iguais. Pagamentos de fatura já marcados não mudam.</p>',
     submitLabel: 'Salvar compra',
     onOpen: function(modal){
       qs('#gInstall', modal).value = g.total;
-      qs('#gIxStart', modal).value = first.installment.n;
-      function hint(){ qs('#gHint', modal).textContent = installSummary(modal, 'gIx', clampInstall(qs('#gInstall', modal).value), money(qs('#gAmount', modal).value)); }
+      function hint(){ qs('#gHint', modal).textContent = installSummary(modal, 'gIx', clampInstall(qs('#gInstall', modal).value), money(qs('#gAmount', modal).value), qs('#gDate', modal).value, qs('#gCard', modal).value); }
       modal.addEventListener('input', hint); modal.addEventListener('change', hint); hint();
     },
     onSubmit: async function(form){
@@ -220,12 +228,14 @@ export async function editInstallmentGroup(groupId){
       if (!(typed > 0)) return {error: 'Informe um valor maior que zero.'};
       if (n < 2) return {error: 'Uma compra parcelada tem pelo menos 2 parcelas. Para à vista, exclua e lance de novo.'};
       if (!validDateStr(form.date.value)) return {error: 'Use uma data entre 1900 e 3000.'};
-      var ex = readInstallExtras(form, 'gIx', n);
+      var ex = readInstallExtras(form, 'gIx', n, form.date.value, form.card.value);
+      if (ex.start > n) return {error: 'Todas as parcelas dessa compra já venceram. Confira a data da compra.'};
       var base = form.desc.value.trim() || catLabel(form.cat.value, 'expense');
       var tx = {type: 'expense', amount: Tx.purchaseTotal(typed, n, ex.per), category: form.cat.value, categoryLabel: catLabel(form.cat.value, 'expense'),
         date: form.date.value, description: base, paymentMethod: 'cartao', cardId: form.card.value, accountId: null, voucherId: null, createdAt: first.createdAt || Date.now()};
       if (first.forOther) tx.forOther = first.forOther;
-      var fresh = Tx.expandInstallments(tx, n, groupId, base, ex.start);
+      if (first.split) tx.split = first.split;
+      var fresh = Tx.expandPurchase(tx, n, groupId, base, ex.start);
       for (var i = 0; i < g.items.length; i++){ await Store.remove(k(), 'transactions', g.items[i].id); }
       State.transactions = State.transactions.filter(function(t){ return !(t.installment && t.installment.group === groupId); });
       for (var j = 0; j < fresh.length; j++){ State.transactions.unshift(await Store.add(k(), 'transactions', fresh[j])); }

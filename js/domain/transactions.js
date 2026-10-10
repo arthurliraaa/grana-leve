@@ -95,6 +95,13 @@ export function expandInstallments(tx, n, group, name, start){
   }
   return out;
 }
+// Compra feita em tx.date: a parcela i cai i-1 meses depois. Só as parcelas de `start` em diante
+// viram lançamentos (as anteriores venceram antes do cadastro). Guarda a data da compra (purchaseDate).
+export function expandPurchase(tx, n, group, name, start){
+  if (!(n > 1) || tx.paymentMethod !== 'cartao') return [tx];
+  start = clampStart(start, n);
+  return expandInstallments(Object.assign({}, tx, {date: addMonthsIso(tx.date, start - 1), purchaseDate: tx.date}), n, group, name, start);
+}
 export function clampStart(start, n){ var s = Math.round(Number(start)); return s >= 1 ? Math.min(n, s) : 1; }
 // Valor total da compra a partir do que foi digitado: o total, ou o valor de cada parcela × N.
 export function purchaseTotal(typed, n, perInstallment){ return perInstallment && n > 1 ? money(typed * n) : money(typed); }
@@ -106,7 +113,8 @@ export function installHint(n, amount, fmt, start){
   start = clampStart(start, n);
   if (start > 1){
     var left = n - start + 1;
-    out += ' · começa na ' + start + 'ª: ' + (left === 1 ? 'falta 1' : 'faltam ' + left) + ' (' + fmt(sumMoney(parts.slice(start - 1), function(v){ return v; })) + ')';
+    out += ' · ' + (start === 2 ? 'a 1ª parcela já venceu' : 'as parcelas 1 a ' + (start - 1) + ' já venceram') + ' (contam como pagas) · ' +
+      (left === 1 ? 'falta 1' : 'faltam ' + left) + ' (' + fmt(sumMoney(parts.slice(start - 1), function(v){ return v; })) + ')';
   }
   return out;
 }

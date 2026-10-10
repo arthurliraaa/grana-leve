@@ -12,13 +12,13 @@ L.run(async ({page}) => {
   L.ok(await page.$('select#txInstall') === null && await page.$('#txInstallField .stepper') !== null, 'lista de 24 opções trocada pelo seletor − / +');
   await L.setVal(page, '#txPayment', 'card:' + card.id);
   L.ok(!(await page.$eval('#txInstallField', el => el.hidden)), 'aparece ao escolher o cartão');
-  L.ok(await L.text(page, '#txInstallHint') === 'À vista', 'começa à vista');
+  L.ok(/^À vista · entra na fatura de /.test(await L.text(page, '#txInstallHint')), 'começa à vista (e já diz a fatura)');
   await page.type('#txAmount', '1000');
   for (let i = 0; i < 3; i++) await page.click('#txInstallField [data-step="1"]');
   L.ok(await page.$eval('#txInstall', el => el.value) === '4', '+ três vezes vai para 4x');
   L.ok(/4x de R\$\s?250,00 · total R\$\s?1\.000,00/.test(await L.text(page, '#txInstallHint')), 'mostra valor da parcela e total');
   await page.click('#txInstallField [data-step="-1"]');
-  L.ok(/^3x de R\$\s?333,33 · total R\$\s?1\.000,00$/.test(await L.text(page, '#txInstallHint')), 'resumo curto com parcela e total');
+  L.ok(/^3x de R\$\s?333,33 · total R\$\s?1\.000,00 · a 1ª parcela entra na fatura de /.test(await L.text(page, '#txInstallHint')), 'resumo com parcela, total e a fatura da 1ª parcela');
   await L.setVal(page, '#txInstall', '99');
   L.ok(await page.$eval('#txInstall', el => el.value) === '24', 'limite de 24 parcelas');
   await L.setVal(page, '#txInstall', '0');

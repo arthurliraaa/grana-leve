@@ -67,7 +67,8 @@ export function txForMonth(key){ return Tx.txForMonth(State.transactions, key); 
 export function monthTotals(key){ return Tx.monthTotals(State.transactions, key, todayKey()); }
 export function expenseCategoryTotals(key){ return Tx.expenseCategoryTotals(State.transactions, key); }
 export function maxTxMonthOffset(){ return Tx.maxMonthOffset(State.transactions, monthBounds(0).key); }
-export function expandInstallments(tx, n, start){ return Tx.expandInstallments(tx, n, uid(), tx.description || catLabel(tx.category, tx.type), start); }
+// Parcelas a partir da data da compra (tx.date); start = primeira ainda não vencida (padrão 1).
+export function expandInstallments(tx, n, start){ return Tx.expandPurchase(tx, n, uid(), tx.description || catLabel(tx.category, tx.type), start); }
 export function installHint(n, amount, start){ return Tx.installHint(n, amount, fmtMoney, start); }
 export function installmentGroups(){ return Tx.installmentGroups(State.transactions, State.cards, todayKey()); }
 export function invoiceItems(card, key){ return Cards.invoiceItems(State.transactions, card, key); }

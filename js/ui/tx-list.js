@@ -2,7 +2,7 @@
  * Ganhos e gastos: lista, filtros, calendário, seletor de parcelas e divisão de compras.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, formatDateFull, validDateStr, monthBounds, shiftMonthKey, monthsBetween} from '../domain/dates.js';
+import {todayKey, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, monthsBetween, addMonthsIso} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
@@ -95,51 +95,54 @@ export function installStepperHtml(id, name){
     '<input id="' + id + '" name="' + name + '" type="number" min="1" max="' + MAX_INSTALLMENTS + '" step="1" value="1" inputmode="numeric">' +
     '<span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="' + id + '" aria-label="Mais parcelas">+</button></div>';
 }
-// Opções de compra parcelada: se o valor digitado é o total ou a parcela, e a parcela atual
-// (compra que já estava em andamento, ex.: 7 de 18). Aparecem só com 2 parcelas ou mais.
+// Opção da compra parcelada: se o valor digitado é o total ou o valor de cada parcela.
+// Não há pergunta de "parcela atual": a data da compra e o cartão dizem quais parcelas já venceram.
 export function installExtrasHtml(p){
   return '<div class="install-extras" id="' + p + 'Extras" hidden>' +
     '<fieldset class="radio-group"><legend>O valor digitado é</legend>' +
       '<label class="check"><input type="radio" name="' + p + 'Mode" value="total" checked> o total da compra</label>' +
       '<label class="check"><input type="radio" name="' + p + 'Mode" value="parcela"> o valor de cada parcela</label></fieldset>' +
-    '<div class="field"><label for="' + p + 'Start">Parcela atual</label>' +
-      '<div class="stepper"><button type="button" data-step="-1" data-for="' + p + 'Start" aria-label="Parcela anterior">−</button>' +
-      '<input id="' + p + 'Start" name="' + p + 'Start" type="number" min="1" max="' + MAX_INSTALLMENTS + '" step="1" value="1" inputmode="numeric">' +
-      '<button type="button" data-step="1" data-for="' + p + 'Start" aria-label="Próxima parcela">+</button></div>' +
-      '<span class="field-hint">A compra já estava em andamento? Informe a parcela que cai nesta fatura (ex.: 7 de 18). As anteriores contam como pagas.</span></div>' +
     '</div>';
 }
-export function readInstallExtras(root, p, n){
+// {per, start}: start = primeira parcela ainda não vencida, pela data da compra e pelo cartão.
+export function readInstallExtras(root, p, n, date, cardId){
   var box = root.querySelector('#' + p + 'Extras');
-  if (!box || n <= 1) return {per: false, start: 1};
-  return {per: root.querySelector('input[name=' + p + 'Mode]:checked').value === 'parcela', start: Tx.clampStart(root.querySelector('#' + p + 'Start').value, n)};
+  var card = cardId && findById(State.cards, cardId);
+  var start = card && n > 1 && validDateStr(date) ? Cards.firstDueInstallment(date, n, card, todayKey()) : 1;
+  return {per: !!(box && n > 1 && root.querySelector('input[name=' + p + 'Mode]:checked').value === 'parcela'), start: start};
 }
 export function resetInstallExtras(root, p){
   var box = root.querySelector('#' + p + 'Extras');
-  if (!box) return;
-  root.querySelector('input[name=' + p + 'Mode][value=total]').checked = true;
-  root.querySelector('#' + p + 'Start').value = '1';
+  if (box) root.querySelector('input[name=' + p + 'Mode][value=total]').checked = true;
 }
-// Texto de resumo das parcelas, já considerando o valor por parcela e a parcela atual.
-export function installSummary(root, p, n, typed){
+// Resumo: parcelas, total, parcelas já vencidas e em qual fatura a compra (ou a próxima parcela) entra.
+export function installSummary(root, p, n, typed, date, cardId){
   var box = root.querySelector('#' + p + 'Extras');
-  if (box){
-    box.hidden = n <= 1;
-    var st = root.querySelector('#' + p + 'Start');
-    if (Number(st.value) > n) st.value = n;
+  if (box) box.hidden = n <= 1;
+  var ex = readInstallExtras(root, p, n, date, cardId);
+  var card = cardId && findById(State.cards, cardId);
+  if (ex.start > n) return 'Todas as ' + n + ' parcelas dessa compra já venceram: não há nada a lançar. Confira a data da compra.';
+  var text = installHint(n, Tx.purchaseTotal(typed, n, ex.per), ex.start);
+  if (card && validDateStr(date)){
+    var inv = Cards.invoiceFor(addMonthsIso(date, ex.start - 1), card);
+    text += ' · ' + (n > 1 ? (ex.start > 1 ? 'a ' + ex.start + 'ª parcela' : 'a 1ª parcela') + ' entra' : 'entra') + ' na fatura de ' + inv.label +
+      ' (fecha ' + formatDateBr(inv.closing) + ', vence ' + formatDateBr(inv.due) + ')';
   }
-  var ex = readInstallExtras(root, p, n);
-  return installHint(n, Tx.purchaseTotal(typed, n, ex.per), ex.start);
+  return text;
 }
+// Cartão escolhido num select de forma de pagamento ("card:id"), ou null.
+export function cardIdOf(pay){ return pay && pay.indexOf('card:') === 0 && pay !== 'card:none' ? pay.slice(5) : null; }
 export function populateInstallSelect(){
   var inp = document.getElementById('txInstall');
-  document.getElementById('txInstallHint').textContent = installSummary(document, 'txIx', clampInstall(inp.value), money(document.getElementById('txAmount').value));
+  document.getElementById('txInstallHint').textContent = installSummary(document, 'txIx', clampInstall(inp.value), money(document.getElementById('txAmount').value),
+    document.getElementById('txDate').value, cardIdOf(document.getElementById('txPayment').value));
 }
 export function syncTxFormVisibility(){
   var isExpense = currentTxType() === 'expense';
   var onCard = isExpense && document.getElementById('txPayment').value.indexOf('card:') === 0 && document.getElementById('txPayment').value !== 'card:none';
   document.getElementById('txInstallField').hidden = !onCard;
-  if (!onCard){ document.getElementById('txInstall').value = '1'; resetInstallExtras(document, 'txIx'); populateInstallSelect(); }
+  if (!onCard){ document.getElementById('txInstall').value = '1'; resetInstallExtras(document, 'txIx'); }
+  populateInstallSelect();
   document.getElementById('txPaymentField').hidden = !isExpense;
   document.getElementById('txAccountField').hidden = isExpense || !State.accounts.length;
   document.getElementById('txForOtherField').hidden = !isExpense;
@@ -409,6 +412,7 @@ export function wireTransactions(){
   document.getElementById('txAmount').addEventListener('input', populateInstallSelect);
   document.getElementById('txInstall').addEventListener('input', populateInstallSelect);
   document.getElementById('txIxWrap').innerHTML = installExtrasHtml('txIx');
+  ['input', 'change'].forEach(function(ev){ document.getElementById('txDate').addEventListener(ev, populateInstallSelect); });
   document.getElementById('txIxWrap').addEventListener('input', populateInstallSelect);
   document.getElementById('txIxWrap').addEventListener('change', populateInstallSelect);
   document.getElementById('txSort').addEventListener('change', function(e){ setPref('txSort', e.target.value); });
@@ -459,7 +463,8 @@ export function wireTransactions(){
       if (splitList.some(function(e){ return !e.person || !(e.value > 0); })){ toast('Informe o nome e a parte de cada pessoa.'); return; }
     }
     var n = tx.paymentMethod === 'cartao' ? clampInstall(document.getElementById('txInstall').value) : 1;
-    var ex = readInstallExtras(document, 'txIx', n);
+    var ex = readInstallExtras(document, 'txIx', n, date, tx.cardId);
+    if (n > 1 && ex.start > n){ toast('Todas as parcelas dessa compra já venceram. Confira a data da compra.'); return; }
     tx.amount = Tx.purchaseTotal(amount, n, ex.per);
     var parts = expandInstallments(tx, n, ex.start);
     var charged = sumMoney(parts, function(t){ return t.amount; });
