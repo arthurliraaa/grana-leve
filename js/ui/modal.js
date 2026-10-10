@@ -56,7 +56,7 @@ export function openModal(opts){
         if (r && r.error){ err.textContent = r.error; return; }
         if (r && r.keepOpen) return;
         close(r === undefined ? true : r);
-      } catch(ex){ err.textContent = 'Algo deu errado. Tente novamente.'; }
+      } catch(ex){ err.textContent = (ex && ex.userMessage) || 'Algo deu errado. Tente novamente.'; }
     });
     // Os ouvintes vão no elemento .modal, que é recriado a cada abertura (o #modalRoot é reaproveitado).
     attachCounters(root);

@@ -77,6 +77,15 @@ do estudo e do painel de administração.
    e-mail pelo seu. Só quem tem `role = 'admin'` acessa o painel, e isso é verificado no
    banco, não na tela.
 
+Para conferir o projeto real depois de aplicar as migrações, rode `supabase/verificar.sql`
+no SQL Editor: são 11 verificações só de leitura (tabelas, RLS, funções, admin).
+
+Para testar o app contra o projeto real, sem criar contas nem enviar e-mail:
+
+```bash
+E2E_ONLINE=1 npm run test:e2e -- 11
+```
+
 Para testar as regras sem mexer no projeto real (precisa de Podman ou Docker):
 
 ```bash
@@ -97,6 +106,15 @@ Em **Authentication → URL Configuration**:
   endereço do Vercel com `/**` no fim.
 
 Os links de confirmação de cadastro e de nova senha só voltam para esses endereços.
+
+### Modelos de e-mail (confirmação e nova senha)
+
+Em **Authentication → Email Templates**, troque os modelos **Confirm signup** e
+**Reset password** pelos arquivos de `supabase/templates/` (instruções em
+`supabase/templates/LEIA-ME.md`). Eles deixam o e-mail com a cara do Grana Leve e, mais
+importante, fazem o link abrir direto no app. O modelo padrão do Supabase quebra quando o
+Gmail, o Outlook ou um antivírus abre o link antes da pessoa: aparece
+`otp_expired / Email link is invalid or has expired`.
 
 ### Configuração do app
 
