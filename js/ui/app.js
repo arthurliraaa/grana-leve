@@ -25,6 +25,8 @@ import {termHtml} from './research-term.js';
 import {initAdmin, renderAdmin} from './admin.js';
 import {initProfile, renderProfile} from './profile.js';
 import {passwordRulesHtml, wirePasswordRules} from './password.js';
+import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
+import {lookOf, cardPaint} from '../domain/brands.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
 import {validateNewTransaction} from '../domain/validate.js';
@@ -1331,9 +1333,11 @@ function renderCards(){
     var used = cardUsed(c);
     var limit = Number(c.limit) || 0;
     var pct = limit > 0 ? Math.min(1, used/limit) : 0;
+    var look = lookOf(c), paint = look.color ? cardPaint(look.color) : null;
     return '<div class="credit-card">' +
-      '<div class="credit-card-top">' +
-        '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span></div>' +
+      '<div class="credit-card-top' + (paint ? ' painted' : '') + '"' + (paint ? ' style="background:linear-gradient(135deg,' + paint.from + ',' + paint.to + ');color:' + paint.text + '"' : '') + '>' +
+        '<div class="cc-title"><span class="bank-badge on-card" aria-hidden="true">' + escapeHtml(look.mark) + '</span>' +
+          '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span></div></div>' +
         '<div class="avail"><span class="sub">Limite disponível</span><strong class="tabular">' + fmtMoney(Math.max(0, limit - used)) + '</strong><span class="sub">de ' + fmtMoney(limit) + '</span></div>' +
       '</div>' +
       '<div class="credit-card-body">' +
@@ -1369,7 +1373,8 @@ function cardFormBody(c){
   return '<div class="field"><label for="ecName">Nome do cartão</label><input id="ecName" name="name" type="text" maxlength="40" value="' + escapeHtml(c.name||'') + '"></div>' +
     '<div class="field"><label for="ecLimit">Limite</label><span class="money-input"><span>R$</span><input id="ecLimit" name="limit" type="number" step="0.01" min="0" max="99999999" value="' + (c.limit||'') + '"></span></div>' +
     '<div class="field"><label for="ecClosing">Dia do fechamento</label><input id="ecClosing" name="closing" type="number" min="1" max="31" value="' + (c.closingDay||'') + '"></div>' +
-    '<div class="field"><label for="ecDue">Dia do vencimento</label><input id="ecDue" name="due" type="number" min="1" max="31" value="' + (c.dueDay||'') + '"></div>';
+    '<div class="field"><label for="ecDue">Dia do vencimento</label><input id="ecDue" name="due" type="number" min="1" max="31" value="' + (c.dueDay||'') + '"></div>' +
+    '<fieldset class="brand-fieldset"><legend><span id="ecPreview"></span>Cor e ícone</legend>' + pickerHtml('ecP', c) + '</fieldset>';
 }
 function readCardFields(name, limit, closing, due){
   name = String(name).trim();
@@ -1384,9 +1389,11 @@ async function editCard(id){
   var c = findById(State.cards, id);
   await openModal({
     title: 'Editar cartão', body: cardFormBody(c),
+    onOpen: function(modal){ wirePicker(modal, 'ecP', qs('#ecName', modal), qs('#ecPreview', modal)); },
     onSubmit: async function(form){
       var v = readCardFields(form.name.value, form.limit.value, form.closing.value, form.due.value);
       if (v.error) return v;
+      Object.assign(v, readPicker(form, 'ecP'));
       await Store.update(k(), 'cards', id, v);
       Object.assign(c, v);
       renderCards(); populatePaymentSelect();
@@ -1417,7 +1424,7 @@ function renderAccounts(){
     var moves = accountMoves(a);
     var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
     return '<div class="goal-card account-card">' +
-      '<div class="budget-top"><h4>' + icon('bank') + ' ' + escapeHtml(a.name) + '</h4></div>' +
+      '<div class="budget-top"><h4>' + badgeHtml(a) + '<span class="acc-name">' + escapeHtml(a.name) + '</span></h4></div>' +
       '<div class="goal-figs"><span>Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
       '<div class="meta-line"><span>Entrou no mês: ' + fmtMoney(sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; })) + '</span>' +
         '<span>Saiu no mês: ' + fmtMoney(-sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; })) + '</span></div>' +
@@ -1437,11 +1444,13 @@ async function editAccount(id){
     title: 'Editar conta',
     body: '<div class="field"><label for="eaName">Nome da conta</label><input id="eaName" name="name" type="text" maxlength="40" value="' + escapeHtml(a.name) + '"></div>' +
       '<div class="field"><label for="eaBalance">Saldo hoje</label><span class="money-input"><span>R$</span><input id="eaBalance" name="balance" type="number" step="0.01" min="-99999999" max="99999999" value="' + current + '"></span>' +
-      '<span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do banco. O app passa a contar a partir de agora.</span></div>',
+      '<span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do banco. O app passa a contar a partir de agora.</span></div>' +
+      '<fieldset class="brand-fieldset"><legend><span id="eaPreview"></span>Cor e ícone</legend>' + pickerHtml('eaP', a) + '</fieldset>',
+    onOpen: function(modal){ wirePicker(modal, 'eaP', qs('#eaName', modal), qs('#eaPreview', modal)); },
     onSubmit: async function(form){
       var name = form.name.value.trim();
       if (!name) return {error:'Dê um nome para a conta.'};
-      var patch = {name: name};
+      var patch = Object.assign({name: name}, readPicker(form, 'eaP'));
       var bal = money(form.balance.value);
       if (form.balance.value !== '' && bal !== current){ patch.initialBalance = bal; patch.baseDate = todayKey(); patch.baseAt = Date.now(); }
       await Store.update(k(), 'accounts', id, patch);
@@ -3229,15 +3238,19 @@ document.getElementById('forecastForm').addEventListener('submit', async functio
   toast('Previsão de ' + fmtMoney(amount) + ' adicionada.');
 });
 
+document.getElementById('cardPickerWrap').innerHTML = pickerHtml('ncP');
+document.getElementById('accPickerWrap').innerHTML = pickerHtml('naP');
+var newCardPicker = wirePicker(document.getElementById('cardForm'), 'ncP', document.getElementById('cardName'), document.getElementById('cardNewPreview'));
+var newAccPicker = wirePicker(document.getElementById('accountForm'), 'naP', document.getElementById('accName'), document.getElementById('accNewPreview'));
 document.getElementById('accountForm').addEventListener('submit', async function(e){
   e.preventDefault();
   var name = document.getElementById('accName').value.trim();
   var raw = document.getElementById('accBalance').value;
   if (!name){ toast('Dê um nome para a conta.'); return; }
-  var a = {name: name, initialBalance: raw === '' ? 0 : money(raw), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now()};
+  var a = Object.assign({name: name, initialBalance: raw === '' ? 0 : money(raw), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now()}, readPicker(e.target, 'naP'));
   var saved = await Store.add(k(), 'accounts', a);
   State.accounts.push(saved);
-  e.target.reset();
+  e.target.reset(); newAccPicker.reset();
   renderAll();
   toast('Conta “' + name + '” adicionada com saldo de ' + fmtMoney(a.initialBalance) + '.');
 });
@@ -3248,9 +3261,10 @@ document.getElementById('cardForm').addEventListener('submit', async function(e)
   var v = readCardFields(document.getElementById('cardName').value, document.getElementById('cardLimit').value, document.getElementById('cardClosing').value, document.getElementById('cardDue').value);
   if (v.error){ toast(v.error); return; }
   v.paidInvoices = []; v.createdAt = Date.now();
+  Object.assign(v, readPicker(e.target, 'ncP'));
   var saved = await Store.add(k(), 'cards', v);
   State.cards.push(saved);
-  e.target.reset();
+  e.target.reset(); newCardPicker.reset();
   renderCards(); populatePaymentSelect();
   toast('Cartão “' + v.name + '” adicionado.');
 });

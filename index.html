@@ -424,6 +424,7 @@
             <div class="field f-half"><label for="accName">Nome da conta</label><input id="accName" type="text" maxlength="40" placeholder="Ex: Nubank, Itaú, Caixa" required></div>
             <div class="field"><label for="accBalance">Saldo atual</label><span class="money-input"><span>R$</span><input id="accBalance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>
             <div class="f-submit-inline"><button class="btn btn-primary" type="submit">Adicionar conta</button></div>
+            <details class="brand-details f-full"><summary><span id="accNewPreview"></span>Cor e ícone <span class="tx-meta">(opcional)</span></summary><div id="accPickerWrap"></div></details>
           </form>
           <div id="accountList" class="account-grid"></div>
         </div>
@@ -435,6 +436,7 @@
             <div class="field"><label for="cardLimit">Limite</label><span class="money-input"><span>R$</span><input id="cardLimit" type="number" step="0.01" min="0" max="99999999" required></span></div>
             <div class="field"><label for="cardClosing">Dia do fechamento</label><input id="cardClosing" type="number" min="1" max="31" required placeholder="Ex: 3"></div>
             <div class="field"><label for="cardDue">Dia do vencimento</label><input id="cardDue" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
+            <details class="brand-details f-full"><summary><span id="cardNewPreview"></span>Cor e ícone <span class="tx-meta">(opcional)</span></summary><div id="cardPickerWrap"></div></details>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar cartão</button></div>
           </form>
         </div>
