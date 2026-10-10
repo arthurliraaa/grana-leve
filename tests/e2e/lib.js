@@ -58,7 +58,7 @@ export async function reload(page){
 const ROUTES = {dashboard: 'inicio', lancamentos: 'lancamentos', cartoes: 'contas', limites: 'planejar', metas: 'metas',
   compromissos: 'compromissos', aprenda: 'aprenda', conexoes: 'conexoes', perfil: 'perfil'};
 export async function tab(page, name){
-  const sub = name === 'dividas' || name === 'receber' ? name : null;
+  const sub = ['dividas', 'receber', 'fixas'].includes(name) ? name : null;
   const area = sub ? 'compromissos' : name;
   const link = '.sidenav [data-tab="' + area + '"]';
   if (await page.$eval(link, el => el.getBoundingClientRect().width > 0).catch(() => false)) await page.click(link);

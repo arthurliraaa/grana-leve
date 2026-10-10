@@ -817,3 +817,8 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .pay-log .list-row{ display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid var(--border); }
 .pay-log .list-row .tx-main{ flex:1; min-width:0; }
 .pay-log .list-row.undone .tx-desc{ text-decoration: line-through; color: var(--text-muted); }
+
+/* Contas fixas */
+.bill-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0; border-top:1px solid var(--border); }
+.bill-row .tx-main{ flex:1 1 180px; min-width:0; }
+.bill-amount{ font-weight:700; }

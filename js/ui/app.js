@@ -24,6 +24,7 @@ import * as Research from '../domain/research.js';
 import {termHtml} from './research-term.js';
 import {initAdmin, renderAdmin} from './admin.js';
 import {initProfile, renderProfile} from './profile.js';
+import {initBills, renderBills, fillBillForm, pendingBills, resetBillsView} from './bills.js';
 import {passwordRulesHtml, wirePasswordRules} from './password.js';
 import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
 import {lookOf, cardPaint} from '../domain/brands.js';
@@ -242,6 +243,7 @@ var State = {
   cards: [],
   receivables: [],
   forecasts: [],
+  bills: [],
   categories: [],
   vouchers: [],
   accounts: [],         // contas bancárias, com o saldo informado no cadastro
@@ -363,6 +365,8 @@ async function loadAllData(){
   State.vouchers = byName.vouchers;
   State.accounts = byName.accounts;
   State.transfers = byName.transfers;
+  State.bills = byName.bills || [];
+  resetBillsView();
 }
 
 
@@ -438,7 +442,8 @@ function dashboardFigures(){
   var balanceDone = money(t.incomeDone - t.expenseDone);
   return {
     t: t, expectedIncome: expectedIncome, balanceDone: balanceDone,
-    balanceEnd: money(balanceDone + expectedIncome - t.expenseScheduled),
+    billsPending: sumMoney(pendingBills().filter(function(o){ return o.key === cur.key; }), function(o){ return o.amount; }),
+    balanceEnd: money(balanceDone + expectedIncome - t.expenseScheduled - sumMoney(pendingBills().filter(function(o){ return o.key === cur.key; }), function(o){ return o.amount; })),
     invoices: Cards.invoicesSummary(State.transactions, State.cards, today),
     savedInGoals: sumMoney(State.goals.filter(function(g){ return !g.deletedAt; }), function(g){ return g.currentAmount; }),
     debtRemaining: money(sumMoney(State.debts, function(d){ return Math.max(0, Number(d.totalAmount||0)-Number(d.paidAmount||0)); })),
@@ -459,7 +464,7 @@ function renderStatTiles(){
   var month = tile('Ganhos do mês', t.incomeDone, '', f.expectedIncome > 0 ? 'Esperado ainda: + ' + fmtMoney(f.expectedIncome) : '') +
     tile('Gastos do mês', t.expenseDone, '', [t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : '',
       t.forOther > 0 ? 'Fora daqui: ' + fmtMoney(t.forOther) + ' pagos por outras pessoas' : ''].filter(Boolean).join(' · ')) +
-    tile('Saldo do mês', f.balanceDone, f.balanceDone < 0 ? 'neg' : 'pos', f.balanceEnd !== f.balanceDone ? 'Previsto no fim do mês: ' + fmtMoney(f.balanceEnd) : '');
+    tile('Saldo do mês', f.balanceDone, f.balanceDone < 0 ? 'neg' : 'pos', f.balanceEnd !== f.balanceDone ? 'Previsto no fim do mês: ' + fmtMoney(f.balanceEnd) + (f.billsPending > 0 ? ' (já tirando ' + fmtMoney(f.billsPending) + ' de contas fixas)' : '') : '');
   var now = (State.accounts.length ? tile('Disponível nas contas', totalAccountsBalance(), totalAccountsBalance() < 0 ? 'neg' : '', 'hoje, em ' + State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta')) : '') +
     (State.cards.length ? tile('Faturas a pagar', inv.toPayTotal, '', invoiceSub) : '') +
     tile('Guardado nas metas', f.savedInGoals) +
@@ -478,6 +483,10 @@ function upcomingCommitments(){
   inv.toPay.concat(inv.open).forEach(function(i){
     out.push({title: 'Fatura ' + i.card.name, amount: i.total, date: i.due, late: i.status === 'vencida' || i.due < today,
       urgency: i.status === 'vencida' ? 'alta' : 'media', note: i.status === 'aberta' ? 'fatura aberta' : '', go: 'cartoes'});
+  });
+  pendingBills().forEach(function(o){
+    out.push({title: o.b.name, amount: o.amount, date: o.date, late: o.status === 'atrasada', urgency: o.status === 'atrasada' ? 'alta' : o.status === 'logo' ? 'media' : 'baixa',
+      note: 'conta fixa', go: 'fixas'});
   });
   State.debts.forEach(function(d){
     var left = money(Math.max(0, Number(d.totalAmount || 0) - Number(d.paidAmount || 0)));
@@ -2665,6 +2674,7 @@ function renderAll(){
   renderGoals();
   renderDebts();
   renderReceivables();
+  fillBillForm(); renderBills();
   renderLearn();
   renderConnections();
 }
@@ -2674,7 +2684,7 @@ function renderAll(){
 var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
 var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
 // "Dívidas" e "A receber" agora são as duas partes de Compromissos.
-var SUBTABS = {dividas: 'eu-devo', receber: 'me-devem'};
+var SUBTABS = {dividas: 'eu-devo', receber: 'me-devem', fixas: 'contas-fixas'};
 
 function routeOf(name){ return name in SUBTABS ? 'compromissos/' + SUBTABS[name] : ROUTES[name]; }
 function tabFromHash(){
@@ -2692,7 +2702,7 @@ function showSubTab(sub){
     b.setAttribute('aria-selected', on ? 'true' : 'false');
     b.tabIndex = on ? 0 : -1;
   });
-  ['dividas', 'receber'].forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
+  ['dividas', 'receber', 'fixas'].forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
 }
 // name pode ser uma área (TABS) ou uma parte de Compromissos ('dividas', 'receber').
 function showTab(name){
@@ -3371,6 +3381,12 @@ document.getElementById('forgotBtn').addEventListener('click', forgotPassword);
 document.getElementById('signupPwRulesWrap').innerHTML = passwordRulesHtml('signupPwRules');
 wirePasswordRules(document.getElementById('signupPassword'), document.getElementById('signupPwRules'));
 initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn, siteUrl: siteUrl});
+initBills({
+  state: function(){ return State; }, k: k, paymentOptions: paymentOptions, applyPayment: applyPayment,
+  catOptions: function(){ return catOptions(expenseCats()); }, catLabel: function(id){ return catLabel(id, 'expense'); }, renderAll: renderAll,
+  addTx: async function(tx){ var list = await saveTransactions([tx]); return list[0]; },
+  removeTx: async function(id){ await Store.remove(k(), 'transactions', id); State.transactions = State.transactions.filter(function(t){ return t.id !== id; }); }
+});
 initProfile({
   state: function(){ return State; },
   onNameChange: function(name){
@@ -3434,7 +3450,8 @@ qsa('#tab-compromissos [data-sub]').forEach(function(b){
   b.addEventListener('keydown', function(e){
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     e.preventDefault();
-    var next = b.getAttribute('data-sub') === 'dividas' ? 'receber' : 'dividas';
+    var order = ['dividas', 'receber', 'fixas'], i = order.indexOf(b.getAttribute('data-sub'));
+    var next = order[(i + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
     showTab(next);
     document.getElementById('segbtn-' + next).focus();
   });

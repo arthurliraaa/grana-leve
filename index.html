@@ -508,6 +508,7 @@
         <div class="segmented seg-wide" role="tablist" aria-label="Tipo de compromisso">
           <button type="button" role="tab" id="segbtn-dividas" aria-controls="tab-dividas" data-sub="dividas" aria-selected="true">Eu devo</button>
           <button type="button" role="tab" id="segbtn-receber" aria-controls="tab-receber" data-sub="receber" aria-selected="false" tabindex="-1">Me devem</button>
+          <button type="button" role="tab" id="segbtn-fixas" aria-controls="tab-fixas" data-sub="fixas" aria-selected="false" tabindex="-1">Contas fixas</button>
         </div>
       <!-- Dívidas -->
       <div id="tab-dividas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-dividas">
@@ -557,6 +558,31 @@
           </form>
         </div>
         <div id="recvGrid" class="debt-grid"></div>
+      </div>
+      <!-- Contas fixas -->
+      <div id="tab-fixas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-fixas" hidden>
+        <p class="tab-intro">Contas que se repetem: água, luz, internet, aluguel, assinaturas. O app mostra os vencimentos de cada mês e, ao pagar, lança o gasto sozinho.</p>
+        <div class="card">
+          <div class="card-head"><h3>Nova conta fixa</h3></div>
+          <form id="billForm" class="new-item-form">
+            <div class="field"><label for="billName">Nome</label><input id="billName" type="text" list="billNames" autocomplete="off" maxlength="60" required placeholder="Ex: Internet"><datalist id="billNames"></datalist></div>
+            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
+            <div class="field"><label for="billDay">Dia do vencimento</label><input id="billDay" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
+            <div class="field"><label for="billEvery">Frequência</label><select id="billEvery"></select></div>
+            <div class="field"><label for="billCat">Categoria</label><select id="billCat"></select></div>
+            <div class="field"><label for="billPay">Forma de pagamento</label><select id="billPay"></select></div>
+            <div class="field"><label for="billStart">A partir de</label><input id="billStart" type="month" required></div>
+            <div class="f-submit-inline"><button class="btn btn-primary" type="submit">Adicionar conta</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Vencimentos</h3>
+            <div class="month-switch"><button type="button" id="billPrev" aria-label="Mês anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+              <strong id="billMonthLabel"></strong>
+              <button type="button" id="billNext" aria-label="Próximo mês"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div></div>
+          <div id="billMonth"></div>
+        </div>
+        <div id="billGrid" class="debt-grid"></div>
       </div>
       </div>
 

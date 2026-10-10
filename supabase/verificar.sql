@@ -48,5 +48,9 @@ with checks(ordem, verificacao, ok, detalhe) as (
   select 11, 'Conta comum não muda o próprio papel',
     not has_column_privilege('authenticated', 'public.profiles', 'role', 'update')
     and not has_column_privilege('authenticated', 'public.profiles', 'blocked', 'update'), 'role e blocked protegidos'
+  union all
+  select 12, 'Contas fixas liberadas (migração 20261010000000)',
+    coalesce((select pg_get_constraintdef(oid) like '%bills%' from pg_constraint where conname = 'user_data_collection_check'), false),
+    'coleção bills em user_data'
 )
 select case when ok then '✅' else '❌' end as status, verificacao, detalhe from checks order by ordem;
