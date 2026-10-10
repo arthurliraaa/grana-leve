@@ -36,8 +36,11 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 
 - **A compra conta como gasto na data da compra** (no mês em que foi feita), não no mês em
   que a fatura é paga.
-- A fatura é identificada pelo **mês em que fecha**. Compra feita até o dia de fechamento
-  entra na fatura daquele mês; depois do fechamento, na fatura seguinte.
+- Como nos bancos, a fatura leva o **nome do mês em que vence** (fecha 31/10 e vence 07/11 =
+  fatura de novembro). Internamente ela é guardada pelo mês em que fecha.
+- Compra feita **antes** do dia de fechamento entra na fatura que está aberta; compra feita
+  **no dia do fechamento ou depois** já vai para a fatura seguinte. Em mês mais curto, o
+  fechamento cai no último dia (fecha 31 → fecha 30/09).
 - O vencimento cai no mesmo mês do fechamento quando o dia de vencimento é maior que o de
   fechamento; senão, no mês seguinte. Em mês mais curto, usa o último dia.
 - Situação da fatura: **aberta** (ainda recebe compras), **fechada** (fechou, ainda não

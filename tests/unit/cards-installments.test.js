@@ -1,13 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {invoiceKeyFor, invoiceDates, invoiceItems, invoiceTotal, invoiceStatus, cardUsed, invoicesSummary} from '../../js/domain/cards.js';
+import {invoiceKeyFor, invoiceDates, invoiceLabel, invoiceItems, invoiceTotal, invoiceStatus, cardUsed, invoicesSummary} from '../../js/domain/cards.js';
 import {expandInstallments, installmentGroups, monthTotals, clampInstall, installHint} from '../../js/domain/transactions.js';
 
 const card = {id: 'c1', name: 'Nubank', closingDay: 3, dueDay: 10};
 const buy = (id, date, amount) => ({id, type: 'expense', amount, category: 'compras', date, paymentMethod: 'cartao', cardId: 'c1', createdAt: 1});
 
 test('compra até o fechamento fica na fatura do mês; depois, na seguinte', () => {
-  assert.equal(invoiceKeyFor('2026-10-03', card), '2026-10');
+  assert.equal(invoiceKeyFor('2026-10-02', card), '2026-10');
+  assert.equal(invoiceKeyFor('2026-10-03', card), '2026-11', 'compra no dia do fechamento já vai para a seguinte (como nos bancos)');
   assert.equal(invoiceKeyFor('2026-10-04', card), '2026-11');
   assert.equal(invoiceKeyFor('2026-12-20', card), '2027-01');
 });
@@ -20,11 +21,12 @@ test('vencimento no mesmo mês ou no seguinte, conforme os dias', () => {
 });
 
 test('itens, total e situação da fatura', () => {
-  const list = [buy('a', '2026-10-01', 100), buy('b', '2026-10-03', 50.5), buy('c', '2026-10-05', 20),
+  const list = [buy('a', '2026-10-01', 100), buy('b', '2026-10-02', 50.5), buy('c', '2026-10-05', 20),
     {id: 'd', type: 'expense', amount: 999, date: '2026-10-02', paymentMethod: 'conta'}];
   assert.deepEqual(invoiceItems(list, card, '2026-10').map(t => t.id), ['a', 'b']);
   assert.equal(invoiceTotal(list, card, '2026-10'), 150.5);
   assert.equal(invoiceStatus(card, '2026-10', '2026-10-02'), 'aberta');
+  assert.equal(invoiceStatus(card, '2026-10', '2026-10-03'), 'fechada', 'no dia do fechamento já está fechada');
   assert.equal(invoiceStatus(card, '2026-10', '2026-10-05'), 'fechada');
   assert.equal(invoiceStatus(card, '2026-10', '2026-10-11'), 'vencida');
   assert.equal(invoiceStatus({...card, paidInvoices: ['2026-10']}, '2026-10', '2026-10-11'), 'paga');
@@ -92,4 +94,21 @@ test('faturas a pagar: fechadas ou vencidas e não pagas; aberta separada', () =
   assert.deepEqual(s.open.map(i => [i.key, i.total]), [['2026-11', 15]]);
   const paid = invoicesSummary(list, [{...card, paidInvoices: ['2026-09']}], '2026-10-08');
   assert.equal(paid.toPayTotal, 40);
+});
+
+test('cartão que fecha dia 31 e vence dia 7 (exemplo do Inter)', () => {
+  const inter = {id: 'i', name: 'Inter', closingDay: 31, dueDay: 7};
+  const k = invoiceKeyFor('2026-10-04', inter);
+  assert.equal(k, '2026-10');
+  assert.deepEqual(invoiceDates(k, inter), {closing: '2026-10-31', due: '2026-11-07'});
+  assert.equal(invoiceLabel(k, inter), 'novembro de 2026', 'compra de 04/10 cai na fatura que vence em novembro');
+  assert.equal(invoiceKeyFor('2026-10-31', inter), '2026-11', 'no dia do fechamento já vai para a seguinte');
+  assert.equal(invoiceLabel('2026-11', inter), 'dezembro de 2026');
+  assert.equal(invoiceKeyFor('2026-09-30', inter), '2026-10', 'em setembro (30 dias) fecha no dia 30');
+  assert.equal(invoiceKeyFor('2026-09-29', inter), '2026-09');
+  assert.equal(invoiceKeyFor('2027-02-28', inter), '2027-03', 'em fevereiro fecha no dia 28');
+});
+
+test('vencimento depois do fechamento no mesmo mês: nome é o próprio mês', () => {
+  assert.equal(invoiceLabel('2026-10', card), 'outubro de 2026');
 });

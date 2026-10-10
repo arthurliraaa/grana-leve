@@ -4,7 +4,7 @@
  * depois dele: ganhos e gastos ligados à conta, transferências e faturas pagas com ela.
  * Lançamentos com data futura só entram quando a data chega.
  */
-import {monthLabelOf} from './dates.js';
+import {invoiceLabel} from './cards.js';
 import {money, sumMoney} from './money.js';
 import {findById} from './util.js';
 
@@ -32,7 +32,7 @@ export function accountMoves(a, data, today, txLabel){
     var pays = c.invoicePayments || {};
     Object.keys(pays).forEach(function(key){
       var p = pays[key];
-      if (p.accountId === a.id) add(p.date, p.createdAt, -Number(p.amount), 'Fatura ' + c.name + ' de ' + monthLabelOf(key), 'Pagamento de fatura');
+      if (p.accountId === a.id) add(p.date, p.createdAt, -Number(p.amount), 'Fatura ' + c.name + ' de ' + invoiceLabel(key, c), 'Pagamento de fatura');
     });
   });
   return out.sort(function(x, y){ return y.date.localeCompare(x.date) || y.createdAt - x.createdAt; });

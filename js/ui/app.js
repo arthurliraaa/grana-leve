@@ -11,7 +11,7 @@ import {CUSTOM_COLORS} from '../domain/categories.js';
 import * as Tx from '../domain/transactions.js';
 import {MAX_INSTALLMENTS, clampInstall} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
-import {invoiceKeyFor, invoiceDates} from '../domain/cards.js';
+import {invoiceKeyFor, invoiceDates, invoiceLabel} from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
 import * as Accounts from '../domain/accounts.js';
@@ -553,7 +553,7 @@ function renderSummary(){
 var CALC_RULES = [
   ['Realizado e agendado', 'Ganhos e gastos do mês contam só o que tem data até hoje. O que tem data mais para frente no mês (uma parcela, um gasto agendado) aparece como “Agendado” e entra na previsão do fim do mês.'],
   ['Esperado', 'Soma as previsões de entrada ainda não recebidas e os ganhos com data futura no mês.'],
-  ['Cartão de crédito', 'A compra conta como gasto na data da compra, no mês em que foi feita. Ela entra na fatura do mês em que a fatura fecha: compra feita depois do dia de fechamento vai para a fatura seguinte.'],
+  ['Cartão de crédito', 'A compra conta como gasto na data da compra, no mês em que foi feita. Como nos bancos, a fatura leva o nome do mês em que vence, e a compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.'],
   ['Pagar a fatura', 'Não é um gasto novo (as compras já contaram). Se você escolher uma conta ao marcar a fatura como paga, o valor sai do saldo dessa conta.'],
   ['Faturas a pagar', 'Soma as faturas que já fecharam e não foram marcadas como pagas. A fatura aberta, que ainda recebe compras, aparece embaixo.'],
   ['Parcelas', 'Cada parcela é um gasto no mês dela. Os centavos que sobram da divisão ficam na 1ª parcela. As parcelas futuras somam em “Dívida restante”.'],
@@ -1293,7 +1293,7 @@ async function cardReport(cardId){
     var d = data();
     var w = pdfWriter('Relatório do cartão ' + c.name, labelOf(periods, st.period) + '  ·  ' + labelOf(cats, st.cat));
     w.section('Por fatura'); w.header(['Fatura', 'Total'], [220, 140]);
-    d.rows.forEach(function(r){ w.row([monthLabelOf(r.key), fmtMoney(r.total)], [220, 140]); });
+    d.rows.forEach(function(r){ w.row([invoiceLabel(r.key, c), fmtMoney(r.total)], [220, 140]); });
     w.row(['Total', fmtMoney(d.total)], [220, 140], {bold:true}); w.space(12);
     w.section('Por categoria');
     if (!d.catRows.length) w.text('Nenhuma compra no período.');
@@ -1345,7 +1345,7 @@ function renderCards(){
         '<div class="invoice-head">' +
           '<div class="month-switch">' +
             '<button type="button" data-inv-shift="' + c.id + '" data-dir="-1" aria-label="Fatura anterior">' + icon('chevron-left') + '</button>' +
-            '<strong>Fatura de ' + monthLabelOf(key) + '</strong>' +
+            '<strong>Fatura de ' + invoiceLabel(key, c) + '</strong>' +
             '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button>' +
           '</div>' +
           '<span class="status-pill ' + INVOICE_PILL[status] + '">' + status + ((c.invoicePayments || {})[key] ? ' com ' + escapeHtml(accountName(c.invoicePayments[key].accountId)) : '') + '</span>' +
@@ -1355,7 +1355,7 @@ function renderCards(){
         (items.length ? '<details class="budget-details"><summary>Ver ' + items.length + ' compra(s)</summary>' + items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
         (function(){
           var gs = installmentGroups().filter(function(g){ return g.cardId === c.id && g.future.length; });
-          return gs.length ? '<details class="budget-details" open><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '';
+          return gs.length ? '<details class="budget-details"><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '';
         })() +
         '<div class="card-actions">' +
           '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Ver fatura em PDF</button>' +
@@ -1505,7 +1505,7 @@ async function toggleInvoicePaid(cardId, key){
       var opts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (saldo ' + fmtMoney(accountBalance(a)) + ')'}; }).concat([{id:'', label:'Não descontar de nenhuma conta'}]);
       var choice = await openModal({
         title: 'Pagar fatura',
-        body: '<p>Fatura de ' + monthLabelOf(key) + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
+        body: '<p>Fatura de ' + invoiceLabel(key, card) + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
           '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(opts, State.accounts[0].id) + '</select></div>' +
           '<div class="field"><label for="ipDate">Data do pagamento</label><input id="ipDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
           '<p class="field-hint">Pode ser a conta de outro banco: o valor sai do saldo da conta escolhida.</p>',
@@ -1586,7 +1586,7 @@ function generateInvoicePdf(cardId, key){
   var c = findById(State.cards, cardId);
   var items = invoiceItems(c, key);
   var dates = invoiceDates(key, c);
-  var w = pdfWriter('Fatura ' + c.name + ' · ' + monthLabelOf(key), (State.session ? State.session.name : '') + '  ·  Fecha ' + formatDateFull(dates.closing) + '  ·  Vence ' + formatDateFull(dates.due));
+  var w = pdfWriter('Fatura ' + c.name + ' · ' + invoiceLabel(key, c), (State.session ? State.session.name : '') + '  ·  Fecha ' + formatDateFull(dates.closing) + '  ·  Vence ' + formatDateFull(dates.due));
   w.section('Resumo');
   w.row(['Total da fatura', fmtMoney(sum(items, function(t){ return t.amount; }))], [200, 200], {bold:true});
   w.row(['Situação', invoiceStatus(c, key)], [200, 200]);
@@ -1600,7 +1600,7 @@ function generateInvoicePdf(cardId, key){
     items.forEach(function(t){ w.row([formatDateFull(t.date), t.description || '-', catLabel(t.category, 'expense', t.categoryLabel), fmtMoney(t.amount)], widths); });
   }
   w.footer();
-  showPdf(w.doc, 'grana-leve-fatura-' + c.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + key + '.pdf', 'Fatura ' + c.name + ' · ' + monthLabelOf(key));
+  showPdf(w.doc, 'grana-leve-fatura-' + c.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + key + '.pdf', 'Fatura ' + c.name + ' · ' + invoiceLabel(key, c));
 }
 
 function pct1(n){ return (Math.round(n*10)/10).toString().replace('.',','); }
