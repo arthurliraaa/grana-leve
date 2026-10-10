@@ -28,7 +28,7 @@ L.run(async ({page}) => {
   for (let i = 0; i < 5; i++) await L.addTx(page, {amount: 10 + i, category: 'alimentacao'});
   for (const theme of ['light', 'dark']){
     await page.evaluate(t => document.documentElement.setAttribute('data-theme', t), theme);
-    for (const t of ['dashboard', 'lancamentos', 'cartoes', 'limites', 'metas', 'dividas', 'receber', 'aprenda', 'conexoes']){
+    for (const t of ['dashboard', 'lancamentos', 'cartoes', 'limites', 'metas', 'dividas', 'receber', 'aprenda', 'conexoes', 'perfil']){
       await L.tab(page, t);
       await audit((theme === 'dark' ? 'escuro' : 'claro') + ' · ' + t);
     }

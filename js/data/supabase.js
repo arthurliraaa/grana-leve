@@ -60,6 +60,12 @@ export function createSupabaseStore(client, collections){
     // Link do e-mail (modelos em supabase/templates): o token vem no endereço e só é usado aqui,
     // quando o app abre de verdade. Pré-visualização de link (Gmail, antivírus) não o gasta.
     async verifyEmailLink(tokenHash, type){ return check(await client.auth.verifyOtp({token_hash: tokenHash, type: type})); },
+    // Troca de e-mail: com "Secure email change" (padrão do Supabase), chega um link no e-mail atual
+    // e outro no novo; a troca só vale depois de confirmar.
+    async updateEmail(email, redirectTo){ return check(await client.auth.updateUser({email: email}, {emailRedirectTo: redirectTo})); },
+    // Confere a senha atual antes de trocar (entrar de novo com ela; erro = senha errada).
+    async checkPassword(email, password){ return check(await client.auth.signInWithPassword({email: email, password: password})); },
+    async signOutAll(){ studyCode = undefined; await client.auth.signOut({scope: 'global'}); },
     async resendConfirmation(email, redirectTo){ return check(await client.auth.resend({type: 'signup', email: email, options: {emailRedirectTo: redirectTo}})); },
 
     /* ---------- Perfil ---------- */
