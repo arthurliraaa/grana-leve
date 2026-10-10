@@ -178,3 +178,12 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   planejamento, gráficos) entra só a sua parte, proporcional em cada parcela.
 - Cada pessoa vira um "A receber" ligado à compra, com a parte dela (parcelado como a compra,
   no mesmo cartão). O que ela devolver é devolução, não ganho.
+
+## Bancos e cartões
+
+- Um cadastro por banco: a conta (saldo), o cartão de crédito (limite, fechamento e vencimento)
+  ou os dois. Conta e cartão continuam sendo registros separados, ligados por `card.accountId`.
+- A tela mostra um bloco por banco: a conta e o(s) cartão(ões) do mesmo banco. Registros antigos
+  sem vínculo são juntados pelo banco reconhecido (cor/ícone) ou pelo nome.
+- A fatura é paga, por padrão, pela conta escolhida no cartão; senão, pela conta ligada a ele;
+  senão, pela conta do mesmo banco.

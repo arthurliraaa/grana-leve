@@ -436,37 +436,32 @@
         <p class="tab-intro">Cadastre suas contas de banco, seus cartões de crédito e seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela, as transferências e as faturas pagas. Cada gasto no cartão entra sozinho na fatura certa, e os gastos no vale descontam do saldo.</p>
         <div id="walletSummary" class="wallet-summary" aria-live="polite"></div>
         <nav class="jump-chips" aria-label="Ir para uma parte da página">
-          <button type="button" class="chip" data-jump="secAccounts">Contas</button>
-          <button type="button" class="chip" data-jump="secCards">Cartões</button>
+          <button type="button" class="chip" data-jump="secBanks">Bancos e cartões</button>
           <button type="button" class="chip" data-jump="secVouchers">Vales</button>
         </nav>
-        <div class="card" id="secAccounts">
+        <div class="card" id="secBanks">
           <div class="card-head">
-            <h3>Contas bancárias</h3>
+            <h3>Bancos e cartões</h3>
             <button class="btn btn-ghost btn-sm" type="button" id="transferBtn" hidden><svg class="ico"><use href="#i-swap"/></svg>Transferir entre contas</button>
           </div>
-          <p class="card-sub">Informe o saldo que a conta tem hoje. Daqui para frente, os ganhos e gastos lançados nela, as transferências e as faturas pagas com ela atualizam o saldo.</p>
-          <form id="accountForm" class="new-item-form">
-            <div class="field f-half"><label for="accName">Nome da conta</label><input id="accName" type="text" maxlength="40" placeholder="Ex: Nubank, Itaú, Caixa" required></div>
-            <div class="field"><label for="accBalance">Saldo atual</label><span class="money-input"><span>R$</span><input id="accBalance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>
-            <div class="f-submit-inline"><button class="btn btn-primary" type="submit">Adicionar conta</button></div>
+          <p class="card-sub">Cadastre cada banco uma vez: o saldo da conta e, se tiver, o cartão de crédito do mesmo banco. Cartão sem conta, como o de uma loja? Marque só “Cartão de crédito”.</p>
+          <form id="accountForm" class="new-item-form bank-form">
+            <div class="field f-half"><label for="accName">Nome do banco</label><input id="accName" type="text" maxlength="40" placeholder="Ex: Nubank, Itaú, Caixa" required></div>
+            <fieldset class="radio-group f-half bank-parts"><legend>O que você tem nesse banco?</legend>
+              <label class="check"><input type="checkbox" id="bankHasAcc" checked> Conta (saldo)</label>
+              <label class="check"><input type="checkbox" id="bankHasCard"> Cartão de crédito</label>
+            </fieldset>
+            <div class="field" data-bank-part="acc"><label for="accBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="accBalance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>
+            <div class="field" data-bank-part="card" hidden><label for="cardLimit">Limite do cartão</label><span class="money-input"><span>R$</span><input id="cardLimit" type="number" step="0.01" min="0" max="99999999"></span></div>
+            <div class="field" data-bank-part="card" hidden><label for="cardClosing">Dia do fechamento da fatura</label><input id="cardClosing" type="number" min="1" max="31" placeholder="Ex: 3"></div>
+            <div class="field" data-bank-part="card" hidden><label for="cardDue">Dia do vencimento da fatura</label><input id="cardDue" type="number" min="1" max="31" placeholder="Ex: 10"></div>
+            <p class="field-hint f-full" data-bank-part="card" hidden>Como a fatura funciona: a compra entra na fatura que ainda não fechou. Compra feita no dia do fechamento já vai para a próxima. Se o mês não tem o dia escolhido (ex.: 31), vale o último dia do mês.</p>
             <details class="brand-details f-full"><summary><span id="accNewPreview"></span>Cor e ícone <span class="tx-meta">(opcional)</span></summary><div id="accPickerWrap"></div></details>
+            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar</button></div>
           </form>
-          <div id="accountList" class="account-grid"></div>
+          <div id="bankList" class="stack-lg"></div>
         </div>
 
-        <div class="card" id="secCards">
-          <div class="card-head"><h3>Novo cartão</h3></div>
-          <form id="cardForm" class="new-item-form">
-            <div class="field"><label for="cardName">Nome do cartão</label><input id="cardName" type="text" maxlength="40" placeholder="Ex: Nubank, Inter" required></div>
-            <div class="field"><label for="cardLimit">Limite</label><span class="money-input"><span>R$</span><input id="cardLimit" type="number" step="0.01" min="0" max="99999999" required></span></div>
-            <div class="field"><label for="cardClosing">Dia do fechamento</label><input id="cardClosing" type="number" min="1" max="31" required placeholder="Ex: 3"></div>
-            <div class="field"><label for="cardDue">Dia do vencimento</label><input id="cardDue" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
-            <details class="brand-details f-full"><summary><span id="cardNewPreview"></span>Cor e ícone <span class="tx-meta">(opcional)</span></summary><div id="cardPickerWrap"></div></details>
-            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar cartão</button></div>
-          </form>
-        </div>
-        <div id="cardList" class="stack-lg"></div>
 
         <div class="card" id="secVouchers">
           <div class="card-head"><h3>Vale-alimentação / refeição</h3></div>

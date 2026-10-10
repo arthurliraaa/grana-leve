@@ -8,7 +8,7 @@ L.run(async ({page}) => {
   await L.signup(page);
   const yesterday = L.dayOffset(-1), tomorrow = L.dayOffset(1);
   const bal = async name => page.evaluate((name) => {
-    const card = [...document.querySelectorAll('#accountList .account-card')].find(c => c.querySelector('.acc-name').textContent.trim() === name);
+    const card = [...document.querySelectorAll('#bankList .account-card')].find(c => c.querySelector('.acc-name').textContent.trim() === name);
     return card ? card.querySelector('.account-balance').textContent : null;
   }, name).then(t => t === null ? null : L.moneyOf(t));
   // Mês das datas de ontem/amanhã: só contam no total do mês se forem do mês atual.
@@ -23,7 +23,7 @@ L.run(async ({page}) => {
   await page.click('#typeToggle [data-type="expense"]');
   await L.tab(page, 'cartoes');
   L.ok(await L.text(page, '.sidenav [data-tab="cartoes"]') === 'Contas e cartões', 'menu tem “Contas e cartões”');
-  L.ok(/Nenhuma conta cadastrada/.test(await L.text(page, '#accountList')), 'mensagem de nenhuma conta');
+  L.ok(/Nenhum banco cadastrado/.test(await L.text(page, '#bankList')), 'mensagem de nenhum banco cadastrado');
   L.ok(await page.$eval('#transferBtn', el => el.hidden), 'sem botão de transferir');
 
   L.section('Cadastrar contas');
@@ -87,10 +87,10 @@ L.run(async ({page}) => {
   L.ok(L.moneyOf(tiles.match(/Gastos do mês\s*(R\$\s?[\d.,]+)/)[1]) === expensesMonth, 'transferência não conta como gasto');
   L.ok(/Disponível nas contas\s*R\$\s?1\.700,00/.test(tiles), 'total nas contas continua igual');
   await L.tab(page, 'cartoes');
-  await page.evaluate(() => document.querySelectorAll('#accountList details').forEach(x => { x.open = true; }));
-  const accTxt = await L.text(page, '#accountList');
+  await page.evaluate(() => document.querySelectorAll('#bankList details').forEach(x => { x.open = true; }));
+  const accTxt = await L.text(page, '#bankList');
   L.ok(/Para Itaú · reserva/.test(accTxt) && /De Nubank · reserva/.test(accTxt), 'movimentações mostram a transferência nas duas contas');
-  await page.click('#accountList [data-transfer-del]'); await L.sleep(150);
+  await page.click('#bankList [data-transfer-del]'); await L.sleep(150);
   await L.submitModal(page);
   L.ok(await bal('Nubank') === 900 && await bal('Itaú') === 800, 'excluir a transferência devolve os saldos');
 
@@ -109,7 +109,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#ipAcc', it.id);
   await L.submitModal(page);
   L.ok(await bal('Itaú') === 550 && await bal('Nubank') === 900, 'fatura do cartão Nubank paga com o Itaú: Itaú 550');
-  L.ok(/paga com Itaú/.test(await L.text(page, '#cardList')), 'fatura mostra “paga com Itaú”');
+  L.ok(/paga com Itaú/.test(await L.text(page, '#bankList')), 'fatura mostra “paga com Itaú”');
   L.ok(/conta Itaú/.test(await L.lastToast(page)), 'toast cita a conta');
   await L.tab(page, 'dashboard');
   const tiles2 = await L.text(page, '#statTiles');

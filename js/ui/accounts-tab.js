@@ -10,13 +10,13 @@ import {invoiceLabel} from '../domain/cards.js';
 import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
 import {lookOf} from '../domain/brands.js';
 import {Store} from '../data/store.js';
-import {qs, escapeHtml, optionsHtml, icon, toast} from './dom.js';
+import {escapeHtml, icon, optionsHtml, qs, qsa, toast} from './dom.js';
 import {openModal} from './modal.js';
-import {readCardFields, renderCards, renderWalletSummary} from './cards-tab.js';
+import {cardHtml, readCardFields, renderCards, renderWalletSummary} from './cards-tab.js';
 import {renderStatTiles, txRowHtml} from './home-tab.js';
 import {renderAll} from './shell.js';
 import {State, accountBalance, accountMoves, accountName, invoiceItems, k, voucherBalance, voucherTx} from './state.js';
-import {populatePaymentSelect} from './tx-list.js';
+import {fold, populatePaymentSelect} from './tx-list.js';
 
 /* ---------- Contas bancárias ---------- */
 
@@ -30,27 +30,98 @@ export function moveRowHtml(m){
     '</div>';
 }
 
-export function renderAccounts(){
+// Contas e cartões ficam juntos, um bloco por banco (renderCards também chama esta função).
+export function renderAccounts(){ renderBanks(); }
+
+// Um bloco por banco: a conta (saldo) e o(s) cartão(ões) do mesmo banco. O vínculo vem de
+// card.accountId; registros antigos sem vínculo são juntados pelo banco reconhecido ou pelo nome.
+export function bankGroups(){
+  var out = [], used = {};
+  function key(x){ var b = lookOf(x).bank; return b ? 'b:' + b.id : 'n:' + fold(String(x.name || '').trim()); }
+  State.accounts.forEach(function(a){
+    var cards = State.cards.filter(function(c){ return c.accountId === a.id; });
+    cards.forEach(function(c){ used[c.id] = true; });
+    out.push({acc: a, cards: cards});
+  });
+  out.forEach(function(g){
+    if (g.cards.length) return;
+    g.cards = State.cards.filter(function(c){ return !used[c.id] && !findById(State.accounts, c.accountId) && key(c) === key(g.acc); });
+    g.cards.forEach(function(c){ used[c.id] = true; });
+  });
+  State.cards.forEach(function(c){ if (!used[c.id]) out.push({acc: null, cards: [c]}); });
+  return out;
+}
+export function accountHtml(a){
+  var cur = monthBounds(0).key, bal = accountBalance(a), moves = accountMoves(a);
+  var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
+  return '<div class="goal-card account-card">' +
+    '<div class="budget-top"><h4>' + badgeHtml(a) + '<span class="acc-name">' + escapeHtml(a.name) + '</span></h4><span class="pill">Conta</span></div>' +
+    '<div class="goal-figs"><span>Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
+    '<div class="meta-line"><span>Entrou no mês: ' + fmtMoney(sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; })) + '</span>' +
+      '<span>Saiu no mês: ' + fmtMoney(-sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; })) + '</span></div>' +
+    (moves.length ? '<details class="budget-details"><summary>Ver movimentações (' + moves.length + ')</summary>' + moves.slice(0, 40).map(moveRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma movimentação desde o cadastro.</p>') +
+    '<div class="card-actions">' +
+      (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
+      '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar conta</button>' +
+      '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir conta</button>' +
+    '</div></div>';
+}
+export function renderBanks(){
   document.getElementById('transferBtn').hidden = State.accounts.length < 2;
-  var wrap = document.getElementById('accountList');
-  if (!State.accounts.length){ wrap.innerHTML = '<p class="empty-state">Nenhuma conta cadastrada. Adicione acima para acompanhar o saldo de cada banco.</p>'; return; }
-  var cur = monthBounds(0).key;
-  wrap.innerHTML = State.accounts.map(function(a){
-    var bal = accountBalance(a);
-    var moves = accountMoves(a);
-    var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
-    return '<div class="goal-card account-card">' +
-      '<div class="budget-top"><h4>' + badgeHtml(a) + '<span class="acc-name">' + escapeHtml(a.name) + '</span></h4></div>' +
-      '<div class="goal-figs"><span>Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
-      '<div class="meta-line"><span>Entrou no mês: ' + fmtMoney(sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; })) + '</span>' +
-        '<span>Saiu no mês: ' + fmtMoney(-sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; })) + '</span></div>' +
-      (moves.length ? '<details class="budget-details"><summary>Ver movimentações (' + moves.length + ')</summary>' + moves.slice(0, 40).map(moveRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma movimentação desde o cadastro.</p>') +
-      '<div class="card-actions">' +
-        (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
-        '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar</button>' +
-        '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir</button>' +
-      '</div></div>';
+  var wrap = document.getElementById('bankList');
+  var groups = bankGroups();
+  if (!groups.length){ wrap.innerHTML = '<p class="empty-state">Nenhum banco cadastrado. Adicione acima a conta e, se tiver, o cartão de crédito.</p>'; return; }
+  wrap.innerHTML = groups.map(function(g){
+    var first = g.acc || g.cards[0];
+    return '<section class="bank-block" aria-label="' + escapeHtml(first.name) + '">' +
+      (g.acc ? accountHtml(g.acc) :
+        '<div class="bank-only-card"><span class="tx-meta">Só cartão, sem conta neste banco.</span>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-bank-addacc="' + g.cards[0].id + '">' + icon('plus') + 'Adicionar a conta</button></div>') +
+      g.cards.map(cardHtml).join('') +
+      (g.acc && !g.cards.length ? '<button class="btn btn-ghost btn-sm bank-add-card" type="button" data-bank-addcard="' + g.acc.id + '">' + icon('plus') + 'Adicionar cartão de crédito deste banco</button>' : '') +
+      '</section>';
   }).join('');
+}
+// Cartão novo num banco que já tem conta: mesmo nome, mesmo visual e ligado à conta.
+export async function addCardToBank(accId){
+  var a = findById(State.accounts, accId);
+  await openModal({
+    title: 'Cartão de crédito · ' + a.name,
+    body: '<div class="field"><label for="bcLimit">Limite</label><span class="money-input"><span>R$</span><input id="bcLimit" name="limit" type="number" step="0.01" min="0" max="99999999"></span></div>' +
+      '<div class="field"><label for="bcClosing">Dia do fechamento da fatura</label><input id="bcClosing" name="closing" type="number" min="1" max="31"></div>' +
+      '<div class="field"><label for="bcDue">Dia do vencimento da fatura</label><input id="bcDue" name="due" type="number" min="1" max="31"></div>' +
+      '<p class="field-hint">A compra entra na fatura que ainda não fechou; no dia do fechamento já vai para a próxima.</p>',
+    submitLabel: 'Adicionar cartão',
+    onSubmit: async function(form){
+      var v = readCardFields(a.name, form.limit.value, form.closing.value, form.due.value);
+      if (v.error) return v;
+      Object.assign(v, {accountId: a.id, bank: a.bank || null, color: a.color || null, mark: a.mark || null, paidInvoices: [], createdAt: Date.now()});
+      State.cards.push(await Store.add(k(), 'cards', v));
+      renderAll();
+      toast('Cartão do ' + a.name + ' adicionado.');
+      return true;
+    }
+  });
+}
+// Conta nova para um cartão que estava sozinho: liga os dois.
+export async function addAccountToBank(cardId){
+  var c = findById(State.cards, cardId);
+  await openModal({
+    title: 'Conta · ' + c.name,
+    body: '<div class="field"><label for="baBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="baBalance" name="balance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>',
+    submitLabel: 'Adicionar conta',
+    onSubmit: async function(form){
+      var a = {name: c.name, initialBalance: form.balance.value === '' ? 0 : money(form.balance.value), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now(),
+        bank: c.bank || null, color: c.color || null, mark: c.mark || null};
+      var saved = await Store.add(k(), 'accounts', a);
+      State.accounts.push(saved);
+      await Store.update(k(), 'cards', c.id, {accountId: saved.id});
+      c.accountId = saved.id;
+      renderAll();
+      toast('Conta do ' + c.name + ' adicionada com saldo de ' + fmtMoney(a.initialBalance) + '.');
+      return true;
+    }
+  });
 }
 
 export async function editAccount(id){
@@ -112,6 +183,7 @@ export async function openTransfer(fromId){
 // Conta que paga a fatura: a escolhida no cartão; senão, a do mesmo banco; senão, a primeira.
 export function payAccountFor(card){
   if (card.payAccountId && findById(State.accounts, card.payAccountId)) return card.payAccountId;
+  if (card.accountId && findById(State.accounts, card.accountId)) return card.accountId;
   var bank = lookOf(card).bank;
   var same = bank && State.accounts.filter(function(a){ var b = lookOf(a).bank; return b && b.id === bank.id; })[0];
   return same ? same.id : (State.accounts[0] ? State.accounts[0].id : '');
@@ -202,35 +274,44 @@ export async function editVoucher(id){
 
 // Eventos de Contas e cartões: formulários de conta, cartão e vale, e transferência.
 export function wireWallet(){
-  document.getElementById('cardPickerWrap').innerHTML = pickerHtml('ncP');
   document.getElementById('accPickerWrap').innerHTML = pickerHtml('naP');
-  var newCardPicker = wirePicker(document.getElementById('cardForm'), 'ncP', document.getElementById('cardName'), document.getElementById('cardNewPreview'));
   var newAccPicker = wirePicker(document.getElementById('accountForm'), 'naP', document.getElementById('accName'), document.getElementById('accNewPreview'));
+  var hasAcc = document.getElementById('bankHasAcc'), hasCard = document.getElementById('bankHasCard');
+  function syncParts(){
+    qsa('[data-bank-part="acc"]').forEach(function(el){ el.hidden = !hasAcc.checked; });
+    qsa('[data-bank-part="card"]').forEach(function(el){ el.hidden = !hasCard.checked; });
+  }
+  [hasAcc, hasCard].forEach(function(el){ el.addEventListener('change', syncParts); });
+  document.getElementById('accountForm').addEventListener('reset', function(){ setTimeout(syncParts, 0); });
+  // Um cadastro por banco: a conta (saldo), o cartão (limite e datas da fatura) ou os dois, já ligados.
   document.getElementById('accountForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var name = document.getElementById('accName').value.trim();
-    var raw = document.getElementById('accBalance').value;
-    if (!name){ toast('Dê um nome para a conta.'); return; }
-    var a = Object.assign({name: name, initialBalance: raw === '' ? 0 : money(raw), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now()}, readPicker(e.target, 'naP'));
-    var saved = await Store.add(k(), 'accounts', a);
-    State.accounts.push(saved);
+    if (!name){ toast('Dê um nome para o banco.'); return; }
+    if (!hasAcc.checked && !hasCard.checked){ toast('Marque o que você tem nesse banco: conta, cartão ou os dois.'); return; }
+    var look = readPicker(e.target, 'naP'), cardV = null;
+    if (hasCard.checked){
+      cardV = readCardFields(name, document.getElementById('cardLimit').value, document.getElementById('cardClosing').value, document.getElementById('cardDue').value);
+      if (cardV.error){ toast(cardV.error); return; }
+    }
+    var raw = document.getElementById('accBalance').value, acc = null;
+    if (hasAcc.checked){
+      acc = await Store.add(k(), 'accounts', Object.assign({name: name, initialBalance: raw === '' ? 0 : money(raw), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now()}, look));
+      State.accounts.push(acc);
+    }
+    if (cardV){
+      Object.assign(cardV, look, {accountId: acc ? acc.id : null, paidInvoices: [], createdAt: Date.now()});
+      State.cards.push(await Store.add(k(), 'cards', cardV));
+    }
     e.target.reset(); newAccPicker.reset();
     renderAll();
-    toast('Conta “' + name + '” adicionada com saldo de ' + fmtMoney(a.initialBalance) + '.');
+    toast(name + ' adicionado' + (acc ? ': conta com saldo de ' + fmtMoney(acc.initialBalance) : ':') + (cardV ? (acc ? ' e ' : ' ') + 'cartão com limite de ' + fmtMoney(cardV.limit) : '') + '.');
   });
   document.getElementById('transferBtn').addEventListener('click', function(){ openTransfer(); });
-
-  document.getElementById('cardForm').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var v = readCardFields(document.getElementById('cardName').value, document.getElementById('cardLimit').value, document.getElementById('cardClosing').value, document.getElementById('cardDue').value);
-    if (v.error){ toast(v.error); return; }
-    v.paidInvoices = []; v.createdAt = Date.now();
-    Object.assign(v, readPicker(e.target, 'ncP'));
-    var saved = await Store.add(k(), 'cards', v);
-    State.cards.push(saved);
-    e.target.reset(); newCardPicker.reset();
-    renderCards(); populatePaymentSelect();
-    toast('Cartão “' + v.name + '” adicionado.');
+  document.getElementById('bankList').addEventListener('click', function(e){
+    var b;
+    if ((b = e.target.closest('[data-bank-addcard]'))) addCardToBank(b.getAttribute('data-bank-addcard'));
+    else if ((b = e.target.closest('[data-bank-addacc]'))) addAccountToBank(b.getAttribute('data-bank-addacc'));
   });
 
   document.getElementById('voucherForm').addEventListener('submit', async function(e){
