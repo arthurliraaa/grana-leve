@@ -380,6 +380,7 @@
             <div class="field" id="txInstallField" hidden><label for="txInstall">Parcelas</label>
               <div class="stepper"><button type="button" data-step="-1" data-for="txInstall" aria-label="Menos parcelas">−</button><input id="txInstall" type="number" min="1" max="24" step="1" value="1" inputmode="numeric"><span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="txInstall" aria-label="Mais parcelas">+</button></div>
               <span class="field-hint tabular" id="txInstallHint">À vista</span></div>
+            <div class="f-full" id="txIxWrap"></div>
             <div class="field f-half"><label for="txDesc">Descrição (opcional)</label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             <div class="field f-half" id="txForOtherField">
               <label class="check"><input type="checkbox" id="txForOther"> Paguei por outra pessoa e ela vai me devolver</label>
@@ -402,6 +403,7 @@
           <div class="tx-filters" role="search">
             <input id="txSearch" type="search" maxlength="60" placeholder="Buscar por descrição ou categoria" aria-label="Buscar lançamentos">
             <select id="txFilterType" aria-label="Filtrar por tipo"><option value="all">Ganhos e gastos</option><option value="income">Só ganhos</option><option value="expense">Só gastos</option><option value="others">Pagos por outras pessoas</option></select>
+            <select id="txSort" aria-label="Ordenar a lista"><option value="recent">Mais recentes primeiro</option><option value="added">Ordem de cadastro</option><option value="amount">Maior valor primeiro</option></select>
             <select id="txFilterPay" aria-label="Filtrar por forma de pagamento"><option value="all">Qualquer pagamento</option><option value="conta">Dinheiro, Pix ou débito</option><option value="cartao">Cartão de crédito</option><option value="vale">Vale</option></select>
           </div>
           <p class="card-sub" id="txSummary"></p>

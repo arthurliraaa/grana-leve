@@ -118,3 +118,23 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   gasto seu na data de hoje, sem mexer em conta nem cartão (o dinheiro já tinha saído).
 - Compras parceladas no cartão aparecem só em "Contas e cartões". "Eu devo" e "Dívida
   restante" mostram apenas as dívidas cadastradas, com as parcelas do cartão citadas à parte.
+
+## Compras parceladas: em andamento, valor por parcela e edição
+
+- No cadastro, o valor digitado pode ser **o total da compra** ou **o valor de cada parcela**
+  (o total vira parcela × número de parcelas).
+- **Parcela atual**: para uma compra que já estava em andamento (ex.: 7 de 18), só as parcelas
+  7 a 18 viram lançamentos; a 7ª cai na data informada. As anteriores contam como pagas antes
+  do cadastro (não entram em meses passados nem aparecem como atrasadas ou adiantadas).
+- O valor de **uma parcela** pode ser editado sozinho (ex.: juros); o total da compra acompanha.
+- **Editar a compra inteira** refaz as parcelas com valores iguais (total, número de parcelas,
+  parcela atual, cartão, data, categoria e descrição). Compras com parcelas adiantadas não podem
+  ser refeitas por aqui.
+
+## Pagamentos de dívidas e recebimentos
+
+- "Registrar pagamento" aceita **várias parcelas de uma vez**, pergunta de qual conta saiu e se
+  conta como gasto do mês. Se não contar, o lançamento só mexe no saldo da conta.
+- Cada pagamento (e cada recebimento em "Me devem") fica num **histórico**. "Desfazer" devolve o
+  valor à dívida (ou ao que falta receber) e remove o lançamento ligado, mas o registro continua
+  no histórico, marcado como desfeito.

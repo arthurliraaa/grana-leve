@@ -160,9 +160,9 @@ L.run(async ({page}) => {
   await page.type('#debtName', 'Empréstimo'); await page.type('#debtTotal', '1000');
   await page.click('#debtForm button[type=submit]'); await L.sleep(200);
   await page.click('[data-debt-pay]'); await L.sleep(150);
-  await page.$eval('#askAmount', el => { el.value = ''; });
-  await page.type('#askAmount', '100');
-  await L.setVal(page, '#askAcc', it.id);
+  await page.$eval('#dpAmount', el => { el.value = ''; });
+  await page.type('#dpAmount', '100');
+  await L.setVal(page, '#dpAcc', it.id);
   await L.submitModal(page);
   await L.tab(page, 'receber');
   await page.type('#recvPerson', 'Bia'); await page.type('#recvTotal', '80');
