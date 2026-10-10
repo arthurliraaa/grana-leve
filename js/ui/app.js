@@ -24,6 +24,7 @@ import * as Research from '../domain/research.js';
 import {termHtml} from './research-term.js';
 import {initAdmin, renderAdmin} from './admin.js';
 import {initProfile, renderProfile} from './profile.js';
+import {passwordRulesHtml, wirePasswordRules} from './password.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup, readBackup} from '../data/backup.js';
 import {validateNewTransaction} from '../domain/validate.js';
@@ -2571,9 +2572,10 @@ async function newPasswordModal(){
   var done = await openModal({
     title: 'Escolha a nova senha',
     cancelLabel: 'Cancelar e sair',
+    onOpen: function(modal){ wirePasswordRules(qs('#npPass', modal), qs('#npPwRules', modal)); },
     body: '<p>Por segurança, defina a nova senha para continuar. Se cancelar, você sai da conta.</p>' +
       '<div class="field"><label for="npPass">Nova senha</label><input id="npPass" name="pass" type="password" autocomplete="new-password" minlength="6" maxlength="128">' +
-      '<span class="field-hint">Mínimo de 6 caracteres, com pelo menos uma letra e um número.</span></div>' +
+      passwordRulesHtml('npPwRules') + '</div>' +
       '<div class="field"><label for="npPass2">Repita a nova senha</label><input id="npPass2" name="pass2" type="password" autocomplete="new-password" maxlength="128"></div>',
     submitLabel: 'Salvar nova senha',
     onSubmit: async function(form){
@@ -3006,6 +3008,8 @@ document.getElementById('txInstall').addEventListener('input', populateInstallSe
 });
 document.getElementById('manageCatsBtn').addEventListener('click', manageCategories);
 document.getElementById('forgotBtn').addEventListener('click', forgotPassword);
+document.getElementById('signupPwRulesWrap').innerHTML = passwordRulesHtml('signupPwRules');
+wirePasswordRules(document.getElementById('signupPassword'), document.getElementById('signupPwRules'));
 initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn});
 initProfile({
   state: function(){ return State; },

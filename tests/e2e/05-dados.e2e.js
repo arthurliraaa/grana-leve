@@ -13,7 +13,7 @@ L.run(async ({browser, page}) => {
   await page.click('[data-action="go-signup"]');
   const notice = await L.text(page, '#signupForm .storage-notice[data-local-only]');
   L.ok(/só neste navegador/.test(notice) && /não é sincronizada/.test(notice) && /não existe recuperação de senha/.test(notice), 'cadastro explica: só neste navegador, sem sincronização, sem recuperar senha');
-  await page.type('#signupName', 'Bia'); await page.type('#signupEmail', 'bia' + Date.now() + '@teste.com'); await page.type('#signupPassword', 'senha123');
+  await page.type('#signupName', 'Bia'); await page.type('#signupEmail', 'bia' + Date.now() + '@teste.com'); await page.type('#signupPassword', 'senha@123');
   await page.click('#signupForm button[type=submit]'); await L.sleep(200);
   L.ok(/Confirme que entendeu/.test(await L.text(page, '#signupError')), 'sem marcar “Entendi” não cria a conta');
   await page.click('[data-authtab="login"]');

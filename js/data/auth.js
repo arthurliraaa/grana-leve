@@ -32,9 +32,22 @@ export async function verifyPassword(user, email, password){
   var legacy = await sha256Hex('granaleve::' + email.toLowerCase() + '::' + password);
   return {ok: safeEqual(legacy, user.passwordHash), legacy:true};
 }
+// Regras da senha (valem ao criar ou trocar). Os caracteres especiais são os mesmos que o
+// Supabase reconhece como símbolo, para o app e o servidor concordarem; acento não conta.
+export var PASSWORD_SYMBOLS = '!@#$%^&*()_+-=[]{};\':"|<>?,./`~\\';
+export var PASSWORD_RULES = [
+  {id: 'length', label: 'Pelo menos 6 caracteres', test: function(pw){ return pw.length >= 6; }},
+  {id: 'letter', label: 'Uma letra', test: function(pw){ return /[a-zA-Z]/.test(pw); }},
+  {id: 'number', label: 'Um número', test: function(pw){ return /[0-9]/.test(pw); }},
+  {id: 'symbol', label: 'Um caractere especial (como ! @ # $ %)', test: function(pw){
+    for (var i = 0; i < pw.length; i++) if (PASSWORD_SYMBOLS.indexOf(pw[i]) >= 0) return true;
+    return false;
+  }}
+];
 export function passwordProblem(pw){
   if (pw.length < 6) return 'A senha precisa ter pelo menos 6 caracteres.';
   if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) return 'Use pelo menos uma letra e um número na senha.';
+  if (!PASSWORD_RULES[3].test(pw)) return 'Use pelo menos um caractere especial na senha (como ! @ # $ %).';
   return '';
 }
 export function sanitizeEmailKey(email){
