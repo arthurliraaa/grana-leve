@@ -227,3 +227,13 @@ test('gravação rápida: edição numa ida só, lotes e volta ao jeito antigo s
   await S2.update('u1', 'transactions', t.id, {amount: 6});
   assert.ok(!old.calls.includes('rpc:patch_docs'), 'depois de saber que falta a migração, não tenta de novo');
 });
+
+test('captcha com domínio não autorizado: explica na hora', async () => {
+  const {captchaError} = await import('../../js/ui/captcha.js');
+  const c = fakeClient();
+  c.auth = {async signInWithPassword(){ return {data: {}, error: null}; }};
+  const S = createSupabaseStore(c, COLLS);
+  S.setCaptcha(async () => { throw captchaError('110200'); });
+  await assert.rejects(S.signIn('a@b.com', 'x'), e => /não está liberada para este endereço/.test(authMessage(e.cause)));
+  assert.match(captchaError('300030').userMessage, /desconfiou deste navegador/);
+});

@@ -19,6 +19,7 @@ var AUTH_MESSAGES = [
   [/failed to fetch|network/i, 'Sem conexão com o servidor. Verifique a internet e tente de novo.']
 ];
 export function authMessage(error){
+  if (error && error.userMessage) return error.userMessage;   // explicação já pronta (ex.: captcha)
   var msg = (error && (error.message || error.error_description)) || '';
   // Detalhe técnico no console do navegador (F12), para diagnosticar sem mostrar à pessoa.
   if (typeof console !== 'undefined' && error) console.warn('[Grana Leve] erro do login:', error.status || '', error.code || '', msg);
@@ -59,8 +60,8 @@ export function createSupabaseStore(client, collections){
     catch(e){
       // Sem internet o captcha nem carrega: a mensagem certa é a de conexão, não a de robô.
       var off = typeof navigator !== 'undefined' && navigator.onLine === false;
-      throw Object.assign(new Error(off ? 'Failed to fetch' : 'captcha failed'), {cause: {message: off ? 'Failed to fetch' : 'captcha failed'}, offline: off,
-        userMessage: off ? OFFLINE_MESSAGE : AUTH_MESSAGES[0][1]});
+      var msg = off ? OFFLINE_MESSAGE : (e && e.userMessage) || AUTH_MESSAGES[0][1];
+      throw Object.assign(new Error(off ? 'Failed to fetch' : 'captcha failed'), {cause: {message: off ? 'Failed to fetch' : 'captcha failed', userMessage: off ? undefined : msg}, offline: off, userMessage: msg});
     }
   }
 
