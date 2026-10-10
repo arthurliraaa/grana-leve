@@ -86,6 +86,54 @@ var HOW_TO = [
   ['Conexões', 'mostra as integrações: app no celular e Google Agenda (já disponíveis), WhatsApp e Open Finance (em preparação).'],
   ['Seus dados e backup', 'abre pelo indicador “Só neste navegador”, no topo, ou pelo rodapé. Mostra onde os dados ficam e quando foi o último backup. Salve um backup de vez em quando: seus dados existem só neste navegador.']
 ];
+// Textos da versão com servidor (Supabase). A versão só no navegador continua em INFO_PAGES.
+var ONLINE_PAGES = {
+  'privacidade': {title: 'Política de privacidade', body:
+    '<div class="term">' +
+    '<p class="term-meta">Atualizada em 10/10/2026</p>' +
+    '<p>O Grana Leve guarda sua conta e seus dados num servidor no Brasil, para você usar o app em qualquer aparelho. Esta página explica o que guardamos, quem vê e como você controla seus dados.</p>' +
+    '<h4>Quem é responsável</h4>' +
+    '<p>O Grana Leve é um projeto de extensão do curso de Engenharia de Software, mantido por Arthur Lira. Contato: github.com/arthurliraaa/grana-leve (aba Issues).</p>' +
+    '<h4>O que guardamos</h4>' +
+    '<ul><li><strong>Conta:</strong> nome, e-mail e senha. A senha é protegida pelo serviço de login: ninguém consegue lê-la, nem a administração do app.</li>' +
+      '<li><strong>O que você registra:</strong> lançamentos, contas, cartões, metas, dívidas, valores a receber, previsões, planejamento e categorias.</li>' +
+      '<li><strong>Neste aparelho:</strong> preferências como o tema e os avisos ficam só no seu navegador.</li></ul>' +
+    '<h4>Para que usamos</h4>' +
+    '<p>Só para o app funcionar para você (LGPD, art. 7º, V: execução do serviço que você pediu). Não vendemos, não usamos para propaganda e não compartilhamos seus dados.</p>' +
+    '<h4>Quem pode ver</h4>' +
+    '<p>Só você. As regras do banco impedem que outras pessoas, inclusive a administração do app, leiam seus lançamentos e valores. A administração vê apenas seu nome, e-mail, data de cadastro e último acesso (para suporte e para atender pedidos de exclusão) e números de uso somados de todas as pessoas.</p>' +
+    '<h4>Onde os dados ficam</h4>' +
+    '<ul><li><strong>Banco de dados e login:</strong> Supabase, na região São Paulo (Brasil).</li>' +
+      '<li><strong>Site:</strong> Vercel, que hospeda as páginas e registra dados técnicos de acesso (como o endereço IP) por segurança.</li></ul>' +
+    '<h4>Por quanto tempo</h4>' +
+    '<p>Enquanto sua conta existir. Ao excluir a conta, tudo é apagado do banco na hora. Cópias de segurança do provedor podem guardar os dados por um período limitado até serem substituídas.</p>' +
+    '<h4>Seus direitos (LGPD, art. 18)</h4>' +
+    '<ul><li><strong>Ver e levar seus dados:</strong> “Seus dados e backup” → “Salvar backup”.</li>' +
+      '<li><strong>Corrigir:</strong> edite qualquer registro no próprio app.</li>' +
+      '<li><strong>Excluir:</strong> botão “Apagar minha conta e dados”, abaixo.</li>' +
+      '<li><strong>Pesquisa acadêmica:</strong> é opcional e separada; você entra ou sai em “Seus dados e backup”. Veja o Termo da pesquisa.</li>' +
+      '<li>Outros pedidos: use o contato acima.</li></ul>' +
+    '<p>Não usamos cookies de rastreamento nem anúncios.</p>' +
+    '</div>'},
+  'termos': {title: 'Termos de uso', body:
+    '<div class="term">' +
+    '<p class="term-meta">Atualizados em 10/10/2026</p>' +
+    '<p>O Grana Leve é um projeto acadêmico, gratuito, oferecido “como está”. Ele ajuda a organizar suas finanças, mas não substitui orientação profissional.</p>' +
+    '<h4>Sua conta</h4>' +
+    '<ul><li>Use um e-mail seu e guarde a senha com cuidado. Se esquecer, crie outra pelo “Esqueci minha senha”.</li>' +
+      '<li>Você é responsável pelo que registra na sua conta.</li></ul>' +
+    '<h4>Uso adequado</h4>' +
+    '<p>Não use o Grana Leve para atividades ilegais, nem tente acessar dados de outras pessoas ou atrapalhar o serviço. Contas usadas assim podem ser bloqueadas.</p>' +
+    '<h4>Disponibilidade</h4>' +
+    '<ul><li>O app precisa de internet para abrir sua conta e salvar. Ele pode ficar fora do ar por manutenção ou por limites dos serviços gratuitos que usa.</li>' +
+      '<li>Se o projeto for encerrado, avisaremos antes, com tempo para você salvar um backup.</li>' +
+      '<li>Recomendamos salvar um backup de vez em quando em “Seus dados e backup”.</li></ul>' +
+    '<h4>Conteúdo educativo</h4>' +
+    '<p>As dicas da aba Aprenda são educativas e não são recomendação de investimento.</p>' +
+    '<h4>Mudanças</h4>' +
+    '<p>Se estes termos mudarem de forma importante, avisaremos no app.</p>' +
+    '</div>'}
+};
 var OPEN_FINANCE_BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Mercado Pago','PicPay'];
 var INFO_PAGES = {
   'sobre': {title:'Sobre o projeto', body:
@@ -2427,7 +2475,40 @@ function renderBackupBanner(){
 function siteUrl(){ return location.origin + location.pathname; }
 // Depois do link do e-mail (?code=...), limpa o endereço para não ficar com o código à mostra.
 function cleanAuthParams(){
-  if (/[?&](code|error|error_description)=/.test(location.search)) history.replaceState(null, '', siteUrl() + location.hash);
+  if (/[?&](code|error|error_description|token_hash|type)=/.test(location.search)) history.replaceState(null, '', siteUrl() + location.hash);
+}
+// Volta do link do e-mail (?token_hash=...&type=email|recovery). O token só é usado aqui, com o
+// app aberto de verdade. Retorna null (não veio de link), {ok, type} ou {error, type}.
+async function handleEmailLink(){
+  var q = new URLSearchParams(location.search);
+  var h = new URLSearchParams(location.hash.replace(/^#\/?/, ''));
+  var tokenHash = q.get('token_hash'), type = q.get('type') || h.get('type');
+  var failed = q.get('error_description') || h.get('error_description') || q.get('error_code') || h.get('error_code');
+  if (!tokenHash && !failed) return null;
+  history.replaceState(null, '', siteUrl());   // o token não fica no endereço nem no histórico
+  if (failed || !type) return {error: true, type: type};
+  try { await Store.verifyEmailLink(tokenHash, type); return {ok: true, type: type}; }
+  catch(e){ return {error: true, type: type, offline: /fetch|network/i.test(String(e && e.message))}; }
+}
+async function linkProblemModal(link){
+  var recovery = link.type === 'recovery';
+  if (link.offline){ toast('Sem conexão com o servidor. Abra o link de novo quando a internet voltar.'); return; }
+  var r = await openModal({
+    title: 'Este link expirou ou já foi usado',
+    body: '<p>' + (recovery ? 'O link para criar uma nova senha vale por pouco tempo e só pode ser usado uma vez.' :
+        'O link de confirmação vale por pouco tempo e só pode ser usado uma vez. Se você já confirmou, é só entrar.') + '</p>' +
+      (recovery ? '' : '<div class="field"><label for="lkEmail">Seu e-mail</label><input id="lkEmail" name="email" type="email" autocomplete="username" maxlength="120"></div>'),
+    submitLabel: recovery ? 'Pedir um novo link' : 'Enviar novo link', cancelLabel: 'Agora não',
+    onSubmit: async function(form){
+      if (recovery) return {forgot: true};
+      var email = form.email.value.trim();
+      if (!validEmail(email)) return {error: 'Informe um e-mail válido.'};
+      try { await Store.resendConfirmation(email, siteUrl()); } catch(err){ return {error: authMessage(err.cause || err)}; }
+      return {sent: true};
+    }
+  });
+  if (r && r.forgot) forgotPassword();
+  if (r && r.sent) toast('Enviamos um novo link. Ele chega em alguns minutos.');
 }
 async function startOnlineSession(user){
   var profile = await Store.getUser(user.id).catch(function(){ return null; });
@@ -2438,7 +2519,17 @@ async function startOnlineSession(user){
     return;
   }
   State.session = {emailKey: user.id, name: (profile && profile.name) || (user.user_metadata && user.user_metadata.name) || user.email.split('@')[0], email: user.email};
-  await enterApp();
+  try { await enterApp(); }
+  catch(e){
+    // Sem conexão (ou servidor fora do ar): não mostra um app vazio como se não houvesse dados.
+    State.session = null;
+    showView('viewLanding'); renderTopbar();
+    var retry = await openModal({title: 'Não foi possível abrir sua conta',
+      body: '<p>' + (e && e.offline || navigator.onLine === false ? 'Você está sem internet. O Grana Leve precisa de conexão para abrir sua conta.' :
+        'O servidor não respondeu agora. Seus dados continuam salvos.') + '</p>',
+      submitLabel: 'Tentar de novo', cancelLabel: 'Fechar'});
+    if (retry) location.reload();
+  }
 }
 async function forgotPassword(){
   var r = await openModal({
@@ -2556,10 +2647,11 @@ async function dataModal(){
     'o navegador pode apagar estes dados se faltar espaço no aparelho. Por isso o backup é importante.';
   await openModal({
     title: 'Seus dados e backup',
-    body: '<div class="storage-status">' + icon('lock') + '<div><strong>' + (local ? 'Onde ficam: só neste navegador' : 'Onde ficam: na nuvem deste app') + '</strong>' +
+    body: '<div class="storage-status">' + icon('lock') + '<div><strong>' + (local ? 'Onde ficam: só neste navegador' : Store.mode === 'supabase' ? 'Onde ficam: na sua conta' : 'Onde ficam: na nuvem deste app') + '</strong>' +
         (local ? '<ul><li>Não sincroniza com outros aparelhos e não tem recuperação de senha.</li><li>Proteção: ' + persistText + '</li>' +
           '<li>Último backup: <strong>' + (last ? formatDateFull(toDateKey(new Date(last))) + ' (' + daysAgoText(last) + ')' : 'nunca') + '</strong></li></ul>' :
-          '<p>Seus dados ficam salvos no armazenamento do app e aparecem onde você abrir este app.</p>') +
+          (Store.mode === 'supabase' ? '<p>Na sua conta, num servidor no Brasil (São Paulo). Aparecem em qualquer aparelho em que você entrar, e só você vê seus lançamentos.</p>' :
+            '<p>Seus dados ficam salvos no armazenamento do app e aparecem onde você abrir este app.</p>')) +
       '</div></div>' +
       '<div class="tip-box"><strong>Agora você tem:</strong> ' + backupCounts() + '.</div>' +
       '<div class="research-status"><strong>Pesquisa acadêmica</strong><span id="researchStatus">' + researchStatusHtml() + '</span>' +
@@ -2603,6 +2695,14 @@ async function dataModal(){
 
 async function showInfo(id){
   if (id === 'backup'){ dataModal(); return; }
+  if (Store.mode === 'supabase' && ONLINE_PAGES[id]){
+    var online = ONLINE_PAGES[id];
+    var del = id === 'privacidade' && State.session;
+    var go = await openModal({title: online.title, body: online.body, wide: true,
+      submitLabel: del ? 'Apagar minha conta e dados' : null, danger: true, cancelLabel: 'Fechar'});
+    if (go && del) deleteMyAccount();
+    return;
+  }
   if (id === 'pesquisa'){
     await openModal({title: 'Termo de consentimento da pesquisa', wide: true, body: termHtml(Store.mode === 'supabase'), submitLabel: null, cancelLabel: 'Fechar'});
     return;
@@ -2616,18 +2716,19 @@ async function showInfo(id){
     title: page.title, body: page.body, wide: false,
     submitLabel: canDelete ? 'Apagar minha conta e dados' : null, danger: true, cancelLabel: 'Fechar'
   });
-  if (r && canDelete){
-    var ok = await confirmAction({title:'Apagar conta?', message: Store.mode === 'supabase' ?
-      'Sua conta, todos os seus lançamentos, cartões, metas, dívidas, valores a receber e a participação no estudo serão apagados do servidor. Isso não pode ser desfeito.' :
-      'Todos os seus lançamentos, cartões, metas, dívidas e valores a receber serão apagados deste navegador. Isso não pode ser desfeito.', confirmLabel:'Apagar tudo'});
-    if (!ok) return;
-    try { await Store.deleteUser(k()); }
-    catch(err){ toast('Não foi possível excluir a conta agora. Tente de novo.'); return; }
-    try{ localStorage.removeItem(prefsKey()); } catch(e){}
-    State.session = State.session && Store.mode === 'supabase' ? null : State.session;
-    logout();
-    toast('Conta e dados apagados.');
-  }
+  if (r && canDelete) deleteMyAccount();
+}
+async function deleteMyAccount(){
+  var ok = await confirmAction({title:'Apagar conta?', message: Store.mode === 'supabase' ?
+    'Sua conta, todos os seus lançamentos, cartões, metas, dívidas, valores a receber e a participação no estudo serão apagados do servidor. Isso não pode ser desfeito.' :
+    'Todos os seus lançamentos, cartões, metas, dívidas e valores a receber serão apagados deste navegador. Isso não pode ser desfeito.', confirmLabel:'Apagar tudo'});
+  if (!ok) return;
+  try { await Store.deleteUser(k()); }
+  catch(err){ toast('Não foi possível excluir a conta agora. Tente de novo.'); return; }
+  try{ localStorage.removeItem(prefsKey()); } catch(e){}
+  State.session = State.session && Store.mode === 'supabase' ? null : State.session;
+  logout();
+  toast('Conta e dados apagados.');
 }
 
 /* ============ Event wiring ============ */
@@ -2884,7 +2985,19 @@ initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: T
 window.addEventListener('unhandledrejection', function(e){
   if (Store.mode !== 'supabase') return;
   e.preventDefault();
-  toast('Não foi possível falar com o servidor. Verifique a internet e tente de novo.');
+  toast((e.reason && e.reason.userMessage) || 'Não foi possível falar com o servidor. Verifique a internet e tente de novo.');
+});
+// Sem internet (só no modo com servidor): aviso fixo; quando volta, recarrega os dados do servidor.
+function syncOnlineState(){
+  var offline = Store.mode === 'supabase' && navigator.onLine === false;
+  document.getElementById('offlineBar').hidden = !offline;
+  document.body.classList.toggle('is-offline', offline);
+}
+window.addEventListener('offline', syncOnlineState);
+window.addEventListener('online', async function(){
+  syncOnlineState();
+  if (Store.mode !== 'supabase' || !State.session) return;
+  try { await loadAllData(); renderAll(); toast('Conexão de volta. Seus dados foram atualizados.'); } catch(e){ /* tenta de novo no próximo evento */ }
 });
 // Previsões de entrada: ficam recolhidas no card de novo lançamento.
 function setForecastOpen(open){
@@ -3222,6 +3335,7 @@ document.getElementById('calcHelpBtn').addEventListener('click', calcHelp);
 async function boot(){
   Store.onWriteError = function(){ toast('Não foi possível salvar: o armazenamento do navegador está cheio ou bloqueado.'); };
   await Store.init();
+  syncOnlineState();
   if (Store.cloudError){
     var retry = await openModal({
       title: 'Não foi possível acessar seus dados',
@@ -3233,14 +3347,23 @@ async function boot(){
   }
   if (Store.mode === 'supabase'){
     Store.onAuthChange(function(event){
-      if (event === 'PASSWORD_RECOVERY') setTimeout(newPasswordModal, 0);
+      if (event === 'PASSWORD_RECOVERY' && !State.handlingLink) setTimeout(newPasswordModal, 0);
       if (event === 'SIGNED_OUT' && State.session){ State.session = null; logout(); }
     });
+    State.handlingLink = true;
+    var link = await handleEmailLink();
+    State.handlingLink = false;
     try {
       var current = await Store.getSession();
       cleanAuthParams();
-      if (current){ await startOnlineSession(current.user); return; }
+      if (current){
+        await startOnlineSession(current.user);
+        if (link && link.ok && link.type === 'recovery') newPasswordModal();
+        else if (link && link.ok) toast('E-mail confirmado! Bem-vindo(a) ao Grana Leve.');
+        return;
+      }
     } catch(e){ toast('Sem conexão com o servidor. Verifique a internet.'); }
+    if (link && link.error){ renderTopbar(); showView('viewLanding'); await linkProblemModal(link); return; }
     renderTopbar();
     showView('viewLanding');
     return;

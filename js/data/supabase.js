@@ -13,6 +13,7 @@ var AUTH_MESSAGES = [
   [/user already registered|already been registered/i, 'Já existe uma conta com esse e-mail. Tente entrar.'],
   [/rate limit|too many requests|security purposes/i, 'Muitas tentativas seguidas. Espere um pouco e tente de novo.'],
   [/password should be at least|weak password/i, 'A senha é fraca. Use pelo menos 6 caracteres, com letras e números.'],
+  [/expired|invalid.*(token|link|otp)|otp/i, 'Este link expirou ou já foi usado. Peça um novo.'],
   [/failed to fetch|network/i, 'Sem conexão com o servidor. Verifique a internet e tente de novo.']
 ];
 export function authMessage(error){
@@ -21,8 +22,15 @@ export function authMessage(error){
   return 'Não foi possível concluir agora. Tente novamente.';
 }
 
+export var OFFLINE_MESSAGE = 'Sem internet: nada foi salvo. Tente de novo quando a conexão voltar.';
+function isNetworkError(e){ return /failed to fetch|network|load failed|fetch/i.test(String(e && (e.message || e))); }
+// Erro com uma mensagem pronta para a tela (userMessage).
 function check(res){
-  if (res.error) throw Object.assign(new Error(res.error.message || 'Erro no servidor'), {cause: res.error});
+  if (res.error){
+    var offline = isNetworkError(res.error) || (typeof navigator !== 'undefined' && navigator.onLine === false);
+    throw Object.assign(new Error(res.error.message || 'Erro no servidor'), {cause: res.error, offline: offline,
+      userMessage: offline ? OFFLINE_MESSAGE : 'O servidor recusou a operação. Recarregue a página e tente de novo.'});
+  }
   return res.data;
 }
 function docOf(obj){ var d = Object.assign({}, obj); delete d.id; return d; }
@@ -46,6 +54,10 @@ export function createSupabaseStore(client, collections){
     async signOut(){ studyCode = undefined; await client.auth.signOut(); },
     async resetPassword(email, redirectTo){ return check(await client.auth.resetPasswordForEmail(email, {redirectTo: redirectTo})); },
     async updatePassword(password){ return check(await client.auth.updateUser({password: password})); },
+    // Link do e-mail (modelos em supabase/templates): o token vem no endereço e só é usado aqui,
+    // quando o app abre de verdade. Pré-visualização de link (Gmail, antivírus) não o gasta.
+    async verifyEmailLink(tokenHash, type){ return check(await client.auth.verifyOtp({token_hash: tokenHash, type: type})); },
+    async resendConfirmation(email, redirectTo){ return check(await client.auth.resend({type: 'signup', email: email, options: {emailRedirectTo: redirectTo}})); },
 
     /* ---------- Perfil ---------- */
     async getUser(id){
