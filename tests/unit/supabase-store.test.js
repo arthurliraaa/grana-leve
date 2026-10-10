@@ -128,9 +128,13 @@ test('estudo: registra eventos só com código e nunca trava o app', async () =>
 });
 
 test('mensagens de login em português', () => {
+  const warn = console.warn; console.warn = () => {};
   assert.equal(authMessage({message: 'Invalid login credentials'}), 'E-mail ou senha incorretos.');
   assert.match(authMessage({message: 'Email not confirmed'}), /Confirme seu e-mail/);
   assert.match(authMessage({message: 'email rate limit exceeded'}), /Muitas tentativas/);
   assert.match(authMessage({message: 'Failed to fetch'}), /Sem conexão/);
   assert.match(authMessage({message: 'algo inesperado'}), /Não foi possível/);
+  assert.match(authMessage({message: 'Error sending recovery email', status: 500}), /Não conseguimos enviar o e-mail/);
+  assert.match(authMessage({message: 'Error sending confirmation email'}), /Não conseguimos enviar o e-mail/);
+  console.warn = warn;
 });

@@ -13,11 +13,14 @@ var AUTH_MESSAGES = [
   [/user already registered|already been registered/i, 'Já existe uma conta com esse e-mail. Tente entrar.'],
   [/rate limit|too many requests|security purposes/i, 'Muitas tentativas seguidas. Espere um pouco e tente de novo.'],
   [/password should be at least|weak password/i, 'A senha é fraca. Use pelo menos 6 caracteres, com letras e números.'],
+  [/error sending .*email|sending (confirmation|recovery|magic link)|smtp|mail/i, 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos; se continuar, avise a equipe do Grana Leve.'],
   [/expired|invalid.*(token|link|otp)|otp/i, 'Este link expirou ou já foi usado. Peça um novo.'],
   [/failed to fetch|network/i, 'Sem conexão com o servidor. Verifique a internet e tente de novo.']
 ];
 export function authMessage(error){
   var msg = (error && (error.message || error.error_description)) || '';
+  // Detalhe técnico no console do navegador (F12), para diagnosticar sem mostrar à pessoa.
+  if (typeof console !== 'undefined' && error) console.warn('[Grana Leve] erro do login:', error.status || '', error.code || '', msg);
   for (var i = 0; i < AUTH_MESSAGES.length; i++) if (AUTH_MESSAGES[i][0].test(msg)) return AUTH_MESSAGES[i][1];
   return 'Não foi possível concluir agora. Tente novamente.';
 }
