@@ -121,11 +121,16 @@ export async function openForecasts(page){
   if (await page.$eval('#forecastPanel', el => el.hidden)) await page.click('#forecastToggle');
   await sleep(80);
 }
+// Cartão sozinho pelo cadastro único de banco (só "Cartão de crédito" marcado).
 export async function addCard(page, name, limit, closing, due){
   await tab(page, 'cartoes');
-  await page.type('#cardName', name); await page.type('#cardLimit', String(limit));
+  await page.type('#accName', name);
+  // Marca pelo próprio elemento (a rolagem da página pode mover a caixinha entre medir e clicar).
+  await page.$eval('#bankHasAcc', el => { if (el.checked) el.click(); });
+  await page.$eval('#bankHasCard', el => { if (!el.checked) el.click(); });
+  await page.type('#cardLimit', String(limit));
   await page.type('#cardClosing', String(closing)); await page.type('#cardDue', String(due));
-  await page.click('#cardForm button[type=submit]'); await sleep(200);
+  await page.click('#accountForm button[type=submit]'); await sleep(250);
 }
 
 // Datas relativas a hoje, no formato do app.

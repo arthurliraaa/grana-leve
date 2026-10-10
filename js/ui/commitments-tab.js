@@ -164,7 +164,8 @@ export function syncRecvForm(){
 // Cartão sugerido: o último escolhido aqui ou, se não houver, o da compra mais recente no cartão.
 export function populateRecvCards(){
   var sel = document.getElementById('recvCard');
-  var prev = sel.value || getPrefs().recvCard;
+  // Mantém o que a pessoa escolheu agora; senão, o último escolhido antes ou o da compra mais recente.
+  var prev = (sel.dataset.chosen && sel.value) || getPrefs().recvCard;
   if (!findById(State.cards, prev)){
     var last = State.transactions.filter(function(t){ return t.paymentMethod === 'cartao' && findById(State.cards, t.cardId); })
       .sort(function(a, b){ return (b.createdAt||0) - (a.createdAt||0); })[0];
@@ -462,6 +463,7 @@ export async function chargeReceivable(id, all){
 
 // Eventos de Compromissos: formulários de dívida e de A receber.
 export function wireCommitments(){
+  document.getElementById('recvCard').addEventListener('change', function(e){ e.target.dataset.chosen = '1'; });
   document.getElementById('recvLink').addEventListener('change', function(e){
     var c = recvLinkOf(e.target.value);
     if (c){

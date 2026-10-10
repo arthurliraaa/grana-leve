@@ -883,3 +883,11 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .captcha-box{ display:none; position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:2000; background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,.18); max-width: calc(100vw - 32px); }
 .captcha-box.show{ display:block; }
 .captcha-box p{ margin:0 0 8px; font-size:.88rem; }
+
+/* Bancos e cartões: um bloco por banco (conta + cartão) */
+.bank-block{ display:grid; gap:12px; padding:12px; border:1px solid var(--border); border-radius: calc(var(--radius) + 4px); background: var(--surface-2); }
+.bank-block .account-card{ background: var(--surface); }
+.bank-only-card{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.bank-add-card{ justify-self:start; }
+.bank-parts{ display:flex; flex-wrap:wrap; gap:6px 16px; align-items:center; margin:0; }
+.cc-title .sub{ display:block; }

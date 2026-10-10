@@ -43,7 +43,7 @@ L.run(async ({page}) => {
   L.ok(g[0].installment.totalAmount === 900 && g[0].purchaseDate === old && g[0].date === addMonthsIso(old, startOld18 - 1), 'guarda o total, a data da compra e a data de cada parcela');
   L.ok(await page.$eval('input[name=txIxMode][value=total]', el => el.checked), 'formulário volta ao padrão');
   await L.tab(page, 'cartoes');
-  const card = await L.text(page, '#cardList');
+  const card = await L.text(page, '#bankList');
   // "Parcela X de 18" conta as vencidas antes do cadastro e as que já entraram na fatura aberta.
   const shown = (startOld18 - 1) + g.filter(t => t.date <= today).length;
   L.ok(new RegExp('Parcela ' + shown + ' de 18').test(card) && new RegExp((startOld18 - 1) + ' paga\\(s\\) antes do cadastro').test(card), 'cartão mostra a parcela certa e as pagas antes');
@@ -116,7 +116,7 @@ L.run(async ({page}) => {
   L.ok(d.debts[0].paidAmount === 300 && pay.amount === 300 && pay.outsideTotals === true && pay.accountId === acc.id, 'abate 300, sai da conta e não conta como gasto');
   L.ok(d.debts[0].payments.length === 1 && d.debts[0].payments[0].n === 3, 'pagamento entra no histórico');
   await L.tab(page, 'cartoes');
-  L.ok(L.moneyOf(await L.text(page, '#accountList .account-balance')) === 1700, 'saldo 2000 → 1700');
+  L.ok(L.moneyOf(await L.text(page, '#bankList .account-balance')) === 1700, 'saldo 2000 → 1700');
 
   L.section('Desfazer um pagamento');
   await L.tab(page, 'dividas');
@@ -129,7 +129,7 @@ L.run(async ({page}) => {
   L.ok(d.debts[0].paidAmount === 0 && !d.transactions.some(t => t.debtId) && d.debts[0].payments[0].undone, 'volta a faltar 1000, lançamento sai e o registro fica como desfeito');
   L.ok(await page.$('#debtGrid .pay-log .list-row.undone') !== null && await page.$('[data-pay-undo]') === null, 'linha riscada, sem novo “Desfazer”');
   await L.tab(page, 'cartoes');
-  L.ok(L.moneyOf(await L.text(page, '#accountList .account-balance')) === 2000, 'saldo volta a 2000');
+  L.ok(L.moneyOf(await L.text(page, '#bankList .account-balance')) === 2000, 'saldo volta a 2000');
 
   L.section('Celular');
   await page.setViewport({width: 375, height: 800});

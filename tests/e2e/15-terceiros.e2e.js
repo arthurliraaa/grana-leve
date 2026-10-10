@@ -8,7 +8,7 @@ L.run(async ({page}) => {
     const t = [...document.querySelectorAll('#statTiles .tile')].find(x => x.querySelector('.tile-lbl').textContent === l);
     return t ? {val: t.querySelector('.tile-val').textContent, sub: (t.querySelector('.tile-sub') || {}).textContent || ''} : null;
   }, label);
-  const bal = async () => L.moneyOf(await L.text(page, '#accountList .account-balance'));
+  const bal = async () => L.moneyOf(await L.text(page, '#bankList .account-balance'));
 
   await L.tab(page, 'cartoes');
   await page.type('#accName', 'Nubank'); await page.type('#accBalance', '1000');
@@ -98,7 +98,7 @@ L.run(async ({page}) => {
   L.ok(await page.$$eval('#installDebtWrap .debt-card', x => x.length) === 0 && /1 compra\(s\) parcelada\(s\) no cartão/.test(await L.text(page, '#installDebtWrap')), 'Eu devo só avisa (a lista fica nos cartões)');
   await page.click('[data-goto="cartoes"]'); await L.sleep(200);
   L.ok(await page.evaluate(() => location.hash) === '#/contas', '“Ver nos cartões” leva para Contas e cartões');
-  L.ok(await page.$eval('#cardList .credit-card details.budget-details:last-of-type', el => !el.open), 'parceladas do cartão começam recolhidas');
+  L.ok(await page.$eval('#bankList .credit-card details.budget-details:last-of-type', el => !el.open), 'parceladas do cartão começam recolhidas');
   await L.tab(page, 'dashboard');
   g = await tile('Dívida restante');
   L.ok(L.moneyOf(g.val) === 0 && /Parcelas do cartão à parte/.test(g.sub), '“Dívida restante” não soma as parcelas do cartão de novo');

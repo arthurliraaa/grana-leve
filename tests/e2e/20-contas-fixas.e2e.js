@@ -53,7 +53,7 @@ L.run(async ({page}) => {
   L.ok(luz2.paid[cur].txId === tx.id && luz2.amounts[0].from === cur && luz2.amounts[0].amount === 135, 'mês marcado como pago e novo valor a partir deste mês');
   L.ok(/pagas R\$\s?135,00/.test(await L.text(page, '#billMonth')) && /Luz.*Paga/.test(await L.text(page, '#billMonth')), 'aparece como paga');
   await L.tab(page, 'cartoes');
-  L.ok(L.moneyOf(await L.text(page, '#accountList .account-balance')) === 865, 'saldo da conta 1000 → 865');
+  L.ok(L.moneyOf(await L.text(page, '#bankList .account-balance')) === 865, 'saldo da conta 1000 → 865');
 
   L.section('Próximo mês');
   await page.goto(L.BASE + '#/compromissos/contas-fixas'); await L.sleep(300);

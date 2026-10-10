@@ -44,7 +44,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'dashboard');
   L.ok(await tile('Gastos do mês') === 50, 'painel: só a sua parte da parcela (50)');
   await L.tab(page, 'cartoes');
-  L.ok(/R\$\s?4\.400,00/.test(await L.text(page, '#cardList .avail')), 'cartão: o limite usa o total da compra (600)');
+  L.ok(/R\$\s?4\.400,00/.test(await L.text(page, '#bankList .avail')), 'cartão: o limite usa o total da compra (600)');
 
   L.section('Receber a parte de alguém');
   await L.tab(page, 'receber');

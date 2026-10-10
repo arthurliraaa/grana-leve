@@ -13,7 +13,7 @@ import {Store} from '../data/store.js';
 import {qs, escapeHtml, optionsHtml, labelOf, icon, resolveVar, saveFile, toast} from './dom.js';
 import {openModal} from './modal.js';
 import {pdfWriter, pdfReady} from './pdf.js';
-import {payAccountFor} from './accounts-tab.js';
+import {payAccountFor, renderBanks} from './accounts-tab.js';
 import {txRowHtml} from './home-tab.js';
 import {State, accountName, cardUsed, catOptions, expenseCats, installmentGroups, invoiceItems, invoiceStatus, k, totalAccountsBalance} from './state.js';
 import {installmentRowHtml} from './tx-edit.js';
@@ -100,54 +100,55 @@ export function renderWalletSummary(){
       box('Fatura aberta', inv.openTotal, 'ainda recebe compras') : '') +
     (cash !== null && State.cards.length ? box('Sobra depois de pagar', money(cash - inv.toPayTotal), 'contas − faturas fechadas', cash - inv.toPayTotal < 0 ? 'neg-text' : '') : '');
 }
+// Cartões aparecem dentro do bloco do banco (renderBanks, em accounts-tab.js).
 export function renderCards(){
   renderWalletSummary();
-  var wrap = document.getElementById('cardList');
-  if (!State.cards.length){ wrap.innerHTML = '<p class="empty-state">Nenhum cartão cadastrado. Cadastre acima para acompanhar faturas e limite.</p>'; return; }
-  wrap.innerHTML = State.cards.map(function(c){
-    var baseKey = invoiceKeyFor(todayKey(), c);
-    var key = shiftMonthKey(baseKey, State.invoiceOffsets[c.id] || 0);
-    var items = invoiceItems(c, key);
-    var total = sum(items, function(t){ return t.amount; });
-    var dates = invoiceDates(key, c);
-    var status = invoiceStatus(c, key);
-    var used = cardUsed(c);
-    var limit = Number(c.limit) || 0;
-    var pct = limit > 0 ? Math.min(1, used/limit) : 0;
-    var look = lookOf(c), paint = look.color ? cardPaint(look.color) : null;
-    return '<div class="credit-card">' +
-      '<div class="credit-card-top' + (paint ? ' painted' : '') + '"' + (paint ? ' style="background:linear-gradient(135deg,' + paint.from + ',' + paint.to + ');color:' + paint.text + '"' : '') + '>' +
-        '<div class="cc-title"><span class="bank-badge on-card" aria-hidden="true">' + escapeHtml(look.mark) + '</span>' +
-          '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span>' +
-            (State.accounts.length ? '<span class="sub">Paga com ' + escapeHtml(accountName(payAccountFor(c))) + '</span>' : '') + '</div></div>' +
-        '<div class="avail"><span class="sub">Limite disponível</span><strong class="tabular">' + fmtMoney(Math.max(0, limit - used)) + '</strong><span class="sub">de ' + fmtMoney(limit) + '</span></div>' +
+  renderBanks();
+}
+// Um cartão: limite disponível, fatura do mês (com navegação), compras, parceladas e ações.
+export function cardHtml(c){
+  var baseKey = invoiceKeyFor(todayKey(), c);
+  var key = shiftMonthKey(baseKey, State.invoiceOffsets[c.id] || 0);
+  var items = invoiceItems(c, key);
+  var total = sum(items, function(t){ return t.amount; });
+  var dates = invoiceDates(key, c);
+  var status = invoiceStatus(c, key);
+  var used = cardUsed(c);
+  var limit = Number(c.limit) || 0;
+  var pct = limit > 0 ? Math.min(1, used/limit) : 0;
+  var look = lookOf(c), paint = look.color ? cardPaint(look.color) : null;
+  return '<div class="credit-card">' +
+    '<div class="credit-card-top' + (paint ? ' painted' : '') + '"' + (paint ? ' style="background:linear-gradient(135deg,' + paint.from + ',' + paint.to + ');color:' + paint.text + '"' : '') + '>' +
+      '<div class="cc-title"><span class="bank-badge on-card" aria-hidden="true">' + escapeHtml(look.mark) + '</span>' +
+        '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span>' +
+          (State.accounts.length ? '<span class="sub">Paga com ' + escapeHtml(accountName(payAccountFor(c))) + '</span>' : '') + '</div></div>' +
+      '<div class="avail"><span class="sub">Limite disponível</span><strong class="tabular">' + fmtMoney(Math.max(0, limit - used)) + '</strong><span class="sub">de ' + fmtMoney(limit) + '</span></div>' +
+    '</div>' +
+    '<div class="credit-card-body">' +
+      '<div class="progress" title="Limite usado"><span style="width:' + (pct*100) + '%; background:' + (pct >= 0.9 ? 'var(--critical)' : pct >= 0.7 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
+      '<div class="invoice-head">' +
+        '<div class="month-switch">' +
+          '<button type="button" data-inv-shift="' + c.id + '" data-dir="-1" aria-label="Fatura anterior">' + icon('chevron-left') + '</button>' +
+          '<strong>Fatura de ' + invoiceLabel(key, c) + '</strong>' +
+          '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button>' +
+        '</div>' +
+        '<span class="status-pill ' + INVOICE_PILL[status] + '">' + status + ((c.invoicePayments || {})[key] ? ' com ' + escapeHtml(accountName(c.invoicePayments[key].accountId)) : '') + '</span>' +
       '</div>' +
-      '<div class="credit-card-body">' +
-        '<div class="progress" title="Limite usado"><span style="width:' + (pct*100) + '%; background:' + (pct >= 0.9 ? 'var(--critical)' : pct >= 0.7 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
-        '<div class="invoice-head">' +
-          '<div class="month-switch">' +
-            '<button type="button" data-inv-shift="' + c.id + '" data-dir="-1" aria-label="Fatura anterior">' + icon('chevron-left') + '</button>' +
-            '<strong>Fatura de ' + invoiceLabel(key, c) + '</strong>' +
-            '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button>' +
-          '</div>' +
-          '<span class="status-pill ' + INVOICE_PILL[status] + '">' + status + ((c.invoicePayments || {})[key] ? ' com ' + escapeHtml(accountName(c.invoicePayments[key].accountId)) : '') + '</span>' +
-        '</div>' +
-        '<div class="invoice-head"><span class="invoice-total tabular">' + fmtMoney(total) + '</span>' +
-          '<span class="meta-line"><span>Fecha ' + formatDateFull(dates.closing) + '</span><span>Vence ' + formatDateFull(dates.due) + '</span></span></div>' +
-        (items.length ? '<details class="budget-details"><summary>Ver ' + items.length + ' compra(s)</summary>' + items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
-        (function(){
-          var gs = installmentGroups().filter(function(g){ return g.cardId === c.id && g.future.length; });
-          return gs.length ? '<details class="budget-details"><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '';
-        })() +
-        '<div class="card-actions">' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Ver fatura em PDF</button>' +
-          (total > 0 ? '<button class="btn btn-ghost btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? 'Desmarcar paga' : 'Marcar como paga') + '</button>' : '') +
-          '<button class="btn btn-ghost btn-sm" type="button" data-card-report="' + c.id + '">Relatório</button>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-card-edit="' + c.id + '">Editar</button>' +
-          '<button class="btn btn-danger btn-sm" type="button" data-card-del="' + c.id + '">Excluir</button>' +
-        '</div>' +
-      '</div></div>';
-  }).join('');
+      '<div class="invoice-head"><span class="invoice-total tabular">' + fmtMoney(total) + '</span>' +
+        '<span class="meta-line"><span>Fecha ' + formatDateFull(dates.closing) + '</span><span>Vence ' + formatDateFull(dates.due) + '</span></span></div>' +
+      (items.length ? '<details class="budget-details"><summary>Ver ' + items.length + ' compra(s)</summary>' + items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
+      (function(){
+        var gs = installmentGroups().filter(function(g){ return g.cardId === c.id && g.future.length; });
+        return gs.length ? '<details class="budget-details"><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '';
+      })() +
+      '<div class="card-actions">' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Ver fatura em PDF</button>' +
+        (total > 0 ? '<button class="btn btn-ghost btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? 'Desmarcar paga' : 'Marcar como paga') + '</button>' : '') +
+        '<button class="btn btn-ghost btn-sm" type="button" data-card-report="' + c.id + '">Relatório</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-card-edit="' + c.id + '">Editar</button>' +
+        '<button class="btn btn-danger btn-sm" type="button" data-card-del="' + c.id + '">Excluir</button>' +
+      '</div>' +
+    '</div></div>';
 }
 
 export function cardFormBody(c){

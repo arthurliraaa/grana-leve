@@ -39,7 +39,7 @@ L.run(async ({page}) => {
   const txt = await L.text(page, '#txList');
   L.ok(/Estornado: R\$\s?30,00/.test(txt) && /Estorno de Tênis/.test(txt) && /\+ R\$\s?30,00/.test(txt), 'lista: compra “estornada”, estorno como crédito (+)');
   await L.tab(page, 'cartoes');
-  L.ok(L.moneyOf(await L.text(page, '#accountList .account-balance')) === 950, 'saldo: 1000 − 80 + 30 = 950');
+  L.ok(L.moneyOf(await L.text(page, '#bankList .account-balance')) === 950, 'saldo: 1000 − 80 + 30 = 950');
   await L.tab(page, 'dashboard');
   L.ok(await tile('Gastos do mês') === 50, 'gastos do mês: 80 − 30 = 50');
   await openEdit(rv.id);
@@ -77,5 +77,5 @@ L.run(async ({page}) => {
   await page.click('#modalRoot [data-m-reversal]'); await L.sleep(250);
   L.ok(/já foi estornada por completo/.test(await L.allToasts(page)), 'não deixa estornar de novo o que já foi estornado');
   await L.tab(page, 'cartoes');
-  L.ok(/R\$\s?3\.000,00/.test(await L.text(page, '#cardList .credit-card .avail')), 'limite do cartão volta ao total');
+  L.ok(/R\$\s?3\.000,00/.test(await L.text(page, '#bankList .credit-card .avail')), 'limite do cartão volta ao total');
 });
