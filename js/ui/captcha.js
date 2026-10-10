@@ -30,8 +30,26 @@ function ensureBox(){
 
 export function captchaEnabled(siteKey){ return !!(siteKey === undefined ? TURNSTILE_SITE_KEY : siteKey); }
 
+// Token adiantado: gerado quando a tela de entrar aparece, para o clique em "Entrar" não esperar a
+// Cloudflare. Vale até 4 minutos (a Cloudflare aceita 5) e é usado uma vez só.
+var ready = null;   // {promise, at}
+var FRESH_MS = 4 * 60 * 1000;
+function onAuthScreen(){ var v = document.getElementById('viewAuth'); return !!(v && !v.hidden); }
+export function prefetchCaptcha(){
+  if (!TURNSTILE_SITE_KEY || !onAuthScreen() || (ready && Date.now() - ready.at < FRESH_MS)) return;
+  var p = newToken(TURNSTILE_SITE_KEY);
+  ready = {promise: p, at: Date.now()};
+  p.catch(function(){ if (ready && ready.promise === p) ready = null; });
+}
 export async function getCaptchaToken(siteKey){
-  siteKey = siteKey === undefined ? TURNSTILE_SITE_KEY : siteKey;
+  if (siteKey === undefined && ready && Date.now() - ready.at < FRESH_MS){
+    var p = ready.promise; ready = null;
+    try { var t = await p; setTimeout(prefetchCaptcha, 300); return t; }   // já prepara o próximo (ex.: senha errada)
+    catch(e){ /* adiantado falhou: tenta de novo abaixo */ }
+  }
+  return newToken(siteKey === undefined ? TURNSTILE_SITE_KEY : siteKey);
+}
+async function newToken(siteKey){
   if (!siteKey) return undefined;
   await load();
   var b = ensureBox();

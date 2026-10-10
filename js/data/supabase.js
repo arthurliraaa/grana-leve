@@ -44,11 +44,14 @@ function check(res){
   }
   return res.data;
 }
+// A função ainda não existe no banco (migração não rodada).
+function isMissingFunction(err){ return err && (err.code === 'PGRST202' || err.code === '42883' || /could not find the function|does not exist/i.test(String(err.message))); }
 function docOf(obj){ var d = Object.assign({}, obj); delete d.id; return d; }
 
 export function createSupabaseStore(client, collections){
   var studyCode;   // código do estudo da pessoa (undefined = ainda não buscado; null = não participa)
   var captcha = null;   // fornecedor do token do captcha (Turnstile), quando ligado
+  var patchRpc = null;  // patch_docs existe no banco? (null = ainda não sabemos)
   // Token novo a cada ação de login (cada token só vale uma vez). Sem captcha: undefined.
   async function cap(){
     if (!captcha) return undefined;
@@ -126,14 +129,35 @@ export function createSupabaseStore(client, collections){
     async put(key, coll, id, obj){
       check(await client.from('user_data').upsert({collection: coll, id: id, doc: docOf(obj), updated_at: new Date().toISOString()}));
     },
-    async update(key, coll, id, partial){
-      var rows = check(await client.from('user_data').select('doc').eq('collection', coll).eq('id', id).limit(1));
-      if (!rows.length) return;
-      var doc = Object.assign({}, rows[0].doc, docOf(partial));
-      check(await client.from('user_data').update({doc: doc, updated_at: new Date().toISOString()}).eq('collection', coll).eq('id', id));
+    async update(key, coll, id, partial){ return this.updateMany(key, coll, [{id: id, partial: partial}]); },
+    // Várias edições numa ida só: o banco junta as mudanças em cada registro (patch_docs, migração
+    // 20261011000000). Sem a migração, volta ao jeito antigo: ler e gravar registro por registro.
+    async updateMany(key, coll, items){
+      if (!items.length) return;
+      if (patchRpc !== false){
+        var res = await client.rpc('patch_docs', {p_collection: coll, p_items: items.map(function(it){ return {id: it.id, patch: docOf(it.partial)}; })});
+        if (!res.error){ patchRpc = true; return; }
+        if (!isMissingFunction(res.error)) check(res);
+        patchRpc = false;
+      }
+      for (var i = 0; i < items.length; i++){
+        var rows = check(await client.from('user_data').select('doc').eq('collection', coll).eq('id', items[i].id).limit(1));
+        if (!rows.length) continue;
+        var doc = Object.assign({}, rows[0].doc, docOf(items[i].partial));
+        check(await client.from('user_data').update({doc: doc, updated_at: new Date().toISOString()}).eq('collection', coll).eq('id', items[i].id));
+      }
+    },
+    // Vários registros novos numa ida só (ex.: as 12 parcelas de uma compra).
+    async addMany(key, coll, list){
+      var rows = list.map(function(obj){ return {collection: coll, id: uid(), doc: docOf(obj)}; });
+      for (var i = 0; i < rows.length; i += 500) check(await client.from('user_data').insert(rows.slice(i, i + 500)));
+      return list.map(function(obj, j){ return Object.assign({id: rows[j].id}, obj); });
     },
     async remove(key, coll, id){
       check(await client.from('user_data').delete().eq('collection', coll).eq('id', id));
+    },
+    async removeMany(key, coll, ids){
+      for (var i = 0; i < ids.length; i += 200) check(await client.from('user_data').delete().eq('collection', coll).in('id', ids.slice(i, i + 200)));
     },
     // Restaurar backup / importar dados do navegador: substitui tudo da pessoa.
     async replaceAll(key, data){

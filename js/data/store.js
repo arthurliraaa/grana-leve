@@ -163,6 +163,29 @@ export var Store = {
     u[coll] = u[coll].map(function(x){ return x.id === id ? Object.assign({}, x, partial) : x; });
     this._writeLocal(data);
   },
+  // Em lote (o Supabase grava numa ida só; aqui, no navegador, lê e grava o armazenamento uma vez).
+  async addMany(key, coll, list){
+    if (this.mode === 'cloud'){ var out = []; for (var i = 0; i < list.length; i++) out.push(await this.add(key, coll, list[i])); return out; }
+    var data = this._readLocal(), u = this._userLocal(data, key);
+    var saved = list.map(function(obj){ return Object.assign({id: uid()}, obj); });
+    u[coll] = u[coll].concat(saved);
+    this._writeLocal(data);
+    return saved;
+  },
+  async updateMany(key, coll, items){
+    if (this.mode === 'cloud'){ for (var i = 0; i < items.length; i++) await this.update(key, coll, items[i].id, items[i].partial); return; }
+    var data = this._readLocal(), u = this._userLocal(data, key), by = {};
+    items.forEach(function(it){ by[it.id] = Object.assign(by[it.id] || {}, it.partial); });
+    u[coll] = u[coll].map(function(x){ return by[x.id] ? Object.assign({}, x, by[x.id]) : x; });
+    this._writeLocal(data);
+  },
+  async removeMany(key, coll, ids){
+    if (this.mode === 'cloud'){ for (var i = 0; i < ids.length; i++) await this.remove(key, coll, ids[i]); return; }
+    var data = this._readLocal(), u = this._userLocal(data, key), gone = {};
+    ids.forEach(function(id){ gone[id] = true; });
+    u[coll] = u[coll].filter(function(x){ return !gone[x.id]; });
+    this._writeLocal(data);
+  },
   async remove(key, coll, id){
     if (this.mode === 'cloud'){ await this._userDoc(key).collection(coll).doc(id).delete(); return; }
     var data = this._readLocal();

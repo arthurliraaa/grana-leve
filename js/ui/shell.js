@@ -14,7 +14,7 @@ import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup} from '../data/backup.js';
 import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../data/session.js';
 
-import {captchaEnabled, getCaptchaToken} from './captcha.js';
+import {captchaEnabled, getCaptchaToken, prefetchCaptcha} from './captcha.js';
 import {qs, qsa, escapeHtml, icon, saveFile, toast} from './dom.js';
 import {openModal, confirmAction, attachCounters} from './modal.js';
 import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid} from './accounts-tab.js';
@@ -205,6 +205,8 @@ export async function openMoreMenu(){
 }
 
 export function showAuthTab(name){
+  // Com captcha, o token já vai sendo preparado enquanto a pessoa digita.
+  if (Store.mode === 'supabase' && captchaEnabled()) setTimeout(prefetchCaptcha, 0);
   State.authTab = name;
   qsa('[data-authtab]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-authtab') === name); });
   document.getElementById('loginForm').hidden = (name !== 'login');
@@ -216,19 +218,26 @@ export function showAuthTab(name){
   qsa('[data-online-only]').forEach(function(el){ el.hidden = Store.mode !== 'supabase'; });
 }
 
-export async function enterApp(){
+// profileHint: perfil já lido no login (evita ler de novo).
+export async function enterApp(profileHint){
   setPrefsOwner(k());
   document.getElementById('txSort').value = TX_SORTS[getPrefs().txSort] ? getPrefs().txSort : 'recent';
   State.txView = ['list', 'cal', 'year'].indexOf(getPrefs().txView) >= 0 ? getPrefs().txView : 'list';
   qsa('[data-txview]').forEach(function(b){ var on = b.getAttribute('data-txview') === State.txView; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
   showView('viewApp');
   await Store.migrate(k());
-  await loadAllData();
-  var profile = await Store.getUser(k());
+  // Dados, perfil, papel de admin e dicas ao mesmo tempo (no servidor, uma espera em vez de quatro).
+  var got = await Promise.all([
+    loadAllData(),
+    profileHint !== undefined ? profileHint : Store.getUser(k()),
+    Store.isAdmin ? Store.isAdmin() : false,
+    Store.listContent ? Store.listContent().catch(function(){ return []; }) : []
+  ]);
+  var profile = got[1];
   State.research = (profile && profile.research) || null;
   State.profileCreatedAt = profile ? (profile.created_at || (profile.createdAt ? new Date(profile.createdAt).toISOString() : null)) : null;
-  State.isAdmin = Store.isAdmin ? await Store.isAdmin() : false;
-  State.content = Store.listContent ? await Store.listContent().catch(function(){ return []; }) : [];
+  State.isAdmin = got[2];
+  State.content = got[3];
   document.getElementById('navAdmin').hidden = !State.isAdmin;
   Store.persist().then(function(v){ State.persisted = v; });
   document.getElementById('txDate').value = todayKey();
@@ -440,7 +449,7 @@ export function wireShell(){
         ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?', skipKey:'deleteTx'});
       }
       if (!ok) return;
-      for (var di=0;di<ids.length;di++){ await Store.remove(k(), 'transactions', ids[di]); }
+      await Store.removeMany(k(), 'transactions', ids);
       State.transactions = State.transactions.filter(function(x){ return ids.indexOf(x.id) < 0; });
       renderAll();
       toast('Lançamento excluído.');

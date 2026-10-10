@@ -56,5 +56,9 @@ with checks(ordem, verificacao, ok, detalhe) as (
   select 13, 'Limites contra abuso (migração 20261010010000)',
     (select count(*) from pg_trigger where tgname in ('user_data_limit', 'study_events_limit') and not tgisinternal) = 2,
     (select count(*) from pg_trigger where tgname in ('user_data_limit', 'study_events_limit') and not tgisinternal) || ' de 2 gatilhos'
+  union all
+  select 14, 'Gravação rápida (migração 20261011000000)',
+    exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'patch_docs'),
+    'função patch_docs'
 )
 select case when ok then '✅' else '❌' end as status, verificacao, detalhe from checks order by ordem;

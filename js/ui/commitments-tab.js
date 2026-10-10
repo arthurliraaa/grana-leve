@@ -293,15 +293,13 @@ export async function linkReceivable(id){
   });
   if (!a) return;
   var c = cands.filter(function(x){ return x.id === a.id; })[0];
-  for (var i = 0; i < c.items.length; i++){
-    var fo = {forOther: {person: r.person, receivableId: r.id}};
-    await Store.update(k(), 'transactions', c.items[i].id, fo); Object.assign(c.items[i], fo);
-  }
+  var fo = {forOther: {person: r.person, receivableId: r.id}};
+  await Store.updateMany(k(), 'transactions', c.items.map(function(t){ return {id: t.id, partial: fo}; }));
+  c.items.forEach(function(t){ Object.assign(t, fo); });
   if (a.refund){
-    for (var j = 0; j < olds.length; j++){
-      var rf = {refund: true, receivableId: r.id};
-      await Store.update(k(), 'transactions', olds[j].id, rf); Object.assign(olds[j], rf);
-    }
+    var rf = {refund: true, receivableId: r.id};
+    await Store.updateMany(k(), 'transactions', olds.map(function(t){ return {id: t.id, partial: rf}; }));
+    olds.forEach(function(t){ Object.assign(t, rf); });
   }
   var patch = {linked: true, category: c.items[0].category};
   if (c.items[0].paymentMethod === 'cartao') patch.cardId = c.items[0].cardId;
@@ -453,7 +451,9 @@ export async function chargeReceivable(id, all){
       if (phone && phone.length >= 10 && phone.length <= 11) phone = '55' + phone;
       if (phone !== onlyDigits(r.phone) && form.phone.value.trim()){
         var targets = all && all.length > 1 ? all : [r];
-        for (var i = 0; i < targets.length; i++){ await Store.update(k(), 'receivables', targets[i].id, {phone: form.phone.value.trim()}); targets[i].phone = form.phone.value.trim(); }
+        var ph = {phone: form.phone.value.trim()};
+        await Store.updateMany(k(), 'receivables', targets.map(function(x){ return {id: x.id, partial: ph}; }));
+        targets.forEach(function(x){ x.phone = ph.phone; });
       }
       window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(form.msg.value), '_blank', 'noopener');
       return true;
@@ -530,11 +530,9 @@ export function wireCommitments(){
     var saved = await Store.add(k(), 'receivables', r);
     State.receivables.push(saved);
     if (link){
-      for (var li = 0; li < link.items.length; li++){
-        var fo = {forOther: {person: person, receivableId: saved.id}};
-        await Store.update(k(), 'transactions', link.items[li].id, fo);
-        Object.assign(link.items[li], fo);
-      }
+      var fo = {forOther: {person: person, receivableId: saved.id}};
+      await Store.updateMany(k(), 'transactions', link.items.map(function(t){ return {id: t.id, partial: fo}; }));
+      link.items.forEach(function(t){ Object.assign(t, fo); });
     }
     if (card){
       var tx = {type:'expense', amount: total, category:'compras', categoryLabel: catLabel('compras', 'expense'), date: todayKey(),

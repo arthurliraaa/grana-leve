@@ -169,3 +169,18 @@ insert into public.study_events (code, event)
 set role authenticated;
 select t.ok(t.fails($$insert into public.study_events (code, event) values (public.my_study_code(), 'usou:chat')$$), 'mais de 300 eventos do estudo em 24h é recusado');
 reset role;
+
+select t.section('Edição em uma ida só (patch_docs)');
+set role authenticated;
+select set_config('request.jwt.claim.sub', 'aaaaaaaa-0000-0000-0000-000000000001', false);
+insert into public.user_data (collection, id, doc) values ('transactions', 'p1', '{"amount":10,"category":"lazer","note":"a"}'), ('transactions', 'p2', '{"amount":20}');
+select public.patch_docs('transactions', '[{"id":"p1","patch":{"category":"compras"}},{"id":"p2","patch":{"amount":25}}]');
+select t.ok((select doc from public.user_data where id = 'p1' and user_id = auth.uid()) = '{"amount":10,"category":"compras","note":"a"}'::jsonb, 'junta só os campos mudados (o resto do registro fica)');
+select t.ok((select doc ->> 'amount' from public.user_data where id = 'p2' and user_id = auth.uid()) = '25', 'vários registros numa chamada');
+select set_config('request.jwt.claim.sub', 'bbbbbbbb-0000-0000-0000-000000000002', false);
+select public.patch_docs('transactions', '[{"id":"p1","patch":{"category":"hackeado"}}]');
+reset role;
+select t.ok((select doc ->> 'category' from public.user_data where id = 'p1' and user_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 'compras', 'não altera registro de outra pessoa');
+set role anon;
+select t.ok(t.fails($$select public.patch_docs('transactions', '[]')$$), 'visitante não chama a função');
+reset role;
