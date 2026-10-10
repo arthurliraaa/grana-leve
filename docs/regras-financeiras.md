@@ -165,3 +165,12 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   futuras, cada uma na própria data (mesma fatura da parcela).
 - O estorno abate os gastos do mês em que entrou. Estorno parcial é permitido; não dá para
   estornar mais que o valor da compra. Estornos não são editados: exclua e registre de novo.
+
+## Compra dividida com outras pessoas
+
+- No lançamento de um gasto, "Dividir com outras pessoas" registra a parte de cada pessoa em
+  valor (R$) ou porcentagem; o resto é a **sua parte**. "Dividir igualmente" inclui você.
+- O total da compra continua na conta/fatura e no limite do cartão. Nos seus gastos (painel,
+  planejamento, gráficos) entra só a sua parte, proporcional em cada parcela.
+- Cada pessoa vira um "A receber" ligado à compra, com a parte dela (parcelado como a compra,
+  no mesmo cartão). O que ela devolver é devolução, não ganho.

@@ -23,6 +23,25 @@ export function isRefund(t){ return t.type === 'income' && !!t.refund; }
 export function isReversal(t){ return !!t.reversal; }
 export function reversalsOf(list, id){ return list.filter(function(t){ return t.reversal && t.reversal.of === id; }); }
 export function isPersonal(t){ return !isForOther(t) && !isRefund(t) && !t.outsideTotals; }
+// Compra dividida (split: {total, mine, people: [{person, receivableId, amount}]}): só a sua parte é
+// gasto seu. Numa parcela, a parte é proporcional ao valor dela.
+export function myShare(t){
+  if (!isPersonal(t)) return 0;
+  if (t.split && Number(t.split.total) > 0) return money(Number(t.amount) * Number(t.split.mine) / Number(t.split.total));
+  return Number(t.amount) || 0;
+}
+// Quanto do gasto é de outras pessoas (pago por elas ou a parte delas numa compra dividida).
+export function othersShare(t){
+  if (t.type !== 'expense') return 0;
+  if (isForOther(t)) return Number(t.amount) || 0;
+  return t.split ? money(Number(t.amount) - myShare(t)) : 0;
+}
+// Divide o total entre as pessoas: valores em R$ ou em % do total. Devolve a parte de cada uma e a sua.
+export function splitShares(total, entries, percent){
+  var people = entries.map(function(e){ return {person: e.person, amount: money(percent ? total * Number(e.value) / 100 : Number(e.value))}; });
+  var others = sumMoney(people, function(p){ return p.amount; });
+  return {people: people, others: others, mine: money(total - others)};
+}
 
 export function txForMonth(list, key){ return list.filter(function(t){ return monthKeyOf(t.date) === key; }); }
 
@@ -30,11 +49,11 @@ export function txForMonth(list, key){ return list.filter(function(t){ return mo
 export function monthTotals(list, key, today){
   var all = txForMonth(list, key), tx = all.filter(isPersonal);
   function total(type, when){
-    return sumMoney(tx.filter(function(t){ return t.type === type && (!when || (when === 'done' ? t.date <= today : t.date > today)); }), function(t){ return t.amount; });
+    return sumMoney(tx.filter(function(t){ return t.type === type && (!when || (when === 'done' ? t.date <= today : t.date > today)); }), myShare);
   }
   var income = total('income'), expense = total('expense');
   var out = {income: income, expense: expense, saldo: money(income - expense),
-    forOther: sumMoney(all.filter(function(t){ return isForOther(t) && (!today || t.date <= today); }), function(t){ return t.amount; })};
+    forOther: sumMoney(all.filter(function(t){ return !today || t.date <= today; }), othersShare)};
   if (today){
     out.incomeDone = total('income', 'done'); out.expenseDone = total('expense', 'done');
     out.incomeScheduled = total('income', 'later'); out.expenseScheduled = total('expense', 'later');
@@ -44,7 +63,7 @@ export function monthTotals(list, key, today){
 export function expenseCategoryTotals(list, key){
   var out = {};
   txForMonth(list, key).filter(function(t){ return t.type === 'expense' && isPersonal(t); }).forEach(function(t){
-    out[t.category] = money((out[t.category] || 0) + Number(t.amount || 0));
+    out[t.category] = money((out[t.category] || 0) + myShare(t));
   });
   return out;
 }
