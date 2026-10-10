@@ -156,3 +156,24 @@ localStorage.setItem('granaleve_backend', 'local')   // no console do navegador
   exportação.
 - **Documentos:** atualize a Política de privacidade e os Termos de uso com o nome do
   responsável, o contato e o fato de os dados passarem a ficar num servidor.
+
+## Proteção contra robôs (captcha) — opcional, recomendado
+
+O app já está pronto para o **Cloudflare Turnstile** (gratuito e quase sempre invisível). Ele
+protege cadastro, login e "Esqueci minha senha" contra robôs que criam contas em massa e
+gastam a cota de e-mails do Brevo.
+
+1. Em https://dash.cloudflare.com → **Turnstile** → **Add widget**: nome `Grana Leve`,
+   domínios `grana-leve.vercel.app` e `localhost`, modo **Managed**. Copie a **Site Key** e a
+   **Secret Key**.
+2. No Supabase: **Authentication → Attack Protection** → ligue **Enable Captcha protection**,
+   escolha **Turnstile** e cole a **Secret Key**.
+3. Em `js/config.js`, cole a **Site Key** em `TURNSTILE_SITE_KEY` (ela é pública) e publique.
+
+Faça os passos 2 e 3 juntos: com o captcha ligado no Supabase e sem a Site Key no app, ninguém
+consegue entrar; com a Site Key no app e o captcha desligado no Supabase, nada muda.
+
+## Contato da política de privacidade
+
+Em `js/config.js`, `CONTACT_EMAIL` é o e-mail para pedidos sobre dados pessoais (LGPD). Use um
+e-mail do projeto. Vazio, a política aponta para o GitHub do projeto (público).

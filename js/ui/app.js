@@ -35,6 +35,8 @@ import {validateNewTransaction} from '../domain/validate.js';
 import {authMessage} from '../data/supabase.js';
 import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, lockRemaining, registerFail, clearFails} from '../data/auth.js';
 import {saveSession, loadSession, clearSession, newSession, getPrefs, setPref, setPrefsOwner, prefsKey} from '../data/session.js';
+import {CONTACT_EMAIL, TURNSTILE_SITE_KEY} from '../config.js';
+import {captchaEnabled, getCaptchaToken} from './captcha.js';
 import {qs, qsa, escapeHtml, csvCell, optionsHtml, labelOf, icon, resolveVar, saveFile, toast} from './dom.js';
 import {openModal, confirmAction, askAmount, attachCounters} from './modal.js';
 import {wireTooltips} from './charts.js';
@@ -99,10 +101,12 @@ var ONLINE_PAGES = {
     '<p class="term-meta">Atualizada em 10/10/2026</p>' +
     '<p>O Grana Leve guarda sua conta e seus dados num servidor no Brasil, para você usar o app em qualquer aparelho. Esta página explica o que guardamos, quem vê e como você controla seus dados.</p>' +
     '<h4>Quem é responsável</h4>' +
-    '<p>O Grana Leve é um projeto de extensão do curso de Engenharia de Software, mantido por Arthur Lira. Contato: github.com/arthurliraaa/grana-leve (aba Issues).</p>' +
+    '<p>O Grana Leve é um projeto de extensão do curso de Engenharia de Software, mantido por Arthur Lira, que é o controlador dos dados e o encarregado (LGPD, art. 41). ' +
+      (CONTACT_EMAIL ? 'Contato para assuntos de dados pessoais: <strong>' + escapeHtml(CONTACT_EMAIL) + '</strong>.' :
+        'Contato: github.com/arthurliraaa/grana-leve (aba Issues). Não escreva dados pessoais ou financeiros numa issue, porque ela é pública.') + '</p>' +
     '<h4>O que guardamos</h4>' +
     '<ul><li><strong>Conta:</strong> nome, e-mail e senha. A senha é protegida pelo serviço de login: ninguém consegue lê-la, nem a administração do app.</li>' +
-      '<li><strong>O que você registra:</strong> lançamentos, contas, cartões, metas, dívidas, valores a receber, previsões, planejamento e categorias.</li>' +
+      '<li><strong>O que você registra:</strong> lançamentos, contas, cartões, metas, dívidas, valores a receber (com o nome e, se você informar, o WhatsApp de quem te deve), compras divididas, contas fixas, histórico de pagamentos, previsões, planejamento e categorias.</li>' +
       '<li><strong>Neste aparelho:</strong> preferências como o tema e os avisos ficam só no seu navegador.</li></ul>' +
     '<h4>Para que usamos</h4>' +
     '<p>Só para o app funcionar para você (LGPD, art. 7º, V: execução do serviço que você pediu). Não vendemos, não usamos para propaganda e não compartilhamos seus dados.</p>' +
@@ -110,14 +114,18 @@ var ONLINE_PAGES = {
     '<p>Só você. As regras do banco impedem que outras pessoas, inclusive a administração do app, leiam seus lançamentos e valores. A administração vê apenas seu nome, e-mail, data de cadastro e último acesso (para suporte e para atender pedidos de exclusão) e números de uso somados de todas as pessoas.</p>' +
     '<h4>Onde os dados ficam</h4>' +
     '<ul><li><strong>Banco de dados e login:</strong> Supabase, na região São Paulo (Brasil).</li>' +
-      '<li><strong>Site:</strong> Vercel, que hospeda as páginas e registra dados técnicos de acesso (como o endereço IP) por segurança.</li></ul>' +
+      '<li><strong>Site:</strong> Vercel, que hospeda as páginas e registra dados técnicos de acesso (como o endereço IP) por segurança.</li>' +
+      '<li><strong>E-mails da conta</strong> (confirmação, nova senha e avisos de segurança): enviados pelo Brevo, que recebe só o seu e-mail e o conteúdo da mensagem.</li>' +
+      '<li><strong>Arquivos públicos:</strong> a fonte das letras (Google Fonts) e o gerador de PDF (cdnjs/Cloudflare) são baixados desses serviços, que veem o endereço IP de quem abre a página.</li>' +
+      (TURNSTILE_SITE_KEY ? '<li><strong>Proteção contra robôs:</strong> o cadastro e o “Esqueci minha senha” usam o Cloudflare Turnstile, que analisa dados técnicos do navegador.</li>' : '') +
+      '</ul><p>Alguns desses serviços podem processar dados fora do Brasil, com as garantias previstas na LGPD (art. 33).</p>' +
     '<h4>Por quanto tempo</h4>' +
     '<p>Enquanto sua conta existir. Ao excluir a conta, tudo é apagado do banco na hora. Cópias de segurança do provedor podem guardar os dados por um período limitado até serem substituídas.</p>' +
     '<h4>Seus direitos (LGPD, art. 18)</h4>' +
     '<ul><li><strong>Ver e levar seus dados:</strong> “Seus dados e backup” → “Salvar backup”.</li>' +
       '<li><strong>Corrigir:</strong> edite qualquer registro no próprio app.</li>' +
-      '<li><strong>Excluir:</strong> botão “Apagar minha conta e dados”, abaixo.</li>' +
-      '<li><strong>Pesquisa acadêmica:</strong> é opcional e separada; você entra ou sai em “Seus dados e backup”. Veja o Termo da pesquisa.</li>' +
+      '<li><strong>Excluir:</strong> em “Perfil e conta” → “Excluir conta”, ou no botão “Apagar minha conta e dados”, abaixo.</li>' +
+      '<li><strong>Pesquisa acadêmica:</strong> é opcional e separada; você entra ou sai em “Perfil e conta”. Veja o Termo da pesquisa.</li>' +
       '<li>Outros pedidos: use o contato acima.</li></ul>' +
     '<p>Não usamos cookies de rastreamento nem anúncios.</p>' +
     '</div>'},
@@ -4110,6 +4118,8 @@ document.getElementById('calcHelpBtn').addEventListener('click', calcHelp);
 async function boot(){
   Store.onWriteError = function(){ toast('Não foi possível salvar: o armazenamento do navegador está cheio ou bloqueado.'); };
   await Store.init();
+  // Captcha nas ações de login, quando houver site key (o Supabase precisa estar com o captcha ligado).
+  if (captchaEnabled() && Store.setCaptcha) Store.setCaptcha(getCaptchaToken);
   syncOnlineState();
   if (Store.cloudError){
     var retry = await openModal({
