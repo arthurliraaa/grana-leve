@@ -63,7 +63,7 @@ L.run(async ({page}) => {
   await page.click('#recvForm button[type=submit]'); await L.sleep(200);
   await page.type('#recvPerson', 'João'); await page.type('#recvTotal', '80'); await L.setVal(page, '#recvUrgency', 'alta');
   await page.click('#recvForm button[type=submit]'); await L.sleep(200);
-  L.ok((await page.$$eval('#recvGrid .debt-card h4', els => els.map(e => e.textContent)))[0] === 'João', 'a receber: urgente primeiro');
+  L.ok((await page.$$eval('#recvGrid .person-info h4', els => els.map(e => e.textContent)))[0] === 'João', 'a receber: urgente primeiro');
 
   await L.tab(page, 'metas');
   await page.type('#goalName', 'Viagem'); await page.type('#goalTarget', '3000');

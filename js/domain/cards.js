@@ -31,8 +31,10 @@ export function invoiceLabel(key, card){
   return monthLabelOf(due.slice(0, 7));
 }
 export function isCardExpense(t, card){ return t.type === 'expense' && t.paymentMethod === 'cartao' && t.cardId === card.id; }
+// Fatura do lançamento: pela data ou, num estorno, a fatura escolhida (invoiceKey).
+export function txInvoiceKey(t, card){ return t.invoiceKey || invoiceKeyFor(t.date, card); }
 export function invoiceItems(list, card, key){
-  return list.filter(function(t){ return isCardExpense(t, card) && invoiceKeyFor(t.date, card) === key; })
+  return list.filter(function(t){ return isCardExpense(t, card) && txInvoiceKey(t, card) === key; })
     .sort(function(a,b){ return a.date.localeCompare(b.date); });
 }
 export function invoiceTotal(list, card, key){ return sumMoney(invoiceItems(list, card, key), function(t){ return t.amount; }); }
@@ -46,7 +48,7 @@ export function invoiceStatus(card, key, today){
 // Limite usado = soma das faturas ainda não pagas (inclui parcelas futuras, que já ocupam o limite).
 export function cardUsed(list, card, today){
   var keys = {};
-  list.forEach(function(t){ if (isCardExpense(t, card)) keys[invoiceKeyFor(t.date, card)] = true; });
+  list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
   return sumMoney(Object.keys(keys).filter(function(key){ return invoiceStatus(card, key, today) !== 'paga'; }), function(key){
     return invoiceTotal(list, card, key);
   });
@@ -58,7 +60,7 @@ export function invoicesSummary(list, cards, today){
   var toPay = [], open = [];
   cards.forEach(function(card){
     var keys = {};
-    list.forEach(function(t){ if (isCardExpense(t, card)) keys[invoiceKeyFor(t.date, card)] = true; });
+    list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
     Object.keys(keys).sort().forEach(function(key){
       var status = invoiceStatus(card, key, today);
       var total = invoiceTotal(list, card, key);

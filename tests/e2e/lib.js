@@ -61,7 +61,10 @@ export async function tab(page, name){
   const sub = ['dividas', 'receber', 'fixas'].includes(name) ? name : null;
   const area = sub ? 'compromissos' : name;
   const link = '.sidenav [data-tab="' + area + '"]';
-  if (await page.$eval(link, el => el.getBoundingClientRect().width > 0).catch(() => false)) await page.click(link);
+  // Tira o foco do campo atual (fecha sugestões de nomes que possam ficar por cima do menu).
+  await page.evaluate(() => { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); });
+  // Clique pelo próprio elemento: a rolagem suave do menu pode mover o link entre a medição e o clique.
+  if (await page.$eval(link, el => el.getBoundingClientRect().width > 0).catch(() => false)) await page.$eval(link, el => el.click());
   else await page.evaluate(r => { location.hash = '#/' + r; }, ROUTES[area]);
   await sleep(80);
   if (sub) await page.click('#segbtn-' + sub);

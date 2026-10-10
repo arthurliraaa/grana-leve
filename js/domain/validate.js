@@ -15,7 +15,8 @@ function day(v){ return Number.isInteger(Number(v)) && Number(v) >= 1 && Number(
 var RULES = {
   transactions: function(t){
     if (t.type !== 'income' && t.type !== 'expense') return 'tipo inválido';
-    if (!isNum(t.amount) || t.amount <= 0) return 'valor inválido';
+    // Estorno (reversal) é um crédito: valor negativo ligado à compra original.
+    if (!isNum(t.amount) || (t.reversal ? t.amount >= 0 : t.amount <= 0)) return 'valor inválido';
     if (!isDate(t.date)) return 'data inválida';
     if (!isText(t.category, 60)) return 'categoria inválida';
     if (!optText(t.description, 200)) return 'descrição inválida';

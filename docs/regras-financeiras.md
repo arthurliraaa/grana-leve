@@ -152,3 +152,16 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 - **Encerrar** para os vencimentos depois do mês atual e mantém o histórico.
 - No Início, as contas fixas não pagas (do mês e atrasadas do mês anterior) aparecem em
   "Próximo compromisso", e o "Previsto no fim do mês" já desconta as que faltam pagar.
+
+## Estornos
+
+- O estorno é um **crédito** (lançamento com valor negativo) ligado à compra original
+  (`reversal.of`). A compra não é apagada: fica marcada como "Estornado", e o estorno aparece
+  como "+" na lista.
+- Pix/débito/vale: o valor volta para onde saiu. Cartão: a pessoa escolhe **em qual fatura** o
+  crédito aparece (da fatura da compra até a próxima à aberta). Fatura aberta: abate nela;
+  fatura fechada: normalmente na próxima. O crédito libera o limite do cartão.
+- Compra parcelada: o estorno vale para as parcelas já cobradas e, se marcado, para as
+  futuras, cada uma na própria data (mesma fatura da parcela).
+- O estorno abate os gastos do mês em que entrou. Estorno parcial é permitido; não dá para
+  estornar mais que o valor da compra. Estornos não são editados: exclua e registre de novo.

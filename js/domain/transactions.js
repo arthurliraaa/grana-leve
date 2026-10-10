@@ -19,6 +19,9 @@ export function sortTransactions(list){
 export function isForOther(t){ return t.type === 'expense' && !!t.forOther; }
 export function isRefund(t){ return t.type === 'income' && !!t.refund; }
 // outsideTotals: movimento só de saldo (ex.: pagamento de dívida que você pediu para não contar como gasto).
+// Estorno: crédito (valor negativo) ligado à compra original em reversal.of.
+export function isReversal(t){ return !!t.reversal; }
+export function reversalsOf(list, id){ return list.filter(function(t){ return t.reversal && t.reversal.of === id; }); }
 export function isPersonal(t){ return !isForOther(t) && !isRefund(t) && !t.outsideTotals; }
 
 export function txForMonth(list, key){ return list.filter(function(t){ return monthKeyOf(t.date) === key; }); }
