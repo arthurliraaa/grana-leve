@@ -8,7 +8,7 @@ L.run(async ({page}) => {
   await L.signup(page);
   const yesterday = L.dayOffset(-1), tomorrow = L.dayOffset(1);
   const bal = async name => page.evaluate((name) => {
-    const card = [...document.querySelectorAll('#accountList .account-card')].find(c => c.querySelector('h4').textContent.trim() === name);
+    const card = [...document.querySelectorAll('#accountList .account-card')].find(c => c.querySelector('.acc-name').textContent.trim() === name);
     return card ? card.querySelector('.account-balance').textContent : null;
   }, name).then(t => t === null ? null : L.moneyOf(t));
   // Mês das datas de ontem/amanhã: só contam no total do mês se forem do mês atual.
