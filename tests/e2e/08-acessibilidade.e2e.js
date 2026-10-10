@@ -32,6 +32,9 @@ L.run(async ({page}) => {
       await L.tab(page, t);
       await audit((theme === 'dark' ? 'escuro' : 'claro') + ' · ' + t);
     }
+    await L.tab(page, 'lancamentos');
+    for (const v of ['cal', 'year']){ await page.click('[data-txview="' + v + '"]'); await L.sleep(120); await audit(theme + ' · ganhos e gastos (' + v + ')'); }
+    await page.click('[data-txview="list"]'); await L.sleep(80);
     await page.click('#fabAdd'); await L.sleep(150);
     await audit(theme + ' · popup de lançamento');
     await page.click('[data-m-chat]'); await L.sleep(150);
