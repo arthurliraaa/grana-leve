@@ -4,7 +4,8 @@
  */
 import {formatDateFull, monthBounds} from '../domain/dates.js';
 import {fmtMoney} from '../domain/money.js';
-import {findById, sum} from '../domain/util.js';
+import {findById} from '../domain/util.js';
+import * as Cards from '../domain/cards.js';
 import {invoiceDates, invoiceLabel} from '../domain/cards.js';
 
 import {labelOf} from './dom.js';
@@ -22,7 +23,9 @@ export function generateInvoicePdf(cardId, key){
   var dates = invoiceDates(key, c);
   var w = pdfWriter('Fatura ' + c.name + ' · ' + invoiceLabel(key, c), (State.session ? State.session.name : '') + '  ·  Fecha ' + formatDateFull(dates.closing) + '  ·  Vence ' + formatDateFull(dates.due));
   w.section('Resumo');
-  w.row(['Total da fatura', fmtMoney(sum(items, function(t){ return t.amount; }))], [200, 200], {bold:true});
+  var carries = Cards.carryIns(c, key);
+  w.row(['Total da fatura', fmtMoney(Cards.invoiceTotal(State.transactions, c, key))], [200, 200], {bold:true});
+  carries.forEach(function(x){ w.row([(x.mode === 'parcelado' ? 'Parcelamento da fatura de ' + invoiceLabel(x.from, c) + ' (' + x.i + '/' + x.n + ')' : 'Saldo da fatura de ' + invoiceLabel(x.from, c)), fmtMoney(x.amount)], [200, 200]); });
   w.row(['Situação', invoiceStatus(c, key)], [200, 200]);
   w.row(['Limite do cartão', fmtMoney(c.limit)], [200, 200]);
   w.space(12);

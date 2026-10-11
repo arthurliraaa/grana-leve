@@ -207,3 +207,27 @@ test('mês de competência: compra no cartão conta no mês em que a fatura venc
     assert.equal(Tx.monthTotals([buy, pix], '2026-11').expense, 100);
   } finally { Tx.setMonthResolver(null); }
 });
+
+test('fatura paga em parte: o resto vai para a próxima (rotativo) ou é parcelado nas seguintes', async () => {
+  const {carryIns, carryTotal, invoiceDueTotal, invoiceKeys, partialPayment} = await import('../../js/domain/cards.js');
+  const list = [buy('a', '2026-10-01', 1000), buy('b', '2026-10-05', 200)];
+  // Rotativo: fatura de 2026-10 (R$ 1.000), pagou 400, faltam 600 na fatura seguinte.
+  const rot = {...card, paidInvoices: ['2026-10'], invoicePayments: {'2026-10': {amount: 400, total: 1000, mode: 'aberto', rest: 600}}};
+  assert.ok(partialPayment(rot, '2026-10'));
+  assert.deepEqual(carryIns(rot, '2026-11').map(x => x.amount), [600]);
+  assert.equal(carryTotal(rot, '2026-12'), 0);
+  assert.equal(invoiceDueTotal(list, rot, '2026-11'), 800, 'compra de 200 + 600 que ficou em aberto');
+  assert.equal(cardUsed(list, rot, '2026-10-20'), 800, 'a fatura paga sai do limite; o resto continua ocupando');
+  // Parcelado: faltam 600 em 4x, nas faturas 11, 12, 01 e 02.
+  const par = {...card, paidInvoices: ['2026-10'], invoicePayments: {'2026-10': {amount: 400, total: 1000, mode: 'parcelado', rest: 600, n: 4, parcel: 165}}};
+  assert.deepEqual(['2026-11', '2026-12', '2027-01', '2027-02', '2027-03'].map(kk => carryTotal(par, kk)), [150, 150, 150, 150, 0]);
+  assert.deepEqual(carryIns(par, '2027-01')[0], {from: '2026-10', mode: 'parcelado', i: 3, n: 4, amount: 150});
+  assert.deepEqual(invoiceKeys(list, par), ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02']);
+  assert.equal(cardUsed(list, par, '2026-10-20'), 800, 'parcelas futuras ocupam o limite (200 + 4 × 150)');
+  const sum = invoicesSummary(list, [par], '2026-11-05');
+  assert.equal(sum.toPayTotal, 350, 'fatura 11 fechada: compra de 200 + parcela de 150');
+  // Pagamento total (sem mode) não leva nada adiante.
+  const tot = {...card, paidInvoices: ['2026-10'], invoicePayments: {'2026-10': {amount: 1000, accountId: 'x'}}};
+  assert.equal(partialPayment(tot, '2026-10'), null);
+  assert.equal(carryTotal(tot, '2026-11'), 0);
+});
