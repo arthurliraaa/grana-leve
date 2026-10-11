@@ -1033,3 +1033,34 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .sync-alert span{ flex:1 1 220px; }
 .bill-actions{ display:inline-flex; gap:6px; flex-wrap:wrap; }
 .bill-row .tx-desc .pill{ font-size:.72rem; margin-left:4px; }
+
+/* ===== Bancos e cartões compactos: um cabeçalho por banco, seções separadas por linha ===== */
+.bank-block{ display:grid; gap:0; padding:0; background: var(--surface); border:1px solid var(--border); border-left:4px solid var(--bank-color, var(--brand)); border-radius:12px; overflow:hidden; }
+.bank-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px; }
+.bank-head h4{ margin:0; font-size:1rem; }
+.bank-head .btn{ margin-left:auto; }
+.bank-sec, .bank-block .bank-sec.credit-card, .bank-block .bank-sec.account-card{ display:grid; gap:8px; padding:10px 14px 12px; margin:0; background:none; border:none; border-top:1px solid var(--border); border-radius:0; overflow:visible; }
+.sec-head{ display:flex; align-items:center; gap:6px 10px; flex-wrap:wrap; }
+.sec-title{ display:inline-flex; align-items:center; gap:6px; font-size:.85rem; font-weight:700; color: var(--text-primary); flex:1 1 220px; min-width:0; flex-wrap:wrap; }
+.sec-title .ico{ color: var(--text-muted); }
+.sec-title .tx-meta{ font-weight:400; }
+.sec-actions{ display:inline-flex; gap:6px; flex-wrap:wrap; }
+.sec-actions .btn, .sec-foot .btn{ padding:5px 10px; }
+.sec-kpis{ display:grid; gap:10px 16px; align-items:start; }
+.acc-kpis{ grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); }
+.card-kpis{ grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); }
+.kpi-val{ font-size:1.25rem !important; letter-spacing:-.01em; }
+.progress.thin{ height:4px; margin-top:4px; }
+.inv-nav{ display:inline-flex; align-items:center; gap:4px; text-transform:none; letter-spacing:0; }
+.inv-nav button{ width:22px; height:22px; display:grid; place-items:center; border:1px solid var(--border); border-radius:6px; background: var(--surface-2); color: var(--text-primary); padding:0; }
+.inv-nav button .ico{ width:14px; height:14px; }
+.sec-foot{ display:flex; align-items:center; gap:6px 8px; flex-wrap:wrap; }
+.sec-foot details{ flex-basis:100%; }
+.bank-list .stack-lg, .bank-list{ gap:12px; }
+@media (max-width:860px){ .card-kpis{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width:620px){
+  .acc-kpis{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .acc-kpis .kpi:first-child{ grid-column: 1 / -1; }
+  .bank-head .btn{ margin-left:0; }
+}
+@media (max-width:620px){ .sec-actions .btn{ font-size:.76rem; padding:4px 8px; } }

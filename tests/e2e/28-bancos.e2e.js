@@ -21,7 +21,7 @@ L.run(async ({page}) => {
   L.ok(d.accounts.length === 1 && d.cards.length === 1 && d.cards[0].accountId === d.accounts[0].id && d.cards[0].name === 'Nubank', 'cria a conta e o cartão, ligados');
   let b = await blocks();
   L.ok(b.length === 1 && b[0].acc && b[0].cards === 1 && /Saldo hoje\s?R\$\s?1\.000,00/.test(b[0].text) && /Limite disponível\s?R\$\s?3\.000,00/.test(b[0].text), 'um bloco: saldo da conta e limite do cartão');
-  L.ok(/Paga com Nubank/.test(b[0].text), 'a fatura é paga pela conta do mesmo banco');
+  L.ok(/paga com Nubank/i.test(b[0].text), 'a fatura é paga pela conta do mesmo banco');
   L.ok(await page.$eval('#bankHasAcc', el => el.checked) && !(await page.$eval('#bankHasCard', el => el.checked)) && await page.$eval('[data-bank-part="card"]', el => el.hidden), 'formulário volta ao padrão');
 
   L.section('Só conta, e depois o cartão do mesmo banco');
@@ -46,7 +46,7 @@ L.run(async ({page}) => {
   d = await L.db(page);
   const renner = d.cards.find(c => c.name === 'Renner');
   L.ok(renner && !renner.accountId && d.accounts.length === 2, 'só o cartão, sem conta');
-  L.ok(/Só cartão, sem conta neste banco/.test((await blocks()).find(x => x.name === 'Renner').text), 'bloco avisa que é só cartão');
+  L.ok(/Só cartão/.test((await blocks()).find(x => x.name === 'Renner').text), 'bloco avisa que é só cartão');
   await page.click('[data-bank-addacc="' + renner.id + '"]'); await L.sleep(200);
   await page.type('#baBalance', '50');
   await L.submitModal(page); await L.sleep(300);

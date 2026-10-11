@@ -8,8 +8,9 @@ L.run(async ({page}) => {
   await L.signup(page);
   const yesterday = L.dayOffset(-1), tomorrow = L.dayOffset(1);
   const bal = async name => page.evaluate((name) => {
-    const card = [...document.querySelectorAll('#bankList .account-card')].find(c => c.querySelector('.acc-name').textContent.trim() === name);
-    return card ? card.querySelector('.account-balance').textContent : null;
+    // O nome fica no cabeçalho do bloco do banco; o saldo, na seção da conta.
+    const block = [...document.querySelectorAll('#bankList .bank-block')].find(b => b.querySelector('.acc-name').textContent.trim() === name && b.querySelector('.account-balance'));
+    return block ? block.querySelector('.account-balance').textContent : null;
   }, name).then(t => t === null ? null : L.moneyOf(t));
   // Mês das datas de ontem/amanhã: só contam no total do mês se forem do mês atual.
   const cur = L.monthKey(0);

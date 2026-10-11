@@ -2,13 +2,13 @@
  * Cartões e faturas: cartão, fatura do mês, pagamento e relatório por cartão.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, formatDateBr, formatDateFull, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
+import {todayKey, formatDateBr, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
 import {money, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceDates, invoiceLabel} from '../domain/cards.js';
 import {pickerHtml, readPicker, wirePicker} from './brand-picker.js';
-import {lookOf, cardPaint} from '../domain/brands.js';
+
 import {Store} from '../data/store.js';
 import {qs, escapeHtml, optionsHtml, labelOf, icon, resolveVar, saveFile, toast} from './dom.js';
 import {openModal} from './modal.js';
@@ -114,8 +114,8 @@ function dueNote(date, status){
   var d = daysUntil(date);
   return d < 0 ? 'venceu há ' + (-d) + (d === -1 ? ' dia' : ' dias') : d === 0 ? 'vence hoje' : d === 1 ? 'vence amanhã' : 'em ' + d + ' dias';
 }
-// Um cartão: limite disponível no topo; a fatura do mês com valor, vencimento e situação em destaque;
-// ação principal (marcar como paga) à frente, editar/excluir separados no fim.
+// Seção do cartão dentro do bloco do banco (o nome e o ícone ficam no cabeçalho do banco): limite
+// disponível, fatura do mês, vencimento e situação numa linha; ações no cabeçalho da seção.
 export function cardHtml(c){
   var key = shiftMonthKey(invoiceKeyFor(todayKey(), c), State.invoiceOffsets[c.id] || 0);
   var items = invoiceItems(c, key);
@@ -124,46 +124,37 @@ export function cardHtml(c){
   var status = invoiceStatus(c, key);
   var used = cardUsed(c), limit = Number(c.limit) || 0;
   var pct = limit > 0 ? Math.min(1, used / limit) : 0;
-  var look = lookOf(c), paint = look.color ? cardPaint(look.color) : null;
   var paidWith = (c.invoicePayments || {})[key];
   var payAcc = State.accounts.length ? accountName(payAccountFor(c)) : '';
   var gs = installmentGroups().filter(function(g){ return g.cardId === c.id && g.future.length; });
-  return '<article class="credit-card" aria-label="Cartão ' + escapeHtml(c.name) + '">' +
-    '<div class="credit-card-top' + (paint ? ' painted' : '') + '"' + (paint ? ' style="background:linear-gradient(135deg,' + paint.from + ',' + paint.to + ');color:' + paint.text + '"' : '') + '>' +
-      '<div class="cc-title"><span class="bank-badge on-card" aria-hidden="true">' + escapeHtml(look.mark) + '</span>' +
-        '<div><h4>' + escapeHtml(c.name) + '</h4><span class="sub">Cartão de crédito · fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay + '</span></div></div>' +
-      '<div class="avail"><span class="sub">Limite disponível</span><strong class="tabular">' + fmtMoney(Math.max(0, limit - used)) + '</strong><span class="sub">de ' + fmtMoney(limit) + '</span></div>' +
-    '</div>' +
-    '<div class="credit-card-body">' +
-      '<div class="limit-line"><div class="progress" role="img" aria-label="Limite usado: ' + Math.round(pct * 100) + '%"><span style="width:' + (pct*100) + '%; background:' + (pct >= 0.9 ? 'var(--critical)' : pct >= 0.7 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
-        '<span class="tx-meta tabular">Usado ' + fmtMoney(used) + ' (' + Math.round(pct * 100) + '%)</span></div>' +
-      '<div class="invoice-panel">' +
-        '<div class="month-switch invoice-nav">' +
+  return '<div class="bank-sec credit-card" aria-label="Cartão de crédito ' + escapeHtml(c.name) + '">' +
+    '<div class="sec-head"><span class="sec-title">' + icon('card') + 'Cartão de crédito<span class="tx-meta"> · fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay +
+      (payAcc ? ' · paga com ' + escapeHtml(payAcc) : '') + '</span></span>' +
+      '<span class="sec-actions"><button class="btn btn-ghost btn-sm" type="button" data-card-report="' + c.id + '">Relatório</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-card-edit="' + c.id + '">Editar cartão</button>' +
+        '<button class="btn btn-danger btn-sm" type="button" data-card-del="' + c.id + '">Excluir cartão</button></span></div>' +
+    '<div class="sec-kpis card-kpis">' +
+      '<div class="kpi avail"><span class="kpi-lbl">Limite disponível</span><strong class="tabular kpi-val">' + fmtMoney(Math.max(0, limit - used)) + '</strong>' +
+        '<span class="kpi-sub tabular">de ' + fmtMoney(limit) + ' · usado ' + Math.round(pct * 100) + '%</span>' +
+        '<div class="progress thin" role="img" aria-label="Limite usado: ' + Math.round(pct * 100) + '%"><span style="width:' + (pct*100) + '%; background:' + (pct >= 0.9 ? 'var(--critical)' : pct >= 0.7 ? 'var(--warning)' : 'var(--brand)') + '"></span></div></div>' +
+      '<div class="kpi"><span class="kpi-lbl inv-nav">' +
           '<button type="button" data-inv-shift="' + c.id + '" data-dir="-1" aria-label="Fatura anterior">' + icon('chevron-left') + '</button>' +
-          '<strong>Fatura de ' + invoiceLabel(key, c) + '</strong>' +
-          '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button>' +
-        '</div>' +
-        '<div class="invoice-kpis">' +
-          '<div class="kpi"><span class="kpi-lbl">Valor da fatura</span><strong class="invoice-total tabular">' + fmtMoney(total) + '</strong></div>' +
-          '<div class="kpi"><span class="kpi-lbl">Vencimento</span><strong class="tabular kpi-val">' + formatDateBr(dates.due) + '</strong><span class="kpi-sub' + (status === 'vencida' ? ' neg-text' : '') + '">' + dueNote(dates.due, status) + '</span></div>' +
-          '<div class="kpi"><span class="kpi-lbl">Situação</span><span class="status-pill pill-lg ' + INVOICE_PILL[status] + '">' + status + '</span>' +
-            '<span class="kpi-sub">' + (paidWith ? 'Paga com ' + escapeHtml(accountName(paidWith.accountId)) : STATUS_TEXT[status]) + '</span></div>' +
-        '</div>' +
-        '<p class="tx-meta">Fecha ' + formatDateFull(dates.closing) + (payAcc ? ' · Paga com ' + escapeHtml(payAcc) : '') + '</p>' +
-      '</div>' +
+          '<span>Fatura de ' + invoiceLabel(key, c) + '</span>' +
+          '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button></span>' +
+        '<strong class="invoice-total tabular kpi-val">' + fmtMoney(total) + '</strong><span class="kpi-sub">fecha ' + formatDateBr(dates.closing) + '</span></div>' +
+      '<div class="kpi"><span class="kpi-lbl">Vencimento</span><strong class="tabular kpi-val">' + formatDateBr(dates.due) + '</strong>' +
+        '<span class="kpi-sub' + (status === 'vencida' ? ' neg-text' : '') + '">' + dueNote(dates.due, status) + '</span></div>' +
+      '<div class="kpi"><span class="kpi-lbl">Situação</span><span class="status-pill pill-lg ' + INVOICE_PILL[status] + '">' + status + '</span>' +
+        '<span class="kpi-sub">' + (paidWith ? 'Paga com ' + escapeHtml(accountName(paidWith.accountId)) : STATUS_TEXT[status]) + '</span></div>' +
+    '</div>' +
+    '<div class="sec-foot">' +
+      (total > 0 ? '<button class="btn ' + (status === 'paga' ? 'btn-ghost' : 'btn-primary') + ' btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? 'Desmarcar paga' : 'Marcar como paga') + '</button>' : '') +
+      '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Fatura em PDF</button>' +
       (items.length ? '<details class="budget-details"><summary>Ver as ' + items.length + ' compra(s) desta fatura</summary>' +
         '<p class="tx-meta same-tx-note">São as mesmas compras de “Ganhos e gastos”, agrupadas pela fatura em que entraram: não somam de novo.</p>' +
-        items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
+        items.map(txRowHtml).join('') + '</details>' : '<span class="tx-meta">Nenhuma compra nesta fatura.</span>') +
       (gs.length ? '<details class="budget-details"><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '') +
-      '<div class="card-actions split-actions">' +
-        (total > 0 ? '<button class="btn ' + (status === 'paga' ? 'btn-ghost' : 'btn-primary') + ' btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? 'Desmarcar paga' : 'Marcar como paga') + '</button>' : '') +
-        '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Fatura em PDF</button>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-card-report="' + c.id + '">Relatório</button>' +
-        '<span class="actions-gap" aria-hidden="true"></span>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-card-edit="' + c.id + '">Editar cartão</button>' +
-        '<button class="btn btn-danger btn-sm" type="button" data-card-del="' + c.id + '">Excluir cartão</button>' +
-      '</div>' +
-    '</div></article>';
+    '</div></div>';
 }
 
 export function cardFormBody(c){

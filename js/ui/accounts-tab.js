@@ -51,41 +51,43 @@ export function bankGroups(){
   State.cards.forEach(function(c){ if (!used[c.id]) out.push({acc: null, cards: [c]}); });
   return out;
 }
-// Uma conta: saldo em destaque, entradas e saídas do mês, movimentações recolhidas; transferir à
-// frente, editar/excluir separados no fim.
+// Seção da conta dentro do bloco do banco: saldo, entradas e saídas do mês numa linha; ações no cabeçalho
+// da seção; movimentações recolhidas.
 export function accountHtml(a){
   var cur = monthBounds(0).key, bal = accountBalance(a), moves = accountMoves(a);
   var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
   var inM = sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; });
   var outM = -sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; });
-  return '<div class="goal-card account-card">' +
-    '<div class="budget-top"><h4>' + badgeHtml(a) + '<span class="acc-name">' + escapeHtml(a.name) + '</span></h4><span class="pill">Conta</span></div>' +
-    '<div class="account-kpis">' +
-      '<div class="kpi kpi-main"><span class="kpi-lbl">Saldo hoje</span><strong class="tabular account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
+  return '<div class="bank-sec account-card" aria-label="Conta ' + escapeHtml(a.name) + '">' +
+    '<div class="sec-head"><span class="sec-title">' + icon('bank') + 'Conta</span>' +
+      '<span class="sec-actions">' + (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
+        '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar conta</button>' +
+        '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir conta</button></span></div>' +
+    '<div class="sec-kpis acc-kpis">' +
+      '<div class="kpi"><span class="kpi-lbl">Saldo hoje</span><strong class="tabular kpi-val account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
       '<div class="kpi"><span class="kpi-lbl">Entrou no mês</span><strong class="tabular pos-text">' + fmtMoney(inM) + '</strong></div>' +
       '<div class="kpi"><span class="kpi-lbl">Saiu no mês</span><strong class="tabular">' + fmtMoney(outM) + '</strong></div>' +
     '</div>' +
-    (moves.length ? '<details class="budget-details"><summary>Ver movimentações (' + moves.length + ')</summary>' + moves.slice(0, 40).map(moveRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma movimentação desde o cadastro.</p>') +
-    '<div class="card-actions split-actions">' +
-      (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
-      '<span class="actions-gap" aria-hidden="true"></span>' +
-      '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar conta</button>' +
-      '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir conta</button>' +
-    '</div></div>';
+    (moves.length ? '<details class="budget-details"><summary>Ver movimentações (' + moves.length + ')</summary>' + moves.slice(0, 40).map(moveRowHtml).join('') + '</details>' : '') +
+    '</div>';
 }
 export function renderBanks(){
   document.getElementById('transferBtn').hidden = State.accounts.length < 2;
   var wrap = document.getElementById('bankList');
   var groups = bankGroups();
   if (!groups.length){ wrap.innerHTML = '<p class="empty-state">Nenhum banco cadastrado. Adicione acima a conta e, se tiver, o cartão de crédito.</p>'; return; }
+  // Um bloco por banco: nome e ícone uma vez no cabeçalho; a cor da marca é só uma faixa fina na lateral;
+  // conta e cartão em seções compactas separadas por uma linha.
   wrap.innerHTML = groups.map(function(g){
-    var first = g.acc || g.cards[0];
-    return '<section class="bank-block" aria-label="' + escapeHtml(first.name) + '">' +
-      (g.acc ? accountHtml(g.acc) :
-        '<div class="bank-only-card"><span class="tx-meta">Só cartão, sem conta neste banco.</span>' +
-          '<button class="btn btn-ghost btn-sm" type="button" data-bank-addacc="' + g.cards[0].id + '">' + icon('plus') + 'Adicionar a conta</button></div>') +
+    var first = g.acc || g.cards[0], look = lookOf(first);
+    return '<section class="bank-block" aria-label="' + escapeHtml(first.name) + '"' + (look.color ? ' style="--bank-color:' + look.color + '"' : '') + '>' +
+      '<header class="bank-head">' + badgeHtml(first) + '<h4><span class="acc-name">' + escapeHtml(first.name) + '</span></h4>' +
+        '<span class="tx-meta">' + (g.acc && g.cards.length ? 'Conta e cartão' : g.acc ? 'Conta' : 'Só cartão') + '</span>' +
+        (g.acc && !g.cards.length ? '<button class="btn btn-ghost btn-sm" type="button" data-bank-addcard="' + g.acc.id + '">' + icon('plus') + 'Adicionar cartão de crédito</button>' : '') +
+        (!g.acc ? '<button class="btn btn-ghost btn-sm" type="button" data-bank-addacc="' + g.cards[0].id + '">' + icon('plus') + 'Adicionar a conta</button>' : '') +
+      '</header>' +
+      (g.acc ? accountHtml(g.acc) : '') +
       g.cards.map(cardHtml).join('') +
-      (g.acc && !g.cards.length ? '<button class="btn btn-ghost btn-sm bank-add-card" type="button" data-bank-addcard="' + g.acc.id + '">' + icon('plus') + 'Adicionar cartão de crédito deste banco</button>' : '') +
       '</section>';
   }).join('');
 }
