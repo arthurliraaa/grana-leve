@@ -1,6 +1,6 @@
 /*
- * Compromissos → Contas fixas: cadastro, vencimentos do mês, pagar (vira gasto), desfazer,
- * mudar o valor "a partir de", encerrar e excluir. Separado do app.js como o perfil e o painel adm.
+ * Ganhos e gastos → Contas fixas: cadastro, vencimentos do mês, lançamento automático no dia (vira
+ * gasto sozinho), mudar o valor de um mês, desfazer, mudar o valor "a partir de", encerrar e excluir.
  */
 import {Store} from '../data/store.js';
 import {BILL_FREQS, billOccurrences, billsMonthSummary, billNext, billAmountFor} from '../domain/bills.js';
@@ -14,30 +14,93 @@ import {openModal, confirmAction} from './modal.js';
 // ctx: {state(), k(), paymentOptions(), applyPayment(tx, pay), catOptions(), catLabel(id), renderAll(), addTx(tx), removeTx(id)}
 var ctx = null;
 var offset = 0;
-var STATUS = {paga: ['good', 'Paga'], atrasada: ['critical', 'Atrasada'], logo: ['warning', 'Vence logo'], aberta: ['', 'Em aberto']};
+function txOf(o){ return o.paid ? findById(ctx.state().transactions, o.paid.txId) : null; }
 
 function bills(){ return ctx.state().bills; }
 function paidOk(b, p){ return !!findById(ctx.state().transactions, p.txId); }
-export function billMonth(key){ return billOccurrences(bills(), key, todayKey(), paidOk); }
+// skipped: lançamento desfeito pela pessoa (não volta a ser lançado sozinho).
+export function billMonth(key){
+  return billOccurrences(bills(), key, todayKey(), paidOk).map(function(o){
+    o.skipped = !o.paid && !!((o.b.paid || {})[key] || {}).skipped;
+    var t = txOf(o); if (t) o.amount = Number(t.amount);
+    return o;
+  });
+}
+// Conta cadastrada depois do dia: aquele mês não é lançado sozinho (pode já ter sido lançado à mão).
+function beforeSignup(o){ return o.b.createdAt && o.date < new Date(o.b.createdAt).toISOString().slice(0, 10); }
+// Lança sozinho, no dia, cada vencimento que chegou (desde o cadastro da conta). Devolve quantos lançou.
+export async function runAutoBills(){
+  if (!ctx || !bills().length) return 0;
+  var today = todayKey(), cur = monthBounds(0).key, made = 0;
+  for (var i = 0; i < bills().length; i++){
+    var b = bills()[i];
+    var from = b.startMonth;
+    if (b.createdAt){ var cm = new Date(b.createdAt).toISOString().slice(0, 7); if (cm > from) from = cm; }
+    for (var key = from; key <= cur; key = shiftMonthKey(key, 1)){
+      var o = billMonth(key).filter(function(x){ return x.b.id === b.id; })[0];
+      if (!o || o.paid || o.skipped || o.date > today || beforeSignup(o)) continue;
+      await launch(b, key, o.amount, o.date, b.pay, true);
+      made++;
+    }
+  }
+  if (made) toast(made === 1 ? '1 conta fixa foi lançada sozinha em Ganhos e gastos.' : made + ' contas fixas foram lançadas sozinhas em Ganhos e gastos.');
+  return made;
+}
+async function launch(b, key, amount, date, pay, auto){
+  var tx = {type: 'expense', amount: amount, category: b.category, categoryLabel: ctx.catLabel(b.category), date: date,
+    description: b.name + ' (' + monthLabelOf(key) + ')', billId: b.id, billKey: key, createdAt: Date.now()};
+  if (auto) tx.autoBill = true;
+  ctx.applyPayment(tx, pay);
+  var saved = await ctx.addTx(tx);
+  var patch = {paid: Object.assign({}, b.paid || {})};
+  patch.paid[key] = {txId: saved.id, amount: amount, date: date, auto: !!auto};
+  await Store.update(ctx.k(), 'bills', b.id, patch);
+  Object.assign(b, patch);
+  return saved;
+}
 // Para o Início: contas do mês atual (e atrasadas do mês anterior) ainda não pagas.
 export function pendingBills(){
   var cur = monthBounds(0).key;
-  return billMonth(shiftMonthKey(cur, -1)).concat(billMonth(cur)).filter(function(o){ return !o.paid; });
+  return billMonth(shiftMonthKey(cur, -1)).concat(billMonth(cur)).filter(function(o){ return !o.paid && !o.skipped; });
 }
 
 function payLabel(pay){ var o = ctx.paymentOptions().filter(function(x){ return x.id === pay; })[0]; return o ? o.label : 'Dinheiro'; }
 
 function occRowHtml(o){
-  var st = STATUS[o.status];
+  var c = cardOfPay(o.b.pay), today = todayKey();
+  var when = c ? 'compra no cartão ' + formatDateBr(o.date) + ' · fatura de ' + invoiceFor(o.date, c).label : formatDateBr(o.date);
+  var state, cls, actions;
+  if (o.paid){
+    state = (o.paid.auto ? 'Lançada sozinha' : 'Lançada') + ' em ' + formatDateBr(o.paid.date); cls = 'good';
+    actions = '<button class="btn btn-ghost btn-sm" type="button" data-edit-tx="' + escapeHtml(o.paid.txId) + '">Mudar valor</button>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-bill-undo="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Desfazer</button>';
+  } else if (o.skipped){
+    state = 'Não lançada (você desfez)'; cls = '';
+    actions = '<button class="btn btn-ghost btn-sm" type="button" data-bill-pay="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Lançar</button>';
+  } else if (o.date <= today){
+    state = 'Antes do cadastro: lance se ainda não lançou'; cls = 'warning';
+    actions = '<button class="btn btn-ghost btn-sm" type="button" data-bill-pay="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Lançar</button>';
+  } else {
+    state = 'Lança sozinha em ' + formatDateBr(o.date); cls = '';
+    actions = '<button class="btn btn-ghost btn-sm" type="button" data-bill-pay="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Lançar agora</button>';
+  }
   return '<div class="list-row bill-row">' +
     '<div class="tx-main"><div class="tx-desc">' + escapeHtml(o.b.name) + '</div>' +
-      '<div class="tx-meta">' + (cardOfPay(o.b.pay) ? 'Compra no cartão ' + formatDateBr(o.date) + ' · fatura de ' + invoiceFor(o.date, cardOfPay(o.b.pay)).label : 'Vence ' + formatDateBr(o.date)) +
-        ' · ' + escapeHtml(o.paid ? 'paga em ' + formatDateBr(o.paid.date) : payLabel(o.b.pay)) + '</div></div>' +
+      '<div class="tx-meta">' + when + ' · ' + escapeHtml(payLabel(o.b.pay)) + '</div></div>' +
     '<span class="tabular bill-amount">' + fmtMoney(o.amount) + '</span>' +
-    '<span class="status-pill ' + st[0] + '">' + st[1] + '</span>' +
-    (o.paid ? '<button class="btn btn-ghost btn-sm" type="button" data-bill-undo="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Desfazer</button>' :
-      '<button class="btn btn-primary btn-sm" type="button" data-bill-pay="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Pagar</button>') +
-    '</div>';
+    '<span class="status-pill ' + cls + '">' + state + '</span>' +
+    '<span class="bill-actions">' + actions + '</span></div>';
+}
+function billListRowHtml(b, cur){
+  var next = billNext(b, cur, shiftMonthKey), ended = !!b.endMonth;
+  return '<div class="list-row bill-row">' +
+    '<div class="tx-main"><div class="tx-desc">' + escapeHtml(b.name) + ' <span class="pill">' + escapeHtml(labelOf(BILL_FREQS, String(b.every || 1))) + '</span></div>' +
+      '<div class="tx-meta">' + escapeHtml(ctx.catLabel(b.category)) + ' · ' + (cardOfPay(b.pay) ? 'compra no cartão dia ' : 'dia ') + b.dueDay + ' · ' + escapeHtml(payLabel(b.pay)) + ' · ' +
+        (ended ? 'encerrada em ' + monthLabelOf(b.endMonth) : next ? 'próxima ' + formatDateFull(next.date) : 'sem próximas') + '</div></div>' +
+    '<span class="tabular bill-amount">' + fmtMoney(billAmountFor(b, cur)) + '</span>' +
+    '<span class="bill-actions"><button class="btn btn-ghost btn-sm" type="button" data-bill-edit="' + escapeHtml(b.id) + '">Editar</button>' +
+      (ended ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-bill-end="' + escapeHtml(b.id) + '">Encerrar</button>') +
+      '<button class="btn btn-danger btn-sm" type="button" data-bill-del="' + escapeHtml(b.id) + '">Excluir</button></span></div>';
 }
 
 export function renderBills(){
@@ -47,21 +110,13 @@ export function renderBills(){
   qs('#billMonthLabel').textContent = monthLabelOf(key);
   qs('#billPrev').disabled = offset <= -12;
   qs('#billNext').disabled = offset >= 12;
+  var wasOpen = qs('#billAll') && qs('#billAll').open;
   qs('#billMonth').innerHTML = !bills().length ? '<p class="empty-state">Nenhuma conta fixa ainda. Cadastre acima (água, luz, internet, aluguel…).</p>' :
-    !occ.length ? '<p class="tx-meta">Nenhuma conta vence neste mês.</p>' :
-    '<p class="card-sub">' + sum.count + ' conta(s) · total ' + fmtMoney(sum.total) + ' · pagas ' + fmtMoney(sum.paid) + ' · faltam <strong>' + fmtMoney(sum.pending) + '</strong>' +
-      (sum.late ? ' · <span class="neg-text">' + sum.late + ' atrasada(s)</span>' : '') + '</p>' + occ.map(occRowHtml).join('');
-  qs('#billGrid').innerHTML = bills().map(function(b){
-    var next = billNext(b, cur, shiftMonthKey), ended = !!b.endMonth;
-    return '<div class="debt-card">' +
-      '<div class="budget-top"><h4>' + escapeHtml(b.name) + '</h4><span class="pill">' + escapeHtml(labelOf(BILL_FREQS, String(b.every || 1))) + '</span></div>' +
-      '<div class="debt-figs"><span class="tabular">' + fmtMoney(billAmountFor(b, cur)) + '</span><span>' + escapeHtml(ctx.catLabel(b.category)) + '</span></div>' +
-      '<span class="tx-meta">' + (cardOfPay(b.pay) ? 'Compra no cartão dia ' : 'Paga dia ') + b.dueDay + ' · ' + escapeHtml(payLabel(b.pay)) + '</span>' +
-      '<span class="tx-meta">' + (ended ? 'Encerrada em ' + monthLabelOf(b.endMonth) + ' (último vencimento)' : next ? 'Próximo: ' + formatDateFull(next.date) + ' · ' + fmtMoney(next.amount) : 'Sem próximos vencimentos') + '</span>' +
-      '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-bill-edit="' + escapeHtml(b.id) + '">Editar ou mudar valor</button>' +
-        (ended ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-bill-end="' + escapeHtml(b.id) + '">Encerrar</button>') +
-        '<button class="btn btn-danger btn-sm" type="button" data-bill-del="' + escapeHtml(b.id) + '">Excluir</button></div></div>';
-  }).join('');
+    (!occ.length ? '<p class="tx-meta">Nenhuma conta vence neste mês.</p>' :
+      '<p class="card-sub">' + sum.count + ' conta(s) · total ' + fmtMoney(sum.total) + ' · já lançadas ' + fmtMoney(sum.paid) + ' · ainda vão entrar <strong>' + fmtMoney(sum.pending) + '</strong></p>' +
+      occ.map(occRowHtml).join('')) +
+    '<details class="budget-details" id="billAll"' + (wasOpen ? ' open' : '') + '><summary>Todas as contas fixas (' + bills().length + '): editar, mudar valor, encerrar</summary>' +
+      bills().map(function(b){ return billListRowHtml(b, cur); }).join('') + '</details>';
 }
 
 export function fillBillForm(){
@@ -102,23 +157,24 @@ async function addBill(e){
   catch(err){ toast(err.userMessage || 'Não foi possível salvar. Se acabou de atualizar o app, o banco precisa da migração de contas fixas.'); return; }
   bills().push(saved);
   e.target.reset(); fillBillForm(); ctx.renderAll();
-  toast('Conta fixa “' + name + '” adicionada.');
+  toast('Conta fixa “' + name + '” adicionada. Ela entra sozinha em Ganhos e gastos no dia.');
+  if (await runAutoBills()) ctx.renderAll();
 }
 
 async function payBill(id, key){
   var b = findById(bills(), id), o = billMonth(key).filter(function(x){ return x.b.id === id; })[0];
   if (!o) return;
-  var today = todayKey(), date = o.date < today ? today : (key === monthBounds(0).key ? today : o.date);
+  var date = o.date;
   var a = await openModal({
-    title: 'Pagar ' + b.name,
+    title: 'Lançar ' + b.name,
     body: '<p>Vencimento de ' + monthLabelOf(key) + ': ' + formatDateFull(o.date) + '.</p>' +
-      '<div class="field"><label for="bpAmount">Valor pago</label><span class="money-input"><span>R$</span><input id="bpAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + o.amount + '"></span>' +
+      '<div class="field"><label for="bpAmount">Valor</label><span class="money-input"><span>R$</span><input id="bpAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + o.amount + '"></span>' +
         '<span class="field-hint">Conta que muda todo mês (luz, água)? Ajuste aqui o valor desta vez.</span></div>' +
       '<label class="check" id="bpKeepField" hidden><input type="checkbox" name="keep"> Usar este valor nos próximos meses também</label>' +
-      '<div class="field"><label for="bpDate">Data do pagamento</label><input id="bpDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + date + '"></div>' +
+      '<div class="field"><label for="bpDate">Data</label><input id="bpDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + date + '"></div>' +
       '<div class="field"><label for="bpPay">Forma de pagamento</label><select id="bpPay" name="pay">' + optionsHtml(ctx.paymentOptions().filter(function(x){ return x.id !== 'card:none'; }), b.pay) + '</select></div>' +
-      '<p class="field-hint">O pagamento vira um gasto em “Ganhos e gastos” (' + escapeHtml(ctx.catLabel(b.category)) + ') e desconta da conta ou entra na fatura do cartão escolhido.</p>',
-    submitLabel: 'Registrar pagamento',
+      '<p class="field-hint">Vira um gasto em “Ganhos e gastos” (' + escapeHtml(ctx.catLabel(b.category)) + ') e desconta da conta ou entra na fatura do cartão escolhido.</p>',
+    submitLabel: 'Lançar',
     onOpen: function(modal){
       qs('#bpAmount', modal).addEventListener('input', function(e){ qs('#bpKeepField', modal).hidden = money(e.target.value) === o.amount; });
     },
@@ -130,30 +186,27 @@ async function payBill(id, key){
     }
   });
   if (!a) return;
-  var tx = {type: 'expense', amount: a.amount, category: b.category, categoryLabel: ctx.catLabel(b.category), date: a.date,
-    description: b.name + ' (' + monthLabelOf(key) + ')', billId: b.id, billKey: key, createdAt: Date.now()};
-  ctx.applyPayment(tx, a.pay);
-  var saved = await ctx.addTx(tx);
-  var patch = {paid: Object.assign({}, b.paid || {})};
-  patch.paid[key] = {txId: saved.id, amount: a.amount, date: a.date};
-  if (a.keep) patch.amounts = (b.amounts || []).filter(function(x){ return x.from !== key; }).concat([{from: key, amount: a.amount}]);
-  await Store.update(ctx.k(), 'bills', b.id, patch);
-  Object.assign(b, patch);
+  await launch(b, key, a.amount, a.date, a.pay, false);
+  if (a.keep){
+    var am = (b.amounts || []).filter(function(x){ return x.from !== key; }).concat([{from: key, amount: a.amount}]);
+    await Store.update(ctx.k(), 'bills', b.id, {amounts: am});
+    b.amounts = am;
+  }
   ctx.renderAll();
-  toast(b.name + ' paga: ' + fmtMoney(a.amount) + '.' + (a.keep ? ' O novo valor vale para os próximos meses.' : ''));
+  toast(b.name + ' lançada: ' + fmtMoney(a.amount) + '.' + (a.keep ? ' O novo valor vale para os próximos meses.' : ''));
 }
 
 async function undoBill(id, key){
   var b = findById(bills(), id), p = (b.paid || {})[key];
   if (!p) return;
-  if (!(await confirmAction({title: 'Desfazer pagamento?', danger: false, confirmLabel: 'Desfazer',
-    message: 'O pagamento de ' + fmtMoney(p.amount) + ' (' + b.name + ', ' + monthLabelOf(key) + ') sai de “Ganhos e gastos” e a conta volta a ficar em aberto.'}))) return;
+  if (!(await confirmAction({title: 'Desfazer lançamento?', danger: false, confirmLabel: 'Desfazer',
+    message: 'O gasto de ' + b.name + ' em ' + monthLabelOf(key) + ' sai de “Ganhos e gastos” e não será lançado de novo sozinho. Dá para lançar depois, se precisar.'}))) return;
   if (findById(ctx.state().transactions, p.txId)) await ctx.removeTx(p.txId);
-  var paid = Object.assign({}, b.paid); delete paid[key];
+  var paid = Object.assign({}, b.paid); paid[key] = {skipped: true, date: todayKey()};
   await Store.update(ctx.k(), 'bills', b.id, {paid: paid});
   b.paid = paid;
   ctx.renderAll();
-  toast('Pagamento desfeito.');
+  toast('Lançamento desfeito.');
 }
 
 async function editBill(id){

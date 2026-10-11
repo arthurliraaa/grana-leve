@@ -9,7 +9,7 @@ import {isReversal} from '../domain/transactions.js';
 
 import {renderAdmin} from './admin.js';
 import {renderProfile} from './profile.js';
-import {renderBills, fillBillForm, resetBillsView} from './bills.js';
+import {renderBills, fillBillForm, resetBillsView, runAutoBills} from './bills.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup} from '../data/backup.js';
 import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../data/session.js';
@@ -261,6 +261,8 @@ export async function enterApp(profileHint){
   State.navReady = false;
   showTab(tabFromHash() || 'dashboard');
   State.navReady = true;
+  // Contas fixas cujo dia chegou entram sozinhas em Ganhos e gastos.
+  if (await runAutoBills()) renderAll();
   if (!(await offerLocalImport())) maybeWelcome();
 }
 
