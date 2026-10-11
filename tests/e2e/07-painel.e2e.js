@@ -59,8 +59,9 @@ L.run(async ({page}) => {
   // Marca a vencida como paga: só sobra a outra.
   await L.tab(page, 'cartoes');
   const oldInvoice = '[data-inv-paid="' + card.id + '"][data-key="' + L.monthKey(-2) + '"]';
-  for (let i = 0; i < 4 && !(await page.$(oldInvoice)); i++){ await page.click('[data-inv-shift="' + card.id + '"][data-dir="-1"]'); await L.sleep(80); }
-  await page.click(oldInvoice); await L.sleep(250);
+  for (let i = 0; i < 4 && !(await page.$(oldInvoice)); i++){ await page.$eval('[data-inv-shift="' + card.id + '"][data-dir="-1"]', el => el.click()); await L.sleep(80); }
+  await page.$eval(oldInvoice, el => el.click()); await L.sleep(200);
+  await L.submitModal(page); await L.sleep(150);   // "Pagar fatura" (sempre pergunta: toda ou uma parte)
   await L.tab(page, 'dashboard');
   ft = await tileOf('Faturas a pagar');
   L.ok(L.moneyOf(ft.val) === (closedThisMonth ? 250 : 0), 'fatura paga sai da soma');

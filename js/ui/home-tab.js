@@ -275,15 +275,14 @@ export function invoiceSplitData(){
     });
     key = key || cur;
     var items = Cards.invoiceItems(State.transactions, c, key).filter(function(t){ return !(t.installment && t.installment.settled); });
-    var mine = money(sum(items, myShare)), others = money(sum(items, othersShare));
+    // Saldo de fatura anterior paga em parte é dívida sua.
+    var mine = money(sum(items, myShare) + Cards.carryTotal(c, key)), others = money(sum(items, othersShare));
     rows.push({card: c, key: key, label: Cards.invoiceLabel(key, c), due: Cards.invoiceDates(key, c).due, status: Cards.invoiceStatus(c, key, today),
       mine: mine, others: others, total: money(mine + others)});
   });
   var late = [];
   State.cards.forEach(function(c){
-    var keys = {};
-    State.transactions.forEach(function(t){ if (Cards.isCardExpense(t, c)) keys[Cards.txInvoiceKey(t, c)] = true; });
-    Object.keys(keys).forEach(function(kk){
+    Cards.invoiceKeys(State.transactions, c).forEach(function(kk){
       var v = Cards.invoiceDueTotal(State.transactions, c, kk);
       if (v > 0 && Cards.invoiceStatus(c, kk, today) === 'vencida') late.push(v);
     });
@@ -568,7 +567,7 @@ export function invoiceTagHtml(t){
   else if (key === cur){ st = 'atual'; cls = 'brand'; }
   else {
     var status = Cards.invoiceStatus(c, key, todayKey());
-    st = status === 'paga' ? 'paga' : status === 'vencida' ? 'vencida' : 'fechada, a pagar';
+    st = status === 'paga' ? (Cards.partialPayment(c, key) ? 'paga em parte' : 'paga') : status === 'vencida' ? 'vencida' : 'fechada, a pagar';
     cls = status === 'paga' ? 'good' : status === 'vencida' ? 'bad' : 'warn';
   }
   var full = Cards.invoiceLabel(key, c);   // "novembro de 2026" -> curto "nov/2026"

@@ -2,9 +2,10 @@
  * Contas bancárias, transferências e vale-alimentação.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, monthKeyOf, formatDateBr, validDateStr, monthBounds, monthLabelOf} from '../domain/dates.js';
-import {money, fmtMoney} from '../domain/money.js';
+import {todayKey, monthKeyOf, formatDateBr, validDateStr, monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
+import {money, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
+import * as Cards from '../domain/cards.js';
 import {invoiceLabel} from '../domain/cards.js';
 
 import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
@@ -15,7 +16,7 @@ import {openModal} from './modal.js';
 import {cardHtml, readCardFields, renderCards, renderWalletSummary} from './cards-tab.js';
 import {renderStatTiles, txRowHtml} from './home-tab.js';
 import {renderAll} from './shell.js';
-import {State, accountBalance, accountMoves, accountName, invoiceItems, k, voucherBalance, voucherTx} from './state.js';
+import {State, accountBalance, accountMoves, accountName, k, voucherBalance, voucherTx} from './state.js';
 import {fold, populatePaymentSelect} from './tx-list.js';
 
 /* ---------- Contas bancárias ---------- */
@@ -197,38 +198,151 @@ export function payAccountFor(card){
   var same = bank && State.accounts.filter(function(a){ var b = lookOf(a).bank; return b && b.id === bank.id; })[0];
   return same ? same.id : (State.accounts[0] ? State.accounts[0].id : '');
 }
+// Pagar a fatura: o total ou só uma parte. Pagando uma parte, o resto fica em aberto (vai para a fatura
+// seguinte, o rotativo) ou é parcelado nas faturas seguintes, como os bancos oferecem. Juros (parcelas
+// maiores que o resto dividido, ou encargos informados) viram gasto no cartão; o saldo em si, não,
+// porque as compras já contaram (regras em Cards.partialPayment).
+var PAY_MODES = [
+  {id: 'total', title: 'Paguei a fatura toda', hint: 'O valor total sai da conta.'},
+  {id: 'aberto', title: 'Paguei uma parte, o resto fica em aberto', hint: 'O que faltou vai para a próxima fatura (rotativo).'},
+  {id: 'parcelado', title: 'Paguei uma parte e parcelei o resto', hint: 'O que faltou é dividido nas próximas faturas, com as parcelas que o banco ofereceu.'}
+];
 export async function toggleInvoicePaid(cardId, key){
   var card = findById(State.cards, cardId);
   var paid = (card.paidInvoices || []).slice();
   var pays = Object.assign({}, card.invoicePayments || {});
-  var idx = paid.indexOf(key);
-  if (idx >= 0){ paid.splice(idx, 1); delete pays[key]; }
-  else {
-    var total = money(sum(invoiceItems(card, key), function(t){ return t.amount; }));
-    if (State.accounts.length){
-      var opts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (saldo ' + fmtMoney(accountBalance(a)) + ')'}; }).concat([{id:'', label:'Não descontar de nenhuma conta'}]);
-      var choice = await openModal({
-        title: 'Pagar fatura',
-        body: '<p>Fatura de ' + invoiceLabel(key, card) + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
-          '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(opts, payAccountFor(card)) + '</select></div>' +
-          '<div class="field"><label for="ipDate">Data do pagamento</label><input id="ipDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
-          '<p class="field-hint">Pode ser a conta de outro banco: o valor sai do saldo da conta escolhida.</p>',
-        submitLabel: 'Marcar como paga',
-        onSubmit: function(form){
-          var date = form.date.value || todayKey();
-          if (!validDateStr(date)) return {error:'Use uma data entre 1900 e 3000.'};
-          return {accountId: form.acc.value, date: date};
-        }
+  var idx = paid.indexOf(key), label = invoiceLabel(key, card), fees = [], removeIds = [];
+  if (idx >= 0){
+    var prev = pays[key] || {};
+    if (prev.mode){
+      var ok = await openModal({
+        title: 'Desfazer o pagamento?',
+        body: '<p>A fatura de ' + label + ' volta a ficar em aberto. O saldo que foi para as próximas faturas' +
+          ((prev.feeTxIds || []).length ? ' e os juros lançados' : '') + ' saem também.</p>',
+        submitLabel: 'Desfazer pagamento', danger: true
       });
-      if (!choice) return;
-      if (choice.accountId) pays[key] = {accountId: choice.accountId, amount: total, date: choice.date, createdAt: Date.now()};
+      if (!ok) return;
+      removeIds = (prev.feeTxIds || []).filter(function(id){ return findById(State.transactions, id); });
     }
+    paid.splice(idx, 1); delete pays[key];
+  } else {
+    var total = Cards.invoiceDueTotal(State.transactions, card, key);
+    var accOpts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (saldo ' + fmtMoney(accountBalance(a)) + ')'}; }).concat([{id:'', label:'Não descontar de nenhuma conta'}]);
+    var choice = await openModal({
+      title: 'Pagar fatura',
+      body: '<p>Fatura de ' + label + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
+        '<fieldset class="option-cards pay-modes"><legend class="sr-only">Como você pagou?</legend>' + PAY_MODES.map(function(m, i){
+          return '<label class="option-card"><input type="radio" name="mode" value="' + m.id + '"' + (i ? '' : ' checked') + '>' +
+            '<span><strong>' + m.title + '</strong><small>' + m.hint + '</small></span></label>';
+        }).join('') + '</fieldset>' +
+        '<div class="field" data-part hidden><label for="ipPaid">Quanto você pagou agora</label><span class="money-input"><span>R$</span>' +
+          '<input id="ipPaid" name="paidNow" type="number" step="0.01" min="0" max="' + total + '" inputmode="decimal"></span></div>' +
+        '<div class="field" data-only="aberto" hidden><label for="ipFee">Juros e encargos na próxima fatura <span class="opt">opcional</span></label><span class="money-input"><span>R$</span>' +
+          '<input id="ipFee" name="fee" type="number" step="0.01" min="0" inputmode="decimal"></span>' +
+          '<span class="field-hint">Se ainda não souber, deixe em branco e lance depois como gasto no cartão.</span></div>' +
+        '<div class="pay-parcel" data-only="parcelado" hidden>' +
+          '<div class="field"><label for="ipN">Em quantas parcelas</label><input id="ipN" name="n" type="number" min="2" max="48" step="1" value="6"></div>' +
+          '<div class="field"><label for="ipParcel">Valor de cada parcela</label><span class="money-input"><span>R$</span>' +
+            '<input id="ipParcel" name="parcel" type="number" step="0.01" min="0" inputmode="decimal"></span>' +
+            '<span class="field-hint">O que o banco mostrou, já com juros.</span></div></div>' +
+        '<p class="pay-sum tabular" id="ipSum" aria-live="polite"></p>' +
+        (State.accounts.length ? '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(accOpts, payAccountFor(card)) + '</select>' +
+          '<span class="field-hint">Pode ser a conta de outro banco: o valor sai do saldo da conta escolhida.</span></div>' : '') +
+        '<div class="field"><label for="ipDate">Data do pagamento</label><input id="ipDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>',
+      submitLabel: 'Registrar pagamento',
+      onOpen: function(modal){
+        var parcelTouched = false;
+        function read(){
+          var f = qs('form', modal) || modal;
+          var mode = (qs('input[name=mode]:checked', modal) || {}).value || 'total';
+          var paidNow = mode === 'total' ? total : money(qs('#ipPaid', modal).value);
+          var rest = money(total - paidNow), n = Math.round(Number(qs('#ipN', modal).value)) || 0;
+          return {f: f, mode: mode, paidNow: paidNow, rest: rest, n: n, parcel: money(qs('#ipParcel', modal).value), fee: money(qs('#ipFee', modal).value)};
+        }
+        function sync(){
+          var v = read();
+          qsa('[data-part]', modal).forEach(function(el){ el.hidden = v.mode === 'total'; });
+          qsa('[data-only]', modal).forEach(function(el){ el.hidden = el.getAttribute('data-only') !== v.mode; });
+          if (v.mode === 'parcelado' && !parcelTouched && v.rest > 0 && v.n > 0) qs('#ipParcel', modal).value = splitAmount(v.rest, v.n)[0].toFixed(2);
+          v = read();
+          var out = '';
+          if (v.mode !== 'total' && v.rest > 0 && v.rest < total + 0.001){
+            var next = invoiceLabel(shiftMonthKey(key, 1), card);
+            if (v.mode === 'aberto') out = 'Falta ' + fmtMoney(v.rest) + ': vai para a fatura de ' + next + (v.fee > 0 ? ' com ' + fmtMoney(v.fee) + ' de juros' : '') + '.';
+            else if (v.n >= 2 && v.parcel > 0){
+              var juros = money(v.parcel * v.n - v.rest);
+              out = 'Falta ' + fmtMoney(v.rest) + ': ' + v.n + 'x de ' + fmtMoney(v.parcel) + ' = ' + fmtMoney(money(v.parcel * v.n)) +
+                ', a partir da fatura de ' + next + '. ' + (juros > 0 ? 'Juros: ' + fmtMoney(juros) + ' (contam como gasto).' : 'Sem juros.');
+            }
+          }
+          qs('#ipSum', modal).textContent = out;
+        }
+        qs('#ipParcel', modal).addEventListener('input', function(){ parcelTouched = true; });
+        qs('#ipN', modal).addEventListener('input', function(){ parcelTouched = false; });
+        modal.addEventListener('input', sync); modal.addEventListener('change', sync);
+        sync();
+      },
+      onSubmit: function(form){
+        var date = form.date.value || todayKey();
+        if (!validDateStr(date)) return {error:'Use uma data entre 1900 e 3000.'};
+        var mode = form.mode.value || 'total';
+        var out = {mode: mode, accountId: form.acc ? form.acc.value : '', date: date, paidNow: total};
+        if (mode === 'total') return out;
+        var paidNow = money(form.paidNow.value), rest = money(total - paidNow);
+        if (form.paidNow.value === '' || !(paidNow >= 0)) return {error: 'Informe quanto você pagou agora.'};
+        if (mode === 'aberto' && !(paidNow > 0)) return {error: 'Informe quanto você pagou. Se não pagou nada, deixe a fatura em aberto.'};
+        if (!(rest > 0)) return {error: 'Esse valor paga a fatura toda: escolha “Paguei a fatura toda”.'};
+        out.paidNow = paidNow; out.rest = rest;
+        if (mode === 'aberto'){ out.fee = money(form.fee.value) > 0 ? money(form.fee.value) : 0; return out; }
+        var n = Math.round(Number(form.n.value)), parcel = money(form.parcel.value);
+        if (!(n >= 2 && n <= 48)) return {error: 'O parcelamento vai de 2 a 48 parcelas.'};
+        if (!(parcel > 0)) return {error: 'Informe o valor de cada parcela.'};
+        if (money(parcel * n) < rest) return {error: n + 'x de ' + fmtMoney(parcel) + ' dá menos que o que faltou (' + fmtMoney(rest) + '). Confira o valor da parcela.'};
+        out.n = n; out.parcel = parcel; out.fee = money(parcel * n - rest);
+        return out;
+      }
+    });
+    if (!choice) return;
+    var rec = {accountId: choice.accountId, amount: choice.paidNow, date: choice.date, createdAt: Date.now()};
+    if (choice.mode !== 'total'){
+      Object.assign(rec, {mode: choice.mode, total: total, rest: choice.rest});
+      if (choice.mode === 'parcelado') Object.assign(rec, {n: choice.n, parcel: choice.parcel});
+      fees = feeTxs(card, key, choice);
+    }
+    if (choice.accountId || choice.mode !== 'total') pays[key] = rec;
     paid.push(key);
+  }
+  if (fees.length){
+    var saved = await Store.addMany(k(), 'transactions', fees);
+    State.transactions = saved.concat(State.transactions);
+    pays[key].feeTxIds = saved.map(function(t){ return t.id; });
+  }
+  if (removeIds.length){
+    await Store.removeMany(k(), 'transactions', removeIds);
+    State.transactions = State.transactions.filter(function(t){ return removeIds.indexOf(t.id) < 0; });
   }
   await Store.update(k(), 'cards', card.id, {paidInvoices: paid, invoicePayments: pays});
   card.paidInvoices = paid; card.invoicePayments = pays;
-  renderCards(); renderAccounts(); renderStatTiles(); renderWalletSummary();
-  toast(idx >= 0 ? 'Fatura marcada como em aberto.' : 'Fatura marcada como paga' + (pays[key] ? ' com a conta ' + accountName(pays[key].accountId) : '') + '.');
+  if (fees.length || removeIds.length) renderAll();
+  else { renderCards(); renderAccounts(); renderStatTiles(); renderWalletSummary(); }
+  var p = pays[key];
+  toast(idx >= 0 ? 'Fatura marcada como em aberto.' :
+    p && p.mode === 'aberto' ? 'Pagamento de ' + fmtMoney(p.amount) + ' registrado. Faltam ' + fmtMoney(p.rest) + ', que vão para a fatura de ' + invoiceLabel(shiftMonthKey(key, 1), card) + '.' :
+    p && p.mode === 'parcelado' ? 'Pagamento de ' + fmtMoney(p.amount) + ' registrado. O resto foi parcelado em ' + p.n + 'x de ' + fmtMoney(p.parcel) + '.' :
+    'Fatura marcada como paga' + (p && p.accountId ? ' com a conta ' + accountName(p.accountId) : '') + '.');
+}
+// Juros do pagamento parcial: no rotativo, um gasto na fatura seguinte; no parcelamento, o que passa
+// do resto é dividido nas mesmas faturas das parcelas. Ficam no cartão, com a fatura fixada (invoiceKey).
+function feeTxs(card, key, c){
+  if (!(c.fee > 0)) return [];
+  var label = invoiceLabel(key, card), now = Date.now();
+  var n = c.mode === 'parcelado' ? c.n : 1, parts = splitAmount(c.fee, n);
+  return parts.map(function(v, i){
+    return {type: 'expense', paymentMethod: 'cartao', cardId: card.id, amount: v, date: c.date, category: 'outros', categoryLabel: 'Outros',
+      invoiceKey: shiftMonthKey(key, i + 1), invoiceFee: {from: key},
+      description: c.mode === 'parcelado' ? 'Juros do parcelamento da fatura de ' + label + ' (' + (i + 1) + '/' + n + ')' : 'Juros do rotativo da fatura de ' + label,
+      createdAt: now + i};
+  });
 }
 
 /* ---------- Vale-alimentação / refeição ---------- */

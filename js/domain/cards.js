@@ -6,9 +6,11 @@
  *   Em mês mais curto, o fechamento cai no último dia (fecha 31 → fecha 30/09, 28/02).
  * - O vencimento cai no mesmo mês do fechamento se o dia de vencimento for maior; senão, no mês seguinte.
  * - A compra conta como gasto na data da compra. Pagar a fatura não é um gasto novo: só desconta da conta escolhida.
+ * - Fatura paga em parte: o que faltou vai para a fatura seguinte ou é parcelado nas seguintes
+ *   (partialPayment/carryIns). Só os juros contam como gasto novo.
  */
 import {parseDate, pad2, daysInMonth, toDateKey, monthLabelOf, shiftMonthKey} from './dates.js';
-import {sumMoney} from './money.js';
+import {sumMoney, splitAmount} from './money.js';
 
 export function invoiceKeyFor(dateStr, card){
   var d = parseDate(dateStr);
@@ -53,11 +55,49 @@ export function invoiceItems(list, card, key){
   return list.filter(function(t){ return isCardExpense(t, card) && txInvoiceKey(t, card) === key; })
     .sort(function(a,b){ return a.date.localeCompare(b.date); });
 }
-// O que ainda pesa na fatura: sem as parcelas acertadas antes do cadastro (installment.settled).
-export function invoiceDueTotal(list, card, key){
-  return sumMoney(invoiceItems(list, card, key).filter(function(t){ return !(t.installment && t.installment.settled); }), function(t){ return t.amount; });
+// Fatura paga em parte: invoicePayments[key] = {amount (pago), total, mode, rest, n, parcel, feeTxIds}.
+// mode 'aberto': o resto (rest) vai inteiro para a fatura seguinte (rotativo).
+// mode 'parcelado': o resto é dividido em n parcelas nas n faturas seguintes.
+// Esse saldo não é gasto novo (as compras já contaram); só os juros (parcelas maiores que o resto
+// dividido, ou encargos informados) viram lançamentos de gasto, com feeTxIds para desfazer.
+export function partialPayment(card, key){
+  var p = (card.invoicePayments || {})[key];
+  return p && p.mode && p.rest > 0 ? p : null;
 }
-export function invoiceTotal(list, card, key){ return sumMoney(invoiceItems(list, card, key), function(t){ return t.amount; }); }
+// Saldos de faturas anteriores que caem na fatura `key`: [{from, mode, i, n, amount}].
+export function carryIns(card, key){
+  var out = [], pays = card.invoicePayments || {};
+  Object.keys(pays).sort().forEach(function(from){
+    var p = partialPayment(card, from);
+    if (!p) return;
+    var n = p.mode === 'parcelado' ? Math.max(1, Number(p.n) || 1) : 1;
+    var i = monthsBetween(from, key);
+    if (i >= 1 && i <= n) out.push({from: from, mode: p.mode, i: i, n: n, amount: splitAmount(p.rest, n)[i - 1]});
+  });
+  return out;
+}
+function monthsBetween(a, b){
+  return (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
+}
+export function carryTotal(card, key){ return sumMoney(carryIns(card, key), function(c){ return c.amount; }); }
+// O que ainda pesa na fatura: sem as parcelas acertadas antes do cadastro (installment.settled),
+// com o saldo que veio de faturas anteriores pagas em parte.
+export function invoiceDueTotal(list, card, key){
+  return sumMoney([sumMoney(invoiceItems(list, card, key).filter(function(t){ return !(t.installment && t.installment.settled); }), function(t){ return t.amount; }), carryTotal(card, key)]);
+}
+export function invoiceTotal(list, card, key){ return sumMoney([sumMoney(invoiceItems(list, card, key), function(t){ return t.amount; }), carryTotal(card, key)]); }
+// Faturas que têm algo: compras ou saldo vindo de faturas anteriores.
+export function invoiceKeys(list, card){
+  var keys = {};
+  list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
+  Object.keys(card.invoicePayments || {}).forEach(function(from){
+    var p = partialPayment(card, from);
+    if (!p) return;
+    var n = p.mode === 'parcelado' ? Math.max(1, Number(p.n) || 1) : 1;
+    for (var i = 1; i <= n; i++) keys[shiftMonthKey(from, i)] = true;
+  });
+  return Object.keys(keys).sort();
+}
 export function invoiceStatus(card, key, today){
   if ((card.paidInvoices || []).indexOf(key) >= 0) return 'paga';
   var d = invoiceDates(key, card);
@@ -67,9 +107,7 @@ export function invoiceStatus(card, key, today){
 }
 // Limite usado = soma das faturas ainda não pagas (inclui parcelas futuras, que já ocupam o limite).
 export function cardUsed(list, card, today){
-  var keys = {};
-  list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
-  return sumMoney(Object.keys(keys).filter(function(key){ return invoiceStatus(card, key, today) !== 'paga'; }), function(key){
+  return sumMoney(invoiceKeys(list, card).filter(function(key){ return invoiceStatus(card, key, today) !== 'paga'; }), function(key){
     return invoiceDueTotal(list, card, key);
   });
 }
@@ -79,9 +117,7 @@ export function cardUsed(list, card, today){
 export function invoicesSummary(list, cards, today){
   var toPay = [], open = [];
   cards.forEach(function(card){
-    var keys = {};
-    list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
-    Object.keys(keys).sort().forEach(function(key){
+    invoiceKeys(list, card).forEach(function(key){
       var status = invoiceStatus(card, key, today);
       var total = invoiceDueTotal(list, card, key);
       if (!(total > 0) || status === 'paga') return;
