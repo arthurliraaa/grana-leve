@@ -2,6 +2,7 @@
  * Compromissos: dívidas (Eu devo) e valores a receber (Me devem).
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
+import * as Cards from '../domain/cards.js';
 import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, uid} from '../domain/util.js';
@@ -115,7 +116,7 @@ export function paymentLogHtml(list, kind, ownerId){
   return '<details class="budget-details pay-log"><summary>' + (kind === 'debt' ? 'Pagamentos' : 'Recebimentos') + ' (' + list.length + ')</summary>' +
     list.slice().reverse().map(function(p){
       var acc = p.accountId ? accountName(p.accountId) : 'sem conta';
-      var how = kind === 'debt' ? (p.asExpense ? 'gasto do mês' : 'não contou como gasto') : (p.asIncome ? 'ganho do mês' : 'devolução');
+      var how = kind === 'debt' ? (p.asExpense ? 'gasto do mês' : 'não contou como gasto') : (p.fromInvoices ? 'parcelas que já passaram pelas faturas' : p.asIncome ? 'ganho do mês' : 'devolução');
       return '<div class="list-row' + (p.undone ? ' undone' : '') + '"><div class="tx-main"><div class="tx-desc tabular">' + fmtMoney(p.amount) + (p.n > 1 ? ' · ' + p.n + ' parcelas' : '') + '</div>' +
         '<div class="tx-meta">' + formatDateBr(p.date) + ' · ' + escapeHtml(acc) + ' · ' + how + (p.undone ? ' · desfeito em ' + formatDateBr(p.undone) : '') + '</div></div>' +
         (p.undone ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-pay-undo="' + kind + ':' + escapeHtml(ownerId) + ':' + escapeHtml(p.id) + '">Desfazer</button>') + '</div>';
@@ -241,6 +242,62 @@ export function renderReceivables(){
   }).join('');
 }
 
+// Parcelas da compra ligada a este "A receber" (paga pela pessoa ou a parte dela numa dividida) e quantas
+// já passaram pelas faturas do cartão (vencimento antes de hoje, ou acertadas antes do cadastro).
+export function recvHistory(r){
+  var parts = State.transactions.filter(function(t){
+    return t.type === 'expense' && ((t.forOther && t.forOther.receivableId === r.id) || (t.split && t.split.people.some(function(p){ return p.receivableId === r.id; })));
+  });
+  if (!parts.length) return null;
+  function share(t){
+    if (t.forOther) return Number(t.amount);
+    var p = t.split.people.filter(function(x){ return x.receivableId === r.id; })[0];
+    return Number(t.amount) * p.amount / Number(t.split.total);
+  }
+  var today = todayKey();
+  var passed = parts.filter(function(t){
+    if (t.installment && t.installment.settled) return true;
+    var c = t.paymentMethod === 'cartao' && findById(State.cards, t.cardId);
+    return c ? Cards.invoiceDates(Cards.txInvoiceKey(t, c), c).due < today : t.date < today;
+  });
+  return {count: parts.length, passed: passed.length, passedAmount: money(sumMoney(passed, share)), total: money(sumMoney(parts, share))};
+}
+// O que está registrado como recebido ficou para trás das faturas? (ex.: compra antiga ligada depois)
+export function recvBehind(r){
+  var h = recvHistory(r);
+  if (!h || !h.passed || r.forgiven) return null;
+  if ((r.syncedParcels || 0) >= h.passed) return null;
+  if (Number(r.receivedAmount || 0) + 0.005 >= h.passedAmount) return null;
+  return h;
+}
+// Atualiza "Me devem" pelo histórico da compra: as parcelas que já passaram pelas faturas foram devolvidas
+// (contam como recebidas, com registro no histórico) ou ainda estão em aberto (só deixa de alertar).
+export async function syncReceivable(id){
+  var r = findById(State.receivables, id), h = recvHistory(r);
+  if (!h || !h.passed){ toast('Nenhuma parcela dessa compra passou pelas faturas ainda.'); return; }
+  var a = await openModal({
+    title: 'Atualizar pelas faturas',
+    body: '<p>Da compra ligada a ' + escapeHtml(r.person) + ', <strong>' + h.passed + ' de ' + h.count + ' parcela(s)</strong> já passaram pelas faturas do cartão (<strong class="tabular">' + fmtMoney(h.passedAmount) + '</strong>).</p>' +
+      '<fieldset class="radio-group"><legend>' + escapeHtml(r.person) + '…</legend>' +
+        '<label class="check"><input type="radio" name="prior" value="paid" checked> já me devolveu essas parcelas</label>' +
+        '<label class="check"><input type="radio" name="prior" value="owed"> ainda me deve essas parcelas</label></fieldset>' +
+      '<p class="field-hint">“Já devolveu” marca o valor como recebido (devolução, sem mexer no saldo de nenhuma conta) e fica no histórico de recebimentos.</p>',
+    submitLabel: 'Atualizar',
+    onSubmit: function(form){ return {paid: form.prior.value === 'paid'}; }
+  });
+  if (!a) return;
+  var patch = {syncedParcels: h.passed, priorSettled: {count: h.passed, amount: h.passedAmount, paid: a.paid}};
+  var delta = money(h.passedAmount - Number(r.receivedAmount || 0));
+  if (a.paid && delta > 0){
+    patch.receivedAmount = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount || 0) + delta));
+    patch.payments = (r.payments || []).concat([{id: uid(), date: todayKey(), amount: delta, accountId: null, asIncome: false, txId: null, fromInvoices: true}]);
+  }
+  await Store.update(k(), 'receivables', r.id, patch);
+  Object.assign(r, patch);
+  renderAll();
+  toast(a.paid ? 'Atualizado: ' + h.passed + ' parcela(s) marcadas como devolvidas.' : 'Atualizado: as parcelas que já passaram continuam em aberto.');
+}
+
 export function recvCardHtml(r){
   var remaining = recvRemaining(r);
   var pct = r.totalAmount > 0 ? Math.min(1, Number(r.receivedAmount||0)/Number(r.totalAmount)) : 0;
@@ -253,6 +310,9 @@ export function recvCardHtml(r){
     '<div class="budget-top"><h4>'+escapeHtml(r.description || labelOf(RECV_KINDS, r.kind))+'</h4><span class="card-tags"><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span>' +
       (done ? '' : urgencySelectHtml('receivables', r, r.person)) + '</span></div>' +
     (recvCardLine(r) && !done ? '<span class="tx-meta">' + recvCardLine(r) + '</span>' : '') +
+    (recvBehind(r) && !done ? '<div class="sync-alert" role="note"><span><strong>' + recvBehind(r).passed + ' de ' + recvBehind(r).count + ' parcela(s)</strong> dessa compra já passaram pelas faturas (' +
+      fmtMoney(recvBehind(r).passedAmount) + '), mas o recebido está em ' + fmtMoney(r.receivedAmount || 0) + '.</span>' +
+      '<button class="btn btn-primary btn-sm" type="button" data-recv-sync="' + r.id + '">Atualizar pelas faturas</button></div>' : '') +
     (r.priorSettled ? '<p class="prior-note">Compra de ' + fmtMoney(r.totalAmount) + (info ? ' em ' + info.n + 'x' : '') + ': ' +
       (r.priorSettled.count === 1 ? 'a 1ª parcela' : 'as ' + r.priorSettled.count + ' primeiras parcelas') + ' (' + fmtMoney(r.priorSettled.amount) + ') já tinham vencido antes do cadastro e ' +
       (r.priorSettled.paid ? (r.priorSettled.count === 1 ? 'já foi acertada.' : 'já foram acertadas.') : (r.priorSettled.count === 1 ? 'ainda está em aberto.' : 'ainda estão em aberto.')) + '</p>' : '') +
@@ -309,6 +369,8 @@ export async function linkReceivable(id){
   await Store.update(k(), 'receivables', r.id, patch); Object.assign(r, patch);
   renderAll();
   toast('Ligado: o gasto agora é “pago por ' + r.person + '”' + (a.refund && olds.length ? ' e os recebimentos antigos viraram devolução.' : '.'));
+  // Compra antiga: já pergunta sobre as parcelas que passaram pelas faturas.
+  if (recvBehind(r)) await syncReceivable(r.id);
 }
 
 // "Cartão Inter · parcela 2 de 3 · fatura de novembro de 2026" (compra feita no seu cartão).

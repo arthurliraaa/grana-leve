@@ -20,7 +20,7 @@ import {openModal, confirmAction, attachCounters} from './modal.js';
 import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
-import {chargePerson, chargeReceivable, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment} from './commitments-tab.js';
+import {chargePerson, chargeReceivable, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
@@ -588,6 +588,7 @@ export function wireShell(){
     if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return; }
     if ((el = t.closest('[data-jump]'))){ document.getElementById(el.getAttribute('data-jump')).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); return; }
     if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return; }
+    if ((el = t.closest('[data-recv-sync]'))){ syncReceivable(el.getAttribute('data-recv-sync')); return; }
     if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
     if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
     if ((el = t.closest('[data-recv-del]'))){
