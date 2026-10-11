@@ -983,3 +983,7 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .bank-list{ margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
 .bank-list:empty, .bank-list:has(> .empty-state:only-child){ border-top:none; padding-top:0; }
 @media (max-width:620px){ .bank-parts .look-toggle{ margin-left:0; } }
+
+/* Início: os três cartões de resumo com a mesma altura quando fechados; aberto, só ele cresce. */
+.sum-card{ align-content:start; }
+.summary-grid:not(:has(.sum-more[aria-expanded="true"])){ align-items:stretch; }
