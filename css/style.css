@@ -1027,3 +1027,7 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .inv-key.credit, .inv-seg.credit{ background: var(--cat-7); }
 .inv-key.debit, .inv-seg.debit{ background: var(--cat-3); }
 .cd-outside{ margin:12px 0 0; }
+/* Me devem: compra ligada com parcelas que já passaram pelas faturas e não estão no recebido */
+.sync-alert{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; border-radius:10px; font-size:.84rem; color: var(--text-secondary);
+  background: var(--surface-2); border-left:3px solid var(--warning); }
+.sync-alert span{ flex:1 1 220px; }
