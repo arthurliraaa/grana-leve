@@ -38,15 +38,15 @@ L.run(async ({page}) => {
 
   L.section('Ganhos e gastos: a compra fica no histórico e cada parcela diz a fatura');
   await L.tab(page, 'lancamentos');
-  for (let i = 0; i < 4 && !(await page.$('#txList [data-edit-tx="' + parts[0].id + '"]')); i++){ await page.click('#prevMonth'); await L.sleep(80); }
-  const first = await page.$eval('#txList [data-edit-tx="' + parts[0].id + '"]', el => el.closest('.tx-row').textContent);
-  L.ok(/1\/10 · fatura \w{3}\/\d{4} · paga antes do cadastro/.test(first), 'no mês da compra: 1ª parcela, com a fatura e “paga antes do cadastro”');
+  for (let i = 0; i < 4 && !(await page.$('#txList .tx-row [data-edit-tx="' + parts[0].id + '"]')); i++){ await page.click('#prevMonth'); await L.sleep(80); }
+  const first = await page.$eval('#txList .tx-row [data-edit-tx="' + parts[0].id + '"]', el => el.closest('.tx-row').textContent);
+  L.ok(/Celular \(1\/10\).*fatura \w{3}\/\d{4} · paga antes do cadastro/.test(first), 'no mês da compra: 1ª parcela, com a fatura e “paga antes do cadastro”');
   const next = parts[k];
   const nextInv = invoiceFor(next.date, card);
-  while (await page.$eval('#nextMonth', el => !el.disabled) && !(await page.$('#txList [data-edit-tx="' + next.id + '"]'))){ await page.click('#nextMonth'); await L.sleep(80); }
-  L.ok(new RegExp((k + 1) + '/10 · fatura ' + nextInv.label.slice(0, 3) + '/' + nextInv.label.slice(-4)).test(await page.$eval('#txList [data-edit-tx="' + next.id + '"]', el => el.closest('.tx-row').textContent)), 'próxima parcela mostra a fatura dela');
+  while (await page.$eval('#nextMonth', el => !el.disabled) && !(await page.$('#txList .tx-row [data-edit-tx="' + next.id + '"]'))){ await page.click('#nextMonth'); await L.sleep(80); }
+  L.ok(new RegExp('Celular \\(' + (k + 1) + '/10\\).*fatura ' + nextInv.label.slice(0, 3) + '/' + nextInv.label.slice(-4)).test(await page.$eval('#txList .tx-row [data-edit-tx="' + next.id + '"]', el => el.closest('.tx-row').textContent)), 'próxima parcela mostra a fatura dela');
   const lastTag = await (async () => { while (await page.$eval('#nextMonth', el => !el.disabled)){ await page.click('#nextMonth'); await L.sleep(60); }
-    return page.$eval('#txList [data-edit-tx="' + parts[9].id + '"]', el => el.closest('.tx-row').textContent); })();
+    return page.$eval('#txList .tx-row [data-edit-tx="' + parts[9].id + '"]', el => el.closest('.tx-row').textContent); })();
   L.ok(/fatura \w{3}\/\d{4} · futura/.test(lastTag), 'última parcela: fatura futura');
 
   L.section('Fatura: nada antigo a pagar e aviso de que são as mesmas compras');

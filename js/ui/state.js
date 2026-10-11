@@ -63,6 +63,12 @@ export function catOptions(list){ return list.map(function(c){ return {id: c.id,
 export function categoryNameProblem(name, type, exceptId){ return Cats.categoryNameProblem(name, type, State.categories, exceptId); }
 export function txLabel(t){ return t.description || catLabel(t.category, t.type, t.categoryLabel); }
 export function sortTransactions(){ Tx.sortTransactions(State.transactions); }
+// Competência das compras no cartão: o mês em que vence a fatura da parcela (ver Tx.monthOf).
+Tx.setMonthResolver(function(t){
+  if (t.type !== 'expense' || t.paymentMethod !== 'cartao') return null;
+  var c = findById(State.cards, t.cardId);
+  return c ? Cards.invoiceDates(Cards.txInvoiceKey(t, c), c).due.slice(0, 7) : null;
+});
 export function txForMonth(key){ return Tx.txForMonth(State.transactions, key); }
 export function monthTotals(key){ return Tx.monthTotals(State.transactions, key, todayKey()); }
 export function expenseCategoryTotals(key){ return Tx.expenseCategoryTotals(State.transactions, key); }

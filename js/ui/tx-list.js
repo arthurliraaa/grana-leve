@@ -18,7 +18,7 @@ import {monthGridHtml, dayEventsHtml, yearHtml} from './calendar.js';
 import {Store} from '../data/store.js';
 
 import {setPref} from '../data/session.js';
-import {qs, qsa, csvCell, optionsHtml, icon, saveFile, toast} from './dom.js';
+import {qs, qsa, csvCell, optionsHtml, icon, saveFile, toast, escapeHtml} from './dom.js';
 import {openModal} from './modal.js';
 import {PAYMENT_LABELS} from './constants.js';
 import {paymentLabel, txRowHtml} from './home-tab.js';
@@ -290,14 +290,38 @@ export function renderTransactionsTab(){
     (others ? ' · pagos por outras pessoas ' + fmtMoney(others) + ' (fora dos gastos)' : '');
   var list = document.getElementById('txList');
   if (view === 'cal'){ renderTxCalendar(mb, tx, list); return; }
-  if (!tx.length){ list.innerHTML = '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
-  list.innerHTML = sortTxView(tx).map(txRowHtml).join('');
+  if (!tx.length){ list.innerHTML = purchaseNotices(mb.key) + '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
+  list.innerHTML = purchaseNotices(mb.key) + sortTxView(tx).map(txRowHtml).join('');
+}
+// No calendário, a parcela do cartão que conta neste mês (pela fatura) fica no dia do vencimento da fatura.
+function calendarDate(t, key){
+  if (t.date.slice(0, 7) === key) return t.date;
+  var c = t.paymentMethod === 'cartao' && findById(State.cards, t.cardId);
+  return c ? Cards.invoiceDates(Cards.txInvoiceKey(t, c), c).due : t.date;
+}
+// Compras feitas neste mês no cartão que só entram em faturas seguintes: aparecem como aviso, sem somar.
+function purchaseNotices(key){
+  var list = filterTransactions(State.transactions.filter(function(t){
+    return t.type === 'expense' && t.paymentMethod === 'cartao' && (t.purchaseDate || t.date).slice(0, 7) === key &&
+      Tx.monthOf(t) !== key && (!t.installment || t.installment.n === 1);
+  }));
+  if (!list.length) return '';
+  return '<div class="purchase-notes"><p class="tiles-group">Compras deste mês que entram em faturas seguintes <span>não somam aqui</span></p>' +
+    list.map(function(t){
+      var c = findById(State.cards, t.cardId), inv = Cards.invoiceFor(t.date, c), n = t.installment ? t.installment.total : 1;
+      var name = t.installment ? t.installment.baseDescription : (t.description || catLabel(t.category, 'expense'));
+      var total = t.installment ? Number(t.installment.totalAmount) : t.amount;
+      return '<div class="purchase-note">' + icon('card') + '<div class="tx-main"><div class="tx-desc">' + escapeHtml(name) + '</div>' +
+        '<div class="tx-meta">' + formatDateBr(t.purchaseDate || t.date) + ' · ' + escapeHtml(c ? 'Cartão ' + c.name : 'Cartão') + ' · ' +
+        (n > 1 ? n + 'x de ' + fmtMoney(t.amount) + ' (' + fmtMoney(total) + ') · 1ª parcela' : 'entra') + ' na fatura de ' + inv.label + ' (vence ' + formatDateBr(inv.due) + ')</div></div>' +
+        '<button class="tx-del tx-edit" type="button" data-edit-tx="' + escapeHtml(t.id) + '" aria-label="Editar compra" title="Editar">' + icon('edit') + '</button></div>';
+    }).join('') + '</div>';
 }
 export function renderTxCalendar(mb, tx, list){
   var days = {}, events = monthEvents(mb.key);
   function day(d){ return days[d] || (days[d] = {income: 0, expense: 0, count: 0, events: [], tx: []}); }
   tx.forEach(function(t){
-    var x = day(t.date);
+    var x = day(calendarDate(t, mb.key));
     x.count++; x.tx.push(t);
     if (t.type === 'income' && isPersonal(t)) x.income = money(x.income + Number(t.amount));
     if (t.type === 'expense') x.expense = money(x.expense + myShare(t));

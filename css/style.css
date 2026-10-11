@@ -969,10 +969,16 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .same-tx-note{ margin:6px 0 2px; }
 /* Etiquetas da linha de lançamento: retangulares para quebrar bem em telas estreitas */
 .tx-row .tx-tag{ border-radius:7px; line-height:1.35; padding:2px 8px; max-width:100%; }
-.tx-row{ flex-wrap:wrap; }
-.tx-tags{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:4px 6px; padding-left:46px; margin-top:-2px; }
-.tx-tags .tx-tag{ margin:0; }
-@media (max-width:620px){ .tx-tags{ padding-left:0; } }
+/* Etiquetas ao lado do nome (fatura, pago por outra pessoa…); quebram para baixo se faltar espaço */
+.tx-desc{ display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; }
+.tx-tags{ display:inline-flex; flex-wrap:wrap; gap:4px 6px; }
+.tx-tags .tx-tag{ margin:0; font-weight:500; }
+/* Aviso do mês da compra: compras que entram em faturas seguintes (não somam no mês) */
+.purchase-notes{ display:grid; gap:4px; margin-bottom:10px; padding:10px 12px; border:1px dashed var(--border); border-radius:12px; background: var(--surface-2); }
+.purchase-notes .tiles-group{ margin:0 0 2px; }
+.purchase-note{ display:flex; align-items:center; gap:10px; }
+.purchase-note > .ico{ color: var(--text-muted); flex:none; }
+.purchase-note .tx-main{ flex:1; min-width:0; }
 
 /* Cadastro de banco: "Cor e ícone" na linha das caixinhas; respiro antes da lista de bancos */
 .bank-parts .look-toggle{ display:inline-flex; align-items:center; gap:8px; margin-left:4px; padding:5px 12px 5px 6px; border:1px dashed var(--border); border-radius:999px; background: var(--surface); color: var(--text-secondary); font: inherit; font-size:.84rem; font-weight:600; cursor:pointer; }

@@ -43,7 +43,13 @@ export function splitShares(total, entries, percent){
   return {people: people, others: others, mine: money(total - others)};
 }
 
-export function txForMonth(list, key){ return list.filter(function(t){ return monthKeyOf(t.date) === key; }); }
+// Mês em que o lançamento conta (competência). Padrão: o mês da data. O app registra um "resolvedor"
+// que, para compras no cartão, devolve o mês em que vence a fatura daquela parcela (compra de 04/10
+// com fatura vencendo em novembro conta em novembro). Sem resolvedor (ex.: testes), vale a data.
+var monthResolver = null;
+export function setMonthResolver(fn){ monthResolver = fn; }
+export function monthOf(t){ return (monthResolver && monthResolver(t)) || monthKeyOf(t.date); }
+export function txForMonth(list, key){ return list.filter(function(t){ return monthOf(t) === key; }); }
 
 // Realizado = data até hoje; agendado = data futura dentro do mês (ex.: parcela que ainda vai cair).
 export function monthTotals(list, key, today){
@@ -70,7 +76,7 @@ export function expenseCategoryTotals(list, key){
 // Até quantos meses à frente existem lançamentos (parcelas futuras).
 export function maxMonthOffset(list, curKey){
   var max = 0;
-  list.forEach(function(t){ var d = monthsBetween(curKey, monthKeyOf(t.date)); if (d > max) max = d; });
+  list.forEach(function(t){ var d = monthsBetween(curKey, monthOf(t)); if (d > max) max = d; });
   return max;
 }
 

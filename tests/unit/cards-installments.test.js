@@ -191,3 +191,19 @@ test('fatura da compra e parcelas já vencidas a partir da data da compra', asyn
   assert.equal(invoicesSummary(parts, [c], '2026-10-15').toPayTotal, 100, 'a pagar: só a fatura de outubro (fechada, vence dia 20, com a 8ª); as antigas não aparecem');
   assert.equal(invoiceTotal(parts, c, '2026-04'), 100, 'mas a fatura de abril continua mostrando a compra (histórico)');
 });
+
+test('mês de competência: compra no cartão conta no mês em que a fatura vence', async () => {
+  const Tx = await import('../../js/domain/transactions.js');
+  const {invoiceDates, txInvoiceKey} = await import('../../js/domain/cards.js');
+  const c = {id: 'c', closingDay: 31, dueDay: 7};
+  const buy = {type: 'expense', amount: 100, date: '2026-10-04', paymentMethod: 'cartao', cardId: 'c', category: 'x'};
+  const pix = {type: 'expense', amount: 50, date: '2026-10-04', paymentMethod: 'conta', category: 'x'};
+  assert.equal(Tx.monthOf(buy), '2026-10', 'sem resolvedor: pela data');
+  Tx.setMonthResolver(t => t.paymentMethod === 'cartao' ? invoiceDates(txInvoiceKey(t, c), c).due.slice(0, 7) : null);
+  try {
+    assert.equal(Tx.monthOf(buy), '2026-11', 'compra de 04/10, fatura vence 07/11: conta em novembro');
+    assert.equal(Tx.monthOf(pix), '2026-10', 'Pix continua pela data');
+    assert.equal(Tx.monthTotals([buy, pix], '2026-10').expense, 50);
+    assert.equal(Tx.monthTotals([buy, pix], '2026-11').expense, 100);
+  } finally { Tx.setMonthResolver(null); }
+});

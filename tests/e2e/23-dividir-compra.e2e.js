@@ -1,5 +1,6 @@
 // Dividir uma compra com outras pessoas: sua parte nos gastos, a parte de cada um em "A receber".
 import * as L from './lib.js';
+import {invoiceFor} from '../../js/domain/cards.js';
 
 L.run(async ({page}) => {
   await L.signup(page);
@@ -39,10 +40,16 @@ L.run(async ({page}) => {
   L.ok(mae.totalAmount === 300 && mae.installments === 3 && mae.installmentAmount === 100 && mae.linked && mae.cardId === card.id, 'Mãe: A receber de 300 em 3x de 100, no cartão');
   L.ok(irmao.totalAmount === 150 && irmao.installmentAmount === 50, 'Irmão: 150 em 3x de 50');
   L.ok(await page.$eval('#txSplitBox', el => el.hidden) && !(await page.$eval('#txSplit', el => el.checked)), 'formulário volta ao normal');
-  L.ok(/Dividida: sua parte R\$\s?50,00 · Mãe, Irmão/.test(await L.text(page, '#txList')), 'lista mostra a parcela dividida e a sua parte');
-  L.ok(/gastos R\$\s?50,00/.test(await L.text(page, '#txSummary')) && /pagos por outras pessoas R\$\s?150,00/.test(await L.text(page, '#txSummary')), 'resumo do mês: sua parte 50, outras pessoas 150');
+  // Pelo mês da fatura: a 1ª parcela conta no mês em que a fatura vence; no mês da compra, só o aviso.
+  const firstMonth = invoiceFor(L.dayOffset(0), card).due.slice(0, 7), sameMonth = firstMonth === L.monthKey(0);
+  if (!sameMonth){
+    L.ok(/Compras deste mês que entram em faturas seguintes/.test(await L.text(page, '#txList')) && /Geladeira/.test(await L.text(page, '#txList .purchase-notes')), 'no mês da compra: aviso da compra, sem somar');
+    await page.click('#nextMonth'); await L.sleep(150);
+  }
+  L.ok(/Dividida: sua parte R\$\s?50,00 · Mãe, Irmão/.test(await L.text(page, '#txList')), 'no mês da fatura: a parcela dividida e a sua parte');
+  L.ok(/gastos R\$\s?50,00/.test(await L.text(page, '#txSummary')) && /pagos por outras pessoas R\$\s?150,00/.test(await L.text(page, '#txSummary')), 'resumo do mês da fatura: sua parte 50, outras pessoas 150');
   await L.tab(page, 'dashboard');
-  L.ok(await tile('Gastos do mês') === 50, 'painel: só a sua parte da parcela (50)');
+  L.ok(await tile('Gastos do mês') === (sameMonth ? 50 : 0), 'painel deste mês: ' + (sameMonth ? 'só a sua parte (50)' : 'nada ainda (a parcela é da fatura do mês que vem)'));
   await L.tab(page, 'cartoes');
   L.ok(/R\$\s?4\.400,00/.test(await L.text(page, '#bankList .avail')), 'cartão: o limite usa o total da compra (600)');
 

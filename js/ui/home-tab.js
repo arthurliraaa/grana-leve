@@ -201,7 +201,7 @@ export function renderSummary(){
 export var CALC_RULES = [
   ['Realizado e agendado', 'Ganhos e gastos do mês contam só o que tem data até hoje. O que tem data mais para frente no mês (uma parcela, um gasto agendado) aparece como “Agendado” e entra na previsão do fim do mês.'],
   ['Esperado', 'Soma as previsões de entrada ainda não recebidas e os ganhos com data futura no mês.'],
-  ['Cartão de crédito', 'A compra conta como gasto na data da compra, no mês em que foi feita. Como nos bancos, a fatura leva o nome do mês em que vence, e a compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.'],
+  ['Cartão de crédito', 'Cada compra no cartão (ou parcela) conta como gasto no mês em que vence a fatura dela, como no app do banco: compra de 04/10 com fatura vencendo em novembro conta em novembro. No mês da compra ela aparece só como aviso. A compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.'],
   ['Pagar a fatura', 'Não é um gasto novo (as compras já contaram). Se você escolher uma conta ao marcar a fatura como paga, o valor sai do saldo dessa conta.'],
   ['Faturas a pagar', 'Soma as faturas que já fecharam e não foram marcadas como pagas. A fatura aberta, que ainda recebe compras, aparece embaixo.'],
   ['Parcelas', 'Cada parcela é um gasto no mês dela. Os centavos que sobram da divisão ficam na 1ª parcela. As parcelas futuras somam em “Dívida restante”.'],
@@ -574,21 +574,20 @@ export function invoiceTagHtml(t){
   var full = Cards.invoiceLabel(key, c);   // "novembro de 2026" -> curto "nov/2026"
   var short = full.slice(0, 3) + '/' + full.slice(-4);
   return '<span class="tx-tag inv-tag ' + cls + '" title="' + (t.installment ? 'Parcela ' + t.installment.n + ' de ' + t.installment.total + ' · ' : '') + 'fatura de ' + full + ' · ' + st + '">' +
-    (t.installment ? t.installment.n + '/' + t.installment.total + ' · ' : '') + 'fatura ' + short + ' · ' + st + '</span>';
+    'fatura ' + short + ' · ' + st + '</span>';
 }
 export function txRowHtml(t){
   var isExpense = t.type === 'expense';
   var cat = catLabel(t.category, t.type, t.categoryLabel);
   var pay = paymentLabel(t);
-  var tags = invoiceTagHtml(t) + otherTagHtml(t);   // linha própria embaixo, com a largura toda
+  var tags = invoiceTagHtml(t) + otherTagHtml(t);   // ao lado do nome (quebra para baixo em tela estreita)
   return '<div class="tx-row" data-id="'+escapeHtml(t.id)+'">' +
     catBadge(t.category, t.type) +
-    '<div class="tx-main"><div class="tx-desc">'+escapeHtml(t.description || cat)+'</div>' +
+    '<div class="tx-main"><div class="tx-desc"><span class="tx-name">'+escapeHtml(t.description || cat)+'</span>' + (tags ? '<span class="tx-tags">' + tags + '</span>' : '') + '</div>' +
     '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div></div>' +
     '<span class="tx-amount ' + (isExpense && t.amount > 0 ? 'expense' : 'income') + ' tabular">' + (isExpense && t.amount > 0 ? '-' : '+') + ' ' + fmtMoney(Math.abs(t.amount)) + '</span>' +
     '<button class="tx-del tx-edit" type="button" data-edit-tx="'+escapeHtml(t.id)+'" aria-label="Editar lançamento" title="Editar">' + icon('edit') + '</button>' +
     '<button class="tx-del" type="button" data-del-tx="'+escapeHtml(t.id)+'" aria-label="Excluir lançamento" title="Excluir">' + icon('trash') + '</button>' +
-    (tags ? '<div class="tx-tags">' + tags + '</div>' : '') +
     '</div>';
 }
 
