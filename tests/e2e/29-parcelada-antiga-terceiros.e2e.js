@@ -79,7 +79,7 @@ L.run(async ({page}) => {
   await page.click('#billForm button[type=submit]'); await L.sleep(300);
   d = await L.db(page);
   L.ok(d.bills.some(b => b.name === 'Streaming de música' && b.category === 'lazer' && b.pay === 'card:' + card.id && b.dueDay === 5), 'nome livre, categoria e cartão salvos');
-  L.ok(/Compra no cartão .* · fatura de /.test(await L.text(page, '#billMonth')), 'vencimentos mostram a fatura da compra');
+  L.ok(/compra no cartão .* · fatura de /i.test(await L.text(page, '#billMonth')), 'vencimentos mostram a fatura da compra');
   await page.setViewport({width: 375, height: 800});
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
 });

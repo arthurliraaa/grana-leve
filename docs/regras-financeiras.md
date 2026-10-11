@@ -149,8 +149,12 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   6 meses, ou uma vez por ano), categoria, forma de pagamento e mês de início.
 - Os vencimentos de cada mês são calculados (não ficam gravados). Em mês mais curto, o
   vencimento cai no último dia.
-- **Pagar** cria um gasto na categoria da conta, com a forma de pagamento escolhida (desconta
-  da conta ou entra na fatura do cartão), e marca o mês como pago. Desfazer remove o gasto.
+- **Lançamento automático:** no dia de cada conta, o gasto entra sozinho em "Ganhos e gastos"
+  (na conta ou no cartão escolhido), ao abrir o app. Vale desde o cadastro da conta fixa; um dia
+  que já tinha passado quando a conta foi cadastrada aparece com "Lançar" (pode já ter sido
+  lançado à mão). "Lançar agora" adianta um vencimento futuro.
+- **Mudar valor** de um mês abre o próprio lançamento. **Desfazer** remove o gasto e marca o mês
+  como desfeito: ele não é lançado de novo sozinho.
 - Mudar o valor vale **a partir de** um mês; os meses anteriores mantêm o valor antigo.
   Ao pagar com outro valor, dá para manter o novo valor nos próximos meses.
 - **Encerrar** para os vencimentos depois do mês atual e mantém o histórico.
