@@ -1064,3 +1064,18 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
   .bank-head .btn{ margin-left:0; }
 }
 @media (max-width:620px){ .sec-actions .btn{ font-size:.76rem; padding:4px 8px; } }
+
+/* Pagar fatura: total, parte com o resto em aberto, parte com o resto parcelado */
+.pay-modes{ border:0; padding:0; margin:0 0 12px; grid-template-columns:1fr; gap:8px; }
+.pay-parcel{ display:grid; grid-template-columns: 1fr 1.4fr; gap:12px; }
+@media (max-width:480px){ .pay-parcel{ grid-template-columns:1fr; } }
+.pay-sum{ margin:4px 0 12px; font-size:.9rem; color: var(--text-secondary); }
+.pay-sum:empty{ display:none; }
+.carry-list{ display:grid; gap:4px; width:100%; }
+.carry-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:6px 10px; border-radius:8px; background: var(--bg); border:1px solid var(--border); font-size:.9rem; }
+.carry-row > span{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+/* Relatório do cartão: filtro "De quem" e barra dividida minha parte × outras pessoas */
+.cr-filters{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+@media (max-width: 620px){ .cr-filters{ grid-template-columns: minmax(0,1fr); } }
+.cr-track{ height:10px; }
+.cr-split{ margin-bottom:4px; }
