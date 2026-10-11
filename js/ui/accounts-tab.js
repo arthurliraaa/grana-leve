@@ -289,7 +289,11 @@ export function wireWallet(){
     qsa('[data-bank-part="card"]').forEach(function(el){ el.hidden = !hasCard.checked; });
   }
   [hasAcc, hasCard].forEach(function(el){ el.addEventListener('change', syncParts); });
-  document.getElementById('accountForm').addEventListener('reset', function(){ setTimeout(syncParts, 0); });
+  // "Cor e ícone" fica na linha das caixinhas; as opções abrem numa linha inteira logo abaixo.
+  var lookBtn = document.getElementById('bankLookToggle'), lookPanel = document.getElementById('bankLookPanel');
+  function setLook(open){ lookPanel.hidden = !open; lookBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+  lookBtn.addEventListener('click', function(){ setLook(lookPanel.hidden); });
+  document.getElementById('accountForm').addEventListener('reset', function(){ setTimeout(function(){ syncParts(); setLook(false); }, 0); });
   // Um cadastro por banco: a conta (saldo), o cartão (limite e datas da fatura) ou os dois, já ligados.
   document.getElementById('accountForm').addEventListener('submit', async function(e){
     e.preventDefault();
