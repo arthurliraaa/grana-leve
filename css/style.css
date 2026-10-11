@@ -987,3 +987,24 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 /* Início: os três cartões de resumo com a mesma altura quando fechados; aberto, só ele cresce. */
 .sum-card{ align-content:start; }
 .summary-grid:not(:has(.sum-more[aria-expanded="true"])){ align-items:stretch; }
+
+/* Início: faturas do cartão, minha parte × outras pessoas (barras empilhadas; cores validadas para daltonismo) */
+.inv-key.mine, .inv-seg.mine{ background: var(--cat-1); }
+.inv-key.others, .inv-seg.others{ background: var(--cat-4); }
+i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+.inv-total{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+.inv-total > div{ display:grid; gap:2px; }
+.inv-total strong{ font-size:1.25rem; }
+.inv-rows{ display:grid; gap:14px; }
+.inv-row{ display:grid; gap:6px; }
+.inv-row-head{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.inv-row-total{ margin-left:auto; }
+.inv-track{ display:flex; gap:2px; height:14px; align-items:stretch; }
+.inv-seg{ display:block; border-radius:4px; min-width:4px; cursor:default; }
+.inv-seg:focus-visible{ outline:2px solid var(--text-primary); outline-offset:2px; }
+.inv-row-labels{ display:flex; gap:4px 16px; flex-wrap:wrap; font-size:.8rem; color: var(--text-secondary); }
+.inv-late{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:14px 0 0; padding:8px 12px; border-radius:10px; font-size:.85rem; color: var(--text-secondary);
+  background: var(--surface-2); border-left:3px solid var(--critical); }
+.inv-late .ico{ color: var(--critical); flex:none; }
+.inv-late span{ flex:1 1 220px; }
+@media (max-width:620px){ .inv-total{ grid-template-columns: 1fr 1fr; } .inv-total > div:first-child{ grid-column: 1 / -1; } }
