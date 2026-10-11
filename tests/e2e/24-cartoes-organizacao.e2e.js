@@ -15,7 +15,7 @@ L.run(async ({page}) => {
   const sum = await L.text(page, '#walletSummary');
   L.ok(/Nas contas\s*R\$\s?1\.500,00/.test(sum), 'resumo: dinheiro nas contas');
   L.ok(/Faturas a pagar\s*R\$\s?200,00/.test(sum) && /Sobra depois de pagar\s*R\$\s?1\.300,00/.test(sum), 'resumo: faturas a pagar e quanto sobra');
-  L.ok(/Paga com Nubank/.test(await L.text(page, '#bankList')), 'cartão Nubank sugere pagar com a conta Nubank (mesmo banco)');
+  L.ok(/paga com Nubank/i.test(await L.text(page, '#bankList')), 'cartão Nubank sugere pagar com a conta Nubank (mesmo banco)');
 
   L.section('Pagar a fatura');
   await page.click('#bankList [data-inv-shift][data-dir="-1"]'); await L.sleep(100);
@@ -29,7 +29,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#ecPayAcc', itau.id);
   await L.submitModal(page); await L.sleep(250);
   d = await L.db(page);
-  L.ok(d.cards[0].payAccountId === itau.id && /Paga com Itaú/.test(await L.text(page, '#bankList')), 'conta escolhida fica salva e aparece no cartão');
+  L.ok(d.cards[0].payAccountId === itau.id && /paga com Itaú/i.test(await L.text(page, '#bankList')), 'conta escolhida fica salva e aparece no cartão');
   await page.click('#bankList [data-inv-paid]'); await L.sleep(200);
   L.ok(await page.$eval('#ipAcc', el => el.value) === itau.id, 'e vem marcada ao pagar');
   await L.submitModal(page); await L.sleep(300);
