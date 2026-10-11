@@ -2,10 +2,10 @@
  * Início: previsões de entrada, números do mês, cartões de resumo, gráficos e últimos lançamentos.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds} from '../domain/dates.js';
+import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
-import {isForOther, isRefund, isPersonal, isReversal, reversalsOf, myShare} from '../domain/transactions.js';
+import {isForOther, isRefund, isPersonal, isReversal, reversalsOf, myShare, othersShare} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
@@ -248,16 +248,90 @@ export function renderDashboard(){
   renderForecasts();
   renderDonut(txForMonth(cur.key));
   renderBarChart();
+  renderInvoiceSplit();
   renderComparison();
   renderRecentTx();
 }
 
 export function setToggleLabel(which){
   var btn = qs('[data-view-toggle="' + which + '"]');
-  var view = which === 'donut' ? State.donutView : State.barView;
+  var view = which === 'donut' ? State.donutView : which === 'invsplit' ? (State.invView || 'chart') : State.barView;
   btn.textContent = view === 'chart' ? 'Ver como tabela' : 'Ver como gráfico';
 }
 
+// Próxima fatura de cada cartão (a fechada que ainda não venceu ou, se não houver, a aberta), separada
+// em "minha parte" e "outras pessoas" (pago por alguém que vai devolver + a parte dos outros nas
+// divididas). Parcelas acertadas antes do cadastro não entram.
+export function invoiceSplitData(){
+  var today = todayKey(), rows = [];
+  State.cards.forEach(function(c){
+    var cur = Cards.invoiceKeyFor(today, c), key = null;
+    [shiftMonthKey(cur, -1), cur].forEach(function(kk){
+      if (key) return;
+      var due = Cards.invoiceDates(kk, c).due, st = Cards.invoiceStatus(c, kk, today);
+      if (due >= today && st !== 'paga' && Cards.invoiceDueTotal(State.transactions, c, kk) !== 0) key = kk;
+    });
+    key = key || cur;
+    var items = Cards.invoiceItems(State.transactions, c, key).filter(function(t){ return !(t.installment && t.installment.settled); });
+    var mine = money(sum(items, myShare)), others = money(sum(items, othersShare));
+    rows.push({card: c, key: key, label: Cards.invoiceLabel(key, c), due: Cards.invoiceDates(key, c).due, status: Cards.invoiceStatus(c, key, today),
+      mine: mine, others: others, total: money(mine + others)});
+  });
+  var late = [];
+  State.cards.forEach(function(c){
+    var keys = {};
+    State.transactions.forEach(function(t){ if (Cards.isCardExpense(t, c)) keys[Cards.txInvoiceKey(t, c)] = true; });
+    Object.keys(keys).forEach(function(kk){
+      var v = Cards.invoiceDueTotal(State.transactions, c, kk);
+      if (v > 0 && Cards.invoiceStatus(c, kk, today) === 'vencida') late.push(v);
+    });
+  });
+  return {rows: rows, late: {count: late.length, total: money(sum(late, function(v){ return v; }))}};
+}
+export function renderInvoiceSplit(){
+  var card = document.getElementById('invSplitCard'), wrap = document.getElementById('invSplitWrap');
+  card.hidden = !State.cards.length;
+  if (card.hidden) return;
+  setToggleLabel('invsplit');
+  var d = invoiceSplitData(), rows = d.rows;
+  var tot = {mine: money(sum(rows, function(r){ return r.mine; })), others: money(sum(rows, function(r){ return r.others; }))};
+  tot.total = money(tot.mine + tot.others);
+  var lateHtml = d.late.count ? '<p class="inv-late" role="note">' + icon('clock') + '<span>Também há <strong>' + d.late.count + ' fatura(s) vencida(s)</strong> somando <strong class="tabular">' +
+    fmtMoney(d.late.total) + '</strong>. Se já foram pagas, marque como pagas em “Contas e cartões”.</span> <a class="sum-link" href="#/contas" data-go="cartoes">Ver →</a></p>' : '';
+  function pct(v, t){ return t > 0 ? Math.round(100 * v / t) : 0; }
+  if ((State.invView || 'chart') === 'table'){
+    wrap.innerHTML = '<table class="data-table"><thead><tr><th>Cartão</th><th>Fatura</th><th>Minha parte</th><th>Outras pessoas</th><th>Total</th></tr></thead><tbody>' +
+      rows.map(function(r){ return '<tr><td>' + escapeHtml(r.card.name) + '</td><td>' + escapeHtml(r.label) + ' · vence ' + formatDateBr(r.due) + '</td><td class="tabular">' + fmtMoney(r.mine) +
+        '</td><td class="tabular">' + fmtMoney(r.others) + '</td><td class="tabular">' + fmtMoney(r.total) + '</td></tr>'; }).join('') +
+      '<tr><td colspan="2"><strong>Total</strong></td><td class="tabular"><strong>' + fmtMoney(tot.mine) + '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.others) +
+      '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.total) + '</strong></td></tr></tbody></table>' + lateHtml;
+    return;
+  }
+  var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
+  function seg(cls, v, label, r){
+    if (!(v > 0) || !(max > 0)) return '';
+    return '<span class="inv-seg ' + cls + '" style="width:' + (100 * v / max).toFixed(2) + '%" tabindex="0" data-label="' + escapeHtml(r.card.name + ' · ' + label) + '" data-value="' +
+      fmtMoney(v) + ' (' + pct(v, r.total) + '%)"></span>';
+  }
+  wrap.innerHTML =
+    '<div class="inv-total">' +
+      '<div><span class="kpi-lbl">Total das próximas faturas</span><strong class="tabular">' + fmtMoney(tot.total) + '</strong></div>' +
+      '<div><span class="kpi-lbl"><i class="inv-key mine" aria-hidden="true"></i>Minha parte</span><strong class="tabular">' + fmtMoney(tot.mine) + '</strong><span class="kpi-sub">' + pct(tot.mine, tot.total) + '%</span></div>' +
+      '<div><span class="kpi-lbl"><i class="inv-key others" aria-hidden="true"></i>Outras pessoas</span><strong class="tabular">' + fmtMoney(tot.others) + '</strong><span class="kpi-sub">' + pct(tot.others, tot.total) + '% · vão te devolver</span></div>' +
+    '</div>' +
+    '<div class="inv-rows" role="img" aria-label="' + escapeHtml(rows.map(function(r){ return r.card.name + ': minha parte ' + fmtMoney(r.mine) + ', outras pessoas ' + fmtMoney(r.others); }).join('; ')) + '">' +
+      rows.map(function(r){
+        return '<div class="inv-row"><div class="inv-row-head"><strong>' + escapeHtml(r.card.name) + '</strong><span class="tx-meta">Fatura de ' + escapeHtml(r.label) + ' · vence ' + formatDateBr(r.due) +
+          ' · ' + r.status + '</span><strong class="tabular inv-row-total">' + fmtMoney(r.total) + '</strong></div>' +
+          '<div class="inv-track">' + seg('mine', r.mine, 'minha parte', r) + seg('others', r.others, 'outras pessoas', r) + (r.total > 0 ? '' : '<span class="tx-meta">Sem compras nesta fatura.</span>') + '</div>' +
+          (r.total > 0 ? '<div class="inv-row-labels tabular"><span>Minha parte ' + fmtMoney(r.mine) + '</span><span>Outras pessoas ' + fmtMoney(r.others) + '</span></div>' : '') +
+        '</div>';
+      }).join('') +
+    '</div>' +
+    '<div class="legend"><span class="legend-item"><span class="legend-swatch inv-key mine"></span>Minha parte</span><span class="legend-item"><span class="legend-swatch inv-key others"></span>Outras pessoas (vão te devolver)</span></div>' +
+    lateHtml;
+  wireTooltips(wrap, '.inv-seg');
+}
 export function renderDonut(monthTx){
   var wrap = document.getElementById('donutWrap');
   setToggleLabel('donut');
