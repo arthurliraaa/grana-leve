@@ -15,7 +15,8 @@ L.run(async ({page}) => {
   await page.goto(L.BASE + '#/lancamentos/contas-fixas'); await L.sleep(300);
   L.ok(!(await page.$eval('#tab-fixas', el => el.hidden)) && await page.$eval('#segbtn-fixas', el => el.getAttribute('aria-selected')) === 'true', 'Compromissos tem a aba “Contas fixas” (com endereço próprio)');
   L.ok(await page.$eval('#billStart', el => el.value) === cur && /Nenhuma conta fixa/.test(await L.text(page, '#billMonth')), 'começa no mês atual e sem contas');
-  L.ok(await page.$$eval('#billNames option', o => o.length) > 5, 'sugere nomes (água, luz, internet…)');
+  L.ok(await page.$eval('#billName', el => !el.getAttribute('list')) && /Digite o nome/.test(await page.$eval('#billName', el => el.placeholder)), 'nome livre, sem lista para escolher');
+  L.ok(await L.text(page, '#billDayLabel') === 'Dia do pagamento', 'com Pix/débito, o campo é “Dia do pagamento”');
   const add = async (name, amount, due, every) => {
     await page.type('#billName', name); await page.type('#billAmount', String(amount)); await page.type('#billDay', String(due));
     if (every) await L.setVal(page, '#billEvery', String(every));

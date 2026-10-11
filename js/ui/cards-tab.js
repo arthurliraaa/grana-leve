@@ -151,7 +151,9 @@ export function cardHtml(c){
         '</div>' +
         '<p class="tx-meta">Fecha ' + formatDateFull(dates.closing) + (payAcc ? ' · Paga com ' + escapeHtml(payAcc) : '') + '</p>' +
       '</div>' +
-      (items.length ? '<details class="budget-details"><summary>Ver as ' + items.length + ' compra(s) desta fatura</summary>' + items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
+      (items.length ? '<details class="budget-details"><summary>Ver as ' + items.length + ' compra(s) desta fatura</summary>' +
+        '<p class="tx-meta same-tx-note">São as mesmas compras de “Ganhos e gastos”, agrupadas pela fatura em que entraram: não somam de novo.</p>' +
+        items.map(txRowHtml).join('') + '</details>' : '<p class="tx-meta">Nenhuma compra nesta fatura.</p>') +
       (gs.length ? '<details class="budget-details"><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '') +
       '<div class="card-actions split-actions">' +
         (total > 0 ? '<button class="btn ' + (status === 'paga' ? 'btn-ghost' : 'btn-primary') + ' btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? 'Desmarcar paga' : 'Marcar como paga') + '</button>' : '') +

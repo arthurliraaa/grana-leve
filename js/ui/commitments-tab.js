@@ -253,8 +253,11 @@ export function recvCardHtml(r){
     '<div class="budget-top"><h4>'+escapeHtml(r.description || labelOf(RECV_KINDS, r.kind))+'</h4><span class="card-tags"><span class="pill brand">' + escapeHtml(labelOf(RECV_KINDS, r.kind)) + (info ? ' · ' + info.n + 'x' : '') + '</span>' +
       (done ? '' : urgencySelectHtml('receivables', r, r.person)) + '</span></div>' +
     (recvCardLine(r) && !done ? '<span class="tx-meta">' + recvCardLine(r) + '</span>' : '') +
+    (r.priorSettled ? '<p class="prior-note">Compra de ' + fmtMoney(r.totalAmount) + (info ? ' em ' + info.n + 'x' : '') + ': ' +
+      (r.priorSettled.count === 1 ? 'a 1ª parcela' : 'as ' + r.priorSettled.count + ' primeiras parcelas') + ' (' + fmtMoney(r.priorSettled.amount) + ') já tinham vencido antes do cadastro e ' +
+      (r.priorSettled.paid ? (r.priorSettled.count === 1 ? 'já foi acertada.' : 'já foram acertadas.') : (r.priorSettled.count === 1 ? 'ainda está em aberto.' : 'ainda estão em aberto.')) + '</p>' : '') +
     '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
-    '<div class="debt-figs"><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
+    '<div class="debt-figs"><span class="tabular">Total: '+fmtMoney(r.totalAmount||0)+'</span><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
     (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
         'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
       (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +

@@ -53,6 +53,10 @@ export function invoiceItems(list, card, key){
   return list.filter(function(t){ return isCardExpense(t, card) && txInvoiceKey(t, card) === key; })
     .sort(function(a,b){ return a.date.localeCompare(b.date); });
 }
+// O que ainda pesa na fatura: sem as parcelas acertadas antes do cadastro (installment.settled).
+export function invoiceDueTotal(list, card, key){
+  return sumMoney(invoiceItems(list, card, key).filter(function(t){ return !(t.installment && t.installment.settled); }), function(t){ return t.amount; });
+}
 export function invoiceTotal(list, card, key){ return sumMoney(invoiceItems(list, card, key), function(t){ return t.amount; }); }
 export function invoiceStatus(card, key, today){
   if ((card.paidInvoices || []).indexOf(key) >= 0) return 'paga';
@@ -66,7 +70,7 @@ export function cardUsed(list, card, today){
   var keys = {};
   list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
   return sumMoney(Object.keys(keys).filter(function(key){ return invoiceStatus(card, key, today) !== 'paga'; }), function(key){
-    return invoiceTotal(list, card, key);
+    return invoiceDueTotal(list, card, key);
   });
 }
 
@@ -79,7 +83,7 @@ export function invoicesSummary(list, cards, today){
     list.forEach(function(t){ if (isCardExpense(t, card)) keys[txInvoiceKey(t, card)] = true; });
     Object.keys(keys).sort().forEach(function(key){
       var status = invoiceStatus(card, key, today);
-      var total = invoiceTotal(list, card, key);
+      var total = invoiceDueTotal(list, card, key);
       if (!(total > 0) || status === 'paga') return;
       var item = {card: card, key: key, total: total, due: invoiceDates(key, card).due, status: status};
       if (status === 'fechada' || status === 'vencida') toPay.push(item);

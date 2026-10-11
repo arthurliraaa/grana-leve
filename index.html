@@ -403,6 +403,11 @@
                 <label class="option-card"><input type="checkbox" id="txSplit">
                   <span><strong>Dividir com outras pessoas</strong><small>Cada um paga uma parte (ex.: família). Só a sua parte conta como gasto; a dos outros vai para “Me devem”.</small></span></label>
               </div>
+              <fieldset class="prior-box" id="txPriorBox" hidden>
+                <legend id="txPriorText">As primeiras parcelas já venceram antes deste cadastro.</legend>
+                <label class="check"><input type="radio" name="txPrior" value="paid" checked> já me devolveu essas parcelas</label>
+                <label class="check"><input type="radio" name="txPrior" value="owed"> ainda me deve essas parcelas</label>
+              </fieldset>
               <div class="field other-name">
                 <label for="txOtherName" id="txOtherHint" hidden>Quem vai te devolver?</label>
                 <input id="txOtherName" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Nome da pessoa" hidden>
@@ -453,15 +458,16 @@
         <p class="tab-intro">Contas que se repetem: água, luz, internet, aluguel, assinaturas. O app mostra os vencimentos de cada mês e, ao pagar, lança o gasto sozinho.</p>
         <div class="card">
           <div class="card-head"><h3>Nova conta fixa</h3></div>
-          <form id="billForm" class="new-item-form">
-            <div class="field"><label for="billName">Nome</label><input id="billName" type="text" list="billNames" autocomplete="off" maxlength="60" required placeholder="Ex: Internet"><datalist id="billNames"></datalist></div>
-            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
-            <div class="field"><label for="billDay">Dia do vencimento</label><input id="billDay" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
-            <div class="field"><label for="billEvery">Frequência</label><select id="billEvery"></select></div>
+          <form id="billForm" class="new-item-form bill-form">
             <div class="field"><label for="billCat">Categoria</label><select id="billCat"></select></div>
-            <div class="field"><label for="billPay">Forma de pagamento</label><select id="billPay"></select></div>
+            <div class="field f-half"><label for="billName">Nome da despesa</label><input id="billName" type="text" autocomplete="off" maxlength="60" required placeholder="Digite o nome, ex.: Internet, Aluguel, Netflix"></div>
+            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+            <div class="field"><label for="billEvery">Frequência</label><select id="billEvery"></select></div>
+            <div class="field f-half"><label for="billPay">Forma de pagamento</label><select id="billPay"></select></div>
+            <div class="field"><label for="billDay" id="billDayLabel">Dia do pagamento</label><input id="billDay" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
+            <p class="field-hint f-full bill-day-hint" id="billDayHint" aria-live="polite"></p>
             <div class="field"><label for="billStart">A partir de</label><input id="billStart" type="month" required></div>
-            <div class="f-submit-inline"><button class="btn btn-primary" type="submit">Adicionar conta</button></div>
+            <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar conta fixa</button></div>
           </form>
         </div>
         <div class="card">
