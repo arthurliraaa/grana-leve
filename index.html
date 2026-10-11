@@ -605,6 +605,11 @@
       <!-- Dívidas -->
       <div id="tab-dividas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-dividas">
         <p class="tab-intro">Tudo o que você deve: cartão, banco, financiamento ou um empréstimo com um amigo. Registre cada pagamento e veja quanto falta.</p>
+        <div class="import-charge">
+          <label class="btn btn-ghost btn-sm" for="debtImportFile"><svg class="ico" aria-hidden="true"><use href="#i-swap"/></svg>Importar cobrança recebida</label>
+          <input id="debtImportFile" type="file" accept=".json,application/json" class="sr-only">
+          <span class="tx-meta">Alguém te mandou o arquivo de uma cobrança do Grana Leve? Importe aqui. Pelo link, ela já abre sozinha.</span>
+        </div>
         <div class="card">
           <div class="card-head"><h3>Nova dívida</h3></div>
           <form id="debtForm" class="new-item-form">

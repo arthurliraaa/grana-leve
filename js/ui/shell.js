@@ -20,7 +20,8 @@ import {openModal, confirmAction, attachCounters} from './modal.js';
 import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
-import {chargePerson, chargeReceivable, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
+import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
+import {chargePerson, chargeReceivable, shareRecv, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
@@ -263,6 +264,8 @@ export async function enterApp(profileHint){
   State.navReady = true;
   // Contas fixas cujo dia chegou entram sozinhas em Ganhos e gastos.
   if (await runAutoBills()) renderAll();
+  // Abriu por um link de cobrança: mostra para aceitar antes das boas-vindas.
+  if (await acceptPendingCharge()) return;
   if (!(await offerLocalImport())) maybeWelcome();
 }
 
@@ -348,6 +351,7 @@ export function syncFromAddress(){
 
 /* ============ Boot ============ */
 export async function boot(){
+  capturePendingCharge();
   Store.onWriteError = function(){ toast('Não foi possível salvar: o armazenamento do navegador está cheio ou bloqueado.'); };
   await Store.init();
   // Captcha nas ações de login, quando houver site key (o Supabase precisa estar com o captcha ligado).
@@ -586,6 +590,12 @@ export function wireShell(){
     // A receber
     if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
     if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
+    if ((el = t.closest('[data-recv-share]'))){ shareRecv(el.getAttribute('data-recv-share')); return; }
+    if ((el = t.closest('[data-copy-pix]'))){
+      var pixKey = el.getAttribute('data-copy-pix');
+      if (navigator.clipboard) navigator.clipboard.writeText(pixKey).then(function(){ toast('Chave Pix copiada.'); }, function(){ toast('Não foi possível copiar.'); });
+      return;
+    }
     if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
     if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return; }
     if ((el = t.closest('[data-jump]'))){ document.getElementById(el.getAttribute('data-jump')).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); return; }

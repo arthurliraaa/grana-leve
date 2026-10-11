@@ -104,6 +104,21 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 - Parcelado: as parcelas recebidas contam pelo total que já entrou (em centavos); um valor
   parcial não pula a parcela. A próxima vence um mês depois da anterior, a partir da 1ª.
 - Atrasado = próximo vencimento antes de hoje e ainda falta receber.
+- **Cobrar** (`recvDueByMonth`): a pessoa escolhe o que vai na mensagem:
+  - **do mês**: as parcelas que vencem até o fim do mês, incluindo as atrasadas e descontando o que
+    já entrou da parcela atual. Numa compra no cartão, é a parcela da fatura do mês. Se nada vence
+    no mês, vai a próxima parcela;
+  - **total em aberto**.
+  - A **chave Pix** é opcional e fica guardada neste aparelho (preferências) para as próximas
+    cobranças.
+- **Compartilhar** (`js/ui/share-charge.js`): gera um link (`#/cobranca/<dados>`) ou um arquivo
+  `.json` com quem cobra, o valor, o que já foi pago, as parcelas, o vencimento e a chave Pix.
+  - Os dados vão depois do `#`, então não passam pelo servidor.
+  - Quem abre aceita, e a cobrança vira dívida em "Eu devo" (`debt.shared`).
+  - Cada cobrança tem uma referência (`shareRef`): reenviar atualiza a mesma dívida, sem duplicar.
+    O valor pago fica com o maior entre o enviado e o que a pessoa já registrou.
+  - Não há sincronização automática entre as contas.
+  - Os dados de fora são conferidos (formato, limites, datas) e mostrados sempre escapados.
 
 ## Vale-alimentação / refeição
 
