@@ -1089,3 +1089,20 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .charge-what legend{ font-weight:600; font-size:.9rem; margin-bottom:6px; }
 .charge-what .option-card:has(input:disabled){ opacity:.6; cursor:not-allowed; }
 .pix-line{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; overflow-wrap:anywhere; }
+/* Apagar dados */
+.clear-all{ margin:8px 0 12px; }
+.clear-groups{ border:1px solid var(--border); border-radius:12px; padding:10px 14px; margin:0 0 12px; display:grid; gap:8px; }
+.clear-groups legend{ font-weight:600; font-size:.9rem; padding:0 4px; }
+.clear-item{ align-items:flex-start; }
+.clear-item small{ display:block; margin-top:2px; }
+/* Ajuda e sugestões; cobranças compartilhadas */
+.fb-kinds{ border:0; padding:0; margin:0 0 12px; grid-template-columns:1fr; gap:8px; }
+.feedback-item{ border-top:1px solid var(--border); padding:10px 0; display:grid; gap:6px; }
+.feedback-item.is-new .budget-top strong::after{ content:" · nova"; color: var(--brand); font-weight:600; }
+.feedback-msg{ margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.shared-line{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:2px 0 6px; }
+.shared-news{ margin:0 0 12px; padding-left:18px; display:grid; gap:6px; }
+.shared-confirm{ display:grid; gap:8px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; margin-bottom:8px; }
+.shared-confirm select{ max-width:100%; }
+.sc-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+.nav-data + .nav-data{ border-top:0; padding-top:6px; border-radius:10px; }

@@ -11,7 +11,7 @@ import {formatDateFull} from '../domain/dates.js';
 import {passwordRulesHtml, wirePasswordRules} from './password.js';
 
 // ctx: {state(), onNameChange(name), themePref(), setThemePref(v), openResearch(), researchStatus(),
-//       openData(), deleteAccount(), logout(), siteUrl()}
+//       openData(), clearData(), openFeedback(kind), deleteAccount(), logout(), siteUrl()}
 var ctx = null;
 
 function online(){ return Store.mode === 'supabase'; }
@@ -56,7 +56,7 @@ export function renderProfile(){
 
     card('pfT4', 'sun', 'Preferências',
       '<fieldset class="radio-group"><legend>Tema</legend>' + themeOpt('system', 'Automático (igual ao aparelho)') + themeOpt('light', 'Claro') + themeOpt('dark', 'Escuro') + '</fieldset>' +
-      '<label class="check"><input type="checkbox" id="pfWelcome"' + (getPrefs().quickEntryOff ? '' : ' checked') + '> Perguntar se tive gastos ou ganhos ao entrar (uma vez por dia)</label>' +
+      '<label class="check"><input type="checkbox" id="pfWelcome"' + (getPrefs().quickEntryOff ? '' : ' checked') + '> Perguntar se tive gastos ou ganhos ao entrar na conta (só logo depois do login)</label>' +
       '<div class="pref-row"><span>Confirmações que você pediu para não mostrar mais: <strong>' + skipped + '</strong></span>' +
         '<button class="btn btn-ghost btn-sm" type="button" id="pfResetConfirm"' + (skipped ? '' : ' disabled') + '>Voltar a perguntar</button></div>') +
 
@@ -68,6 +68,15 @@ export function renderProfile(){
       '<div class="pref-row"><span>Backup, onde os dados ficam e importação.</span><button class="btn btn-ghost btn-sm" type="button" id="pfData">Seus dados e backup</button></div>' +
       (online() ? '<div class="pref-row"><span>Esqueceu a conta aberta em outro aparelho? Encerre todas as sessões, inclusive esta.</span><button class="btn btn-ghost btn-sm" type="button" id="pfSignOutAll">Sair de todos os aparelhos</button></div>' : '') +
       (st.profileCreatedAt ? '<p class="tx-meta">Conta criada em ' + formatDateFull(String(st.profileCreatedAt).slice(0, 10)) + '.</p>' : '')) +
+
+    card('pfT9', 'chat', 'Ajuda e sugestões',
+      '<p class="card-sub">Ficou com dúvida, achou um problema ou tem uma ideia? Mande para a equipe do Grana Leve.</p>' +
+      '<div class="card-actions"><button class="btn btn-primary btn-sm" type="button" id="pfHelp">Preciso de ajuda</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" id="pfIdea">Enviar sugestão de melhoria</button></div>') +
+
+    card('pfT8', 'trash', 'Apagar dados',
+      '<p class="card-sub">Quer recomeçar? Apague tudo o que anotou ou só uma parte (por exemplo, só os gastos ou só os cartões). A conta continua.</p>' +
+      '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" id="pfClear">Escolher o que apagar</button></div>') +
 
     card('pfT7', 'trash', 'Excluir conta',
       '<p class="card-sub">Apaga a conta e todos os seus dados' + (online() ? ' do servidor' : ' deste navegador') + ', inclusive a participação no estudo. Não dá para desfazer: se quiser guardar, salve um backup antes.</p>' +
@@ -148,6 +157,9 @@ export function initProfile(context){
     if (id === 'pfResearchBtn') ctx.openResearch();
     if (id === 'pfData') ctx.openData();
     if (id === 'pfDelete') ctx.deleteAccount();
+    if (id === 'pfClear') ctx.clearData();
+    if (id === 'pfHelp') ctx.openFeedback('ajuda');
+    if (id === 'pfIdea') ctx.openFeedback('melhoria');
     if (id === 'pfSignOutAll'){
       try { await Store.signOutAll(); } catch(err){ toast('Não foi possível agora. Verifique a internet.'); return; }
       ctx.logout();

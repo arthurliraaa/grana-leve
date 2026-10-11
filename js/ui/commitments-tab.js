@@ -24,7 +24,8 @@ import {ufOptions} from './my-data.js';
 import {renderAll} from './shell.js';
 import {State, URGENCY_RANK, accountName, catLabel, expandInstallments, installHint, installmentGroups, k, setUrgency, sortTransactions, urgencyOptions, urgencySelectHtml} from './state.js';
 import {saveTransactions} from './tx-edit.js';
-import {chargeLink, chargePayload, importChargeFile, shareReceivable} from './share-charge.js';
+import {chargeLink, importChargeFile, sharePayloadFor, shareReceivable} from './share-charge.js';
+import {notifyDebtPayment, notifyDebtUndo, notifyReceipt, pendingPaidEvents, saveSharedRow, sharedRowOf} from './shared-sync.js';
 import {accountSelectHtml, fold, installStepperHtml} from './tx-list.js';
 
 /* ---------- Dívidas ---------- */
@@ -49,6 +50,7 @@ export function renderDebts(){
         (done ? '' : urgencySelectHtml('debts', d, d.name)) + '</span></div>' +
       (d.creditor ? '<span class="tx-meta">Com: ' + escapeHtml(d.creditor) + (d.shared ? ' · cobrança enviada por ' + escapeHtml(d.shared.from) + ' em ' + formatDateBr(d.shared.at) : '') + '</span>' : '') +
       (d.shared && d.shared.pix && !done ? '<span class="tx-meta pix-line">Chave Pix: <strong>' + escapeHtml(d.shared.pix) + '</strong> <button class="btn btn-ghost btn-sm" type="button" data-copy-pix="' + escapeHtml(d.shared.pix) + '">Copiar</button></span>' : '') +
+      sharedDebtHtml(d) +
       '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
       '<div class="debt-figs"><span class="tabular">Pago: '+fmtMoney(d.paidAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
       (d.monthlyPayment ? '<span class="tx-meta">Parcela mensal: '+fmtMoney(d.monthlyPayment)+(remaining > 0 ? ' · cerca de ' + Math.ceil(remaining / d.monthlyPayment) + ' parcela(s) restante(s)' : '')+'</span>' : '') +
@@ -57,6 +59,22 @@ export function renderDebts(){
         '<button class="btn btn-danger btn-sm" type="button" data-debt-del="'+d.id+'">Excluir</button>' +
       '</div>' + paymentLogHtml(d.payments, 'debt', d.id) + '</div>';
   }).join('');
+}
+
+// Cobrança compartilhada (shared-sync.js): com quem acompanha e avisos esperando decisão.
+function sharedRecvHtml(r){
+  if (!r.sharedId) return '';
+  var pend = pendingPaidEvents(sharedRowOf(r.sharedId)), who = escapeHtml(String(r.person).split(' ')[0]);
+  return '<div class="shared-line">' + (r.sharedWith ? '<span class="status-pill good">Acompanhando com ' + who + '</span>' : '<span class="status-pill">Link enviado · esperando ' + who + ' aceitar</span>') + '</div>' +
+    (pend.length ? '<div class="sync-alert" role="status">' + icon('chat') + '<span>' + who + ' avisou que pagou <strong class="tabular">' + fmtMoney(sumMoney(pend, function(e){ return e.amount; })) + '</strong>' +
+      (pend.length > 1 ? ' (' + pend.length + ' avisos)' : ' em ' + formatDateBr(pend[0].date || todayKey())) + '. Confira e confirme.</span>' +
+      '<button class="btn btn-primary btn-sm" type="button" data-shared-pending="' + r.id + '">Ver e confirmar</button></div>' : '');
+}
+function sharedDebtHtml(d){
+  if (!(d.shared && d.shared.sid)) return '';
+  var pend = pendingPaidEvents(sharedRowOf(d.shared.sid)), who = escapeHtml(String(d.shared.from || '').split(' ')[0]);
+  return '<div class="shared-line"><span class="status-pill good">Acompanhando com ' + who + '</span>' +
+    (pend.length ? '<span class="tx-meta">' + fmtMoney(sumMoney(pend, function(e){ return e.amount; })) + ' esperando ' + who + ' confirmar</span>' : '') + '</div>';
 }
 
 // Registrar pagamento de dívida: quantas parcelas, de qual conta saiu e se conta como gasto do mês.
@@ -110,6 +128,7 @@ export async function payDebt(id){
   d.paidAmount = newPaid; d.payments = pays;
   renderAll();
   toast('Pagamento de ' + fmtMoney(a.amount) + ' registrado em “' + d.name + '”.');
+  if (d.shared && d.shared.sid) await notifyDebtPayment(d, pays[pays.length - 1]);
 }
 
 // Histórico de pagamentos/recebimentos com "Desfazer" (o registro fica, marcado como desfeito).
@@ -118,10 +137,14 @@ export function paymentLogHtml(list, kind, ownerId){
   return '<details class="budget-details pay-log"><summary>' + (kind === 'debt' ? 'Pagamentos' : 'Recebimentos') + ' (' + list.length + ')</summary>' +
     list.slice().reverse().map(function(p){
       var acc = p.accountId ? accountName(p.accountId) : 'sem conta';
-      var how = kind === 'debt' ? (p.asExpense ? 'gasto do mês' : 'não contou como gasto') : (p.fromInvoices ? 'parcelas que já passaram pelas faturas' : p.asIncome ? 'ganho do mês' : 'devolução');
-      return '<div class="list-row' + (p.undone ? ' undone' : '') + '"><div class="tx-main"><div class="tx-desc tabular">' + fmtMoney(p.amount) + (p.n > 1 ? ' · ' + p.n + ' parcelas' : '') + '</div>' +
+      var how = kind === 'debt' ? (p.fromShared ? 'registrado por ' + p.fromShared : p.asExpense ? 'gasto do mês' : 'não contou como gasto') :
+        (p.fromInvoices ? 'parcelas que já passaram pelas faturas' : p.asIncome ? 'ganho do mês' : 'devolução');
+      if (kind === 'recv' && p.fromShared) how += ' · avisado por ' + p.fromShared;
+      if (kind === 'debt' && p.sharedEvent && !p.fromShared && !p.undone) how += ' · aviso enviado';
+      if (p.rejected) how += ' · a outra pessoa disse que não recebeu';
+      return '<div class="list-row' + (p.undone ? ' undone' : '') + '"><div class="tx-main"><div class="tx-desc tabular">' + (p.amount < 0 ? '− ' + fmtMoney(-p.amount) : fmtMoney(p.amount)) + (p.n > 1 ? ' · ' + p.n + ' parcelas' : '') + '</div>' +
         '<div class="tx-meta">' + formatDateBr(p.date) + ' · ' + escapeHtml(acc) + ' · ' + how + (p.undone ? ' · desfeito em ' + formatDateBr(p.undone) : '') + '</div></div>' +
-        (p.undone ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-pay-undo="' + kind + ':' + escapeHtml(ownerId) + ':' + escapeHtml(p.id) + '">Desfazer</button>') + '</div>';
+        (p.undone || (kind === 'debt' && p.fromShared) ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-pay-undo="' + kind + ':' + escapeHtml(ownerId) + ':' + escapeHtml(p.id) + '">Desfazer</button>') + '</div>';
     }).join('') + '</details>';
 }
 export async function undoPayment(ref){
@@ -142,6 +165,9 @@ export async function undoPayment(ref){
   Object.assign(owner, patch);
   renderAll();
   toast((kind === 'debt' ? 'Pagamento' : 'Recebimento') + ' desfeito.');
+  // Cobrança compartilhada: avisa o outro lado.
+  if (kind === 'debt') await notifyDebtUndo(owner, p);
+  else await notifyReceipt(owner, p.amount, true);
 }
 
 /* ---------- A receber ---------- */
@@ -318,6 +344,7 @@ export function recvCardHtml(r){
     (r.priorSettled ? '<p class="prior-note">Compra de ' + fmtMoney(r.totalAmount) + (info ? ' em ' + info.n + 'x' : '') + ': ' +
       (r.priorSettled.count === 1 ? 'a 1ª parcela' : 'as ' + r.priorSettled.count + ' primeiras parcelas') + ' (' + fmtMoney(r.priorSettled.amount) + ') já tinham vencido antes do cadastro e ' +
       (r.priorSettled.paid ? (r.priorSettled.count === 1 ? 'já foi acertada.' : 'já foram acertadas.') : (r.priorSettled.count === 1 ? 'ainda está em aberto.' : 'ainda estão em aberto.')) + '</p>' : '') +
+    sharedRecvHtml(r) +
     '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
     '<div class="debt-figs"><span class="tabular">Total: '+fmtMoney(r.totalAmount||0)+'</span><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
     (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
@@ -434,22 +461,28 @@ export async function receiveReceivable(id){
     }
   });
   if (!a || !a.amount) return;
+  await recordReceipt(r, {amount: a.amount, date: todayKey(), accountId: a.accountId, asIncome: a.asIncome});
+  renderAll();
+  toast('Recebimento de ' + fmtMoney(a.amount) + ' registrado' + (a.asIncome ? ' como ganho.' : ' como devolução.'));
+  notifyReceipt(r, a.amount, false);
+}
+// Grava um recebimento: lançamento (ganho, ou devolução que entrou numa conta) e histórico.
+// extra: campos a mais no registro do histórico (ex.: o aviso de pagamento confirmado).
+export async function recordReceipt(r, a){
   var txId = null;
   // Ganho: sempre vira lançamento. Devolução: só quando entra numa conta (para o saldo subir).
   if (a.asIncome || a.accountId){
-    var tx = {type:'income', amount:a.amount, category:'recebimento', categoryLabel: catLabel('recebimento', 'income'), date: todayKey(),
+    var tx = {type:'income', amount:a.amount, category:'recebimento', categoryLabel: catLabel('recebimento', 'income'), date: a.date || todayKey(),
       description: (a.asIncome ? 'Recebido de ' : 'Devolução de ') + r.person, paymentMethod:null, accountId: a.accountId, receivableId: r.id, createdAt: Date.now()};
     if (!a.asIncome) tx.refund = true;
     var saved = await Store.add(k(), 'transactions', tx);
     State.transactions.unshift(saved); sortTransactions();
     txId = saved.id;
   }
-  var pays = (r.payments || []).concat([{id: uid(), date: todayKey(), amount: a.amount, accountId: a.accountId, asIncome: a.asIncome, txId: txId}]);
+  var pays = (r.payments || []).concat([Object.assign({id: uid(), date: a.date || todayKey(), amount: a.amount, accountId: a.accountId, asIncome: a.asIncome, txId: txId}, a.extra || {})]);
   var newReceived = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount||0) + a.amount));
-  await Store.update(k(), 'receivables', id, {receivedAmount: newReceived, payments: pays});
+  await Store.update(k(), 'receivables', r.id, {receivedAmount: newReceived, payments: pays});
   r.receivedAmount = newReceived; r.payments = pays;
-  renderAll();
-  toast('Recebimento de ' + fmtMoney(a.amount) + ' registrado' + (a.asIncome ? ' como ganho.' : ' como devolução.'));
 }
 
 // A pessoa não vai devolver o que falta: o "A receber" fecha e, se você quiser, o valor vira gasto seu.
@@ -531,9 +564,10 @@ export async function chargeReceivable(id, all){
   var prefs = getPrefs();
   var o = {what: month > 0 && month < total ? 'month' : 'total', pix: !!prefs.pixInCharge && !!prefs.pixKey, pixKey: prefs.pixKey || '', link: ''};
   var withLink = false;
+  var linkPayload = null;   // preparado uma vez (pode criar a cobrança no servidor)
   async function linkFor(){
-    if (!r.shareRef){ r.shareRef = uid(); await Store.update(k(), 'receivables', r.id, {shareRef: r.shareRef}); }
-    return chargeLink(chargePayload(r, o.pix ? o.pixKey : ''));
+    if (!linkPayload) linkPayload = await sharePayloadFor(r, o.pix ? o.pixKey : '');
+    return chargeLink(Object.assign({}, linkPayload, {pix: o.pix ? o.pixKey : undefined}));
   }
   await openModal({
     title: 'Cobrar ' + r.person,
@@ -573,6 +607,7 @@ export async function chargeReceivable(id, all){
     },
     onSubmit: async function(form){
       if (form.pix.checked && !form.pixKey.value.trim()) return {error: 'Digite a chave Pix ou desmarque “Incluir minha chave Pix”.'};
+      if (withLink && r.sharedId) saveSharedRow(r, form.pix.checked ? form.pixKey.value.trim() : '').catch(function(){});
       setPref('pixKey', form.pixKey.value.trim() || getPrefs().pixKey || '');
       setPref('pixInCharge', form.pix.checked);
       var phone = onlyDigits(form.phone.value);

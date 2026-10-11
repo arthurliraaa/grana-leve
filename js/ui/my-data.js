@@ -137,6 +137,72 @@ export async function showInfo(id){
   });
   if (r && canDelete) deleteMyAccount();
 }
+// Apagar dados sem excluir a conta: tudo (recomeçar do zero) ou só as partes escolhidas.
+// Os registros são lidos de novo do armazenamento (os ids reais) e apagados em lote.
+var CLEAR_GROUPS = [
+  {id: 'tx', label: 'Ganhos e gastos', colls: ['transactions'], count: function(){ return State.transactions.length; }, hint: 'Todos os lançamentos, inclusive parcelas, estornos e os lançados pelas contas fixas.'},
+  {id: 'bills', label: 'Contas fixas', colls: ['bills'], count: function(){ return State.bills.length; }},
+  {id: 'forecasts', label: 'Previsões de entrada', colls: ['forecasts'], count: function(){ return State.forecasts.length; }},
+  {id: 'wallet', label: 'Bancos: contas, cartões, transferências e vales', colls: ['accounts', 'cards', 'transfers', 'vouchers'],
+    count: function(){ return State.accounts.length + State.cards.length + State.transfers.length + State.vouchers.length; },
+    hint: 'Se os lançamentos ficarem, eles continuam, só que sem a conta ou o cartão.'},
+  {id: 'budgets', label: 'Planejamento (limites por categoria)', colls: ['budgets'], count: function(){ return Object.keys(State.budgetBase).length + Object.keys(State.budgetMonths).length; }},
+  {id: 'goals', label: 'Metas', colls: ['goals'], count: function(){ return State.goals.length; }},
+  {id: 'debts', label: 'Eu devo (dívidas)', colls: ['debts'], count: function(){ return State.debts.length; }},
+  {id: 'recv', label: 'Me devem (a receber)', colls: ['receivables'], count: function(){ return State.receivables.length; }},
+  {id: 'cats', label: 'Categorias que você criou', colls: ['categories'], count: function(){ return State.categories.length; }}
+];
+export async function clearDataModal(){
+  var choice = await openModal({
+    title: 'Apagar dados', wide: true,
+    body: '<p>Apaga os dados escolhidos e mantém a sua conta (nome, e-mail e senha). Bom para recomeçar a anotar do zero.</p>' +
+      '<label class="option-card clear-all"><input type="checkbox" id="clrAll"><span><strong>Apagar tudo e recomeçar</strong><small>Marca todas as partes abaixo.</small></span></label>' +
+      '<fieldset class="clear-groups"><legend>Ou escolha o que apagar</legend>' + CLEAR_GROUPS.map(function(g){
+        var n = g.count();
+        return '<label class="check clear-item"><input type="checkbox" name="grp" value="' + g.id + '"' + (n ? '' : ' disabled') + '> <span><strong>' + g.label + '</strong> <span class="tx-meta">(' + n + ')</span>' +
+          (g.hint ? '<small class="field-hint">' + g.hint + '</small>' : '') + '</span></label>';
+      }).join('') + '</fieldset>' +
+      '<div class="pdf-actions"><button type="button" class="btn btn-ghost btn-sm" data-clr-backup>Salvar backup antes</button></div>' +
+      '<div class="field"><label for="clrConfirm">Para confirmar, digite <strong>APAGAR</strong></label><input id="clrConfirm" name="confirm" type="text" autocomplete="off" maxlength="10"></div>' +
+      '<p class="field-hint">Não dá para desfazer. Se quiser guardar, salve um backup antes.</p>',
+    submitLabel: 'Apagar o que marquei', danger: true,
+    onOpen: function(modal){
+      var all = qs('#clrAll', modal);
+      all.addEventListener('change', function(){ modal.querySelectorAll('input[name=grp]:not(:disabled)').forEach(function(el){ el.checked = all.checked; }); });
+      modal.addEventListener('change', function(e){
+        if (e.target.name !== 'grp') return;
+        var boxes = Array.prototype.slice.call(modal.querySelectorAll('input[name=grp]:not(:disabled)'));
+        all.checked = boxes.length > 0 && boxes.every(function(el){ return el.checked; });
+      });
+      qs('[data-clr-backup]', modal).addEventListener('click', function(){ exportBackup(); });
+    },
+    onSubmit: function(form){
+      var ids = Array.prototype.slice.call(form.querySelectorAll('input[name=grp]:checked')).map(function(el){ return el.value; });
+      if (!ids.length) return {error: 'Marque o que você quer apagar.'};
+      if (form.confirm.value.trim().toUpperCase() !== 'APAGAR') return {error: 'Digite APAGAR para confirmar.'};
+      return {ids: ids, all: qs('#clrAll', form).checked};
+    }
+  });
+  if (!choice) return;
+  var groups = CLEAR_GROUPS.filter(function(g){ return choice.ids.indexOf(g.id) >= 0; });
+  try {
+    for (var i = 0; i < groups.length; i++){
+      for (var j = 0; j < groups[i].colls.length; j++){
+        var coll = groups[i].colls[j];
+        var list = await Store.list(k(), coll);
+        if (list.length) await Store.removeMany(k(), coll, list.map(function(x){ return x.id; }));
+      }
+    }
+  } catch(err){
+    await loadAllData(); renderAll();
+    toast((err && err.userMessage) || 'Não foi possível apagar tudo agora. O que já foi apagado não volta; tente de novo.');
+    return;
+  }
+  await loadAllData();
+  renderAll();
+  toast(choice.all ? 'Tudo apagado. Pode recomeçar!' : 'Apagado: ' + groups.map(function(g){ return g.label.toLowerCase(); }).join(', ') + '.');
+}
+
 export async function deleteMyAccount(){
   var ok = await confirmAction({title:'Apagar conta?', message: Store.mode === 'supabase' ?
     'Sua conta, todos os seus lançamentos, cartões, metas, dívidas, valores a receber e a participação no estudo serão apagados do servidor. Isso não pode ser desfeito.' :

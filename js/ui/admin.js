@@ -165,6 +165,27 @@ async function exportStudy(){
   toast(rows.length + ' registro(s) exportado(s).');
 }
 
+/* ---------- Mensagens (ajuda e sugestões) ---------- */
+var FEEDBACK_KINDS = {ajuda: 'Pedido de ajuda', melhoria: 'Sugestão de melhoria', problema: 'Problema'};
+var FEEDBACK_STATUS = [{id: 'novo', label: 'Nova'}, {id: 'lido', label: 'Lida'}, {id: 'resolvido', label: 'Resolvida'}];
+async function renderFeedback(){
+  loading();
+  var list;
+  try { list = await Store.adminFeedback(); } catch(err){ failed(err); return; }
+  var fresh = list.filter(function(f){ return f.status === 'novo'; }).length;
+  body().innerHTML = '<div class="card"><h3>Ajuda e sugestões</h3>' +
+    '<p class="card-sub">' + list.length + ' mensagem(ns)' + (fresh ? ', ' + fresh + ' nova(s)' : '') + '. Para responder, use o e-mail de quem enviou.' +
+      ' “E-mail enviado” indica que a cópia foi para o e-mail do Grana Leve (precisa da chave do Brevo no Vault; veja a migração).</p>' +
+    (list.length ? list.map(function(f){
+      return '<div class="feedback-item' + (f.status === 'novo' ? ' is-new' : '') + '">' +
+        '<div class="budget-top"><strong>' + escapeHtml(FEEDBACK_KINDS[f.kind] || f.kind) + '</strong>' +
+          '<select data-adm-fb="' + f.id + '" aria-label="Situação da mensagem">' + optionsHtml(FEEDBACK_STATUS, f.status) + '</select></div>' +
+        '<p class="feedback-msg">' + escapeHtml(f.message) + '</p>' +
+        '<span class="tx-meta">' + escapeHtml(f.name || '') + (f.email ? ' · <a href="mailto:' + escapeHtml(f.email) + '?subject=' + encodeURIComponent('Re: sua mensagem ao Grana Leve') + '">' + escapeHtml(f.email) + '</a>' : '') +
+          ' · ' + dateBr(f.created_at) + (f.page ? ' · tela: ' + escapeHtml(f.page) : '') + (f.emailed ? ' · e-mail enviado' : '') + '</span></div>';
+    }).join('') : '<p class="empty-state">Nenhuma mensagem ainda.</p>') + '</div>';
+}
+
 /* ---------- Navegação e ações ---------- */
 export function renderAdmin(){
   if (!ctx || !ctx.state().isAdmin){ body().innerHTML = '<p class="empty-state">Área restrita à administração.</p>'; return; }
@@ -172,7 +193,7 @@ export function renderAdmin(){
     var on = b.getAttribute('data-admin') === section;
     b.classList.toggle('active', on); b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
   });
-  ({metricas: renderMetrics, contas: renderAccounts, conteudos: renderContents, estudo: renderStudy})[section]();
+  ({metricas: renderMetrics, contas: renderAccounts, conteudos: renderContents, estudo: renderStudy, mensagens: renderFeedback})[section]();
 }
 
 export function initAdmin(context){
@@ -181,6 +202,12 @@ export function initAdmin(context){
     b.addEventListener('click', function(){ section = b.getAttribute('data-admin'); renderAdmin(); });
   });
   var panel = document.getElementById('tab-admin');
+  panel.addEventListener('change', async function(e){
+    var fb = e.target.closest && e.target.closest('[data-adm-fb]');
+    if (!fb) return;
+    try { await Store.adminSetFeedbackStatus(Number(fb.getAttribute('data-adm-fb')), fb.value); toast('Situação atualizada.'); }
+    catch(err){ toast('Não foi possível atualizar agora.'); }
+  });
   panel.addEventListener('input', function(e){
     if (e.target.id !== 'admSearch') return;
     accountFilter = e.target.value;

@@ -20,6 +20,8 @@ import {openModal, confirmAction, attachCounters} from './modal.js';
 import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
+import {openFeedback} from './feedback.js';
+import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, shareRecv, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
@@ -203,6 +205,7 @@ export async function openMoreMenu(){
         return '<a class="more-item' + (State.activeTab === it[0] ? ' active' : '') + '" href="#/' + ROUTES[it[0]] + '" data-more="' + it[0] + '">' + icon(it[1]) + '<span>' + it[2] + '</span></a>';
       }).join('') +
       '<button type="button" class="more-item" data-more="dados">' + icon('lock') + '<span>Seus dados e backup</span></button>' +
+      '<button type="button" class="more-item" data-more="ajuda">' + icon('chat') + '<span>Ajuda e sugestões</span></button>' +
       '</nav>',
     onOpen: function(modal, close){
       modal.addEventListener('click', function(e){
@@ -210,7 +213,8 @@ export async function openMoreMenu(){
         if (!el) return;
         e.preventDefault();
         close(null);
-        if (el.getAttribute('data-more') === 'dados') dataModal(); else showTab(el.getAttribute('data-more'));
+        var what = el.getAttribute('data-more');
+        if (what === 'dados') dataModal(); else if (what === 'ajuda') openFeedback('ajuda'); else showTab(what);
       });
     }
   });
@@ -266,6 +270,8 @@ export async function enterApp(profileHint){
   if (await runAutoBills()) renderAll();
   // Abriu por um link de cobrança: mostra para aceitar antes das boas-vindas.
   if (await acceptPendingCharge()) return;
+  // Cobranças compartilhadas: novidades da outra pessoa (pagamentos, confirmações).
+  await syncShared();
   if (!(await offerLocalImport())) maybeWelcome();
 }
 
@@ -288,7 +294,7 @@ export function backupCounts(){
 export function backupFile(){
   var data = {
     transactions: State.transactions, goals: State.goals, debts: State.debts, cards: State.cards, receivables: State.receivables,
-    forecasts: State.forecasts, categories: State.categories, vouchers: State.vouchers, accounts: State.accounts, transfers: State.transfers,
+    forecasts: State.forecasts, categories: State.categories, vouchers: State.vouchers, accounts: State.accounts, transfers: State.transfers, bills: State.bills,
     budgets: Object.keys(State.budgetBase).map(function(id){ return {id:id, limit: State.budgetBase[id]}; })
       .concat(Object.keys(State.budgetMonths).map(function(m){ return {id:'plan-' + m, month:m, limits: State.budgetMonths[m]}; }))
   };
@@ -378,6 +384,7 @@ export async function boot(){
       var current = await Store.getSession();
       cleanAuthParams();
       if (current){
+        if (link && link.ok && link.type !== 'recovery') State.freshLogin = true;   // entrou pelo link do e-mail
         await startOnlineSession(current.user);
         if (link && link.ok && link.type === 'recovery') newPasswordModal();
         else if (link && link.ok && link.type === 'email_change') toast('Confirmação recebida. Se a troca pedir, confirme também pelo link enviado ao outro e-mail.');
@@ -584,6 +591,7 @@ export function wireShell(){
       if (!(await confirmAction({title:'Excluir dívida?', message:'Tem certeza que deseja excluir a dívida “' + d.name + '”?'}))) return;
       await Store.remove(k(), 'debts', d.id);
       State.debts = State.debts.filter(function(x){ return x.id !== d.id; });
+      if (d.shared && d.shared.sid) leaveShared(d.shared.sid);   // sai da cobrança compartilhada
       renderDebts(); renderDashboard();
       return;
     }
@@ -591,6 +599,8 @@ export function wireShell(){
     if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
     if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
     if ((el = t.closest('[data-recv-share]'))){ shareRecv(el.getAttribute('data-recv-share')); return; }
+    if (t.closest('[data-help]')){ openFeedback('ajuda'); return; }
+    if ((el = t.closest('[data-shared-pending]'))){ openPendingFor(el.getAttribute('data-shared-pending')); return; }
     if ((el = t.closest('[data-copy-pix]'))){
       var pixKey = el.getAttribute('data-copy-pix');
       if (navigator.clipboard) navigator.clipboard.writeText(pixKey).then(function(){ toast('Chave Pix copiada.'); }, function(){ toast('Não foi possível copiar.'); });
@@ -605,8 +615,10 @@ export function wireShell(){
     if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
     if ((el = t.closest('[data-recv-del]'))){
       var r = findById(State.receivables, el.getAttribute('data-recv-del'));
-      if (!(await confirmAction({title:'Excluir?', message:'Tem certeza que deseja excluir o valor a receber de ' + r.person + '?'}))) return;
+      if (!(await confirmAction({title:'Excluir?', message:'Tem certeza que deseja excluir o valor a receber de ' + r.person + '?' +
+        (r.sharedWith ? ' A cobrança compartilhada também deixa de existir para ' + r.person.split(' ')[0] + '.' : '')}))) return;
       await Store.remove(k(), 'receivables', r.id);
+      if (r.sharedId) leaveShared(r.sharedId);
       State.receivables = State.receivables.filter(function(x){ return x.id !== r.id; });
       renderReceivables(); renderDashboard();
       return;

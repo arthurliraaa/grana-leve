@@ -35,6 +35,9 @@ function serverMessage(err){
   var m = String((err && (err.message + ' ' + (err.hint || ''))) || '');
   if (/limite_registros|Limite de 20 mil/.test(m)) return 'Sua conta chegou ao limite de 20 mil registros. Apague lançamentos antigos (ou baixe um backup e comece de novo) para continuar.';
   if (/user_data_collection_check/.test(m)) return 'O servidor ainda não aceita este tipo de registro. Avise quem cuida do app: falta rodar uma atualização do banco.';
+  // Mensagens escritas para a pessoa nas funções do banco (cobrança compartilhada, ajuda).
+  if (/^(Esta cobrança|Cobrança não encontrada|Aviso não encontrado|Você já enviou muitas|Entre na sua conta|Valor inválido|Limite de cobranças)/.test(String(err && err.message))) return err.message;
+  if (isMissingFunction(err) || /relation .* does not exist|PGRST205/.test(m + ' ' + (err && err.code))) return 'Essa função ainda não está no servidor. Avise quem cuida do app: falta rodar uma atualização do banco.';
   return 'O servidor recusou a operação. Recarregue a página e tente de novo.';
 }
 function check(res){
@@ -199,6 +202,25 @@ export function createSupabaseStore(client, collections){
     async adminDeleteAccount(id){ return check(await client.rpc('admin_delete_account', {p_user: id})); },
     async adminExportStudy(){ return check(await client.rpc('admin_export_study')); },
     async adminSaveContent(id, kind, position, data){ return check(await client.rpc('admin_save_content', {p_id: id, p_kind: kind, p_position: position, p_data: data})); },
-    async adminDeleteContent(id){ return check(await client.rpc('admin_delete_content', {p_id: id})); }
+    async adminDeleteContent(id){ return check(await client.rpc('admin_delete_content', {p_id: id})); },
+    async adminFeedback(){ return check(await client.rpc('admin_list_feedback')); },
+    async adminSetFeedbackStatus(id, status){ return check(await client.rpc('admin_set_feedback_status', {p_id: id, p_status: status})); },
+
+    /* ---------- Ajuda e sugestões ---------- */
+    async sendFeedback(kind, message, page){ check(await client.from('feedback').insert({kind: kind, message: message, page: page || ''})); },
+
+    /* ---------- Cobranças compartilhadas (migração 20261012000000_ajuda_e_cobrancas.sql) ---------- */
+    async sharedSave(id, c){
+      return check(await client.rpc('shared_charge_save', {p_id: id || null, p_token: c.token, p_creditor_name: c.creditorName || '', p_debtor_label: c.debtorLabel || '',
+        p_description: c.description || '', p_total: c.total, p_received: c.received || 0, p_installments: c.installments || null,
+        p_installment_amount: c.installmentAmount || null, p_due_date: c.dueDate || null, p_pix: c.pix || ''}));
+    },
+    async sharedAccept(id, token){ return check(await client.rpc('shared_charge_accept', {p_id: id, p_token: token})); },
+    async sharedEvent(id, kind, amount, date, ref){
+      return check(await client.rpc('shared_charge_event', {p_id: id, p_kind: kind, p_amount: amount || null, p_date: date || null, p_ref: ref || null}));
+    },
+    async sharedList(){ return check(await client.from('shared_charges').select('id, creditor_id, debtor_id, creditor_name, debtor_label, description, total, received, installments, installment_amount, due_date, pix, events, creditor_seen_at, debtor_seen_at, updated_at')); },
+    async sharedSeen(id){ return check(await client.rpc('shared_charge_seen', {p_id: id})); },
+    async sharedLeave(id){ return check(await client.rpc('shared_charge_leave', {p_id: id})); }
   };
 }

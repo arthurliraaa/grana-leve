@@ -117,7 +117,20 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   - Quem abre aceita, e a cobrança vira dívida em "Eu devo" (`debt.shared`).
   - Cada cobrança tem uma referência (`shareRef`): reenviar atualiza a mesma dívida, sem duplicar.
     O valor pago fica com o maior entre o enviado e o que a pessoa já registrou.
-  - Não há sincronização automática entre as contas.
+  - **Com conta online, as duas contas acompanham juntas** (tabela `shared_charges`, migração
+    `20261012000000_ajuda_e_cobrancas.sql`, código em `js/ui/shared-sync.js`):
+    - O link leva o id da cobrança e um segredo de 128 bits. Quem abre aceita, e a cobrança fica
+      ligada à conta dela; outra conta não consegue pegar para si.
+    - Quem deve registra um pagamento: vira um **aviso pendente** para quem cobra. Quem cobra
+      **confirma**, e o recebimento entra em "Me devem" (pode escolher a conta), ou diz **"Não
+      recebi"**.
+    - Quem cobra registra um recebimento: o valor sobe no servidor. Desfazer também avisa.
+    - O "já pago" de quem deve = o que quem cobra confirmou + os avisos ainda pendentes. Total,
+      parcela e Pix vêm de quem cobra.
+    - No login, cada lado vê numa janela as novidades do outro (aceitou, pagou, confirmou, não
+      recebeu, atualizou). Os avisos pendentes também ficam no cartão até alguém decidir.
+    - Excluir a cobrança (quem cobra) apaga no servidor; excluir a dívida (quem deve) sai dela.
+  - Sem conta online, ou sem a migração, o link funciona como antes, sem o acompanhamento.
   - Os dados de fora são conferidos (formato, limites, datas) e mostrados sempre escapados.
 
 ## Vale-alimentação / refeição
@@ -250,3 +263,17 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   sem somar. No calendário, a parcela fica no dia do vencimento da fatura.
 - O saldo das contas e o quadro "crédito × débito" continuam pela data (quando o dinheiro saiu ou a
   compra foi feita). Pix, débito, dinheiro e vale continuam pela data.
+
+## Ajuda, apagar dados e a pergunta ao entrar
+
+- **Ajuda e sugestões** (Perfil, menu lateral e "Mais"):
+  - Com conta online, a mensagem vai para a tabela `feedback`, aparece em Administração → Mensagens
+    e, se o envio estiver configurado (pg_net + chave `brevo_api_key` no Vault), chega por e-mail em
+    contato.granaleve@gmail.com, com "responder para" o e-mail de quem enviou.
+  - Limite de 20 mensagens por conta a cada 24 horas.
+  - Sem servidor, abre o e-mail da pessoa com a mensagem pronta.
+- **Apagar dados** (Perfil): apaga tudo, ou só as partes escolhidas, e mantém a conta. Pede para
+  digitar APAGAR e oferece salvar um backup antes.
+- **"Teve gastos ou ganhos?"**: aparece só logo depois de um login de verdade (entrar, criar a conta
+  ou o link do e-mail). Recarregar a página ou reabrir com a conta já aberta não pergunta de novo.
+- O backup inclui as contas fixas.

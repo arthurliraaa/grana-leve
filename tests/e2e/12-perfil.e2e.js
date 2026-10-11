@@ -10,7 +10,7 @@ L.run(async ({page}) => {
   L.ok(!(await page.$eval('#tab-perfil', el => el.hidden)) && await page.evaluate(() => location.hash) === '#/perfil', 'clicar no nome abre “Perfil e conta”');
   L.ok(await page.$eval('.sidenav [data-tab="perfil"]', el => el.getAttribute('aria-current')) === 'page', 'menu marca “Perfil e conta”');
   const titles = await page.$$eval('#profileBody .profile-title', els => els.map(e => e.textContent.trim()));
-  L.ok(titles.join('|') === 'Seu nome|E-mail|Senha|Preferências|Pesquisa acadêmica|Seus dados e segurança|Excluir conta', 'seções: nome, e-mail, senha, preferências, pesquisa, dados e exclusão');
+  L.ok(titles.join('|') === 'Seu nome|E-mail|Senha|Preferências|Pesquisa acadêmica|Seus dados e segurança|Ajuda e sugestões|Apagar dados|Excluir conta', 'seções: nome, e-mail, senha, preferências, pesquisa, dados, ajuda, apagar dados e exclusão');
   L.ok(await page.$('#pfEmailForm') === null && /não pode ser trocado/.test(await L.text(page, '#profileBody')), 'sem servidor, troca de e-mail fica desativada e explicada');
   L.ok(await page.$('#pfSignOutAll') === null, '“Sair de todos os aparelhos” só aparece com servidor');
 
