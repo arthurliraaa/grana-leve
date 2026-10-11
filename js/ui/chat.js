@@ -278,9 +278,11 @@ export async function openQuickEntry(welcome){
 }
 
 // Ao entrar no app, pergunta uma vez por dia (dá para desligar no próprio chat).
+// Só logo depois de entrar na conta (login, cadastro ou link do e-mail): recarregar a página ou
+// reabrir o app com a conta já aberta não pergunta de novo.
 export function maybeWelcome(){
-  var p = getPrefs();
-  if (p.quickEntryOff || p.lastWelcome === todayKey()) return;
-  setPref('lastWelcome', todayKey());
+  var p = getPrefs(), fresh = State.freshLogin;
+  State.freshLogin = false;
+  if (p.quickEntryOff || !fresh) return;
   setTimeout(function(){ if (State.session && document.getElementById('modalRoot').hidden) openQuickEntry(true); }, 350);
 }

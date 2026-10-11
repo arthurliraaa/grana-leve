@@ -3,11 +3,13 @@
  * Grana Leve dela e aceita. Ao aceitar, vira uma dívida em "Eu devo" (com quem cobrou, o valor, o que
  * já foi pago, as parcelas e a chave Pix). Os dados vão no próprio link, depois do # (não passam pelo
  * servidor); cada cobrança tem uma referência (shareRef): reenviar o link atualiza a mesma dívida
- * em vez de criar outra. Não há sincronização automática entre as duas contas.
+ * em vez de criar outra.
+ * Com conta online, a cobrança também é criada no servidor (shared_charges) e o link leva o id (sid):
+ * ao aceitar, as duas contas passam a acompanhar juntas (veja shared-sync.js). Sem servidor, o link
+ * funciona do mesmo jeito, só sem o acompanhamento automático.
  */
 import {todayKey, formatDateFull, validDateStr} from '../domain/dates.js';
 import {money, fmtMoney} from '../domain/money.js';
-import {uid} from '../domain/util.js';
 import {recvInstallInfo} from '../domain/receivables.js';
 import {DEFAULT_URGENCY} from '../domain/urgency.js';
 import {Store} from '../data/store.js';
@@ -16,6 +18,7 @@ import {openModal} from './modal.js';
 import {siteUrl} from './online.js';
 import {renderAll} from './shell.js';
 import {State, k} from './state.js';
+import {saveSharedRow, sharedOnline, syncShared} from './shared-sync.js';
 
 var TYPE = 'granaleve-cobranca', PENDING = 'granaleve_cobranca_pendente', ROUTE = '#/cobranca/';
 
@@ -43,6 +46,26 @@ export function chargePayload(r, pix){
   return p;
 }
 export function chargeLink(payload){ return siteUrl() + ROUTE + b64urlEncode(payload); }
+// Segredo do link (quem tem o link pode aceitar a cobrança): 128 bits aleatórios.
+function secureToken(){
+  var b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return Array.prototype.map.call(b, function(x){ return ('0' + x.toString(16)).slice(-2); }).join('');
+}
+// Prepara o compartilhamento: referência secreta e, com conta online, a cobrança no servidor.
+// Devolve o conteúdo do link ({..., sid} quando ficou no servidor).
+export async function sharePayloadFor(r, pix){
+  if (!r.shareRef || r.shareRef.length < 24){
+    r.shareRef = secureToken();
+    await Store.update(k(), 'receivables', r.id, {shareRef: r.shareRef});
+  }
+  var payload = chargePayload(r, pix);
+  if (sharedOnline()){
+    try { payload.sid = await saveSharedRow(r, pix); }
+    catch(e){ payload.offlineReason = e.userMessage || 'sem conexão'; }
+  }
+  return payload;
+}
 
 // Dados que chegam de fora: só aceita o formato esperado, com textos curtos e valores válidos.
 function str(v, max){ return typeof v === 'string' ? v.trim().slice(0, max) : ''; }
@@ -58,6 +81,7 @@ export function parsePayload(raw){
   if (n >= 2 && n <= 120 && per > 0){ out.n = n; out.per = per; }
   if (p.due && validDateStr(p.due)) out.due = p.due;
   if (p.pix) out.pix = str(p.pix, 77);
+  if (typeof p.sid === 'string' && /^[0-9a-f-]{36}$/i.test(p.sid)) out.sid = p.sid;
   return out;
 }
 
@@ -102,22 +126,41 @@ function summaryHtml(d){
     '</dl>';
 }
 // Aceitar: cria a dívida em "Eu devo" ou, se já aceitou essa mesma cobrança antes, atualiza.
+// Com o id do servidor (sid) e conta online, liga as duas contas: daí em diante os valores vêm do
+// servidor e os pagamentos viram avisos para quem cobra confirmar.
 export async function acceptCharge(d){
-  var existing = State.debts.filter(function(x){ return x.shared && x.shared.ref === d.ref; })[0];
+  var existing = State.debts.filter(function(x){ return x.shared && (x.shared.ref === d.ref || (d.sid && x.shared.sid === d.sid)); })[0];
+  var synced = !!(d.sid && sharedOnline());
   var ok = await openModal({
     title: existing ? 'Atualizar cobrança de ' + d.from + '?' : d.from + ' te enviou uma cobrança',
     body: summaryHtml(d) +
       '<p class="field-hint">' + (existing ? 'Você já aceitou esta cobrança. Atualizar troca o total, as parcelas e o que já foi pago pelo que ' + escapeHtml(d.from) +
         ' enviou agora (o que você registrou de pagamento continua no histórico).' :
-        'Aceitando, ela entra em “Eu devo” para você acompanhar quanto falta e registrar cada pagamento. Nada muda na conta de quem enviou.') + '</p>',
+        'Aceitando, ela entra em “Eu devo” para você acompanhar quanto falta e registrar cada pagamento.') +
+        (synced ? ' <strong>Vocês vão acompanhar juntos:</strong> quando você registrar um pagamento, ' + escapeHtml(d.from.split(' ')[0]) +
+          ' recebe o aviso para confirmar; quando ' + escapeHtml(d.from.split(' ')[0]) + ' registrar um recebimento, aparece aqui no seu próximo login.' :
+          d.sid ? ' Para acompanhar junto automaticamente, use uma conta online do Grana Leve.' : ' Nada muda na conta de quem enviou.') + '</p>',
     submitLabel: existing ? 'Atualizar dívida' : 'Aceitar e adicionar em “Eu devo”', cancelLabel: 'Agora não'
   });
   if (!ok) return;
+  var row = null;
+  if (synced){
+    try { row = await Store.sharedAccept(d.sid, d.ref); }
+    catch(e){
+      if (/é sua|outra conta/.test(e.userMessage || '')){ toast(e.userMessage); return; }
+      toast('Não deu para ligar as contas agora (' + (e.userMessage || 'sem conexão') + '). A dívida foi salva só aqui.');
+    }
+  }
+  if (row){
+    d = Object.assign({}, d, {from: row.creditor_name || d.from, desc: row.description || d.desc, total: Number(row.total), received: Number(row.received),
+      n: row.installments || undefined, per: row.installment_amount ? Number(row.installment_amount) : undefined, due: row.due_date || d.due, pix: row.pix || d.pix});
+  }
   var shared = {ref: d.ref, from: d.from, at: d.at};
+  if (row) shared.sid = row.id;
   if (d.pix) shared.pix = d.pix;
   if (d.due) shared.due = d.due;
   var fields = {name: d.desc || 'Combinado com ' + d.from, creditor: d.from, totalAmount: d.total,
-    paidAmount: existing ? Math.max(d.received, Math.min(d.total, Number(existing.paidAmount || 0))) : d.received,
+    paidAmount: row ? d.received : existing ? Math.max(d.received, Math.min(d.total, Number(existing.paidAmount || 0))) : d.received,
     monthlyPayment: d.n ? d.per : 0, shared: shared};
   if (existing){
     await Store.update(k(), 'debts', existing.id, fields);
@@ -127,23 +170,25 @@ export async function acceptCharge(d){
     State.debts.push(saved);
   }
   renderAll();
-  toast(existing ? 'Dívida atualizada com o que ' + d.from + ' enviou.' : 'Cobrança aceita: está em “Eu devo”.');
+  toast(existing ? 'Dívida atualizada com o que ' + d.from + ' enviou.' : row ? 'Cobrança aceita: está em “Eu devo”, acompanhando junto com ' + d.from.split(' ')[0] + '.' : 'Cobrança aceita: está em “Eu devo”.');
+  if (row) syncShared({quiet: true});
 }
 
 // Compartilhar a partir de "Me devem": link (copiar ou WhatsApp) e arquivo.
 export async function shareReceivable(r, pix){
-  if (!r.shareRef){
-    r.shareRef = uid();
-    await Store.update(k(), 'receivables', r.id, {shareRef: r.shareRef});
-  }
-  var payload = chargePayload(r, pix), link = chargeLink(payload);
+  var payload = await sharePayloadFor(r, pix), link = chargeLink(payload);
+  if (payload.sid) renderAll();   // o cartão passa a mostrar "esperando aceitar"
+  var who = escapeHtml(r.person.split(' ')[0]);
   await openModal({
     title: 'Compartilhar com ' + r.person,
-    body: '<p>Se ' + escapeHtml(r.person.split(' ')[0]) + ' usa o Grana Leve, pode adicionar esta cobrança na conta dela e acompanhar quanto falta em “Eu devo”.</p>' +
+    body: '<p>Se ' + who + ' usa o Grana Leve, pode adicionar esta cobrança na conta e acompanhar quanto falta em “Eu devo”.</p>' +
       summaryHtml(parsePayload(payload)) +
       '<div class="field"><label for="shareLink">Link da cobrança</label><input id="shareLink" type="text" readonly value="' + escapeHtml(link) + '"></div>' +
-      '<p class="field-hint">Quem tiver o link vê o nome, o valor e a chave Pix. Os dados vão no próprio link: não ficam guardados no servidor. ' +
-        'Quando ' + escapeHtml(r.person.split(' ')[0]) + ' pagar uma parte, registre aqui e envie de novo: a dívida dela é atualizada, não duplicada.</p>' +
+      (payload.sid ? '<p class="tip-box">' + (r.sharedWith ? who + ' já aceitou: vocês acompanham juntos. ' : '') + 'Quando ' + who + ' aceitar, os pagamentos que ' + who +
+          ' registrar chegam aqui para você confirmar, e os recebimentos que você registrar aparecem para ' + who + ' no próximo login.</p>' :
+        '<p class="field-hint">' + (payload.offlineReason ? 'Não deu para ligar ao servidor agora (' + escapeHtml(payload.offlineReason) + '): o link funciona, mas sem acompanhamento automático. ' : '') +
+          'Quando ' + who + ' pagar uma parte, registre aqui e envie de novo: a dívida é atualizada, não duplicada.</p>') +
+      '<p class="field-hint">Quem tiver o link vê o nome, o valor e a chave Pix, e pode aceitar a cobrança. Envie só para ' + who + '.</p>' +
       '<div class="pdf-actions share-actions">' +
         '<button type="button" class="btn btn-ghost btn-sm" data-share="copy">Copiar link</button>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-share="file">Baixar arquivo</button></div>',

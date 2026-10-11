@@ -31,6 +31,7 @@
 import {initAdmin} from './admin.js';
 import {initProfile} from './profile.js';
 import {initBills} from './bills.js';
+import {openFeedback} from './feedback.js';
 import {Store} from '../data/store.js';
 import {saveSession} from '../data/session.js';
 import {wireWallet} from './accounts-tab.js';
@@ -38,7 +39,7 @@ import {wireCommitments} from './commitments-tab.js';
 import {TIPS, TIPS_GROW} from './constants.js';
 import {wireHome} from './home-tab.js';
 import {renderLearn} from './learn-tab.js';
-import {dataModal, deleteMyAccount, researchModal, researchStatusHtml} from './my-data.js';
+import {clearDataModal, dataModal, deleteMyAccount, researchModal, researchStatusHtml} from './my-data.js';
 import {siteUrl, wireAuth} from './online.js';
 import {wirePlanning} from './planning-tab.js';
 import {wirePwa} from './pwa.js';
@@ -75,7 +76,7 @@ initProfile({
   },
   themePref: themePref, setThemePref: setThemePref,
   openResearch: researchModal, researchStatus: researchStatusHtml,
-  openData: dataModal, deleteAccount: deleteMyAccount, logout: logout, siteUrl: siteUrl
+  openData: dataModal, clearData: clearDataModal, openFeedback: openFeedback, deleteAccount: deleteMyAccount, logout: logout, siteUrl: siteUrl
 });
 
 export function start(){

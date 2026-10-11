@@ -60,5 +60,16 @@ with checks(ordem, verificacao, ok, detalhe) as (
   select 14, 'Gravação rápida (migração 20261011000000)',
     exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'patch_docs'),
     'função patch_docs'
+  union all
+  select 15, 'Ajuda e cobranças compartilhadas (migração 20261012000000)',
+    to_regclass('public.feedback') is not null and to_regclass('public.shared_charges') is not null
+    and coalesce((select relrowsecurity from pg_class where oid = to_regclass('public.shared_charges')), false)
+    and not has_function_privilege('anon', 'public.shared_charge_accept(uuid, text)', 'execute'),
+    'tabelas feedback e shared_charges, com RLS'
+  union all
+  select 16, 'Cópia das mensagens por e-mail (opcional)',
+    exists (select 1 from pg_extension where extname = 'pg_net'),
+    case when exists (select 1 from pg_extension where extname = 'pg_net') then 'pg_net ligada (confira a chave brevo_api_key no Vault)'
+      else 'desligada: as mensagens ficam só no painel' end
 )
 select case when ok then '✅' else '❌' end as status, verificacao, detalhe from checks order by ordem;

@@ -169,6 +169,7 @@ export function wireAuth(){
       try{
         var res = await Store.signIn(email, password);
         document.getElementById('loginPassword').value = '';
+        State.freshLogin = true;   // a pergunta "teve gastos?" aparece só depois de um login de verdade
         await startOnlineSession(res.user);
         toast('Bem-vindo de volta, ' + State.session.name.split(' ')[0] + '!');
       } catch(err){ errEl.textContent = authMessage(err.cause || err); }
@@ -188,6 +189,7 @@ export function wireAuth(){
       saveSession(State.session);
       document.getElementById('loginPassword').value = '';
       toast('Bem-vindo de volta, ' + user.name.split(' ')[0] + '!');
+      State.freshLogin = true;
       await enterApp();
     } catch(err){ errEl.textContent = 'Não foi possível entrar agora. Tente novamente.'; }
   });
@@ -209,7 +211,7 @@ export function wireAuth(){
       try{
         var res = await Store.signUp(email, password, {name: name, research: research}, siteUrl());
         document.getElementById('signupPassword').value = '';
-        if (res.session){ await startOnlineSession(res.user); toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.'); return; }
+        if (res.session){ State.freshLogin = true; await startOnlineSession(res.user); toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.'); return; }
         // Com confirmação por e-mail ligada, a conta só entra depois do link.
         await openModal({title: 'Confirme seu e-mail', submitLabel: null, cancelLabel: 'Entendi',
           body: '<p>Enviamos um link de confirmação para <strong>' + escapeHtml(email) + '</strong>. Abra o e-mail e toque no link para ativar a conta; depois é só entrar.</p>' +
@@ -230,6 +232,7 @@ export function wireAuth(){
       saveSession(State.session);
       document.getElementById('signupPassword').value = '';
       toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.');
+      State.freshLogin = true;
       await enterApp();
     } catch(err){ errEl.textContent = 'Não foi possível criar a conta agora. Tente novamente.'; }
   });
