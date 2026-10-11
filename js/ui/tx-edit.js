@@ -2,7 +2,7 @@
  * Lançamento: popup do botão +, edição, estorno, compra parcelada inteira e adiantamento de parcelas.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, addMonthsIso} from '../domain/dates.js';
+import {todayKey, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, addMonthsIso} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
@@ -435,7 +435,7 @@ export async function saveTransactions(list){
 // Avisa na hora quando um gasto do mês atual faz a categoria chegar a 80% ou passar do planejado.
 export function checkBudgetAlerts(newTx){
   var cur = monthBounds(0).key, added = {};
-  newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && monthKeyOf(t.date) === cur) added[t.category] = (added[t.category]||0) + myShare(t); });
+  newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && Tx.monthOf(t) === cur) added[t.category] = (added[t.category]||0) + myShare(t); });
   var spentNow = expenseCategoryTotals(cur);
   Object.keys(added).forEach(function(cat){
     var limit = budgetLimit(cur, cat);

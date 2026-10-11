@@ -64,7 +64,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'dashboard');
   ft = await tileOf('Faturas a pagar');
   L.ok(L.moneyOf(ft.val) === (closedThisMonth ? 250 : 0), 'fatura paga sai da soma');
-  L.ok(L.moneyOf((await tileOf('Gastos do mês')).val) === 300, 'compras de meses passados no cartão não entram nos gastos deste mês');
+  L.ok(L.moneyOf((await tileOf('Gastos do mês')).val) === 550, 'pelo mês da fatura: a compra do mês passado que vence na fatura deste mês conta agora (300 + 250); a de dois meses atrás, não');
 
   L.section('Explicação das regras (dentro dos detalhes)');
   if (await page.$eval('#dashDetails', el => el.hidden)) await page.click('#dashDetailsBtn');

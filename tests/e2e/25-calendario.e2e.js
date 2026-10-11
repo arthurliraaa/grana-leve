@@ -1,5 +1,6 @@
 // Calendário em Ganhos e gastos: dias com ganhos/gastos, previstos, detalhe do dia, ano e filtros.
 import * as L from './lib.js';
+import {invoiceFor} from '../../js/domain/cards.js';
 
 L.run(async ({page}) => {
   await L.signup(page);
@@ -25,7 +26,9 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('#txSort', el => el.hidden), 'ordenação some no calendário');
   const cell = sel => page.$eval('[data-cal-day="' + sel + '"]', el => ({txt: el.textContent, label: el.querySelector('.sr-only').textContent, sel: el.classList.contains('cal-sel')}));
   const t = await cell(today);
-  L.ok(/\+1,5 mil/.test(t.txt) && /−150/.test(t.txt), 'dia de hoje: +1,5 mil de ganho e −150 de gasto (50 + parcela de 100)');
+  // A parcela do cartão conta no mês da fatura: se a fatura de hoje vence no mês que vem, hoje só há o mercado.
+  const cardNow = invoiceFor(today, card).due.slice(0, 7) === cur;
+  L.ok(/\+1,5 mil/.test(t.txt) && new RegExp('−' + (cardNow ? 150 : 50)).test(t.txt), 'dia de hoje: +1,5 mil de ganho e −' + (cardNow ? '150 (50 + parcela de 100)' : '50 (a parcela é da fatura do mês que vem)'));
   L.ok(t.sel && /Mercado/.test(await L.text(page, '#txList')) && /Salário/.test(await L.text(page, '#txList')), 'hoje já vem selecionado com os lançamentos do dia');
   const due = cur + '-28';
   if (due !== today){
@@ -51,7 +54,7 @@ L.run(async ({page}) => {
   const payOpts = await page.$$eval('#txFilterPay option', o => o.map(x => x.textContent));
   L.ok(payOpts.includes('Conta Nubank') && payOpts.includes('Cartão Inter'), 'filtro por conta e cartão específicos');
   await L.setVal(page, '#txFilterPay', 'card:' + card.id); await L.sleep(150);
-  L.ok(/−100/.test((await cell(today)).txt) && !/\+/.test((await cell(today)).txt), 'só o cartão Inter');
+  L.ok(cardNow ? /−100/.test((await cell(today)).txt) : !/−/.test((await cell(today)).txt), 'só o cartão Inter (' + (cardNow ? 'parcela de hoje' : 'nada conta hoje') + ')');
   await L.setVal(page, '#txFilterPay', 'all');
 
   L.section('Ano');

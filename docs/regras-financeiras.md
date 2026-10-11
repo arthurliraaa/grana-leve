@@ -205,3 +205,14 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 
 - Pix, débito ou dinheiro: dia do pagamento. Cartão: dia da compra no cartão; a fatura em que ela
   entra segue a regra do cartão (no dia do fechamento ou depois, vai para a seguinte).
+
+## Mês do gasto no cartão (competência pela fatura)
+
+- Cada compra no cartão (ou parcela) conta como gasto no **mês em que vence a fatura dela**:
+  em "Gastos do mês", no planejamento, nos gráficos e na lista de "Ganhos e gastos". Ex.: compra
+  de 04/10 num cartão que fecha dia 31 e vence dia 7 entra na fatura de novembro e conta em novembro
+  (1/12 em novembro, 2/12 em dezembro…).
+- No mês da compra, ela aparece como aviso ("Compras deste mês que entram em faturas seguintes"),
+  sem somar. No calendário, a parcela fica no dia do vencimento da fatura.
+- O saldo das contas e o quadro "crédito × débito" continuam pela data (quando o dinheiro saiu ou a
+  compra foi feita). Pix, débito, dinheiro e vale continuam pela data.
