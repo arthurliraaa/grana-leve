@@ -31,6 +31,7 @@ L.run(async ({page}) => {
     for (const t of ['dashboard', 'lancamentos', 'cartoes', 'limites', 'metas', 'dividas', 'receber', 'fixas', 'aprenda', 'conexoes', 'perfil']){
       await L.tab(page, t);
       if (t === 'dashboard' && await page.$eval('#dashDetails', el => el.hidden)) await page.$eval('#dashDetailsBtn', el => el.click());
+      if (t === 'dashboard') await page.$$eval('[data-collapse]', bs => bs.forEach(b => { if (b.getAttribute('aria-expanded') === 'false' && !b.closest('[hidden]')) b.click(); }));
       await audit((theme === 'dark' ? 'escuro' : 'claro') + ' · ' + t);
     }
     await L.tab(page, 'lancamentos');

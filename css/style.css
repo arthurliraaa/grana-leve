@@ -1008,3 +1008,16 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .inv-late .ico{ color: var(--critical); flex:none; }
 .inv-late span{ flex:1 1 220px; }
 @media (max-width:620px){ .inv-total{ grid-template-columns: 1fr 1fr; } .inv-total > div:first-child{ grid-column: 1 / -1; } }
+
+/* Quadros recolhíveis do Início (minha parte × outras pessoas; crédito × débito) */
+.dash-collapse .card-head h3{ margin:0; }
+.collapse-toggle{ display:inline-flex; align-items:center; gap:8px; padding:0; border:none; background:none; color: var(--text-primary); font: inherit; font-weight:700; cursor:pointer; text-align:left; }
+.collapse-toggle .ico{ flex:none; color: var(--text-muted); transition: transform .15s ease; }
+.collapse-toggle[aria-expanded="true"] .ico{ transform: rotate(90deg); }
+.collapse-toggle:focus-visible{ outline:2px solid var(--brand); outline-offset:3px; border-radius:6px; }
+.collapse-summary{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:2px 0 0; font-size:.86rem; color: var(--text-secondary); }
+.collapse-summary strong{ color: var(--text-primary); }
+.collapse-body{ margin-top:12px; }
+.inv-key.credit, .inv-seg.credit{ background: var(--cat-7); }
+.inv-key.debit, .inv-seg.debit{ background: var(--cat-3); }
+.cd-outside{ margin:12px 0 0; }

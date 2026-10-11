@@ -21,7 +21,7 @@ import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, 
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
 import {chargePerson, chargeReceivable, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment} from './commitments-tab.js';
-import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, renderInvoiceSplit} from './home-tab.js';
+import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cleanAuthParams, handleEmailLink, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, track} from './online.js';
@@ -466,10 +466,11 @@ export function wireShell(){
       toast('Lançamento excluído.');
       return;
     }
+    if ((el = t.closest('[data-collapse]'))){ toggleDashCard(el.getAttribute('data-collapse')); return; }
     if ((el = t.closest('[data-view-toggle]'))){
       var which = el.getAttribute('data-view-toggle');
       if (which === 'donut'){ State.donutView = State.donutView === 'chart' ? 'table' : 'chart'; renderDonut(txForMonth(monthBounds(0).key)); }
-      else if (which === 'invsplit'){ State.invView = (State.invView || 'chart') === 'chart' ? 'table' : 'chart'; renderInvoiceSplit(); }
+      else if (which === 'invsplit' || which === 'creditdebit'){ toggleDashView(which); }
       else { State.barView = State.barView === 'chart' ? 'table' : 'chart'; renderBarChart(); }
       return;
     }

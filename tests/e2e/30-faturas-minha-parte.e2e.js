@@ -26,6 +26,10 @@ L.run(async ({page}) => {
   await L.addTx(page, {amount: 60.41, pay: 'card:' + mp.id, desc: 'Antiga', date: L.dayOffset(-75)});
 
   await L.tab(page, 'dashboard'); await L.sleep(200);
+  L.ok(await page.$eval('#invSplitBody', el => el.hidden) && await page.$eval('[data-collapse="invsplit"]', el => el.getAttribute('aria-expanded')) === 'false', 'começa recolhido');
+  L.ok(/Próximas faturas: R\$\s?1\.010,00.*minha parte R\$\s?610,00 \(60%\).*outras pessoas R\$\s?400,00 \(40%\).*1 fatura\(s\) vencida/.test(await L.text(page, '#invSplitSummary')), 'recolhido mostra um resumo de uma linha');
+  await page.click('[data-collapse="invsplit"]'); await L.sleep(150);
+  L.ok(!(await page.$eval('#invSplitBody', el => el.hidden)) && await page.$eval('[data-collapse="invsplit"]', el => el.getAttribute('aria-expanded')) === 'true' && await page.$eval('#invSplitSummary', el => el.hidden), 'expande ao clicar no título (o resumo dá lugar ao detalhe)');
   const txt = await L.text(page, '#invSplitWrap');
   L.ok(/Total das próximas faturas\s*R\$\s?1\.010,00/.test(txt), 'total das próximas faturas: 1.010');
   L.ok(/Minha parte\s*R\$\s?610,00\s*60%/.test(txt) && /Outras pessoas\s*R\$\s?400,00\s*40%/.test(txt), 'minha parte 610 (60%) e outras pessoas 400 (40%)');
