@@ -7,13 +7,13 @@ import {BILL_FREQS, billOccurrences, billsMonthSummary, billNext, billAmountFor}
 import {money, fmtMoney} from '../domain/money.js';
 import {todayKey, monthBounds, monthLabelOf, shiftMonthKey, formatDateBr, formatDateFull, validDateStr} from '../domain/dates.js';
 import {findById} from '../domain/util.js';
+import {invoiceFor} from '../domain/cards.js';
 import {qs, escapeHtml, optionsHtml, labelOf, toast} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 
 // ctx: {state(), k(), paymentOptions(), applyPayment(tx, pay), catOptions(), catLabel(id), renderAll(), addTx(tx), removeTx(id)}
 var ctx = null;
 var offset = 0;
-var SUGGESTIONS = ['Água', 'Luz', 'Internet', 'Telefone', 'Celular', 'Gás', 'Aluguel', 'Condomínio', 'Streaming', 'Academia', 'Plano de saúde', 'Escola', 'Seguro'];
 var STATUS = {paga: ['good', 'Paga'], atrasada: ['critical', 'Atrasada'], logo: ['warning', 'Vence logo'], aberta: ['', 'Em aberto']};
 
 function bills(){ return ctx.state().bills; }
@@ -31,7 +31,8 @@ function occRowHtml(o){
   var st = STATUS[o.status];
   return '<div class="list-row bill-row">' +
     '<div class="tx-main"><div class="tx-desc">' + escapeHtml(o.b.name) + '</div>' +
-      '<div class="tx-meta">Vence ' + formatDateBr(o.date) + ' · ' + escapeHtml(o.paid ? 'paga em ' + formatDateBr(o.paid.date) : payLabel(o.b.pay)) + '</div></div>' +
+      '<div class="tx-meta">' + (cardOfPay(o.b.pay) ? 'Compra no cartão ' + formatDateBr(o.date) + ' · fatura de ' + invoiceFor(o.date, cardOfPay(o.b.pay)).label : 'Vence ' + formatDateBr(o.date)) +
+        ' · ' + escapeHtml(o.paid ? 'paga em ' + formatDateBr(o.paid.date) : payLabel(o.b.pay)) + '</div></div>' +
     '<span class="tabular bill-amount">' + fmtMoney(o.amount) + '</span>' +
     '<span class="status-pill ' + st[0] + '">' + st[1] + '</span>' +
     (o.paid ? '<button class="btn btn-ghost btn-sm" type="button" data-bill-undo="' + escapeHtml(o.b.id) + '" data-key="' + o.key + '">Desfazer</button>' :
@@ -55,7 +56,7 @@ export function renderBills(){
     return '<div class="debt-card">' +
       '<div class="budget-top"><h4>' + escapeHtml(b.name) + '</h4><span class="pill">' + escapeHtml(labelOf(BILL_FREQS, String(b.every || 1))) + '</span></div>' +
       '<div class="debt-figs"><span class="tabular">' + fmtMoney(billAmountFor(b, cur)) + '</span><span>' + escapeHtml(ctx.catLabel(b.category)) + '</span></div>' +
-      '<span class="tx-meta">Vence dia ' + b.dueDay + ' · ' + escapeHtml(payLabel(b.pay)) + '</span>' +
+      '<span class="tx-meta">' + (cardOfPay(b.pay) ? 'Compra no cartão dia ' : 'Paga dia ') + b.dueDay + ' · ' + escapeHtml(payLabel(b.pay)) + '</span>' +
       '<span class="tx-meta">' + (ended ? 'Encerrada em ' + monthLabelOf(b.endMonth) + ' (último vencimento)' : next ? 'Próximo: ' + formatDateFull(next.date) + ' · ' + fmtMoney(next.amount) : 'Sem próximos vencimentos') + '</span>' +
       '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-bill-edit="' + escapeHtml(b.id) + '">Editar ou mudar valor</button>' +
         (ended ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-bill-end="' + escapeHtml(b.id) + '">Encerrar</button>') +
@@ -68,7 +69,24 @@ export function fillBillForm(){
   qs('#billPay').innerHTML = optionsHtml(ctx.paymentOptions().filter(function(o){ return o.id !== 'card:none'; }), qs('#billPay').value);
   qs('#billEvery').innerHTML = optionsHtml(BILL_FREQS, qs('#billEvery').value || '1');
   if (!qs('#billStart').value) qs('#billStart').value = monthBounds(0).key;
-  qs('#billNames').innerHTML = SUGGESTIONS.map(function(n){ return '<option value="' + n + '">'; }).join('');
+  syncBillDay();
+}
+// O dia acompanha a forma de pagamento: Pix/débito/dinheiro = dia do pagamento; cartão = dia da
+// compra no cartão, com a fatura em que ela entra (pelo fechamento do cartão escolhido).
+function cardOfPay(pay){ return pay && pay.indexOf('card:') === 0 ? findById(ctx.state().cards, pay.slice(5)) : null; }
+function syncBillDay(){
+  var c = cardOfPay(qs('#billPay').value), day = Number(qs('#billDay').value);
+  qs('#billDayLabel').textContent = c ? 'Dia da compra no cartão' : 'Dia do pagamento';
+  var hint = '';
+  if (c){
+    var closing = Number(c.closingDay), due = Number(c.dueDay);
+    hint = 'O ' + c.name + ' fecha dia ' + closing + ' e vence dia ' + due + '. ';
+    if (day >= 1 && day <= 31) hint += day >= closing ?
+      'Compra no dia ' + day + ' (no fechamento ou depois): entra na fatura seguinte, que vence dia ' + due + ' do mês ' + (due > closing ? 'seguinte' : 'depois do seguinte') + '.' :
+      'Compra no dia ' + day + ' (antes do fechamento): entra na fatura que fecha no dia ' + closing + ' do mesmo mês e vence dia ' + due + (due > closing ? ' desse mês.' : ' do mês seguinte.');
+    else hint += 'Informe o dia em que a cobrança cai no cartão.';
+  } else hint = 'Dia em que você paga (Pix, débito ou dinheiro) e o valor sai da conta.';
+  qs('#billDayHint').textContent = hint;
 }
 
 async function addBill(e){
@@ -145,7 +163,7 @@ async function editBill(id){
     body: '<div class="field"><label for="beName">Nome</label><input id="beName" name="name" type="text" maxlength="60" value="' + escapeHtml(b.name) + '"></div>' +
       '<div class="field"><label for="beCat">Categoria</label><select id="beCat" name="cat">' + optionsHtml(ctx.catOptions(), b.category) + '</select></div>' +
       '<div class="field"><label for="beEvery">Frequência</label><select id="beEvery" name="every">' + optionsHtml(BILL_FREQS, String(b.every || 1)) + '</select></div>' +
-      '<div class="field"><label for="beDay">Dia do vencimento</label><input id="beDay" name="day" type="number" min="1" max="31" value="' + b.dueDay + '"></div>' +
+      '<div class="field"><label for="beDay">Dia do pagamento (ou da compra no cartão)</label><input id="beDay" name="day" type="number" min="1" max="31" value="' + b.dueDay + '"></div>' +
       '<div class="field"><label for="bePay">Forma de pagamento</label><select id="bePay" name="pay">' + optionsHtml(ctx.paymentOptions().filter(function(x){ return x.id !== 'card:none'; }), b.pay) + '</select></div>' +
       '<fieldset class="brand-fieldset"><legend>Mudar o valor</legend>' +
         '<div class="field"><label for="beAmount">Novo valor</label><span class="money-input"><span>R$</span><input id="beAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + billAmountFor(b, cur) + '"></span></div>' +
@@ -191,6 +209,7 @@ async function deleteBill(id){
 export function initBills(context){
   ctx = context;
   qs('#billForm').addEventListener('submit', addBill);
+  ['change', 'input'].forEach(function(ev){ qs('#billPay').addEventListener(ev, syncBillDay); qs('#billDay').addEventListener(ev, syncBillDay); });
   qs('#billPrev').addEventListener('click', function(){ offset--; renderBills(); });
   qs('#billNext').addEventListener('click', function(){ offset++; renderBills(); });
   qs('#tab-fixas').addEventListener('click', function(e){

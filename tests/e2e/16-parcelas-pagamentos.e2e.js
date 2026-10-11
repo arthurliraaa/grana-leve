@@ -14,6 +14,8 @@ L.run(async ({page}) => {
   let d = await L.db(page);
   const [inter, c6] = d.cards, acc = d.accounts[0];
   const groupTx = () => L.db(page).then(x => x.transactions.filter(t => t.installment).sort((a, b) => a.installment.n - b.installment.n));
+  // Parcelas ainda a pagar (as vencidas antes do cadastro ficam marcadas como acertadas).
+  const pending = list => list.filter(t => !t.installment.settled);
 
   // Valor esperado pela própria regra (não depende do dia em que o teste roda).
   const today = L.dayOffset(0), old = L.dayOffset(-185);
@@ -38,8 +40,10 @@ L.run(async ({page}) => {
   L.ok(new RegExp('a ' + startOld18 + 'ª parcela entra na fatura de ' + invoiceFor(addMonthsIso(old, startOld18 - 1), inter).label).test(hint), 'diz em qual fatura entra a próxima parcela');
   await page.type('#txDesc', 'Notebook');
   await page.click('#txForm button[type=submit]'); await L.sleep(400);
-  let g = await groupTx();
-  L.ok(g.length === 19 - startOld18 && g[0].installment.n === startOld18 && g.every(t => t.amount === 50), 'cria só as parcelas ainda não vencidas, de 50 cada');
+  const all = await groupTx();
+  let g = pending(all);
+  L.ok(all.length === 18 && all[0].date === old && all.filter(t => t.installment.settled).length === startOld18 - 1, 'cria as 18 parcelas (a 1ª na data da compra, no histórico); as vencidas ficam como pagas antes do cadastro');
+  L.ok(g.length === 19 - startOld18 && g[0].installment.n === startOld18 && g.every(t => t.amount === 50), 'a pagar: da 1ª ainda não vencida em diante, de 50 cada');
   L.ok(g[0].installment.totalAmount === 900 && g[0].purchaseDate === old && g[0].date === addMonthsIso(old, startOld18 - 1), 'guarda o total, a data da compra e a data de cada parcela');
   L.ok(await page.$eval('input[name=txIxMode][value=total]', el => el.checked), 'formulário volta ao padrão');
   await L.tab(page, 'cartoes');
@@ -65,7 +69,7 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('#mAmount', el => !el.disabled), 'valor da parcela pode ser editado');
   await L.setVal(page, '#mAmount', '55');
   await L.submitModal(page); await L.sleep(300);
-  g = await groupTx();
+  g = pending(await groupTx());
   L.ok(g[0].amount === 55 && g.slice(1).every(t => t.amount === 50), 'só essa parcela muda (juros)');
   L.ok(g.every(t => t.installment.totalAmount === 905), 'total da compra acompanha (905)');
 
@@ -82,7 +86,7 @@ L.run(async ({page}) => {
   const startC6 = firstDueInstallment(old, 24, c6, today);
   L.ok(new RegExp('24x de R\\$\\s?40,00 · total R\\$\\s?960,00 · as parcelas 1 a ' + (startC6 - 1) + ' já venceram').test(await L.text(page, '#gHint')), 'resumo recalcula com o outro cartão');
   await L.submitModal(page); await L.sleep(400);
-  g = await groupTx();
+  g = pending(await groupTx());
   L.ok(g.length === 25 - startC6 && g.every(t => t.amount === 40 && t.cardId === c6.id && t.installment.total === 24) && g[0].installment.n === startC6, 'refaz as parcelas que faltam, de 40, no C6');
   L.ok(new Set(g.map(t => t.installment.group)).size === 1 && g[0].description === 'Notebook (' + startC6 + '/24)', 'mesma compra, descrição mantida');
 
@@ -97,7 +101,8 @@ L.run(async ({page}) => {
   L.ok(new RegExp('6x de R\\$\\s?30,00 · total R\\$\\s?180,00' + (start6 > 1 ? ' · a' : '')).test(await L.text(page, '#mInstallHint')), 'resumo no popup');
   await L.submitModal(page); await L.sleep(300);
   d = await L.db(page);
-  L.ok(d.transactions.filter(t => t.installment && t.installment.total === 6).map(t => t.installment.n).join() === Array.from({length: 7 - start6}, (_, i) => start6 + i).join(), 'popup cria só as parcelas ainda não vencidas');
+  const six = d.transactions.filter(t => t.installment && t.installment.total === 6);
+  L.ok(six.length === 6 && pending(six).map(t => t.installment.n).sort((a, b) => a - b).join() === Array.from({length: 7 - start6}, (_, i) => start6 + i).join(), 'popup cria as 6 parcelas; a pagar só as ainda não vencidas');
 
   L.section('Pagar várias parcelas de uma dívida');
   await L.tab(page, 'dividas');

@@ -179,7 +179,15 @@ test('fatura da compra e parcelas já vencidas a partir da data da compra', asyn
   assert.equal(firstDueInstallment('2025-01-01', 3, c, '2026-10-15'), 4, 'todas já venceram');
   const tx = {type: 'expense', amount: 1000, category: 'compras', date: '2026-03-08', paymentMethod: 'cartao', cardId: 'c', createdAt: 1};
   const parts = expandPurchase(tx, 10, 'g', 'TV', 8);
-  assert.deepEqual(parts.map(t => [t.installment.n, t.date]), [[8, '2026-10-08'], [9, '2026-11-08'], [10, '2026-12-08']]);
+  assert.equal(parts.length, 10, 'todas as parcelas ficam no histórico');
+  assert.deepEqual([parts[0].date, parts[7].date, parts[9].date], ['2026-03-08', '2026-10-08', '2026-12-08'], 'cada uma no seu mês, a 1ª na data da compra');
+  assert.ok(parts.slice(0, 7).every(t => t.installment.settled) && parts.slice(7).every(t => !t.installment.settled), 'as 7 que já venceram ficam acertadas');
   assert.ok(parts.every(t => t.purchaseDate === '2026-03-08'));
-  assert.deepEqual(installmentGroups(parts, [c], '2026-10-15').map(g => [g.before, g.done]), [[7, 8]]);
+  const g = installmentGroups(parts, [c], '2026-10-15')[0];
+  assert.deepEqual([g.before, g.done, g.future.length, g.remaining], [7, 8, 2, 200], 'parcela 8 de 10; faltam 2 (200)');
+  // As acertadas não pesam no limite nem em "faturas a pagar".
+  const {cardUsed, invoicesSummary, invoiceTotal} = await import('../../js/domain/cards.js');
+  assert.equal(cardUsed(parts, c, '2026-10-15'), 300, 'limite: só as 3 que faltam (8, 9 e 10)');
+  assert.equal(invoicesSummary(parts, [c], '2026-10-15').toPayTotal, 100, 'a pagar: só a fatura de outubro (fechada, vence dia 20, com a 8ª); as antigas não aparecem');
+  assert.equal(invoiceTotal(parts, c, '2026-04'), 100, 'mas a fatura de abril continua mostrando a compra (histórico)');
 });

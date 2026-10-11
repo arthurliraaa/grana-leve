@@ -132,7 +132,22 @@ export function installSummary(root, p, n, typed, date, cardId){
 }
 // Cartão escolhido num select de forma de pagamento ("card:id"), ou null.
 export function cardIdOf(pay){ return pay && pay.indexOf('card:') === 0 && pay !== 'card:none' ? pay.slice(5) : null; }
+// Compra antiga para outra pessoa: avisa quantas parcelas já venceram e pergunta se ela já devolveu.
+export function syncPriorBox(){
+  var box = document.getElementById('txPriorBox');
+  if (!box) return;
+  var n = clampInstall(document.getElementById('txInstall').value), card = cardIdOf(document.getElementById('txPayment').value);
+  var forSomeone = document.getElementById('txForOther').checked || document.getElementById('txSplit').checked;
+  var start = n > 1 && card ? readInstallExtras(document, 'txIx', n, document.getElementById('txDate').value, card).start : 1;
+  var k2 = Math.min(n, start - 1);
+  box.hidden = !(forSomeone && k2 > 0 && currentTxType() === 'expense');
+  if (box.hidden) return;
+  var per = Tx.purchaseTotal(money(document.getElementById('txAmount').value), n, readInstallExtras(document, 'txIx', n).per) / n;
+  document.getElementById('txPriorText').textContent = (k2 === 1 ? 'A 1ª parcela já venceu' : 'As ' + k2 + ' primeiras parcelas já venceram') +
+    ' antes deste cadastro' + (per > 0 ? ' (' + fmtMoney(per * k2) + ')' : '') + '. Elas aparecem como pagas na fatura. E a pessoa:';
+}
 export function populateInstallSelect(){
+  syncPriorBox();
   var inp = document.getElementById('txInstall');
   document.getElementById('txInstallHint').textContent = installSummary(document, 'txIx', clampInstall(inp.value), money(document.getElementById('txAmount').value),
     document.getElementById('txDate').value, cardIdOf(document.getElementById('txPayment').value));
@@ -193,9 +208,14 @@ export function updateSplitSummary(){
 export function resetSplit(){ document.getElementById('txSplit').checked = false; document.getElementById('txSplitRows').innerHTML = ''; qs('input[name=txSplitMode][value=valor]').checked = true; }
 
 // "A receber" ligado a um gasto (pago pela pessoa ou a parte dela numa compra dividida).
-export async function addLinkedReceivable(person, total, parts, tx, description){
-  var r = {person: person, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: description, totalAmount: money(total), receivedAmount: 0, dueDate: null,
-    linked: true, category: tx.category, createdAt: Date.now()};
+// Compra antiga parcelada: parcelas já vencidas antes do cadastro (installment.settled). priorPaid diz se a
+// pessoa já devolveu essas parcelas (contam como recebidas) ou ainda deve.
+export async function addLinkedReceivable(person, total, parts, tx, description, priorPaid){
+  var settled = parts.filter(Tx.isSettled), share = tx.amount > 0 ? total / tx.amount : 1;
+  var prior = money(sumMoney(settled, function(t){ return t.amount; }) * share);
+  var r = {person: person, kind: tx.paymentMethod === 'cartao' ? 'cartao' : 'combinado', description: description, totalAmount: money(total),
+    receivedAmount: settled.length && priorPaid ? prior : 0, dueDate: null, linked: true, category: tx.category, createdAt: Date.now()};
+  if (settled.length) r.priorSettled = {count: settled.length, amount: prior, paid: !!priorPaid};
   var usedCard = tx.paymentMethod === 'cartao' ? findById(State.cards, tx.cardId) : null;
   if (usedCard){ r.cardId = usedCard.id; r.dueDate = invoiceDates(invoiceKeyFor(parts[0].date, usedCard), usedCard).due; }
   if (parts.length > 1){ r.installments = parts.length; r.installmentAmount = money(total / parts.length); }
@@ -470,6 +490,7 @@ export function wireTransactions(){
     tx.amount = Tx.purchaseTotal(amount, n, ex.per);
     var parts = expandInstallments(tx, n, ex.start);
     var charged = sumMoney(parts, function(t){ return t.amount; });
+    var priorPaid = qs('input[name=txPrior]:checked') ? qs('input[name=txPrior]:checked').value === 'paid' : true;
     var shares = null;
     if (splitList){
       shares = splitShares(tx.amount, splitList, splitPercent());
@@ -478,7 +499,7 @@ export function wireTransactions(){
       var split = {total: tx.amount, mine: shares.mine, people: []};
       for (var si = 0; si < shares.people.length; si++){
         var sp = shares.people[si];
-        var sr = await addLinkedReceivable(sp.person, charged * sp.amount / tx.amount, parts, tx, (desc || catLabel(category, type)) + ' (parte de ' + sp.person.split(' ')[0] + ')');
+        var sr = await addLinkedReceivable(sp.person, charged * sp.amount / tx.amount, parts, tx, (desc || catLabel(category, type)) + ' (parte de ' + sp.person.split(' ')[0] + ')', priorPaid);
         split.people.push({person: sp.person, receivableId: sr.id, amount: sp.amount});
       }
       parts.forEach(function(t){ t.split = split; });
@@ -486,7 +507,7 @@ export function wireTransactions(){
     }
     if (forOther){
       // O gasto fica ligado ao "A receber": não conta como gasto seu, e o que voltar é devolução, não ganho.
-      var recv = await addLinkedReceivable(forOther, charged, parts, tx, desc || catLabel(category, type));
+      var recv = await addLinkedReceivable(forOther, charged, parts, tx, desc || catLabel(category, type), priorPaid);
       parts.forEach(function(t){ t.forOther = {person: forOther, receivableId: recv.id}; });
       document.getElementById('txForOther').checked = false;
       document.getElementById('txOtherName').value = '';
@@ -494,6 +515,7 @@ export function wireTransactions(){
     }
     await saveTransactions(parts);
   document.getElementById('txForOtherField').open = false;
+  qs('input[name=txPrior][value=paid]').checked = true;
     resetInstallExtras(document, 'txIx');
     document.getElementById('txAmount').value = '';
     document.getElementById('txDesc').value = '';

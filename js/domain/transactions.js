@@ -95,13 +95,20 @@ export function expandInstallments(tx, n, group, name, start){
   }
   return out;
 }
-// Compra feita em tx.date: a parcela i cai i-1 meses depois. Só as parcelas de `start` em diante
-// viram lançamentos (as anteriores venceram antes do cadastro). Guarda a data da compra (purchaseDate).
+// Compra feita em tx.date: a parcela i cai i-1 meses depois. Todas viram lançamentos (a compra fica
+// no histórico do mês em que foi feita); as anteriores a `start` caíram em faturas que já venceram
+// antes do cadastro e ficam marcadas como acertadas (installment.settled): contam no histórico, mas
+// não como fatura a pagar nem no limite usado. Guarda a data da compra (purchaseDate).
 export function expandPurchase(tx, n, group, name, start){
   if (!(n > 1) || tx.paymentMethod !== 'cartao') return [tx];
-  start = clampStart(start, n);
-  return expandInstallments(Object.assign({}, tx, {date: addMonthsIso(tx.date, start - 1), purchaseDate: tx.date}), n, group, name, start);
+  start = Math.max(1, Math.round(Number(start) || 1));
+  return expandInstallments(Object.assign({}, tx, {purchaseDate: tx.date}), n, group, name, 1).map(function(t){
+    if (t.installment.n < start) t.installment = Object.assign({}, t.installment, {settled: true});
+    return t;
+  });
 }
+// Parcela que venceu antes do cadastro (já acertada).
+export function isSettled(t){ return !!(t.installment && t.installment.settled); }
 export function clampStart(start, n){ var s = Math.round(Number(start)); return s >= 1 ? Math.min(n, s) : 1; }
 // Valor total da compra a partir do que foi digitado: o total, ou o valor de cada parcela × N.
 export function purchaseTotal(typed, n, perInstallment){ return perInstallment && n > 1 ? money(typed * n) : money(typed); }
@@ -133,10 +140,14 @@ export function installmentGroups(list, cards, today){
   return Object.keys(map).map(function(key){
     var g = map[key];
     g.items.sort(function(a,b){ return a.installment.n - b.installment.n; });
-    g.paid = g.items.filter(function(t){ return t.date <= today; });
-    g.future = g.items.filter(function(t){ return t.date > today; });
-    g.before = Math.max(0, (Number(g.items.length && g.items[0].installment.start) || 1) - 1);
-    g.advanced = Math.max(0, g.total - g.items.length - g.before);
+    // before: parcelas acertadas antes do cadastro (marcadas, ou que nem viraram lançamento nas
+    // compras cadastradas com "parcela atual"); advanced: adiantadas (saíram da lista).
+    var legacy = Math.max(0, (Number(g.items.length && g.items[0].installment.start) || 1) - 1);
+    g.settled = g.items.filter(isSettled);
+    g.paid = g.items.filter(function(t){ return t.date <= today && !isSettled(t); });
+    g.future = g.items.filter(function(t){ return t.date > today && !isSettled(t); });
+    g.before = legacy + g.settled.length;
+    g.advanced = Math.max(0, g.total - g.items.length - legacy);
     g.done = g.paid.length + g.advanced + g.before;
     g.remaining = sumMoney(g.future, function(t){ return t.amount; });
     g.perInstallment = g.items.length ? g.items[g.items.length-1].amount : 0;

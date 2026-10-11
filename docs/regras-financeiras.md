@@ -187,3 +187,21 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   sem vínculo são juntados pelo banco reconhecido (cor/ícone) ou pelo nome.
 - A fatura é paga, por padrão, pela conta escolhida no cartão; senão, pela conta ligada a ele;
   senão, pela conta do mesmo banco.
+
+## Compra parcelada antiga (inclusive para outra pessoa)
+
+- Todas as parcelas são criadas, cada uma no seu mês (a 1ª na data da compra), para a compra ficar
+  no histórico. As que caíram em faturas já vencidas antes do cadastro ficam marcadas como pagas
+  (`installment.settled`): aparecem na fatura delas (histórico), mas não em "faturas a pagar" nem
+  no limite usado.
+- Compra para outra pessoa: o "A receber" guarda o total original e o número de parcelas. As
+  parcelas já vencidas contam como devolvidas ou ainda devidas, conforme a escolha no cadastro
+  (`priorSettled`), e "Me devem" avisa isso.
+- Em "Ganhos e gastos", cada compra no cartão mostra a parcela, a fatura (curta: nov/2026) e a
+  situação: atual, futura, fechada a pagar, vencida, paga ou paga antes do cadastro. A lista da
+  fatura no cartão mostra as mesmas compras (não somam de novo).
+
+## Contas fixas: dia conforme a forma de pagamento
+
+- Pix, débito ou dinheiro: dia do pagamento. Cartão: dia da compra no cartão; a fatura em que ela
+  entra segue a regra do cartão (no dia do fechamento ou depois, vai para a seguinte).

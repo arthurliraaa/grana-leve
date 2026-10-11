@@ -958,3 +958,18 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 }
 .account-card .budget-top h4{ margin:0; }
 .cc-title h4{ margin:0 0 2px; }
+.prior-box{ margin-top:10px !important; display:grid; gap:6px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--warning) 45%, var(--border)); border-radius:10px; background: var(--surface-2); }
+.prior-box legend{ font-size:.86rem; font-weight:600; color: var(--text-primary); padding:0 4px; float:left; width:100%; margin-bottom:4px; }
+.prior-note{ margin:0; font-size:.82rem; color: var(--text-secondary); background: var(--surface-2); border-left:3px solid var(--warning); border-radius:6px; padding:6px 10px; }
+.debt-figs{ flex-wrap:wrap; gap:4px 12px; }
+.tx-tag.inv-tag{ margin-right:4px; }
+.tx-tag.brand{ color: var(--brand); border-color: color-mix(in srgb, var(--brand) 40%, var(--border)); }
+.tx-tag.warn{ color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+.tx-tag.bad{ color: var(--critical); border-color: color-mix(in srgb, var(--critical) 40%, var(--border)); }
+.same-tx-note{ margin:6px 0 2px; }
+/* Etiquetas da linha de lançamento: retangulares para quebrar bem em telas estreitas */
+.tx-row .tx-tag{ border-radius:7px; line-height:1.35; padding:2px 8px; max-width:100%; }
+.tx-row{ flex-wrap:wrap; }
+.tx-tags{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:4px 6px; padding-left:46px; margin-top:-2px; }
+.tx-tags .tx-tag{ margin:0; }
+@media (max-width:620px){ .tx-tags{ padding-left:0; } }

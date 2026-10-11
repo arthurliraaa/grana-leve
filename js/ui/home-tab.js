@@ -393,17 +393,39 @@ export function forOtherTag(t){
   var st = !r ? '' : r.forgiven ? ' · não vai devolver' : recvRemaining(r) <= 0 ? ' · já devolveu' : ' · vai devolver';
   return '<span class="tx-tag">Pago por ' + escapeHtml(t.forOther.person) + st + ' · fora dos seus gastos</span>';
 }
+// Compra no cartão: em qual fatura ela (ou a parcela) entrou e a situação dessa fatura. A mesma
+// compra aparece em Ganhos e gastos e dentro da fatura do cartão: são duas vistas, não somam duas vezes.
+export function invoiceTagHtml(t){
+  if (t.type !== 'expense' || t.paymentMethod !== 'cartao') return '';
+  var c = findById(State.cards, t.cardId);
+  if (!c) return '';
+  var key = Cards.txInvoiceKey(t, c), cur = Cards.invoiceKeyFor(todayKey(), c), st, cls;
+  if (t.installment && t.installment.settled){ st = 'paga antes do cadastro'; cls = 'good'; }
+  else if (key > cur){ st = 'futura'; cls = ''; }
+  else if (key === cur){ st = 'atual'; cls = 'brand'; }
+  else {
+    var status = Cards.invoiceStatus(c, key, todayKey());
+    st = status === 'paga' ? 'paga' : status === 'vencida' ? 'vencida' : 'fechada, a pagar';
+    cls = status === 'paga' ? 'good' : status === 'vencida' ? 'bad' : 'warn';
+  }
+  var full = Cards.invoiceLabel(key, c);   // "novembro de 2026" -> curto "nov/2026"
+  var short = full.slice(0, 3) + '/' + full.slice(-4);
+  return '<span class="tx-tag inv-tag ' + cls + '" title="' + (t.installment ? 'Parcela ' + t.installment.n + ' de ' + t.installment.total + ' · ' : '') + 'fatura de ' + full + ' · ' + st + '">' +
+    (t.installment ? t.installment.n + '/' + t.installment.total + ' · ' : '') + 'fatura ' + short + ' · ' + st + '</span>';
+}
 export function txRowHtml(t){
   var isExpense = t.type === 'expense';
   var cat = catLabel(t.category, t.type, t.categoryLabel);
   var pay = paymentLabel(t);
+  var tags = invoiceTagHtml(t) + otherTagHtml(t);   // linha própria embaixo, com a largura toda
   return '<div class="tx-row" data-id="'+escapeHtml(t.id)+'">' +
     catBadge(t.category, t.type) +
     '<div class="tx-main"><div class="tx-desc">'+escapeHtml(t.description || cat)+'</div>' +
-    '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div>' + otherTagHtml(t) + '</div>' +
+    '<div class="tx-meta">'+escapeHtml(cat) + ' · ' + formatDateBr(t.date) + (pay ? ' · ' + escapeHtml(pay) : '') + '</div></div>' +
     '<span class="tx-amount ' + (isExpense && t.amount > 0 ? 'expense' : 'income') + ' tabular">' + (isExpense && t.amount > 0 ? '-' : '+') + ' ' + fmtMoney(Math.abs(t.amount)) + '</span>' +
     '<button class="tx-del tx-edit" type="button" data-edit-tx="'+escapeHtml(t.id)+'" aria-label="Editar lançamento" title="Editar">' + icon('edit') + '</button>' +
     '<button class="tx-del" type="button" data-del-tx="'+escapeHtml(t.id)+'" aria-label="Excluir lançamento" title="Excluir">' + icon('trash') + '</button>' +
+    (tags ? '<div class="tx-tags">' + tags + '</div>' : '') +
     '</div>';
 }
 
