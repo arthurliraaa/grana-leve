@@ -18,3 +18,25 @@ export function recvInstallInfo(r){
   return {n: n, per: per, paid: paid, next: Math.min(n, paid + 1), nextDue: r.dueDate ? addMonthsIso(r.dueDate, paid) : null};
 }
 export function recvNextDue(r){ var i = recvInstallInfo(r); return i ? i.nextDue : r.dueDate; }
+// Quanto cobrar "do mês" `key` (AAAA-MM): parceladas, as parcelas com vencimento até o fim do mês
+// ainda não recebidas (inclui atrasadas; desconta o que já entrou da parcela atual); sem parcelas,
+// o que falta se o combinado vence até o fim do mês (ou não tem data). Nunca passa do que falta.
+export function recvDueByMonth(r, key){
+  var left = recvRemaining(r);
+  if (!(left > 0)) return 0;
+  var end = key + '-31', info = recvInstallInfo(r);
+  if (!info) return !r.dueDate || r.dueDate <= end ? left : 0;
+  if (!r.dueDate) return money(Math.min(info.per, left));
+  var count = 0;
+  for (var i = info.paid; i < info.n && addMonthsIso(r.dueDate, i) <= end; i++) count++;
+  var partial = money(Number(r.receivedAmount || 0) - info.paid * info.per);
+  return money(Math.min(left, Math.max(0, count * info.per - partial)));
+}
+// Parcelas que vencem até o fim do mês e ainda não foram recebidas (para o texto da cobrança).
+export function recvDueCount(r, key){
+  var info = recvInstallInfo(r);
+  if (!info || !r.dueDate || !(recvRemaining(r) > 0)) return info && recvRemaining(r) > 0 ? 1 : 0;
+  var count = 0;
+  for (var i = info.paid; i < info.n && addMonthsIso(r.dueDate, i) <= key + '-31'; i++) count++;
+  return count;
+}

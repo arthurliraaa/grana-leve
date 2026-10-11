@@ -102,7 +102,7 @@ L.run(async ({page}) => {
   L.section('Cobrar parcela');
   await page.click('[data-recv-charge="' + maria.id + '"]'); await L.sleep(150);
   const msg = await page.$eval('#chargeMsg', el => el.value);
-  L.ok(/parcela 2 de 3, de R\$\s?200,00/.test(msg) && msg.includes(L.br(L.plusMonths(first, 1))), 'mensagem cita a parcela e o vencimento');
+  L.ok(/parcela 2 de 3, R\$\s?150,00/.test(msg) && msg.includes(L.br(L.plusMonths(first, 1))), 'mensagem cita a parcela (o que falta dela: 200 − 50 já recebidos) e o vencimento');
   await L.closeModal(page);
 
   L.section('A receber parcelado (valor de cada parcela) e atraso');

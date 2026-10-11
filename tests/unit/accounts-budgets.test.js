@@ -79,3 +79,17 @@ test('previsão que repete todo mês cai no último dia em meses curtos', () => 
   assert.equal(forecastOccurrences([{...f, recurring: false}], '2026-02').length, 0);
   assert.equal(forecastOccurrences([f], '2025-12').length, 0);
 });
+
+test('a receber: quanto cobrar no mês (parcelas vencidas até o fim do mês) e o total em aberto', async () => {
+  const {recvDueByMonth, recvDueCount, recvRemaining} = await import('../../js/domain/receivables.js');
+  // 12x de 100, 1ª em 10/08; recebeu 2 parcelas e 30 da 3ª.
+  const r = {totalAmount: 1200, receivedAmount: 230, installments: 12, installmentAmount: 100, dueDate: '2026-08-10'};
+  assert.equal(recvRemaining(r), 970);
+  assert.equal(recvDueByMonth(r, '2026-10'), 70, 'outubro: só falta o resto da 3ª parcela (vence 10/10)');
+  assert.equal(recvDueByMonth(r, '2026-11'), 170, 'novembro: resto da 3ª + a 4ª');
+  assert.equal(recvDueCount(r, '2026-11'), 2);
+  assert.equal(recvDueByMonth({...r, receivedAmount: 0}, '2026-10'), 300, 'atrasadas entram na cobrança do mês');
+  assert.equal(recvDueByMonth({totalAmount: 500, receivedAmount: 0, dueDate: '2026-12-01'}, '2026-10'), 0, 'sem parcelas, vence depois: nada no mês');
+  assert.equal(recvDueByMonth({totalAmount: 500, receivedAmount: 100}, '2026-10'), 400, 'sem data: o que falta');
+  assert.equal(recvDueByMonth({...r, forgiven: true}, '2026-10'), 0);
+});

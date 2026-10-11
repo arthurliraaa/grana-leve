@@ -3,13 +3,13 @@
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
 import * as Cards from '../domain/cards.js';
-import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
+import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthLabelOf, shiftMonthKey, monthBounds} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, uid} from '../domain/util.js';
 import {clampInstall} from '../domain/transactions.js';
 
 import {invoiceKeyFor, invoiceDates} from '../domain/cards.js';
-import {recvInstallInfo, recvNextDue, recvRemaining, recvDefaultRefund} from '../domain/receivables.js';
+import {recvInstallInfo, recvNextDue, recvRemaining, recvDefaultRefund, recvDueByMonth, recvDueCount} from '../domain/receivables.js';
 
 import {DEFAULT_URGENCY, urgencyOf, byUrgency} from '../domain/urgency.js';
 import * as Research from '../domain/research.js';
@@ -24,6 +24,7 @@ import {ufOptions} from './my-data.js';
 import {renderAll} from './shell.js';
 import {State, URGENCY_RANK, accountName, catLabel, expandInstallments, installHint, installmentGroups, k, setUrgency, sortTransactions, urgencyOptions, urgencySelectHtml} from './state.js';
 import {saveTransactions} from './tx-edit.js';
+import {chargeLink, chargePayload, importChargeFile, shareReceivable} from './share-charge.js';
 import {accountSelectHtml, fold, installStepperHtml} from './tx-list.js';
 
 /* ---------- Dívidas ---------- */
@@ -46,7 +47,8 @@ export function renderDebts(){
     return '<div class="debt-card">' +
       '<div class="budget-top"><h4>'+escapeHtml(d.name)+'</h4><span class="card-tags"><span class="pill">' + escapeHtml(labelOf(DEBT_KINDS, d.kind) || 'Dívida') + '</span>' +
         (done ? '' : urgencySelectHtml('debts', d, d.name)) + '</span></div>' +
-      (d.creditor ? '<span class="tx-meta">Com: ' + escapeHtml(d.creditor) + '</span>' : '') +
+      (d.creditor ? '<span class="tx-meta">Com: ' + escapeHtml(d.creditor) + (d.shared ? ' · cobrança enviada por ' + escapeHtml(d.shared.from) + ' em ' + formatDateBr(d.shared.at) : '') + '</span>' : '') +
+      (d.shared && d.shared.pix && !done ? '<span class="tx-meta pix-line">Chave Pix: <strong>' + escapeHtml(d.shared.pix) + '</strong> <button class="btn btn-ghost btn-sm" type="button" data-copy-pix="' + escapeHtml(d.shared.pix) + '">Copiar</button></span>' : '') +
       '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
       '<div class="debt-figs"><span class="tabular">Pago: '+fmtMoney(d.paidAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
       (d.monthlyPayment ? '<span class="tx-meta">Parcela mensal: '+fmtMoney(d.monthlyPayment)+(remaining > 0 ? ' · cerca de ' + Math.ceil(remaining / d.monthlyPayment) + ' parcela(s) restante(s)' : '')+'</span>' : '') +
@@ -326,6 +328,7 @@ export function recvCardHtml(r){
         done ? '<span class="status-pill good">Recebido</span>' :
         '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
         '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
+        '<button class="btn btn-ghost btn-sm" type="button" data-recv-share="'+r.id+'" title="Link ou arquivo para a pessoa adicionar a cobrança no Grana Leve dela">' + icon('swap') + 'Compartilhar</button>' +
         '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
       (!r.linked && !r.forgiven && r.kind !== 'emprestimo' ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-link="'+r.id+'" title="Para “A receber” anotados antes: escolha o gasto que você pagou pela pessoa">Ligar à compra</button>' : '') +
       '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
@@ -486,44 +489,108 @@ export function chargeItem(r){
   return {what: info ? 'parcela ' + info.next + ' de ' + info.n + ', de ' + fmtMoney(Math.min(info.per, remaining)) : fmtMoney(remaining),
     due: due ? (info ? 'combinada' : 'combinado') + ' para ' + formatDateFull(due) : ''};
 }
+// "Do mês": as parcelas que vencem até o fim do mês (inclusive atrasadas) ou, se nenhuma vence neste
+// mês, a próxima parcela (descontando o que já entrou dela). Sem parcelas: o que falta, se vence até
+// o fim do mês ou não tem data.
+function monthCharge(r, key){
+  var v = recvDueByMonth(r, key), info = recvInstallInfo(r), left = recvRemaining(r);
+  if (v > 0 || !info || !(left > 0)) return {amount: v, count: recvDueCount(r, key)};
+  return {amount: money(Math.min(left, info.per * (info.paid + 1) - Number(r.receivedAmount || 0))), count: 1, next: true};
+}
+// Texto de uma pendência na cobrança (do mês ou o total em aberto).
+function chargeLine(r, what, key){
+  var info = recvInstallInfo(r), left = recvRemaining(r), due = recvNextDue(r);
+  if (what === 'total') return fmtMoney(left) + (info ? ' (faltam ' + (info.n - info.paid) + ' de ' + info.n + ' parcelas)' : due ? ', combinado para ' + formatDateFull(due) : '');
+  var m = monthCharge(r, key);
+  if (!(m.amount > 0)) return 'nada para ' + monthLabelOf(key) + ' (em aberto: ' + fmtMoney(left) + ')';
+  if (!info) return fmtMoney(m.amount) + (due ? ', combinado para ' + formatDateFull(due) : '');
+  return (m.count > 1 ? m.count + ' parcelas (da ' + info.next + 'ª à ' + (info.next + m.count - 1) + 'ª de ' + info.n + '), ' : 'parcela ' + info.next + ' de ' + info.n + ', ') +
+    fmtMoney(m.amount) + (due ? (m.count > 1 ? ', a primeira venceu em ' : ', combinada para ') + formatDateFull(due) : '');
+}
+export function chargeMessage(r, all, o){
+  var first = (State.session.name || '').split(' ')[0], key = monthBounds(0).key, list = all && all.length > 1 ? all : [r];
+  var amount = sumMoney(list, function(x){ return o.what === 'total' ? recvRemaining(x) : monthCharge(x, key).amount; });
+  var msg;
+  if (list.length > 1){
+    msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar o que ficou combinado' + (o.what === 'total' ? '' : ' para agora') + ':\n' +
+      list.map(function(x){ return '• ' + (x.description || labelOf(RECV_KINDS, x.kind)) + ': ' + chargeLine(x, o.what, key); }).join('\n') +
+      '\n' + (o.what === 'total' ? 'Total em aberto: ' : 'Total para agora: ') + fmtMoney(amount) + '.';
+  } else {
+    msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar ' + (o.what === 'total' ? 'do total em aberto: ' : 'da ') +
+      chargeLine(r, o.what, key) + (r.description ? ' (' + r.description + ')' : '') + '.';
+  }
+  if (o.pix && o.pixKey) msg += '\nSe preferir, pode mandar no Pix: ' + o.pixKey;
+  if (o.link) msg += '\nPara acompanhar no Grana Leve: ' + o.link;
+  return msg + '\nQuando puder, me avisa. Obrigado! ' + first;
+}
 export async function chargeReceivable(id, all){
   var r = findById(State.receivables, id);
-  var first = State.session.name.split(' ')[0], msg;
-  if (all && all.length > 1){
-    msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar o que ficou combinado:\n' +
-      all.map(function(x){ var c = chargeItem(x); return '• ' + (x.description || labelOf(RECV_KINDS, x.kind)) + ': ' + c.what + (c.due ? ' (' + c.due + ')' : ''); }).join('\n') +
-      '\nTotal em aberto: ' + fmtMoney(sumMoney(all, recvRemaining)) + '. Quando puder, me avisa. Obrigado! ' + first;
-  } else {
-    var c = chargeItem(r), info = recvInstallInfo(r);
-    msg = 'Oi, ' + r.person.split(' ')[0] + '! Tudo bem? Passando para lembrar ' + (info ? 'da ' : 'do valor de ') + c.what +
-      (r.description ? ' (' + r.description + ')' : '') + (c.due ? ', ' + c.due : '') +
-      '. Quando puder, me avisa. Obrigado! ' + first;
+  var list = all && all.length > 1 ? all : [r], key = monthBounds(0).key;
+  var month = sumMoney(list, function(x){ return monthCharge(x, key).amount; }), total = sumMoney(list, recvRemaining);
+  var onlyNext = list.every(function(x){ return !monthCharge(x, key).amount || monthCharge(x, key).next; });
+  var prefs = getPrefs();
+  var o = {what: month > 0 && month < total ? 'month' : 'total', pix: !!prefs.pixInCharge && !!prefs.pixKey, pixKey: prefs.pixKey || '', link: ''};
+  var withLink = false;
+  async function linkFor(){
+    if (!r.shareRef){ r.shareRef = uid(); await Store.update(k(), 'receivables', r.id, {shareRef: r.shareRef}); }
+    return chargeLink(chargePayload(r, o.pix ? o.pixKey : ''));
   }
   await openModal({
     title: 'Cobrar ' + r.person,
-    body: '<div class="field"><label for="chargeMsg">Mensagem (pode editar)</label><textarea id="chargeMsg" name="msg" rows="' + (all && all.length > 1 ? 8 : 5) + '" maxlength="1200">' + escapeHtml(msg) + '</textarea></div>' +
+    body: '<fieldset class="option-cards charge-what"><legend>O que cobrar</legend>' +
+        '<label class="option-card"><input type="radio" name="what" value="month"' + (o.what === 'month' ? ' checked' : '') + (month > 0 ? '' : ' disabled') + '>' +
+          '<span><strong>' + (onlyNext && month > 0 ? 'Só a próxima parcela' : 'Só a deste mês') + ' · <span class="tabular">' + fmtMoney(month) + '</span></strong><small>' +
+            (!(month > 0) ? 'Nada vence em ' + monthLabelOf(key) + '.' : onlyNext ? 'Nada vence em ' + monthLabelOf(key) + ': cobra a próxima parcela.' : 'O que vence até o fim de ' + monthLabelOf(key) + ' (com o que estiver atrasado). Numa compra no cartão, é a parcela da fatura do mês.') + '</small></span></label>' +
+        '<label class="option-card"><input type="radio" name="what" value="total"' + (o.what === 'total' ? ' checked' : '') + '>' +
+          '<span><strong>Total em aberto · <span class="tabular">' + fmtMoney(total) + '</span></strong><small>Tudo o que ainda falta' + (list.length > 1 ? ', somando as ' + list.length + ' pendências.' : '.') + '</small></span></label>' +
+      '</fieldset>' +
+      '<label class="check"><input type="checkbox" name="pix" id="chargePixOn"' + (o.pix ? ' checked' : '') + '> Incluir minha chave Pix</label>' +
+      '<div class="field" id="chargePixField"' + (o.pix ? '' : ' hidden') + '><label for="chargePix">Chave Pix</label><input id="chargePix" name="pixKey" type="text" maxlength="77" autocomplete="off" value="' + escapeHtml(o.pixKey) + '" placeholder="CPF, e-mail, celular ou chave aleatória">' +
+        '<span class="field-hint">Fica guardada para as próximas cobranças.</span></div>' +
+      (list.length === 1 ? '<label class="check"><input type="checkbox" name="link" id="chargeLinkOn"> Incluir link para ' + escapeHtml(r.person.split(' ')[0]) + ' adicionar no Grana Leve dela</label>' : '') +
+      '<div class="field"><label for="chargeMsg">Mensagem (pode editar)</label><textarea id="chargeMsg" name="msg" rows="' + (list.length > 1 ? 9 : 6) + '" maxlength="2000"></textarea></div>' +
       '<div class="field"><label for="chargePhone">WhatsApp da pessoa (opcional)</label><input id="chargePhone" name="phone" type="tel" maxlength="20" value="' + escapeHtml(r.phone||'') + '" placeholder="(11) 98888-7777"></div>' +
       '<div class="pdf-actions"><button type="button" class="btn btn-ghost btn-sm" data-charge="copy">Copiar mensagem</button></div>',
     submitLabel: 'Abrir no WhatsApp', cancelLabel: 'Fechar',
     onOpen: function(root){
+      async function sync(){
+        o.what = (qs('input[name=what]:checked', root) || {}).value || 'total';
+        o.pix = qs('#chargePixOn', root).checked;
+        o.pixKey = qs('#chargePix', root).value.trim();
+        qs('#chargePixField', root).hidden = !o.pix;
+        withLink = !!(qs('#chargeLinkOn', root) && qs('#chargeLinkOn', root).checked);
+        o.link = withLink ? await linkFor() : '';
+        qs('#chargeMsg', root).value = chargeMessage(r, list, o);
+      }
+      // Mudar as opções refaz a mensagem; editar o texto não é desfeito até mudar uma opção.
+      root.addEventListener('change', function(e){ if (e.target.id !== 'chargeMsg' && e.target.id !== 'chargePhone') sync(); });
+      qs('#chargePix', root).addEventListener('input', sync);
+      sync();
       qs('[data-charge="copy"]', root).addEventListener('click', function(){
         var text = qs('#chargeMsg', root).value;
         if (navigator.clipboard) navigator.clipboard.writeText(text).then(function(){ toast('Mensagem copiada.'); }, function(){ toast('Não foi possível copiar.'); });
       });
     },
     onSubmit: async function(form){
+      if (form.pix.checked && !form.pixKey.value.trim()) return {error: 'Digite a chave Pix ou desmarque “Incluir minha chave Pix”.'};
+      setPref('pixKey', form.pixKey.value.trim() || getPrefs().pixKey || '');
+      setPref('pixInCharge', form.pix.checked);
       var phone = onlyDigits(form.phone.value);
       if (phone && phone.length >= 10 && phone.length <= 11) phone = '55' + phone;
       if (phone !== onlyDigits(r.phone) && form.phone.value.trim()){
-        var targets = all && all.length > 1 ? all : [r];
         var ph = {phone: form.phone.value.trim()};
-        await Store.updateMany(k(), 'receivables', targets.map(function(x){ return {id: x.id, partial: ph}; }));
-        targets.forEach(function(x){ x.phone = ph.phone; });
+        await Store.updateMany(k(), 'receivables', list.map(function(x){ return {id: x.id, partial: ph}; }));
+        list.forEach(function(x){ x.phone = ph.phone; });
       }
       window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(form.msg.value), '_blank', 'noopener');
       return true;
     }
   });
+}
+// "Compartilhar" no cartão de "Me devem": link/arquivo para a pessoa aceitar no Grana Leve dela.
+export function shareRecv(id){
+  var r = findById(State.receivables, id), prefs = getPrefs();
+  return shareReceivable(r, prefs.pixInCharge ? prefs.pixKey || '' : '');
 }
 
 // Eventos de Compromissos: formulários de dívida e de A receber.
@@ -544,6 +611,11 @@ export function wireCommitments(){
     syncRecvForm();
   });
 
+  document.getElementById('debtImportFile').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (f) importChargeFile(f);
+  });
   document.getElementById('debtForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var name = document.getElementById('debtName').value.trim();
