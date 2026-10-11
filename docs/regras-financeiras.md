@@ -52,6 +52,21 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 - **Pagar a fatura não é um gasto novo**: as compras já contaram. Ao marcar como paga, se
   uma conta for escolhida (pode ser de outro banco), o valor sai do saldo dessa conta.
   Desmarcar devolve o saldo.
+- **Pagar só uma parte da fatura** (`invoicePayments[key].mode`):
+  - **o resto fica em aberto** (rotativo): o que faltou vai inteiro para a fatura seguinte;
+  - **o resto é parcelado**: o que faltou é dividido em N parcelas nas N faturas seguintes,
+    com o valor de parcela que o banco ofereceu.
+  - Só o valor pago agora sai da conta. A fatura fica como **paga em parte**; o saldo que passa
+    adiante aparece nas faturas seguintes ("Saldo em aberto da fatura de …" / "Parcelamento da
+    fatura de … (i/N)") e ocupa o limite até ser pago.
+  - Esse saldo **não é gasto novo** (as compras já contaram). Só os **juros** contam: os encargos
+    informados no rotativo, ou no parcelamento N × parcela − o que faltou, divididos nas mesmas
+    faturas, como gastos no cartão ("Juros do …", categoria Outros).
+  - Desfazer o pagamento tira o saldo das faturas seguintes e apaga os juros lançados.
+- **Relatório do cartão** tem o filtro **De quem**: tudo, só a minha parte ou só de outras pessoas
+  (pago por alguém que vai devolver + a parte dos outros nas divididas, as mesmas regras de
+  `myShare`/`othersShare`). Em "tudo", cada fatura aparece dividida nas duas partes, e há a
+  tabela "Quanto é de cada pessoa" (na dividida, a parte da pessoa proporcional ao valor da parcela).
 
 ## Compras parceladas
 
