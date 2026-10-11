@@ -2,6 +2,7 @@
  * Início: previsões de entrada, números do mês, cartões de resumo, gráficos e últimos lançamentos.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
+import {bankGroups} from './accounts-tab.js';
 import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
@@ -249,13 +250,14 @@ export function renderDashboard(){
   renderDonut(txForMonth(cur.key));
   renderBarChart();
   renderInvoiceSplit();
+  renderCreditDebit();
   renderComparison();
   renderRecentTx();
 }
 
 export function setToggleLabel(which){
   var btn = qs('[data-view-toggle="' + which + '"]');
-  var view = which === 'donut' ? State.donutView : which === 'invsplit' ? (State.invView || 'chart') : State.barView;
+  var view = which === 'donut' ? State.donutView : which === 'bar' ? State.barView : ((State.dashViews || {})[which] || 'chart');
   btn.textContent = view === 'chart' ? 'Ver como tabela' : 'Ver como gráfico';
 }
 
@@ -288,18 +290,48 @@ export function invoiceSplitData(){
   });
   return {rows: rows, late: {count: late.length, total: money(sum(late, function(v){ return v; }))}};
 }
+// Quadros do Início que começam recolhidos: o título é um botão (aria-expanded) e uma linha de resumo
+// fica sempre visível; o gráfico/tabela só aparece ao expandir.
+function syncCollapse(key, prefix, summary){
+  var open = !!(State.dashOpen || {})[key];
+  var btn = qs('[data-collapse="' + key + '"]');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  document.getElementById(prefix + 'Body').hidden = !open;
+  qs('[data-view-toggle="' + key + '"]').hidden = !open;
+  var sumEl = document.getElementById(prefix + 'Summary');
+  sumEl.innerHTML = summary;
+  sumEl.hidden = open;   // expandido, os números já aparecem em destaque no topo do quadro
+  if (open) setToggleLabel(key);
+  return open;
+}
+export function toggleDashCard(key){
+  State.dashOpen = State.dashOpen || {};
+  State.dashOpen[key] = !State.dashOpen[key];
+  if (key === 'invsplit') renderInvoiceSplit(); else renderCreditDebit();
+}
+export function toggleDashView(key){
+  State.dashViews = State.dashViews || {};
+  State.dashViews[key] = (State.dashViews[key] || 'chart') === 'chart' ? 'table' : 'chart';
+  if (key === 'invsplit') renderInvoiceSplit(); else renderCreditDebit();
+}
+function pctOf(v, t){ return t > 0 ? Math.round(100 * v / t) : 0; }
+
 export function renderInvoiceSplit(){
   var card = document.getElementById('invSplitCard'), wrap = document.getElementById('invSplitWrap');
   card.hidden = !State.cards.length;
   if (card.hidden) return;
-  setToggleLabel('invsplit');
   var d = invoiceSplitData(), rows = d.rows;
   var tot = {mine: money(sum(rows, function(r){ return r.mine; })), others: money(sum(rows, function(r){ return r.others; }))};
   tot.total = money(tot.mine + tot.others);
+  var open = syncCollapse('invsplit', 'invSplit', '<span class="tabular">Próximas faturas: <strong>' + fmtMoney(tot.total) + '</strong></span>' +
+    '<span class="tabular"><i class="inv-key mine" aria-hidden="true"></i>minha parte ' + fmtMoney(tot.mine) + ' (' + pctOf(tot.mine, tot.total) + '%)</span>' +
+    '<span class="tabular"><i class="inv-key others" aria-hidden="true"></i>outras pessoas ' + fmtMoney(tot.others) + ' (' + pctOf(tot.others, tot.total) + '%)</span>' +
+    (d.late.count ? '<span class="neg-text">' + d.late.count + ' fatura(s) vencida(s)</span>' : ''));
+  if (!open){ wrap.innerHTML = ''; return; }
   var lateHtml = d.late.count ? '<p class="inv-late" role="note">' + icon('clock') + '<span>Também há <strong>' + d.late.count + ' fatura(s) vencida(s)</strong> somando <strong class="tabular">' +
     fmtMoney(d.late.total) + '</strong>. Se já foram pagas, marque como pagas em “Contas e cartões”.</span> <a class="sum-link" href="#/contas" data-go="cartoes">Ver →</a></p>' : '';
   function pct(v, t){ return t > 0 ? Math.round(100 * v / t) : 0; }
-  if ((State.invView || 'chart') === 'table'){
+  if (((State.dashViews || {}).invsplit || 'chart') === 'table'){
     wrap.innerHTML = '<table class="data-table"><thead><tr><th>Cartão</th><th>Fatura</th><th>Minha parte</th><th>Outras pessoas</th><th>Total</th></tr></thead><tbody>' +
       rows.map(function(r){ return '<tr><td>' + escapeHtml(r.card.name) + '</td><td>' + escapeHtml(r.label) + ' · vence ' + formatDateBr(r.due) + '</td><td class="tabular">' + fmtMoney(r.mine) +
         '</td><td class="tabular">' + fmtMoney(r.others) + '</td><td class="tabular">' + fmtMoney(r.total) + '</td></tr>'; }).join('') +
@@ -330,6 +362,63 @@ export function renderInvoiceSplit(){
     '</div>' +
     '<div class="legend"><span class="legend-item"><span class="legend-swatch inv-key mine"></span>Minha parte</span><span class="legend-item"><span class="legend-swatch inv-key others"></span>Outras pessoas (vão te devolver)</span></div>' +
     lateHtml;
+  wireTooltips(wrap, '.inv-seg');
+}
+// Crédito × débito por banco no mês (até hoje): o que saiu no cartão (pela data da compra) e da conta
+// (Pix/débito). Conta e cartão do mesmo banco ficam juntos (bankGroups). Dinheiro e vale vão à parte.
+export function creditDebitData(){
+  var key = monthBounds(0).key, today = todayKey();
+  var tx = State.transactions.filter(function(t){ return t.type === 'expense' && monthKeyOf(t.date) === key && t.date <= today; });
+  var usedAcc = {}, usedCard = {};
+  var rows = bankGroups().map(function(g){
+    var accIds = g.acc ? [g.acc.id] : [], cardIds = g.cards.map(function(c){ return c.id; });
+    accIds.forEach(function(id){ usedAcc[id] = true; }); cardIds.forEach(function(id){ usedCard[id] = true; });
+    var debit = money(sum(tx.filter(function(t){ return t.paymentMethod === 'conta' && accIds.indexOf(t.accountId) >= 0; }), function(t){ return t.amount; }));
+    var credit = money(sum(tx.filter(function(t){ return t.paymentMethod === 'cartao' && cardIds.indexOf(t.cardId) >= 0; }), function(t){ return t.amount; }));
+    return {name: (g.acc || g.cards[0]).name, credit: credit, debit: debit, total: money(credit + debit)};
+  });
+  var cash = money(sum(tx.filter(function(t){ return (t.paymentMethod === 'conta' || !t.paymentMethod) && !usedAcc[t.accountId]; }), function(t){ return t.amount; }));
+  var vale = money(sum(tx.filter(function(t){ return t.paymentMethod === 'vale'; }), function(t){ return t.amount; }));
+  return {rows: rows, cash: cash, vale: vale};
+}
+export function renderCreditDebit(){
+  var card = document.getElementById('creditDebitCard'), wrap = document.getElementById('creditDebitWrap');
+  card.hidden = !State.cards.length && !State.accounts.length;
+  if (card.hidden) return;
+  var d = creditDebitData(), rows = d.rows;
+  var tot = {credit: money(sum(rows, function(r){ return r.credit; })), debit: money(sum(rows, function(r){ return r.debit; }))};
+  tot.total = money(tot.credit + tot.debit);
+  var open = syncCollapse('creditdebit', 'creditDebit', '<span class="tabular">Neste mês: <strong>' + fmtMoney(tot.total) + '</strong></span>' +
+    '<span class="tabular"><i class="inv-key credit" aria-hidden="true"></i>crédito ' + fmtMoney(tot.credit) + ' (' + pctOf(tot.credit, tot.total) + '%)</span>' +
+    '<span class="tabular"><i class="inv-key debit" aria-hidden="true"></i>débito/Pix ' + fmtMoney(tot.debit) + ' (' + pctOf(tot.debit, tot.total) + '%)</span>');
+  if (!open){ wrap.innerHTML = ''; return; }
+  var outside = (d.cash || d.vale) ? '<p class="tx-meta cd-outside">Fora dos bancos: ' + [d.cash ? 'dinheiro ' + fmtMoney(d.cash) : '', d.vale ? 'vale ' + fmtMoney(d.vale) : ''].filter(Boolean).join(' · ') + '.</p>' : '';
+  if (((State.dashViews || {}).creditdebit || 'chart') === 'table'){
+    wrap.innerHTML = '<table class="data-table"><thead><tr><th>Banco</th><th>Crédito</th><th>Débito/Pix</th><th>Total</th></tr></thead><tbody>' +
+      rows.map(function(r){ return '<tr><td>' + escapeHtml(r.name) + '</td><td class="tabular">' + fmtMoney(r.credit) + '</td><td class="tabular">' + fmtMoney(r.debit) + '</td><td class="tabular">' + fmtMoney(r.total) + '</td></tr>'; }).join('') +
+      '<tr><td><strong>Total</strong></td><td class="tabular"><strong>' + fmtMoney(tot.credit) + '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.debit) + '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.total) + '</strong></td></tr></tbody></table>' + outside;
+    return;
+  }
+  var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
+  function seg(cls, v, label, r){
+    if (!(v > 0) || !(max > 0)) return '';
+    return '<span class="inv-seg ' + cls + '" style="width:' + (100 * v / max).toFixed(2) + '%" tabindex="0" data-label="' + escapeHtml(r.name + ' · ' + label) + '" data-value="' + fmtMoney(v) + ' (' + pctOf(v, r.total) + '%)"></span>';
+  }
+  wrap.innerHTML =
+    '<div class="inv-total">' +
+      '<div><span class="kpi-lbl">Total gasto nos bancos</span><strong class="tabular">' + fmtMoney(tot.total) + '</strong></div>' +
+      '<div><span class="kpi-lbl"><i class="inv-key credit" aria-hidden="true"></i>Crédito</span><strong class="tabular">' + fmtMoney(tot.credit) + '</strong><span class="kpi-sub">' + pctOf(tot.credit, tot.total) + '%</span></div>' +
+      '<div><span class="kpi-lbl"><i class="inv-key debit" aria-hidden="true"></i>Débito/Pix</span><strong class="tabular">' + fmtMoney(tot.debit) + '</strong><span class="kpi-sub">' + pctOf(tot.debit, tot.total) + '%</span></div>' +
+    '</div>' +
+    '<div class="inv-rows" role="img" aria-label="' + escapeHtml(rows.map(function(r){ return r.name + ': crédito ' + fmtMoney(r.credit) + ', débito ' + fmtMoney(r.debit); }).join('; ')) + '">' +
+      rows.map(function(r){
+        return '<div class="inv-row"><div class="inv-row-head"><strong>' + escapeHtml(r.name) + '</strong><strong class="tabular inv-row-total">' + fmtMoney(r.total) + '</strong></div>' +
+          '<div class="inv-track">' + seg('credit', r.credit, 'crédito', r) + seg('debit', r.debit, 'débito/Pix', r) + (r.total > 0 ? '' : '<span class="tx-meta">Nenhum gasto neste mês.</span>') + '</div>' +
+          (r.total > 0 ? '<div class="inv-row-labels tabular"><span>Crédito ' + fmtMoney(r.credit) + '</span><span>Débito/Pix ' + fmtMoney(r.debit) + '</span></div>' : '') + '</div>';
+      }).join('') +
+    '</div>' +
+    '<div class="legend"><span class="legend-item"><span class="legend-swatch inv-key credit"></span>Crédito (cartão)</span><span class="legend-item"><span class="legend-swatch inv-key debit"></span>Débito ou Pix (conta)</span></div>' +
+    outside;
   wireTooltips(wrap, '.inv-seg');
 }
 export function renderDonut(monthTx){
