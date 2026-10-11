@@ -501,16 +501,17 @@
             <fieldset class="radio-group f-half bank-parts"><legend>O que você tem nesse banco?</legend>
               <label class="check"><input type="checkbox" id="bankHasAcc" checked> Conta (saldo)</label>
               <label class="check"><input type="checkbox" id="bankHasCard"> Cartão de crédito</label>
+              <button type="button" class="look-toggle" id="bankLookToggle" aria-expanded="false" aria-controls="bankLookPanel" title="Opcional: escolher a cor e o ícone do banco"><span id="accNewPreview"></span>Cor e ícone</button>
             </fieldset>
             <div class="field" data-bank-part="acc"><label for="accBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="accBalance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>
             <div class="field" data-bank-part="card" hidden><label for="cardLimit">Limite do cartão</label><span class="money-input"><span>R$</span><input id="cardLimit" type="number" step="0.01" min="0" max="99999999"></span></div>
             <div class="field" data-bank-part="card" hidden><label for="cardClosing">Dia do fechamento da fatura</label><input id="cardClosing" type="number" min="1" max="31" placeholder="Ex: 3"></div>
             <div class="field" data-bank-part="card" hidden><label for="cardDue">Dia do vencimento da fatura</label><input id="cardDue" type="number" min="1" max="31" placeholder="Ex: 10"></div>
             <p class="field-hint f-full" data-bank-part="card" hidden>Como a fatura funciona: a compra entra na fatura que ainda não fechou. Compra feita no dia do fechamento já vai para a próxima. Se o mês não tem o dia escolhido (ex.: 31), vale o último dia do mês.</p>
-            <details class="brand-details f-full"><summary><span id="accNewPreview"></span>Cor e ícone <span class="tx-meta">(opcional)</span></summary><div id="accPickerWrap"></div></details>
+            <div class="f-full brand-panel" id="bankLookPanel" hidden><div id="accPickerWrap"></div></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar</button></div>
           </form>
-          <div id="bankList" class="stack-lg"></div>
+          <div id="bankList" class="stack-lg bank-list"></div>
         </div>
 
 

@@ -973,3 +973,13 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .tx-tags{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:4px 6px; padding-left:46px; margin-top:-2px; }
 .tx-tags .tx-tag{ margin:0; }
 @media (max-width:620px){ .tx-tags{ padding-left:0; } }
+
+/* Cadastro de banco: "Cor e ícone" na linha das caixinhas; respiro antes da lista de bancos */
+.bank-parts .look-toggle{ display:inline-flex; align-items:center; gap:8px; margin-left:4px; padding:5px 12px 5px 6px; border:1px dashed var(--border); border-radius:999px; background: var(--surface); color: var(--text-secondary); font: inherit; font-size:.84rem; font-weight:600; cursor:pointer; }
+.bank-parts .look-toggle:hover{ background: var(--surface-2); color: var(--text-primary); }
+.bank-parts .look-toggle[aria-expanded="true"]{ border-style:solid; border-color: var(--brand); color: var(--text-primary); }
+.bank-parts .look-toggle .bank-badge{ min-width:26px; height:26px; font-size:.75rem; }
+.brand-panel{ padding:4px 14px 14px; border:1px solid var(--border); border-radius:12px; background: var(--surface-2); }
+.bank-list{ margin-top:22px; padding-top:20px; border-top:1px solid var(--border); }
+.bank-list:empty, .bank-list:has(> .empty-state:only-child){ border-top:none; padding-top:0; }
+@media (max-width:620px){ .bank-parts .look-toggle{ margin-left:0; } }

@@ -17,10 +17,10 @@ L.run(async ({page}) => {
 
   L.section('Cartão: reconhece o banco pelo nome');
   await L.tab(page, 'cartoes');
-  L.ok(await page.$eval('#accountForm .brand-details', el => !el.open), '“Cor e ícone” fica recolhido (é opcional)');
+  L.ok(await page.$eval('#bankLookPanel', el => el.hidden) && await page.$eval('#bankLookToggle', el => el.getAttribute('aria-expanded')) === 'false', '“Cor e ícone” fica recolhido (é opcional)');
   await page.type('#accName', 'Nubank'); await onlyCard();
   L.ok(await L.text(page, '#accNewPreview') === 'Nu' && (await st('#accNewPreview .bank-badge')).bg === rgb('#820ad1'), 'prévia mostra “Nu” no roxo enquanto digita');
-  await page.click('#accountForm .brand-details summary');
+  await page.click('#bankLookToggle');
   L.ok(/Reconhecemos: Nubank/.test(await L.text(page, '#naPHint')), 'avisa que reconheceu o Nubank');
   await page.type('#cardLimit', '2000'); await page.type('#cardClosing', '3'); await page.type('#cardDue', '10');
   await page.click('#accountForm button[type=submit]'); await L.sleep(300);
@@ -65,7 +65,7 @@ L.run(async ({page}) => {
   L.ok(d.cards.find(c => c.id === renner.id).color === null && await L.text(page, top(3) + ' .bank-badge') === 'CR', '“Usar o padrão” volta ao visual automático');
 
   L.section('Contas bancárias');
-  await page.click('#accountForm .brand-details summary');
+  await page.click('#bankLookToggle');
   await page.type('#accName', 'Itaú');
   L.ok(await L.text(page, '#accNewPreview') === 'It', 'prévia da conta reconhece o Itaú');
   await page.type('#accBalance', '100');
