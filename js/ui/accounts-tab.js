@@ -4,7 +4,7 @@
  */
 import {todayKey, monthKeyOf, formatDateBr, validDateStr, monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
 import {money, fmtMoney, splitAmount} from '../domain/money.js';
-import {findById, sum} from '../domain/util.js';
+import {findById, sum, uid} from '../domain/util.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceLabel} from '../domain/cards.js';
 
@@ -12,8 +12,9 @@ import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
 import {lookOf} from '../domain/brands.js';
 import {Store} from '../data/store.js';
 import {escapeHtml, icon, optionsHtml, qs, qsa, toast} from './dom.js';
-import {openModal} from './modal.js';
+import {confirmAction, openModal} from './modal.js';
 import {cardHtml, readCardFields, renderCards, renderWalletSummary} from './cards-tab.js';
+import {moreMenu} from './commitments-tab.js';
 import {renderStatTiles, txRowHtml} from './home-tab.js';
 import {renderAll} from './shell.js';
 import {State, accountBalance, accountMoves, accountName, k, voucherBalance, voucherTx} from './state.js';
@@ -62,8 +63,8 @@ export function accountHtml(a){
   return '<div class="bank-sec account-card" aria-label="Conta ' + escapeHtml(a.name) + '">' +
     '<div class="sec-head"><span class="sec-title">' + icon('bank') + 'Conta</span>' +
       '<span class="sec-actions">' + (State.accounts.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-acc-transfer="' + a.id + '">' + icon('swap') + 'Transferir</button>' : '') +
-        '<button class="btn btn-ghost btn-sm" type="button" data-acc-edit="' + a.id + '">Editar conta</button>' +
-        '<button class="btn btn-danger btn-sm" type="button" data-acc-del="' + a.id + '">Excluir conta</button></span></div>' +
+        moreMenu(['<button type="button" data-acc-edit="' + a.id + '">' + icon('edit') + 'Editar conta</button>',
+          '<button type="button" class="danger" data-acc-del="' + a.id + '">' + icon('trash') + 'Excluir conta</button>']) + '</span></div>' +
     '<div class="sec-kpis acc-kpis">' +
       '<div class="kpi"><span class="kpi-lbl">Saldo hoje</span><strong class="tabular kpi-val account-balance ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
       '<div class="kpi"><span class="kpi-lbl">Entrou no mês</span><strong class="tabular pos-text">' + fmtMoney(inM) + '</strong></div>' +
@@ -203,10 +204,35 @@ export function payAccountFor(card){
 // maiores que o resto dividido, ou encargos informados) viram gasto no cartão; o saldo em si, não,
 // porque as compras já contaram (regras em Cards.partialPayment).
 var PAY_MODES = [
-  {id: 'total', title: 'Paguei a fatura toda', hint: 'O valor total sai da conta.'},
+  {id: 'total', title: 'Paguei a fatura toda', hint: 'O que falta pagar sai da conta e a fatura fica paga.'},
+  {id: 'adiantado', title: 'Adiantei uma parte', hint: 'A fatura continua em aberto: o resto você paga depois, nesta mesma fatura.'},
   {id: 'aberto', title: 'Paguei uma parte, o resto fica em aberto', hint: 'O que faltou vai para a próxima fatura (rotativo).'},
   {id: 'parcelado', title: 'Paguei uma parte e parcelei o resto', hint: 'O que faltou é dividido nas próximas faturas, com as parcelas que o banco ofereceu.'}
 ];
+// Pagamento adiantado: a fatura continua aberta e o valor sai da conta escolhida.
+async function addInvoiceAdvance(card, key, choice){
+  var adv = Object.assign({}, card.invoiceAdvances || {});
+  adv[key] = Cards.invoiceAdvances(card, key).concat([{id: uid(), date: choice.date, amount: choice.paidNow, accountId: choice.accountId || null, createdAt: Date.now()}]);
+  await Store.update(k(), 'cards', card.id, {invoiceAdvances: adv});
+  card.invoiceAdvances = adv;
+  renderAll();
+  toast('Pagamento de ' + fmtMoney(choice.paidNow) + ' registrado. Falta ' + fmtMoney(choice.rest) + ' da fatura de ' + invoiceLabel(key, card) + '.');
+}
+// Desfaz um pagamento adiantado (ref = "idDoCartão:AAAA-MM:idDoPagamento").
+export async function undoInvoiceAdvance(ref){
+  var parts = ref.split(':'), card = findById(State.cards, parts[0]), key = parts[1];
+  var item = card && Cards.invoiceAdvances(card, key).filter(function(x){ return x.id === parts[2]; })[0];
+  if (!item) return;
+  if (!(await confirmAction({title: 'Desfazer este pagamento?', danger: false, confirmLabel: 'Desfazer',
+    message: fmtMoney(item.amount) + ' de ' + formatDateBr(item.date) + ' volta a faltar na fatura de ' + invoiceLabel(key, card) + (item.accountId ? ' e volta para o saldo de ' + accountName(item.accountId) : '') + '.'}))) return;
+  var adv = Object.assign({}, card.invoiceAdvances || {});
+  adv[key] = Cards.invoiceAdvances(card, key).filter(function(x){ return x.id !== item.id; });
+  if (!adv[key].length) delete adv[key];
+  await Store.update(k(), 'cards', card.id, {invoiceAdvances: adv});
+  card.invoiceAdvances = adv;
+  renderAll();
+  toast('Pagamento desfeito.');
+}
 export async function toggleInvoicePaid(cardId, key){
   var card = findById(State.cards, cardId);
   var paid = (card.paidInvoices || []).slice();
@@ -226,11 +252,15 @@ export async function toggleInvoicePaid(cardId, key){
     }
     paid.splice(idx, 1); delete pays[key];
   } else {
-    var total = Cards.invoiceDueTotal(State.transactions, card, key);
+    // O que falta pagar (sem o que já foi adiantado); full é o valor da fatura.
+    var full = Cards.invoiceDueTotal(State.transactions, card, key), advanced = Cards.invoiceAdvanced(card, key);
+    var total = Cards.invoiceLeft(State.transactions, card, key);
     var accOpts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (saldo ' + fmtMoney(accountBalance(a)) + ')'}; }).concat([{id:'', label:'Não descontar de nenhuma conta'}]);
     var choice = await openModal({
       title: 'Pagar fatura',
-      body: '<p>Fatura de ' + label + ' do ' + escapeHtml(card.name) + ': <strong class="tabular">' + fmtMoney(total) + '</strong>.</p>' +
+      body: '<p>Fatura de ' + label + ' do ' + escapeHtml(card.name) + ': ' + (advanced > 0 ?
+          'falta <strong class="tabular">' + fmtMoney(total) + '</strong> (total ' + fmtMoney(full) + ', já pago ' + fmtMoney(advanced) + ').' :
+          '<strong class="tabular">' + fmtMoney(total) + '</strong>.') + '</p>' +
         '<fieldset class="option-cards pay-modes"><legend class="sr-only">Como você pagou?</legend>' + PAY_MODES.map(function(m, i){
           return '<label class="option-card"><input type="radio" name="mode" value="' + m.id + '"' + (i ? '' : ' checked') + '>' +
             '<span><strong>' + m.title + '</strong><small>' + m.hint + '</small></span></label>';
@@ -266,7 +296,8 @@ export async function toggleInvoicePaid(cardId, key){
           if (v.mode === 'parcelado' && !parcelTouched && v.rest > 0 && v.n > 0) qs('#ipParcel', modal).value = splitAmount(v.rest, v.n)[0].toFixed(2);
           v = read();
           var out = '';
-          if (v.mode !== 'total' && v.rest > 0 && v.rest < total + 0.001){
+          if (v.mode === 'adiantado' && v.paidNow > 0 && v.rest > 0) out = 'Fica faltando ' + fmtMoney(v.rest) + ' nesta fatura, que continua em aberto.';
+          else if (v.mode !== 'total' && v.rest > 0 && v.rest < total + 0.001){
             var next = invoiceLabel(shiftMonthKey(key, 1), card);
             if (v.mode === 'aberto') out = 'Falta ' + fmtMoney(v.rest) + ': vai para a fatura de ' + next + (v.fee > 0 ? ' com ' + fmtMoney(v.fee) + ' de juros' : '') + '.';
             else if (v.n >= 2 && v.parcel > 0){
@@ -290,9 +321,10 @@ export async function toggleInvoicePaid(cardId, key){
         if (mode === 'total') return out;
         var paidNow = money(form.paidNow.value), rest = money(total - paidNow);
         if (form.paidNow.value === '' || !(paidNow >= 0)) return {error: 'Informe quanto você pagou agora.'};
-        if (mode === 'aberto' && !(paidNow > 0)) return {error: 'Informe quanto você pagou. Se não pagou nada, deixe a fatura em aberto.'};
-        if (!(rest > 0)) return {error: 'Esse valor paga a fatura toda: escolha “Paguei a fatura toda”.'};
+        if ((mode === 'aberto' || mode === 'adiantado') && !(paidNow > 0)) return {error: 'Informe quanto você pagou. Se não pagou nada, deixe a fatura em aberto.'};
+        if (!(rest > 0)) return {error: 'Esse valor paga a fatura toda (tudo o que falta): escolha “Paguei a fatura toda”.'};
         out.paidNow = paidNow; out.rest = rest;
+        if (mode === 'adiantado') return out;
         if (mode === 'aberto'){ out.fee = money(form.fee.value) > 0 ? money(form.fee.value) : 0; return out; }
         var n = Math.round(Number(form.n.value)), parcel = money(form.parcel.value);
         if (!(n >= 2 && n <= 48)) return {error: 'O parcelamento vai de 2 a 48 parcelas.'};
@@ -303,6 +335,7 @@ export async function toggleInvoicePaid(cardId, key){
       }
     });
     if (!choice) return;
+    if (choice.mode === 'adiantado'){ await addInvoiceAdvance(card, key, choice); return; }
     var rec = {accountId: choice.accountId, amount: choice.paidNow, date: choice.date, createdAt: Date.now()};
     if (choice.mode !== 'total'){
       Object.assign(rec, {mode: choice.mode, total: total, rest: choice.rest});

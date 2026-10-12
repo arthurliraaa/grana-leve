@@ -1139,6 +1139,19 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .inv-nav button{ width:22px; height:22px; display:grid; place-items:center; border:1px solid var(--border); border-radius:6px; background: var(--surface-2); color: var(--text-primary); padding:0; }
 .inv-nav button .ico{ width:14px; height:14px; }
 .sec-foot{ display:flex; align-items:center; gap:6px 8px; flex-wrap:wrap; }
+/* Cartão de crédito: a fatura (quanto falta e quando vence) em destaque; o limite ao lado, menor. */
+.cc-grid{ display:grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap:12px 18px; align-items:start; }
+.cc-invoice{ display:grid; gap:3px; padding:12px 14px; border-radius:10px; background: var(--surface-2); }
+.cc-invoice .inv-nav{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:.84rem; font-weight:600; color: var(--text-secondary); margin-bottom:4px; }
+.cc-invoice .inv-nav .status-pill{ margin-left:auto; }
+.cc-left{ font-size:1.7rem; letter-spacing:-.01em; line-height:1.15; }
+.cc-facts{ font-size:.82rem; color: var(--text-secondary); }
+.cc-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.cc-limit{ padding-top:12px; }
+.cc-limit strong{ font-size:1.05rem; }
+.credit-card .sec-head .card-menu{ margin-left:auto; }
+.credit-card .sec-head .card-menu .more-pop, .account-card .sec-actions .card-menu .more-pop{ left:auto; right:0; }
+@media (max-width:620px){ .cc-grid{ grid-template-columns: minmax(0, 1fr); } .cc-limit{ padding-top:0; } }
 .sec-foot details{ flex-basis:100%; }
 .bank-list .stack-lg, .bank-list{ gap:12px; }
 @media (max-width:860px){ .card-kpis{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }

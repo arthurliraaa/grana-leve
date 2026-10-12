@@ -18,7 +18,7 @@ import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../da
 import {captchaEnabled, getCaptchaToken, mountCaptcha} from './captcha.js';
 import {qs, qsa, escapeHtml, icon, saveFile, toast} from './dom.js';
 import {openModal, confirmAction, attachCounters} from './modal.js';
-import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid} from './accounts-tab.js';
+import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid, undoInvoiceAdvance} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
 import {openFeedback} from './feedback.js';
@@ -559,6 +559,7 @@ export function wireShell(){
     }
     if ((el = t.closest('[data-inv-pdf]'))){ generateInvoicePdf(el.getAttribute('data-inv-pdf'), el.getAttribute('data-key')); return; }
     if ((el = t.closest('[data-inv-paid]'))){ toggleInvoicePaid(el.getAttribute('data-inv-paid'), el.getAttribute('data-key')); return; }
+    if ((el = t.closest('[data-invadv-undo]'))){ undoInvoiceAdvance(el.getAttribute('data-invadv-undo')); return; }
     // Contas bancárias
     if ((el = t.closest('[data-acc-transfer]'))){ openTransfer(el.getAttribute('data-acc-transfer')); return; }
     if ((el = t.closest('[data-acc-edit]'))){ editAccount(el.getAttribute('data-acc-edit')); return; }

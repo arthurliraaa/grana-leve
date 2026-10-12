@@ -34,6 +34,12 @@ export function accountMoves(a, data, today, txLabel){
       var p = pays[key];
       if (p.accountId === a.id) add(p.date, p.createdAt, -Number(p.amount), 'Fatura ' + c.name + ' de ' + invoiceLabel(key, c), 'Pagamento de fatura');
     });
+    var adv = c.invoiceAdvances || {};
+    Object.keys(adv).forEach(function(key){
+      (adv[key] || []).forEach(function(x){
+        if (x.accountId === a.id) add(x.date, x.createdAt, -Number(x.amount), 'Fatura ' + c.name + ' de ' + invoiceLabel(key, c) + ' (pagamento adiantado)', 'Pagamento de fatura');
+      });
+    });
   });
   return out.sort(function(x, y){ return y.date.localeCompare(x.date) || y.createdAt - x.createdAt; });
 }

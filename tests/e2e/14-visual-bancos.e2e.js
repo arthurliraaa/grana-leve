@@ -45,7 +45,7 @@ L.run(async ({page}) => {
   L.section('Personalizar no Editar');
   d = await L.db(page);
   const renner = d.cards.find(c => c.name === 'Cartão Renner');
-  await page.click('[data-card-edit="' + renner.id + '"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-card-edit="' + renner.id + '"]'); await L.sleep(200);
   L.ok(/Sem banco/.test(await L.text(page, '#ecPHint')), 'editar mostra que está sem banco');
   await page.$eval('#ecPColor', el => { el.value = '#d1006f'; el.dispatchEvent(new Event('input', {bubbles: true})); });
   await page.type('#ecPMark', '🛍️ABCD');
@@ -56,12 +56,12 @@ L.run(async ({page}) => {
   L.ok(r2.color === '#d1006f' && r2.mark === '🛍️AB', 'salva cor e ícone personalizados');
   L.ok(await strip(top(3)) === '#d1006f' && (await badge(top(3))).text === '🛍️AB', 'bloco mostra a cor e o ícone escolhidos');
   const nu = d.cards.find(c => c.name === 'Nubank');
-  await page.click('[data-card-edit="' + nu.id + '"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-card-edit="' + nu.id + '"]'); await L.sleep(200);
   await L.setVal(page, '#ecPBank', 'inter');
   L.ok(await L.text(page, '#ecPreview') === 'In', 'escolher o banco na lista troca a prévia');
   await L.submitModal(page); await L.sleep(250);
   L.ok(await strip(top(1)) === '#ff7a00', 'bloco passa a ter a cor do Inter');
-  await page.click('[data-card-edit="' + renner.id + '"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-card-edit="' + renner.id + '"]'); await L.sleep(200);
   await page.click('#modalRoot [data-picker-reset]'); await L.sleep(80);
   await L.submitModal(page); await L.sleep(250);
   d = await L.db(page);
@@ -75,7 +75,7 @@ L.run(async ({page}) => {
   await page.click('#accountForm button[type=submit]'); await L.sleep(300);
   L.ok((await st('#bankList .bank-block:has(.account-card) .bank-head .bank-badge')).text === 'It' && (await st('#bankList .bank-block:has(.account-card) .bank-head .bank-badge')).bg === rgb('#ec7000'), 'conta mostra o selo do Itaú');
   d = await L.db(page);
-  await page.click('[data-acc-edit="' + d.accounts[0].id + '"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-acc-edit="' + d.accounts[0].id + '"]'); await L.sleep(200);
   await L.setVal(page, '#eaPBank', 'none');
   await L.submitModal(page); await L.sleep(250);
   L.ok((await st('#bankList .bank-block:has(.account-card) .bank-head .bank-badge')).attr === null && (await st('#bankList .bank-block:has(.account-card) .bank-head .bank-badge')).text === 'It', '“Outro / sem banco” tira a cor do banco');
@@ -87,7 +87,7 @@ L.run(async ({page}) => {
   await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark')); await L.sleep(100);
   L.ok((await badge('#bankList .bank-block:has([data-card-edit="velho"])')).color === rgb('#ffffff'), 'no tema escuro a cor do banco continua');
   await page.setViewport({width: 375, height: 800});
-  await page.click('[data-card-edit="velho"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-card-edit="velho"]'); await L.sleep(200);
   L.ok(await L.noHorizontalScroll(page), 'editar cartão com cor e ícone cabe no celular');
   await L.closeModal(page);
   L.ok(await L.noHorizontalScroll(page), 'Contas e cartões cabe no celular');

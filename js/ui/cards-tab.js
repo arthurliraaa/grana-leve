@@ -2,6 +2,7 @@
  * Cartões e faturas: cartão, fatura do mês, pagamento e relatório por cartão.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
+import {moreMenu} from './commitments-tab.js';
 import {todayKey, formatDateBr, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
 import {money, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
@@ -145,10 +146,13 @@ export function renderWalletSummary(){
   var cash = State.accounts.length ? totalAccountsBalance() : null;
   var next = inv.toPay[0];
   function box(label, value, sub, cls){ return '<div class="ws-box"><span class="tile-lbl">' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>'; }
+  // Faturas: em destaque o que falta pagar; o total da fatura (e o que já foi pago) fica menor.
+  function totalNote(t, paid){ return t > 0 ? 'total ' + fmtMoney(t) + (paid > 0 ? ' · pago ' + fmtMoney(paid) : '') : ''; }
+  var rest = money(inv.toPayLeft + inv.openLeft), after = cash === null ? 0 : money(cash - rest);
   el.innerHTML = (cash !== null ? box('Nas contas', cash, State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta'), cash < 0 ? 'neg-text' : '') : '') +
-    (State.cards.length ? box('Faturas a pagar', inv.toPayTotal, next ? (next.status === 'vencida' ? 'venceu ' : 'vence ') + formatDateBr(next.due) + ' · ' + escapeHtml(next.card.name) : 'nenhuma fechada') +
-      box('Fatura aberta', inv.openTotal, 'ainda recebe compras') : '') +
-    (cash !== null && State.cards.length ? box('Sobra depois de pagar', money(cash - inv.toPayTotal), 'contas − faturas fechadas', cash - inv.toPayTotal < 0 ? 'neg-text' : '') : '');
+    (State.cards.length ? box('Faturas fechadas a pagar', inv.toPayLeft, next ? [(next.status === 'vencida' ? 'venceu ' : 'vence ') + formatDateBr(next.due) + ' · ' + escapeHtml(next.card.name), totalNote(inv.toPayTotal, inv.toPayPaid)].filter(Boolean).join('<br>') : 'nenhuma fechada') +
+      box('Fatura aberta: falta', inv.openLeft, [totalNote(inv.openTotal, inv.openPaid), 'ainda recebe compras'].filter(Boolean).join('<br>')) : '') +
+    (cash !== null && State.cards.length ? box('Sobra depois de pagar', after, 'contas − tudo o que falta das faturas (' + fmtMoney(rest) + ')', after < 0 ? 'neg-text' : '') : '');
 }
 // Cartões aparecem dentro do bloco do banco (renderBanks, em accounts-tab.js).
 export function renderCards(){
@@ -164,8 +168,9 @@ function dueNote(date, status){
   var d = daysUntil(date);
   return d < 0 ? 'venceu há ' + (-d) + (d === -1 ? ' dia' : ' dias') : d === 0 ? 'vence hoje' : d === 1 ? 'vence amanhã' : 'em ' + d + ' dias';
 }
-// Seção do cartão dentro do bloco do banco (o nome e o ícone ficam no cabeçalho do banco): limite
-// disponível, fatura do mês, vencimento e situação numa linha; ações no cabeçalho da seção.
+// Seção do cartão dentro do bloco do banco (o nome e o ícone ficam no cabeçalho do banco).
+// O que importa para pagar vem primeiro e grande: quanto falta da fatura e quando vence. O total,
+// o que já foi pago e o limite ficam menores; listas recolhidas; ações raras no menu ⋯.
 export function cardHtml(c){
   var key = shiftMonthKey(invoiceKeyFor(todayKey(), c), State.invoiceOffsets[c.id] || 0);
   var items = invoiceItems(c, key), carries = Cards.carryIns(c, key);
@@ -178,30 +183,42 @@ export function cardHtml(c){
   var paidWith = (c.invoicePayments || {})[key];
   var payAcc = State.accounts.length ? accountName(payAccountFor(c)) : '';
   var gs = installmentGroups().filter(function(g){ return g.cardId === c.id && g.future.length; });
+  var advs = Cards.invoiceAdvances(c, key), advanced = Cards.invoiceAdvanced(c, key);
+  var left = status === 'paga' ? 0 : Cards.invoiceLeft(State.transactions, c, key);
+  var situation = partial ? partialText(c, key, partial) : paidWith && paidWith.accountId ? 'Paga com ' + escapeHtml(accountName(paidWith.accountId)) : STATUS_TEXT[status];
   return '<div class="bank-sec credit-card" aria-label="Cartão de crédito ' + escapeHtml(c.name) + '">' +
     '<div class="sec-head"><span class="sec-title">' + icon('card') + 'Cartão de crédito<span class="tx-meta"> · fecha dia ' + c.closingDay + ' · vence dia ' + c.dueDay +
       (payAcc ? ' · paga com ' + escapeHtml(payAcc) : '') + '</span></span>' +
-      '<span class="sec-actions"><button class="btn btn-ghost btn-sm" type="button" data-card-report="' + c.id + '">Relatório</button>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-card-edit="' + c.id + '">Editar cartão</button>' +
-        '<button class="btn btn-danger btn-sm" type="button" data-card-del="' + c.id + '">Excluir cartão</button></span></div>' +
-    '<div class="sec-kpis card-kpis">' +
-      '<div class="kpi avail"><span class="kpi-lbl">Limite disponível</span><strong class="tabular kpi-val">' + fmtMoney(Math.max(0, limit - used)) + '</strong>' +
-        '<span class="kpi-sub tabular">de ' + fmtMoney(limit) + ' · usado ' + Math.round(pct * 100) + '%</span>' +
-        '<div class="progress thin" role="img" aria-label="Limite usado: ' + Math.round(pct * 100) + '%"><span style="width:' + (pct*100) + '%; background:' + (pct >= 0.9 ? 'var(--critical)' : pct >= 0.7 ? 'var(--warning)' : 'var(--brand)') + '"></span></div></div>' +
-      '<div class="kpi"><span class="kpi-lbl inv-nav">' +
+      moreMenu(['<button type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">' + icon('book') + 'Fatura em PDF</button>',
+        '<button type="button" data-card-report="' + c.id + '">' + icon('pie') + 'Relatório do cartão</button>',
+        '<button type="button" data-card-edit="' + c.id + '">' + icon('edit') + 'Editar cartão</button>',
+        '<button type="button" class="danger" data-card-del="' + c.id + '">' + icon('trash') + 'Excluir cartão</button>']) + '</div>' +
+    '<div class="cc-grid">' +
+      '<div class="cc-invoice">' +
+        '<div class="inv-nav">' +
           '<button type="button" data-inv-shift="' + c.id + '" data-dir="-1" aria-label="Fatura anterior">' + icon('chevron-left') + '</button>' +
           '<span>Fatura de ' + invoiceLabel(key, c) + '</span>' +
-          '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button></span>' +
-        '<strong class="invoice-total tabular kpi-val">' + fmtMoney(total) + '</strong><span class="kpi-sub">fecha ' + formatDateBr(dates.closing) + '</span></div>' +
-      '<div class="kpi"><span class="kpi-lbl">Vencimento</span><strong class="tabular kpi-val">' + formatDateBr(dates.due) + '</strong>' +
-        '<span class="kpi-sub' + (status === 'vencida' ? ' neg-text' : '') + '">' + dueNote(dates.due, status) + '</span></div>' +
-      '<div class="kpi"><span class="kpi-lbl">Situação</span><span class="status-pill pill-lg ' + (partial ? 'warning' : INVOICE_PILL[status]) + '">' + (partial ? 'paga em parte' : status) + '</span>' +
-        '<span class="kpi-sub">' + (partial ? partialText(c, key, partial) : paidWith && paidWith.accountId ? 'Paga com ' + escapeHtml(accountName(paidWith.accountId)) : STATUS_TEXT[status]) + '</span></div>' +
+          '<button type="button" data-inv-shift="' + c.id + '" data-dir="1" aria-label="Próxima fatura">' + icon('chevron-right') + '</button>' +
+          '<span class="status-pill ' + (partial ? 'warning' : advanced > 0 && status !== 'paga' ? 'warning' : INVOICE_PILL[status]) + '">' + (partial ? 'paga em parte' : advanced > 0 && status !== 'paga' ? 'parte paga' : status) + '</span></div>' +
+        '<span class="kpi-lbl">' + (status === 'paga' ? 'Fatura paga' : 'Falta pagar') + '</span>' +
+        '<strong class="invoice-total tabular cc-left' + (status === 'vencida' ? ' neg-text' : '') + '">' + fmtMoney(status === 'paga' ? total : left) + '</strong>' +
+        '<span class="cc-facts tabular">' + (status !== 'paga' && advanced > 0 ? 'Total ' + fmtMoney(total) + ' · já pago ' + fmtMoney(advanced) + ' · ' : status !== 'paga' ? 'Total ' + fmtMoney(total) + ' · ' : '') +
+          (status === 'aberta' ? 'fecha ' + formatDateBr(dates.closing) + ' · ' : '') + 'vence ' + formatDateBr(dates.due) +
+          ' <span class="' + (status === 'vencida' ? 'neg-text' : '') + '">(' + dueNote(dates.due, status) + ')</span></span>' +
+        '<span class="kpi-sub">' + situation + '</span>' +
+        (total > 0 ? '<div class="cc-actions"><button class="btn ' + (status === 'paga' ? 'btn-ghost' : 'btn-primary') + ' btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' +
+          (status === 'paga' ? (partial ? 'Desfazer pagamento' : 'Desmarcar paga') : advanced > 0 ? 'Pagar o que falta' : 'Pagar fatura') + '</button></div>' : '') +
+      '</div>' +
+      '<div class="kpi avail cc-limit"><span class="kpi-lbl">Limite disponível</span><strong class="tabular">' + fmtMoney(Math.max(0, limit - used)) + '</strong>' +
+        '<div class="progress thin" role="img" aria-label="Limite usado: ' + Math.round(pct * 100) + '%"><span style="width:' + (pct*100) + '%; background:' + (pct >= 0.9 ? 'var(--critical)' : pct >= 0.7 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
+        '<span class="kpi-sub tabular">de ' + fmtMoney(limit) + ' · usado ' + Math.round(pct * 100) + '%</span></div>' +
     '</div>' +
     '<div class="sec-foot">' +
-      (total > 0 ? '<button class="btn ' + (status === 'paga' ? 'btn-ghost' : 'btn-primary') + ' btn-sm" type="button" data-inv-paid="' + c.id + '" data-key="' + key + '">' + (status === 'paga' ? (partial ? 'Desfazer pagamento' : 'Desmarcar paga') : 'Pagar fatura') + '</button>' : '') +
-      '<button class="btn btn-ghost btn-sm" type="button" data-inv-pdf="' + c.id + '" data-key="' + key + '">Fatura em PDF</button>' +
       (carries.length ? '<div class="carry-list">' + carries.map(function(x){ return carryRowHtml(c, x); }).join('') + '</div>' : '') +
+      (advs.length ? '<details class="budget-details pay-log"><summary>Pagamentos adiantados (' + advs.length + ')</summary>' + advs.map(function(x){
+          return '<div class="list-row"><div class="tx-main"><div class="tx-desc tabular">' + fmtMoney(x.amount) + '</div><div class="tx-meta">' + formatDateBr(x.date) + ' · ' + (x.accountId ? escapeHtml(accountName(x.accountId)) : 'sem conta') + '</div></div>' +
+            (status === 'paga' ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-invadv-undo="' + c.id + ':' + key + ':' + escapeHtml(x.id) + '">Desfazer</button>') + '</div>';
+        }).join('') + '</details>' : '') +
       (items.length ? '<details class="budget-details"><summary>Ver as ' + items.length + ' compra(s) desta fatura</summary>' +
         '<p class="tx-meta same-tx-note">São as mesmas compras de “Ganhos e gastos”, agrupadas pela fatura em que entraram: não somam de novo.</p>' +
         items.map(txRowHtml).join('') + '</details>' : carries.length ? '' : '<span class="tx-meta">Nenhuma compra nesta fatura.</span>') +

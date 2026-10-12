@@ -10,7 +10,7 @@ L.run(async ({page}) => {
   const d = await L.db(page);
   await L.addTx(page, {amount: 120, pay: 'card:' + d.cards[0].id, desc: 'Mercado', category: 'alimentacao'});
   await L.tab(page, 'cartoes');
-  await page.click('[data-inv-pdf]'); await L.sleep(800);
+  await L.menuAction(page, '[data-inv-pdf]'); await L.sleep(800);
   L.ok(/Fatura Inter/.test(await L.modalTitle(page)) && await page.$('#modalRoot iframe, #modalRoot embed, #modalRoot object, #modalRoot a[download]') !== null, 'fatura em PDF gerada e mostrada');
   await L.closeModal(page);
 });
