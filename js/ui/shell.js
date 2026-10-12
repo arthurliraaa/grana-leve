@@ -28,7 +28,7 @@ import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, for
 import {openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
-import {cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, track} from './online.js';
+import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions, txForMonth} from './state.js';
@@ -64,6 +64,7 @@ export function openAuth(tab){
     authBehind.forEach(function(el){ el.setAttribute('inert', ''); });
   }
   showAuthTab(tab || 'login');
+  syncGoogleButton();
   var first = qs(tab === 'signup' ? '#signupName' : '#loginEmail');
   if (first) first.focus();
 }
@@ -426,9 +427,11 @@ export async function boot(){
         if (await newPasswordModal()){ State.freshLogin = true; await startOnlineSession(current.user); }
         return;
       }
+      var viaGoogle = cameFromGoogle();
       if (current){
-        if (link && link.ok) State.freshLogin = true;   // entrou pelo link do e-mail
+        if ((link && link.ok) || viaGoogle) State.freshLogin = true;   // entrou pelo link do e-mail ou pelo Google
         await startOnlineSession(current.user);
+        if (viaGoogle){ toast('Bem-vindo(a), ' + State.session.name.split(' ')[0] + '!'); return; }
         if (link && link.ok && link.type === 'email_change') toast('Confirmação recebida. Se a troca pedir, confirme também pelo link enviado ao outro e-mail.');
         else if (link && link.ok) toast('E-mail confirmado! Bem-vindo(a) ao Grana Leve.');
         return;
@@ -436,6 +439,7 @@ export async function boot(){
     } catch(e){ toast('Sem conexão com o servidor. Verifique a internet.'); }
     renderTopbar();
     showView('viewLanding');
+    if (link && link.oauthError){ openAuth('login'); document.getElementById('googleError').textContent = 'Não foi possível entrar com o Google (' + link.oauthError + '). Tente de novo ou use e-mail e senha.'; return; }
     if (link && link.error){ await linkProblemModal(link); return; }
     if (link && link.ok) await linkDoneModal(link);
     return;
