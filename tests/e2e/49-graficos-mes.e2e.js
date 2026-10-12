@@ -50,6 +50,20 @@ L.run(async ({page}) => {
   await page.click('#dashNext'); await page.click('#dashNext'); await page.click('#dashNext'); await L.sleep(100);
   L.ok(await page.$eval('#barWrap .bar-group.sel', g => g.getAttribute('data-off')) === '0', 'o mês escolhido fica marcado nas barras');
 
+  L.section('Estilos do gráfico de categorias');
+  const style = async name => { await page.$eval('[data-donut-style="' + name + '"]', el => el.click()); await L.sleep(150); };
+  L.ok(await page.$eval('[data-donut-style="rosca"]', el => el.getAttribute('aria-pressed')) === 'true', 'rosca é o estilo de partida');
+  await style('pizza');
+  L.ok(await page.$$eval('#donutWrap .donut-seg.pie', e => e.length) >= 2 && /\d+%/.test(await txt('#donutWrap .donut-svg')) && /Total\s*R\$/.test(await txt('#donutWrap .donut-total')), 'pizza: fatias cheias com a porcentagem e o total');
+  await style('blocos');
+  L.ok(await page.$$eval('#donutWrap .tm-block', e => e.length) >= 2 && await page.$$eval('#donutWrap .tm-block', e => e.every(b => b.tabIndex === 0 && b.dataset.label && b.dataset.value)), 'blocos: um retângulo por categoria, com dica por teclado');
+  const areas = await page.$$eval('#donutWrap .tm-block', e => e.map(b => b.getBoundingClientRect()).map(r => r.width * r.height));
+  L.ok(areas[0] >= areas[areas.length - 1], 'o maior gasto ocupa o maior bloco');
+  L.ok(/Moradia/.test(await txt('#donutWrap .cat-rank')), 'o ranking continua abaixo, em qualquer estilo');
+  await L.reload(page); await L.tab(page, 'dashboard'); await page.click('#dashDetailsBtn'); await L.sleep(200);
+  L.ok(await page.$eval('[data-donut-style="blocos"]', el => el.getAttribute('aria-pressed')) === 'true', 'o estilo escolhido é lembrado');
+  await style('rosca');
+
   L.section('Tabela e celular');
   await page.click('[data-view-toggle="bar"]'); await L.sleep(150);
   L.ok(await page.$('#barWrap table.data-table') !== null, 'dá para ver como tabela');

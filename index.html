@@ -260,29 +260,6 @@
         </div>
         <div class="tiles-wrap" id="statTiles"></div>
 
-        <div class="card dash-collapse" id="invSplitCard" hidden>
-          <div class="card-head">
-            <h3><button type="button" class="collapse-toggle" data-collapse="invsplit" aria-expanded="false" aria-controls="invSplitBody"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg><span>Faturas do cartão: minha parte × outras pessoas</span></button></h3>
-            <button class="linklike" type="button" data-view-toggle="invsplit" hidden>Ver como tabela</button>
-          </div>
-          <p class="collapse-summary" id="invSplitSummary"></p>
-          <div class="collapse-body" id="invSplitBody" hidden>
-            <p class="card-sub">A próxima fatura de cada cartão. “Outras pessoas” são as compras que alguém vai te devolver e a parte dos outros nas compras divididas.</p>
-            <div id="invSplitWrap"></div>
-          </div>
-        </div>
-        <div class="card dash-collapse" id="creditDebitCard" hidden>
-          <div class="card-head">
-            <h3><button type="button" class="collapse-toggle" data-collapse="creditdebit" aria-expanded="false" aria-controls="creditDebitBody"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg><span>Crédito × débito por banco (neste mês)</span></button></h3>
-            <button class="linklike" type="button" data-view-toggle="creditdebit" hidden>Ver como tabela</button>
-          </div>
-          <p class="collapse-summary" id="creditDebitSummary"></p>
-          <div class="collapse-body" id="creditDebitBody" hidden>
-            <p class="card-sub">Quanto saiu de cada banco neste mês, até hoje: no cartão de crédito (pela data da compra) e da conta, por Pix ou débito. Inclui o que outras pessoas vão te devolver.</p>
-            <div id="creditDebitWrap"></div>
-          </div>
-        </div>
-
         <div class="dash-nav" id="dashNav" role="group" aria-label="Mês dos gráficos">
           <button type="button" class="dash-nav-btn" id="dashPrev" aria-label="Mês anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
           <div class="dash-nav-mid"><strong id="dashNavLabel"></strong><span class="dash-badge now" id="dashNavBadge"></span></div>
@@ -294,6 +271,11 @@
             <div class="card-head">
               <h3 id="donutTitle">Gastos por categoria</h3>
               <button class="linklike" type="button" data-view-toggle="donut">Ver como tabela</button>
+            </div>
+            <div class="segmented seg-sm donut-style" id="donutStyle" role="group" aria-label="Estilo do gráfico">
+              <button type="button" data-donut-style="rosca" aria-pressed="true">Rosca</button>
+              <button type="button" data-donut-style="pizza" aria-pressed="false">Pizza</button>
+              <button type="button" data-donut-style="blocos" aria-pressed="false">Blocos</button>
             </div>
             <div class="chart-wrap" id="donutWrap"></div>
           </div>
@@ -310,6 +292,25 @@
               </div>
             </div>
             <div class="chart-wrap" id="barWrap"></div>
+          </div>
+        </div>
+
+        <div class="dash-pair">
+          <div class="card split-card" id="invSplitCard" hidden>
+            <div class="card-head">
+              <h3 id="invSplitTitle">Faturas do cartão</h3>
+              <button class="linklike" type="button" data-view-toggle="invsplit">Ver como tabela</button>
+            </div>
+            <p class="card-sub" id="invSplitSub"></p>
+            <div id="invSplitWrap"></div>
+          </div>
+          <div class="card split-card" id="creditDebitCard" hidden>
+            <div class="card-head">
+              <h3 id="creditDebitTitle">Crédito × débito por banco</h3>
+              <button class="linklike" type="button" data-view-toggle="creditdebit">Ver como tabela</button>
+            </div>
+            <p class="card-sub" id="creditDebitSub"></p>
+            <div id="creditDebitWrap"></div>
           </div>
         </div>
 

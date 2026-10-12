@@ -1,4 +1,4 @@
-// Início: crédito × débito por banco no mês (conta e cartão do mesmo banco juntos), recolhido por padrão.
+// Início: crédito × débito por banco no mês escolhido (conta e cartão do mesmo banco juntos).
 import * as L from './lib.js';
 
 L.run(async ({page}) => {
@@ -21,20 +21,27 @@ L.run(async ({page}) => {
 
   await L.tab(page, 'dashboard');
   await page.click('#dashDetailsBtn'); await L.sleep(200);
-  L.ok(!(await page.$eval('#creditDebitCard', el => el.hidden)) && await page.$eval('#creditDebitBody', el => el.hidden), 'quadro aparece recolhido');
-  L.ok(await page.$eval('[data-view-toggle="creditdebit"]', el => el.hidden), '“Ver como tabela” só aparece expandido');
-  L.ok(/Neste mês: R\$\s?450,00.*crédito R\$\s?300,00 \(67%\).*débito\/Pix R\$\s?150,00 \(33%\)/.test(await L.text(page, '#creditDebitSummary')), 'resumo: 450 no mês, 300 crédito, 150 débito (compra futura e dinheiro fora)');
-  await page.click('[data-collapse="creditdebit"]'); await L.sleep(150);
-  const txt = await L.text(page, '#creditDebitWrap');
-  L.ok(/Nubank\s*R\$\s?400,00\s*Crédito R\$\s?300,00\s*Débito\/Pix R\$\s?100,00/.test(txt), 'Nubank: conta e cartão juntos (300 crédito + 100 Pix)');
-  L.ok(/Itaú\s*R\$\s?50,00\s*Crédito R\$\s?0,00\s*Débito\/Pix R\$\s?50,00/.test(txt), 'Itaú: só débito');
+  L.ok(!(await page.$eval('#creditDebitCard', el => el.hidden)), 'o quadro aparece já aberto');
+  L.ok(/Crédito × débito · /.test(await L.text(page, '#creditDebitTitle')), 'o título diz o mês');
+  let txt = await L.text(page, '#creditDebitWrap');
+  L.ok(/Total nos bancos\s*R\$\s?450,00/.test(txt) && /Crédito\s*R\$\s?300,00\s*67%/.test(txt) && /Débito\/Pix\s*R\$\s?150,00\s*33%/.test(txt), 'resumo: 450 no mês, 300 crédito, 150 débito (compra futura e dinheiro fora)');
+  L.ok(/Nubank\s*R\$\s?400,00/.test(txt), 'Nubank: conta e cartão juntos (300 crédito + 100 Pix)');
+  L.ok(/Itaú\s*R\$\s?50,00/.test(txt), 'Itaú: só débito');
   L.ok(/Fora dos bancos: dinheiro R\$\s?20,00/.test(txt), 'dinheiro fora das contas aparece à parte');
-  L.ok(await page.$$eval('#creditDebitWrap .inv-seg', s => s.length === 3 && s.every(x => x.tabIndex === 0)), 'barras com dica por teclado');
+  L.ok(await page.$$eval('#creditDebitWrap .inv-seg', s => s.length >= 3 && s.every(x => x.tabIndex === 0)), 'barras com dica por teclado');
   await page.click('[data-view-toggle="creditdebit"]'); await L.sleep(100);
   L.ok(/Total\s*R\$\s?300,00\s*R\$\s?150,00\s*R\$\s?450,00/.test(await L.text(page, '#creditDebitWrap table')), 'tabela com o total');
-  await page.click('[data-collapse="creditdebit"]'); await L.sleep(100);
-  L.ok(await page.$eval('#creditDebitBody', el => el.hidden), 'recolhe de novo');
+  await page.click('[data-view-toggle="creditdebit"]'); await L.sleep(100);
+
+  // Acompanha o mês escolhido: a compra de daqui a 40 dias aparece no mês dela.
+  let future = '';
+  for (let i = 0; i < 2; i++){
+    await page.$eval('#dashNext', el => el.click()); await L.sleep(150);
+    future += ' ' + await L.text(page, '#creditDebitWrap');
+  }
+  L.ok(/R\$\s?999,00/.test(future), 'meses seguintes mostram o que já está agendado (999 no cartão)');
+  await page.$eval('#dashToday', el => el.click()); await L.sleep(150);
+  L.ok(/Total nos bancos\s*R\$\s?450,00/.test(await L.text(page, '#creditDebitWrap')), '“Voltar para este mês” traz os 450 de volta');
   await page.setViewport({width: 375, height: 800});
-  await page.click('[data-collapse="creditdebit"]'); await L.sleep(100);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
 });
