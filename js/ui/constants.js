@@ -108,6 +108,7 @@ export var ONLINE_PAGES = {
         'Contato: github.com/arthurliraaa/grana-leve (aba Issues). Não escreva dados pessoais ou financeiros numa issue, porque ela é pública.') + '</p>' +
     '<h4>O que guardamos</h4>' +
     '<ul><li><strong>Conta:</strong> nome, e-mail e senha. A senha é protegida pelo serviço de login: ninguém consegue lê-la, nem a administração do app.</li>' +
+      '<li><strong>Entrar com o Google:</strong> o Google nos informa só o seu nome, e-mail e foto de perfil; não temos acesso à sua senha do Google, aos seus e-mails nem a outros dados da conta.</li>' +
       '<li><strong>O que você registra:</strong> lançamentos, contas, cartões, metas, dívidas, valores a receber (com o nome e, se você informar, o WhatsApp de quem te deve), compras divididas, contas fixas, histórico de pagamentos, previsões, planejamento e categorias.</li>' +
       '<li><strong>Neste aparelho:</strong> preferências como o tema e os avisos ficam só no seu navegador.</li></ul>' +
     '<h4>Para que usamos</h4>' +

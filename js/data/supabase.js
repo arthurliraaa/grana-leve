@@ -5,6 +5,7 @@
  * pública (anon), que sozinha não lê nada de ninguém.
  */
 import {uid} from '../domain/util.js';
+import {SUPABASE_URL, SUPABASE_ANON_KEY} from '../config.js';
 
 // Mensagens do Supabase Auth traduzidas para o que a pessoa entende. Cada regra olha o código do
 // erro (error.code, quando o servidor manda) e o texto em inglês. A primeira que bater vale.
@@ -100,6 +101,18 @@ export function createSupabaseStore(client, collections){
     },
     async signIn(email, password){ var token = await cap(); return check(await client.auth.signInWithPassword({email: email, password: password, options: {captchaToken: token}})); },
     async signOut(){ studyCode = undefined; await client.auth.signOut(); },
+    // Entrar com o Google: o navegador vai para o Google e volta ao app com ?code=, que o
+    // supabase-js troca pela sessão ao abrir (PKCE). Não usa captcha.
+    async signInWithGoogle(redirectTo){
+      return check(await client.auth.signInWithOAuth({provider: 'google', options: {redirectTo: redirectTo, queryParams: {prompt: 'select_account'}}}));
+    },
+    // O Google está ligado no painel do Supabase? (Authentication → Sign In / Providers)
+    async googleEnabled(){
+      try {
+        var res = await fetch(SUPABASE_URL + '/auth/v1/settings', {headers: {apikey: SUPABASE_ANON_KEY}});
+        return res.ok && !!((await res.json()).external || {}).google;
+      } catch(e){ return false; }
+    },
     async resetPassword(email, redirectTo){ var token = await cap(); return check(await client.auth.resetPasswordForEmail(email, {redirectTo: redirectTo, captchaToken: token})); },
     async updatePassword(password){ return check(await client.auth.updateUser({password: password})); },
     // Link do e-mail (modelos em supabase/templates): o token vem no endereço e só é usado aqui,

@@ -39,6 +39,7 @@ L.run(async ({page, errors}) => {
       path.includes('/rest/v1/') ? {status: 200, body: []} :
       path.includes(AUTH + 'logout') ? {status: 204, body: ''} :
       {status: 500, body: {msg: 'rota não simulada: ' + path}};
+    if (r.redirect) return req.respond({status: 302, headers: {location: L.BASE + '?code=cod-google'}});
     req.respond({status: r.status, headers: {...cors, 'content-type': 'application/json'}, body: typeof r.body === 'string' ? r.body : JSON.stringify(r.body)});
   });
   const err = (status, code, msg) => ({status, body: {code: status, error_code: code, msg}});
@@ -62,6 +63,7 @@ L.run(async ({page, errors}) => {
   L.ok(overlay.inert, 'o fundo fica inerte (o Tab não sai da janela)');
   L.ok(overlay.focus === 'loginEmail', 'o foco vai para o e-mail');
   L.ok(overlay.x, 'tem botão X para fechar');
+  L.ok(await page.$eval('#googleBox', el => el.hidden), 'Google desligado no Supabase: o botão não aparece');
   await page.click('#viewAuth [data-auth-close]'); await L.sleep(100);
   L.ok(await page.$eval('#viewAuth', el => el.hidden) && await page.evaluate(() => document.getElementById('viewLanding').closest('[inert]') === null), 'o X fecha e devolve a página');
   await page.click('.topbar [data-action="go-signup"]'); await L.sleep(100);
@@ -179,6 +181,24 @@ L.run(async ({page, errors}) => {
   await open('?token_hash=troca1&type=email_change');
   L.ok(await L.modalTitle(page) === 'Falta só mais uma confirmação' && /novo e-mail/.test(await L.text(page, '#modalRoot')), 'primeira confirmação da troca de e-mail explica o que falta');
   await L.closeModal(page);
+
+  L.section('Entrar com o Google');
+  replies['settings'] = {status: 200, body: {external: {google: true, email: true}}};
+  replies['authorize'] = (b, req) => ({redirect: req.url()});
+  replies['token'] = () => ({status: 200, body: session()});
+  let authorizeUrl = '';
+  page.on('request', req => { if (/\/auth\/v1\/authorize/.test(req.url())) authorizeUrl = req.url(); });
+  await open();
+  await page.click('.topbar [data-action="go-login"]'); await L.sleep(300);
+  L.ok(!(await page.$eval('#googleBox', el => el.hidden)), 'Google ligado: aparece “Continuar com o Google”');
+  await Promise.all([page.waitForNavigation({waitUntil: 'networkidle0'}).catch(() => {}), page.click('#googleBtn')]);
+  await L.sleep(600);
+  const au = new URL(authorizeUrl || 'http://x/');
+  L.ok(au.searchParams.get('provider') === 'google' && au.searchParams.get('redirect_to') === L.BASE && au.searchParams.get('code_challenge'), 'vai para o Google com retorno ao app (PKCE)');
+  await page.waitForSelector('#viewApp:not([hidden])', {timeout: 5000}).catch(() => {});
+  L.ok(!(await page.$eval('#viewApp', el => el.hidden)) && /Bem-vindo\(a\), Ana/.test(await L.allToasts(page)), 'na volta, a conta abre e dá boas-vindas');
+  L.ok(!/code=/.test(await page.evaluate(() => location.href)), 'o código sai do endereço');
+  L.ok(calls.some(c => c.path.endsWith('/token') && c.body && c.body.auth_code === 'cod-google'), 'troca o código pela sessão');
 
   // Erros de rede/servidor simulados de propósito não contam como erro de JavaScript.
   errors.splice(0, errors.length, ...errors.filter(e => !/status of (4\d\d|500)|AuthApiError|AuthWeakPasswordError/i.test(e)));

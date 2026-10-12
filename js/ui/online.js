@@ -33,6 +33,10 @@ export async function handleEmailLink(){
   // Formato antigo do link de senha (#access_token=...&type=recovery): o Supabase já abriu a sessão.
   if (!tokenHash && !failed && h.get('access_token') && type === 'recovery'){ history.replaceState(null, '', siteUrl()); return {ok: true, type: 'recovery'}; }
   if (!tokenHash && !failed) return null;
+  if (failed && !tokenHash && !type && (function(){ try { return sessionStorage.getItem(OAUTH_FLAG) === 'google'; } catch(e){ return false; } })()){
+    history.replaceState(null, '', siteUrl());
+    return {oauthError: q.get('error_description') || h.get('error_description') || 'acesso negado'};
+  }
   history.replaceState(null, '', siteUrl());   // o token não fica no endereço nem no histórico
   if (failed || !type) return {error: true, type: type};
   try { await Store.verifyEmailLink(tokenHash, type); return {ok: true, type: type}; }
@@ -221,6 +225,29 @@ export function track(event, field, minIntervalMs){
   Store.track(event, field);
 }
 
+// Entrar com o Google: aparece só se o Google estiver ligado no Supabase (consulta uma vez).
+var googleCheck = null;
+export function syncGoogleButton(){
+  var box = document.getElementById('googleBox');
+  if (Store.mode !== 'supabase' || !Store.googleEnabled){ box.hidden = true; return; }
+  if (!googleCheck) googleCheck = Store.googleEnabled();
+  googleCheck.then(function(on){ box.hidden = !on; });
+}
+var OAUTH_FLAG = 'granaleve_oauth';
+async function startGoogle(){
+  var err = document.getElementById('googleError');
+  err.textContent = '';
+  try { sessionStorage.setItem(OAUTH_FLAG, 'google'); } catch(e){ /* sem sessionStorage: só não mostra o boas-vindas */ }
+  try { await Store.signInWithGoogle(siteUrl()); }   // o navegador sai para o Google
+  catch(e){ try { sessionStorage.removeItem(OAUTH_FLAG); } catch(x){ /* nada */ } err.textContent = authMessage(e.cause || e); }
+}
+// Volta do Google: true se o app abriu por aí (e limpa a marca).
+export function cameFromGoogle(){
+  var v = null;
+  try { v = sessionStorage.getItem(OAUTH_FLAG); sessionStorage.removeItem(OAUTH_FLAG); } catch(e){ /* nada */ }
+  return v === 'google';
+}
+
 // Mensagem de “confirme seu e-mail” no login: botão para pedir o link de novo.
 function offerResend(errEl, email){
   var b = document.createElement('button');
@@ -238,6 +265,7 @@ function offerResend(errEl, email){
 export function wireAuth(){
   qsa('[data-authtab]').forEach(function(b){ b.addEventListener('click', function(){ showAuthTab(b.getAttribute('data-authtab')); }); });
   document.getElementById('forgotBtn').addEventListener('click', function(){ forgotPassword(); });
+  document.getElementById('googleBtn').addEventListener('click', startGoogle);
   document.getElementById('signupPwRulesWrap').innerHTML = passwordRulesHtml('signupPwRules');
   wirePasswordRules(document.getElementById('signupPassword'), document.getElementById('signupPwRules'));
 

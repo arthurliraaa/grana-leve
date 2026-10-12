@@ -184,6 +184,14 @@ input, select{ font: inherit; }
 .auth-head h2{ font-size:1.08rem; }
 .auth-head .modal-x{ margin-right:-8px; }
 body.auth-open{ overflow:hidden; }
+/* Entrar com o Google (botão branco com o “G”, como pede a marca). */
+.oauth-box{ display:grid; gap:10px; }
+.btn-google{ background:#fff; color:#1f1f1f; border:1px solid #dadce0; font-weight:600; gap:10px; }
+.btn-google:hover{ background:#f6f8fb; }
+.btn-google .g-logo{ width:18px; height:18px; flex:none; }
+.oauth-box .form-error:empty{ display:none; }
+.oauth-or{ display:flex; align-items:center; gap:10px; margin:0; font-size:.78rem; color: var(--text-muted); }
+.oauth-or::before, .oauth-or::after{ content:''; flex:1; height:1px; background: var(--border); }
 .link-tips{ display:grid; gap:6px; }
 @media (prefers-reduced-motion: no-preference){
   .auth-overlay:not([hidden]){ animation: fadeIn .18s ease-out both; }
