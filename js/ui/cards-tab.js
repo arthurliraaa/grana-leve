@@ -146,13 +146,21 @@ export function renderWalletSummary(){
   var cash = State.accounts.length ? totalAccountsBalance() : null;
   var next = inv.toPay[0];
   function box(label, value, sub, cls){ return '<div class="ws-box"><span class="tile-lbl">' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>'; }
-  // Faturas: em destaque o que falta pagar; o total da fatura (e o que já foi pago) fica menor.
-  function totalNote(t, paid){ return t > 0 ? 'total ' + fmtMoney(t) + (paid > 0 ? ' · pago ' + fmtMoney(paid) : '') : ''; }
+  // Três caixas que se leem como uma conta: o que há nas contas − o que falta nas faturas = o que sobra.
   var rest = money(inv.toPayLeft + inv.openLeft), after = cash === null ? 0 : money(cash - rest);
-  el.innerHTML = (cash !== null ? box('Nas contas', cash, State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta'), cash < 0 ? 'neg-text' : '') : '') +
-    (State.cards.length ? box('Faturas fechadas a pagar', inv.toPayLeft, next ? [(next.status === 'vencida' ? 'venceu ' : 'vence ') + formatDateBr(next.due) + ' · ' + escapeHtml(next.card.name), totalNote(inv.toPayTotal, inv.toPayPaid)].filter(Boolean).join('<br>') : 'nenhuma fechada') +
-      box('Fatura aberta: falta', inv.openLeft, [totalNote(inv.openTotal, inv.openPaid), 'ainda recebe compras'].filter(Boolean).join('<br>')) : '') +
-    (cash !== null && State.cards.length ? box('Sobra depois de pagar', after, 'contas − tudo o que falta das faturas (' + fmtMoney(rest) + ')', after < 0 ? 'neg-text' : '') : '');
+  function parts(){
+    var l = [];
+    if (inv.toPayLeft > 0 || inv.toPay.length) l.push('Fechadas: ' + fmtMoney(inv.toPayLeft) + (next ? ' (' + (next.status === 'vencida' ? 'venceu ' : 'vence ') + formatDateBr(next.due) + ')' : ''));
+    l.push('Aberta: ' + fmtMoney(inv.openLeft));
+    return l.join('<br>');
+  }
+  var showCards = State.cards.length > 0;
+  el.innerHTML = '<div class="ws-eq">' +
+    (cash !== null ? box('Nas contas', cash, State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta'), cash < 0 ? 'neg-text' : '') : '') +
+    (showCards ? (cash !== null ? '<span class="ws-op" aria-hidden="true">−</span>' : '') + box('Faturas a pagar', rest, parts()) : '') +
+    (cash !== null && showCards ? '<span class="ws-op" aria-hidden="true">=</span>' + box('Sobra depois de pagar', after, fmtMoney(cash) + ' − ' + fmtMoney(rest), after < 0 ? 'neg-text' : '') : '') +
+    '</div>' +
+    (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas fechadas e da aberta (o que você já pagou ou adiantou não entra). A fatura aberta ainda recebe compras, então esse valor pode crescer.</p>' : '');
 }
 // Cartões aparecem dentro do bloco do banco (renderBanks, em accounts-tab.js).
 export function renderCards(){

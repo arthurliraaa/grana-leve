@@ -14,7 +14,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'cartoes');
   const sum = await L.text(page, '#walletSummary');
   L.ok(/Nas contas\s*R\$\s?1\.500,00/.test(sum), 'resumo: dinheiro nas contas');
-  L.ok(/Faturas fechadas a pagar\s*R\$\s?200,00/.test(sum) && /Sobra depois de pagar\s*R\$\s?1\.300,00/.test(sum), 'resumo: faturas a pagar e quanto sobra');
+  L.ok(/Faturas a pagar\s*R\$\s?200,00\s*Fechadas: R\$\s?200,00/.test(sum) && /Sobra depois de pagar\s*R\$\s?1\.300,00\s*R\$\s?1\.500,00 − R\$\s?200,00/.test(sum), 'resumo: faturas a pagar e quanto sobra');
   L.ok(/paga com Nubank/i.test(await L.text(page, '#bankList')), 'cartão Nubank sugere pagar com a conta Nubank (mesmo banco)');
 
   L.section('Pagar a fatura');
@@ -33,7 +33,7 @@ L.run(async ({page}) => {
   await page.click('#bankList [data-inv-paid]'); await L.sleep(200);
   L.ok(await page.$eval('#ipAcc', el => el.value) === itau.id, 'e vem marcada ao pagar');
   await L.submitModal(page); await L.sleep(300);
-  L.ok(/Faturas fechadas a pagar\s*R\$\s?0,00/.test(await L.text(page, '#walletSummary')) && /Nas contas\s*R\$\s?1\.300,00/.test(await L.text(page, '#walletSummary')), 'resumo atualiza ao pagar');
+  L.ok(/Faturas a pagar\s*R\$\s?0,00/.test(await L.text(page, '#walletSummary')) && /Nas contas\s*R\$\s?1\.300,00/.test(await L.text(page, '#walletSummary')), 'resumo atualiza ao pagar');
 
   L.section('Atalhos');
   await page.click('[data-jump="secVouchers"]'); await L.sleep(400);
