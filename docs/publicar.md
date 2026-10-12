@@ -176,4 +176,4 @@ consegue entrar; com a Site Key no app e o captcha desligado no Supabase, nada m
 ## Contato da política de privacidade
 
 Em `js/config.js`, `CONTACT_EMAIL` é o e-mail para pedidos sobre dados pessoais (LGPD). Use um
-e-mail do projeto. Vazio, a política aponta para o GitHub do projeto (público).
+e-mail do projeto (contato.granaleve@gmail.com). Ele aparece em Contato, na política de privacidade e no termo da pesquisa.

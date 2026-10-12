@@ -106,6 +106,8 @@ export function createSupabaseStore(client, collections){
     async signInWithGoogle(redirectTo){
       return check(await client.auth.signInWithOAuth({provider: 'google', options: {redirectTo: redirectTo, queryParams: {prompt: 'select_account'}}}));
     },
+    // Guarda o aceite dos termos na conta (metadados do usuário).
+    async saveTerms(terms){ return check(await client.auth.updateUser({data: {terms: terms}})); },
     // O Google está ligado no painel do Supabase? (Authentication → Sign In / Providers)
     async googleEnabled(){
       try {

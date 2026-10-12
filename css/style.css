@@ -1366,3 +1366,18 @@ details.research-optin{ padding:0; gap:0; }
 .research-body{ display:grid; gap:8px; padding:0 14px 12px; }
 #signupForm .stack{ gap:12px; }
 .storage-local p strong{ display:inline; }
+
+/* Ajuda e sugestões em destaque: botão cheio no menu lateral e no “Mais” do celular. */
+.help-cta{ width:100%; margin-top:6px; gap:8px; justify-content:center; box-shadow: 0 8px 18px -10px color-mix(in srgb, var(--brand) 80%, black); }
+.help-cta .ico{ width:18px; height:18px; }
+.more-item.help-item{ grid-column: 1 / -1; background: var(--brand); color: var(--on-brand); border-color: var(--brand); justify-content:center; font-weight:700; }
+.more-item.help-item .ico{ color: inherit; }
+
+/* Termos no cadastro e na janela de aceite. */
+.terms-check{ align-items:flex-start; font-size:.84rem; line-height:1.45; }
+.terms-check .linklike{ display:inline; padding:0; font-size:inherit; }
+.oauth-hint{ margin:0; text-align:center; }
+.term-peek{ border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:.84rem; }
+.term-peek > summary{ cursor:pointer; font-weight:600; color: var(--brand); }
+.term-peek[open] > summary{ margin-bottom:8px; }
+.term-peek .term{ max-height:220px; overflow:auto; }
