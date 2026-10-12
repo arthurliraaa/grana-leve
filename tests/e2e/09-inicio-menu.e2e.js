@@ -73,7 +73,7 @@ L.run(async ({page}) => {
   L.ok((await page.$$eval('#goalGrid .goal-card h4', els => els.map(e => e.textContent)))[0] === 'Reserva de emergência', 'metas: urgente primeiro');
   d = await L.db(page);
   const viagem = d.goals.find(g => g.name === 'Viagem');
-  await page.click('[data-goal-edit="' + viagem.id + '"]'); await L.sleep(150);
+  await L.menuAction(page, '[data-goal-edit="' + viagem.id + '"]'); await L.sleep(150);
   L.ok(await page.$eval('#egUrgency', el => el.value) === 'media', 'editar meta mostra a urgência');
   await L.setVal(page, '#egUrgency', 'alta');
   await L.submitModal(page);

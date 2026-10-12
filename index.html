@@ -52,6 +52,7 @@
     <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6.5 8h11v3a5.5 5.5 0 0 1-11 0zM12 16.5V21"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></symbol>
     <symbol id="i-trend-down" viewBox="0 0 24 24"><path d="M3 7l6.5 6.5 4-4L21 17M21 11v6h-6"/></symbol>
+    <symbol id="i-trend-up" viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
     <symbol id="i-palette" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2-1 1.6-2.1-.5-1.3.3-2.4 1.7-2.4h2.2A3 3 0 0 0 20.5 13 8.5 8.5 0 0 0 12 3.5z"/><path d="M8 10.5h.01M11.5 7.5h.01M15.5 9h.01"/></symbol>
   </defs>
@@ -507,6 +508,7 @@
             <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" maxlength="50" required placeholder="Ex: viagem, reserva de emergência"></div>
             <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
             <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
+            <div class="field"><label for="goalYield">Rendimento ao ano <span class="opt">(opcional)</span></label><span class="money-input"><input id="goalYield" type="text" inputmode="decimal" autocomplete="off" maxlength="6" placeholder="Ex: 10"><span>%</span></span></div>
             <div class="field"><label for="goalReminder">Me avise em</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field"><label for="goalUrgency">Urgência</label><select id="goalUrgency" data-urgency-options></select></div>
             <div class="field f-submit"><label for="goalNote">Observação (opcional)</label><textarea id="goalNote" rows="2" maxlength="300" placeholder="Ex: guardar R$ 100 todo dia 5"></textarea></div>
