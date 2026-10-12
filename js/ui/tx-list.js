@@ -24,17 +24,18 @@ import {PAYMENT_LABELS} from './constants.js';
 import {paymentLabel, txRowHtml} from './home-tab.js';
 import {renderBudgets} from './planning-tab.js';
 import {renderAll, showTab} from './shell.js';
-import {State, catLabel, catOptions, categoryNameProblem, expandInstallments, expenseCats, forecastOccurrences, incomeCats, installHint, invoiceStatus, k, maxTxMonthOffset, txForMonth, voucherOf} from './state.js';
+import {State, catLabel, categoryNameProblem, categorySelectHtml, wireCategorySuggestion, expandInstallments, expenseCats, forecastOccurrences, incomeCats, installHint, invoiceStatus, k, maxTxMonthOffset, txForMonth, voucherOf} from './state.js';
 import {manageCategories, openTxModal, saveTransactions} from './tx-edit.js';
 
 /* ---------- Ganhos e gastos ---------- */
 export function currentTxType(){ return qs('#typeToggle button.active').getAttribute('data-type'); }
 
+var resetTxCatSuggestion = function(){};
 export function populateCategorySelect(selected){
   var sel = document.getElementById('txCategory');
-  var list = currentTxType() === 'income' ? incomeCats() : expenseCats();
-  sel.innerHTML = optionsHtml(catOptions(list), selected) + '<option value="__new">+ Nova categoria…</option>';
-  if (!selected) sel.value = list[0].id;
+  var c = categorySelectHtml(currentTxType(), selected, true);
+  sel.innerHTML = c.html;
+  if (!selected){ sel.value = c.first; resetTxCatSuggestion(); }
 }
 // Formas de pagamento de um gasto (usadas no formulário da aba e no popup de lançamento).
 export function paymentOptions(){
@@ -228,9 +229,13 @@ export async function addLinkedReceivable(person, total, parts, tx, description,
 export function populateTxFilters(){
   var cat = document.getElementById('txFilterCat'), pay = document.getElementById('txFilterPay');
   var pc = cat.value || 'all', pp = pay.value || 'all';
+  // Só as categorias que têm lançamentos (e a escolhida agora), para a lista não ficar enorme.
+  var usedExp = {}, usedInc = {};
+  State.transactions.forEach(function(t){ (t.type === 'income' ? usedInc : usedExp)[t.category] = true; });
+  usedExp[pc] = usedInc[pc] = true;
   cat.innerHTML = optionsHtml([{id: 'all', label: 'Todas as categorias'}].concat(
-    expenseCats().map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label}; }),
-    incomeCats().map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label + ' (ganho)'}; })), pc);
+    expenseCats().filter(function(c){ return usedExp[c.id]; }).map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label}; }),
+    incomeCats().filter(function(c){ return usedInc[c.id]; }).map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label + ' (ganho)'}; })), pc);
   if (cat.value !== pc) cat.value = 'all';
   pay.innerHTML = optionsHtml([{id: 'all', label: 'Qualquer pagamento'}, {id: 'conta', label: 'Dinheiro, Pix ou débito'}, {id: 'cartao', label: 'Cartão de crédito'}, {id: 'vale', label: 'Vale'}].concat(
     State.accounts.map(function(a){ return {id: 'acc:' + a.id, label: 'Conta ' + a.name}; }),
@@ -269,6 +274,9 @@ export function setTxView(v){
 }
 export function renderTransactionsTab(){
   populateTxFilters();
+  // A ordem das categorias acompanha os lançamentos; com o formulário vazio, volta para a mais usada.
+  var pristine = !document.getElementById('txAmount').value && !document.getElementById('txDesc').value.trim() && !document.getElementById('txCategory').dataset.chosen;
+  populateCategorySelect(pristine ? undefined : document.getElementById('txCategory').value);
   var view = State.txView || 'list';
   var mb = monthBounds(State.txMonthOffset);
   document.getElementById('txMonthLabel').textContent = view === 'year' ? mb.key.slice(0, 4) : mb.label;
@@ -442,6 +450,7 @@ export function wireTransactions(){
     populateCategorySelect();
     syncTxFormVisibility();
   });
+  resetTxCatSuggestion = wireCategorySuggestion(document.getElementById('txDesc'), document.getElementById('txCategory'), document.getElementById('txCatHint'), currentTxType);
   document.getElementById('txCategory').addEventListener('change', async function(e){
     if (e.target.value !== '__new') return;
     var id = await createCategory(currentTxType());

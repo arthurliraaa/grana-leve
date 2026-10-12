@@ -95,6 +95,12 @@ function findCategory(text, table){
   return best;
 }
 
+// Categoria pelas palavras de um texto ("mercado" -> alimentacao). Retorna o id ou ''.
+export function categoryFromText(text, type){
+  var c = findCategory(norm(text), type === 'income' ? INCOME_KEYWORDS : EXPENSE_KEYWORDS);
+  return c ? c.id : '';
+}
+
 function findPayment(text){
   if (/\b(no |do |com o |pelo )?cart[aã]o\b|\bcr[eé]dito\b|\bparcel|\b\d{1,2}\s*x\b/.test(text)) return 'cartao';
   if (/\b(vale|vr|va|ticket|alelo|sodexo|flash)\b/.test(text)) return 'vale';

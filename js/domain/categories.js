@@ -55,3 +55,44 @@ export function categoryNameProblem(name, type, custom, exceptId){
   if (catsOfType(type, custom).some(function(c){ return c.id !== exceptId && c.label.toLowerCase() === lower; })) return 'Já existe uma categoria com esse nome.';
   return '';
 }
+
+// Uso das categorias nos lançamentos de um tipo (ganho ou gasto) desde sinceKey ('AAAA-MM-DD'):
+// {id: {count, last}}. Estornos e lançamentos fora dos totais não contam.
+export function categoryUsage(transactions, type, sinceKey){
+  var out = {};
+  (transactions || []).forEach(function(t){
+    if (t.type !== type || !t.category || t.reversal || t.outsideTotals || (sinceKey && t.date < sinceKey)) return;
+    var u = out[t.category] || (out[t.category] = {count: 0, last: ''});
+    u.count++;
+    if (t.date > u.last) u.last = t.date;
+  });
+  return out;
+}
+// Categorias separadas em "mais usadas" (até max, da mais usada para a menos) e "outras" (na ordem
+// de sempre). Sem histórico, tudo fica em "outras".
+export function splitByUsage(list, usage, max){
+  var used = list.filter(function(c){ return usage[c.id]; }).sort(function(a, b){
+    return usage[b.id].count - usage[a.id].count || usage[b.id].last.localeCompare(usage[a.id].last);
+  }).slice(0, max || 6);
+  return {used: used, others: list.filter(function(c){ return used.indexOf(c) < 0; })};
+}
+function plainText(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+// Categoria sugerida para uma descrição: a que a pessoa mais usou com a mesma descrição (ou começando
+// igual, como "mercado" e "mercado da semana"); senão, uma palavra conhecida (keywordCat(texto)).
+// Retorna o id ou ''. validIds limita às categorias que ainda existem.
+export function suggestCategory(description, type, transactions, validIds, keywordCat){
+  var d = plainText(description);
+  if (d.length < 3) return '';
+  var counts = {};
+  (transactions || []).forEach(function(t){
+    if (t.type !== type || !t.category || t.reversal || validIds.indexOf(t.category) < 0) return;
+    var past = plainText(t.installment ? t.installment.baseDescription : t.description);
+    if (!past) return;
+    var score = past === d ? 3 : (past.indexOf(d) === 0 || d.indexOf(past) === 0) && Math.min(past.length, d.length) >= 4 ? 1 : 0;
+    if (score) counts[t.category] = (counts[t.category] || 0) + score;
+  });
+  var best = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a]; })[0];
+  if (best) return best;
+  var k = keywordCat ? keywordCat(description) : '';
+  return k && validIds.indexOf(k) >= 0 ? k : '';
+}

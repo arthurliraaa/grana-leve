@@ -328,7 +328,7 @@
               <div class="field amount-field"><label for="txAmount">Valor</label><span class="money-input money-xl"><span>R$</span><input id="txAmount" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00" required></span></div>
               <div class="field"><label for="txDesc">O que foi? <span class="opt">(opcional)</span></label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             </div>
-            <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select></div>
+            <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select><span class="field-hint" id="txCatHint" hidden></span></div>
             <div class="field"><label for="txDate">Data</label><input id="txDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
             <div class="field f-half" id="txPaymentField"><label for="txPayment">Como você pagou?</label><select id="txPayment"></select></div>
             <div class="field f-half" id="txAccountField" hidden><label for="txAccount">Onde o dinheiro entrou?</label><select id="txAccount"></select></div>

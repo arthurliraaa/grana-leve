@@ -404,6 +404,12 @@ button{ font: inherit; cursor: pointer; }
 
 /* Limites */
 .budget-details summary{ cursor:pointer; font-size:.8rem; color: var(--brand); font-weight:600; }
+/* Planejar: categorias sem uso recente ficam recolhidas. */
+.budget-more{ border-top:1px dashed var(--border); padding-top:10px; }
+.budget-more > summary{ cursor:pointer; font-size:.84rem; color: var(--text-secondary); padding:4px 0; }
+.budget-more > summary:hover{ color: var(--text-primary); }
+.budget-more[open] > summary{ margin-bottom:8px; }
+.budget-more > .budget-row + .budget-row{ margin-top:12px; }
 .budget-details[open] summary{ margin-bottom:4px; }
 .budget-details .tx-row{ padding:6px 0; }
 

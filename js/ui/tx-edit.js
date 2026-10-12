@@ -18,7 +18,7 @@ import {openModal} from './modal.js';
 import {openQuickEntry} from './chat.js';
 import {paymentLabel} from './home-tab.js';
 import {renderAll} from './shell.js';
-import {State, accountName, budgetLimit, catBadge, catLabel, catOptions, categoryNameProblem, expandInstallments, expenseCategoryTotals, expenseCats, incomeCats, installmentGroups, invoiceStatus, k, sortTransactions} from './state.js';
+import {State, accountName, budgetLimit, catBadge, catLabel, catOptions, categoryNameProblem, categorySelectHtml, wireCategorySuggestion, expandInstallments, expenseCategoryTotals, expenseCats, incomeCats, installmentGroups, invoiceStatus, k, sortTransactions} from './state.js';
 import {accountSelectHtml, addCategory, applyPayment, cardIdOf, installExtrasHtml, installStepperHtml, installSummary, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
 
 /* ---------- Popup de lançamento (botão + e edição) ---------- */
@@ -28,7 +28,7 @@ export function txModalBody(t, isEdit){
   function typeBtn(id, label){ return '<button type="button" data-type="' + id + '"' + (type === id ? ' class="active"' : '') + (inst ? ' disabled' : '') + '>' + label + '</button>'; }
   return '<div class="type-toggle" id="mType" role="group" aria-label="Tipo de lançamento">' + typeBtn('expense', 'Gasto') + typeBtn('income', 'Ganho') + '</div>' +
     '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (t.amount || '') + '"></span></div>' +
-    '<div class="field"><label for="mCategory">Categoria</label><select id="mCategory" name="category"></select></div>' +
+    '<div class="field"><label for="mCategory">Categoria</label><select id="mCategory" name="category"></select><span class="field-hint" id="mCatHint" hidden></span></div>' +
     '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
     '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
     '<div class="field" id="mPayField"><label for="mPay">Forma de pagamento</label><select id="mPay" name="pay"' + (inst ? ' disabled' : '') + '></select></div>' +
@@ -54,11 +54,13 @@ export async function openTxModal(t){
       var catSel = qs('#mCategory', modal), paySel = qs('#mPay', modal), instSel = qs('#mInstall', modal);
       function syncNewCat(){ qs('#mNewCatField', modal).hidden = catSel.value !== '__new'; }
       function fillCats(selected){
-        var list = mType === 'income' ? incomeCats() : expenseCats();
-        catSel.innerHTML = optionsHtml(catOptions(list), selected) + '<option value="__new">+ Nova categoria…</option>';
-        if (!findById(list, selected)) catSel.value = list[0].id;
+        var list = mType === 'income' ? incomeCats() : expenseCats(), c = categorySelectHtml(mType, selected, true);
+        catSel.innerHTML = c.html;
+        if (!findById(list, selected)) catSel.value = c.first;
         syncNewCat();
       }
+      // Lançamento novo: a categoria acompanha a descrição até a pessoa escolher outra.
+      var resetSuggestion = isEdit ? null : wireCategorySuggestion(qs('#mDesc', modal), catSel, qs('#mCatHint', modal), function(){ return mType; });
       function fillInstall(){
         if (instSel) qs('#mInstallHint', modal).textContent = installSummary(modal, 'mIx', clampInstall(instSel.value), money(qs('#mAmount', modal).value),
           qs('#mDate', modal).value, cardIdOf(paySel.value));
@@ -81,6 +83,7 @@ export async function openTxModal(t){
         mType = b.getAttribute('data-type');
         qsa('button', qs('#mType', modal)).forEach(function(x){ x.classList.toggle('active', x === b); });
         fillCats(); sync();
+        if (resetSuggestion){ resetSuggestion(); qs('#mDesc', modal).dispatchEvent(new Event('input')); }
       });
       catSel.addEventListener('change', syncNewCat);
       paySel.addEventListener('change', function(){
