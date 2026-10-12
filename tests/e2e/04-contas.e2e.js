@@ -125,8 +125,7 @@ L.run(async ({page}) => {
   L.ok(await bal('Itaú') === 800 && await bal('Nubank') === 900, '“Não descontar de nenhuma conta” marca paga sem mexer em saldo');
 
   L.section('Editar conta: nome e ajuste de saldo');
-  await page.$eval('[data-acc-edit="' + nu.id + '"]', el => el.scrollIntoView({block: 'center'}));
-  await page.click('[data-acc-edit="' + nu.id + '"]'); await L.sleep(150);
+    await L.menuAction(page, '[data-acc-edit="' + nu.id + '"]'); await L.sleep(150);
   L.ok(await page.$eval('#eaBalance', el => el.value) === '900', 'popup traz o saldo atual');
   await page.$eval('#eaName', el => { el.value = ''; });
   await page.type('#eaName', 'Nubank PF');
@@ -179,7 +178,7 @@ L.run(async ({page}) => {
   L.ok(await bal('Itaú') === 730, 'Itaú: −100 da dívida +80 da Bia (730)');
 
   L.section('Excluir conta');
-  await page.click('[data-acc-del="' + it.id + '"]'); await L.sleep(150);
+  await L.menuAction(page, '[data-acc-del="' + it.id + '"]'); await L.sleep(150);
   await L.submitModal(page);
   d = await L.db(page);
   L.ok(d.accounts.length === 1 && d.transactions.some(t => t.accountId === it.id), 'conta excluída, lançamentos continuam');

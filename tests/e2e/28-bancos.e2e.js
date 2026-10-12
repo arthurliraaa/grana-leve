@@ -66,7 +66,7 @@ L.run(async ({page}) => {
   L.ok(b.find(x => x.name === 'Caixa').acc && b.find(x => x.name === 'Caixa').cards === 1, 'conta e cartão antigos do mesmo banco aparecem juntos');
 
   L.section('Excluir a conta mantém o cartão');
-  await page.click('[data-acc-del="' + itau.id + '"]'); await L.sleep(150);
+  await L.menuAction(page, '[data-acc-del="' + itau.id + '"]'); await L.sleep(150);
   await L.submitModal(page); await L.sleep(300);
   b = await blocks();
   L.ok(b.find(x => x.name === 'Itaú') && !b.find(x => x.name === 'Itaú').acc && b.find(x => x.name === 'Itaú').cards === 1, 'cartão do Itaú continua, agora como “só cartão”');

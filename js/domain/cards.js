@@ -10,7 +10,7 @@
  *   (partialPayment/carryIns). Só os juros contam como gasto novo.
  */
 import {parseDate, pad2, daysInMonth, toDateKey, monthLabelOf, shiftMonthKey} from './dates.js';
-import {sumMoney, splitAmount} from './money.js';
+import {money, sumMoney, splitAmount} from './money.js';
 
 export function invoiceKeyFor(dateStr, card){
   var d = parseDate(dateStr);
@@ -86,6 +86,13 @@ export function invoiceDueTotal(list, card, key){
   return sumMoney([sumMoney(invoiceItems(list, card, key).filter(function(t){ return !(t.installment && t.installment.settled); }), function(t){ return t.amount; }), carryTotal(card, key)]);
 }
 export function invoiceTotal(list, card, key){ return sumMoney([sumMoney(invoiceItems(list, card, key), function(t){ return t.amount; }), carryTotal(card, key)]); }
+// Pagamentos adiantados de uma fatura que continua aberta (ou fechada, à espera do resto):
+// invoiceAdvances[key] = [{id, date, amount, accountId, createdAt}]. Saem da conta escolhida e
+// liberam limite; a fatura só fica "paga" quando a pessoa paga o que falta.
+export function invoiceAdvances(card, key){ return ((card.invoiceAdvances || {})[key] || []).slice(); }
+export function invoiceAdvanced(card, key){ return sumMoney(invoiceAdvances(card, key), function(a){ return a.amount; }); }
+// O que ainda falta pagar da fatura (nunca negativo).
+export function invoiceLeft(list, card, key){ return money(Math.max(0, invoiceDueTotal(list, card, key) - invoiceAdvanced(card, key))); }
 // Faturas que têm algo: compras ou saldo vindo de faturas anteriores.
 export function invoiceKeys(list, card){
   var keys = {};
@@ -105,10 +112,11 @@ export function invoiceStatus(card, key, today){
   if (today >= d.closing) return 'fechada'; // no dia do fechamento ela já não recebe compras
   return 'aberta';
 }
-// Limite usado = soma das faturas ainda não pagas (inclui parcelas futuras, que já ocupam o limite).
+// Limite usado = o que falta pagar das faturas ainda não pagas (inclui parcelas futuras, que já
+// ocupam o limite; o que foi adiantado libera limite).
 export function cardUsed(list, card, today){
   return sumMoney(invoiceKeys(list, card).filter(function(key){ return invoiceStatus(card, key, today) !== 'paga'; }), function(key){
-    return invoiceDueTotal(list, card, key);
+    return invoiceLeft(list, card, key);
   });
 }
 
@@ -121,11 +129,15 @@ export function invoicesSummary(list, cards, today){
       var status = invoiceStatus(card, key, today);
       var total = invoiceDueTotal(list, card, key);
       if (!(total > 0) || status === 'paga') return;
-      var item = {card: card, key: key, total: total, due: invoiceDates(key, card).due, status: status};
+      var paid = invoiceAdvanced(card, key);
+      var item = {card: card, key: key, total: total, paid: paid, left: money(Math.max(0, total - paid)), due: invoiceDates(key, card).due, status: status};
       if (status === 'fechada' || status === 'vencida') toPay.push(item);
       else if (key === invoiceKeyFor(today, card)) open.push(item);
     });
   });
   toPay.sort(function(a, b){ return a.due.localeCompare(b.due); });
-  return {toPay: toPay, open: open, toPayTotal: sumMoney(toPay, function(i){ return i.total; }), openTotal: sumMoney(open, function(i){ return i.total; })};
+  function total(l, f){ return sumMoney(l, function(i){ return i[f]; }); }
+  // *Total: valor das faturas; *Left: o que ainda falta pagar delas (sem o que foi adiantado).
+  return {toPay: toPay, open: open, toPayTotal: total(toPay, 'total'), openTotal: total(open, 'total'),
+    toPayLeft: total(toPay, 'left'), openLeft: total(open, 'left'), toPayPaid: total(toPay, 'paid'), openPaid: total(open, 'paid')};
 }
