@@ -39,7 +39,7 @@ export function renderPeopleList(){
 }
 // Botão "Mais" com as ações menos usadas (editar, excluir...), para os cartões não ficarem lotados.
 export function moreMenu(items){
-  return '<details class="more-menu"><summary class="btn btn-ghost btn-sm" title="Mais ações">' + icon('more') + '<span class="sr-only">Mais ações</span></summary>' +
+  return '<details class="card-menu"><summary class="btn btn-ghost btn-sm" title="Mais ações">' + icon('more') + '<span class="sr-only">Mais ações</span></summary>' +
     '<div class="more-pop">' + items.join('') + '</div></details>';
 }
 // Cabeçalho do grupo de uma pessoa: nome, resumo e quanto falta (label diz quem deve a quem).

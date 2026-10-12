@@ -67,12 +67,12 @@ L.run(async ({page}) => {
   L.ok(heads.join('|') === 'Beatriz Lima|Bia', 'vira um grupo próprio');
 
   L.section('Menu ⋯');
-  await page.$eval('#recvGrid details.more-menu summary', el => el.click()); await L.sleep(80);
-  L.ok(await page.$eval('#recvGrid details.more-menu', el => el.open), 'abre');
+  await page.$eval('#recvGrid details.card-menu summary', el => el.click()); await L.sleep(80);
+  L.ok(await page.$eval('#recvGrid details.card-menu', el => el.open), 'abre');
   await page.keyboard.press('Escape'); await L.sleep(80);
-  L.ok(!(await page.$eval('#recvGrid details.more-menu', el => el.open)), 'Esc fecha');
-  await page.$eval('#recvGrid details.more-menu summary', el => el.click()); await L.sleep(80);
+  L.ok(!(await page.$eval('#recvGrid details.card-menu', el => el.open)), 'Esc fecha');
+  await page.$eval('#recvGrid details.card-menu summary', el => el.click()); await L.sleep(80);
   await page.mouse.click(5, 5); await L.sleep(80);
-  L.ok(!(await page.$$eval('details.more-menu[open]', ms => ms.length)), 'clicar fora fecha');
+  L.ok(!(await page.$$eval('details.card-menu[open]', ms => ms.length)), 'clicar fora fecha');
 
 });

@@ -15,7 +15,9 @@ L.run(async ({page}) => {
 
   L.section('Cadastro');
   await goBills();
-  L.ok(!(await page.$eval('#tab-fixas', el => el.hidden)) && await page.$eval('#segbtn-fixas', el => el.getAttribute('aria-selected')) === 'true', 'Ganhos e gastos tem a parte “Contas fixas”');
+  L.ok(!(await page.$eval('#tab-fixas', el => el.hidden)) && await page.$eval('#tab-lancamentos', el => el.hidden), 'Contas fixas é uma área própria (fora de Ganhos e gastos)');
+  L.ok(await page.evaluate(() => location.hash) === '#/contas-fixas', 'o endereço antigo (#/lancamentos/contas-fixas) leva para #/contas-fixas');
+  L.ok(await page.$eval('.sidenav [data-tab="fixas"]', el => el.classList.contains('active')), 'menu marca “Contas fixas”');
   L.ok(await page.$('#billGrid') === null, 'um painel só (sem a segunda lista de contas)');
   L.ok(await page.$eval('#billName', el => !el.getAttribute('list')) && /Digite o nome/.test(await page.$eval('#billName', el => el.placeholder)), 'nome livre, sem lista para escolher');
   L.ok(await L.text(page, '#billDayLabel') === 'Dia do pagamento', 'com Pix/débito, o campo é “Dia do pagamento”');
