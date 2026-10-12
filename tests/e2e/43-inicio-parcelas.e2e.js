@@ -5,7 +5,7 @@ L.run(async ({page}) => {
   await L.signup(page);
   L.section('Sem dados');
   L.ok(/Comece anotando/.test(await L.text(page, '#monthStatus')), 'sem lançamentos, a frase convida a começar');
-  L.ok(!(await page.$('#summaryCards .sum-card-wide')), 'sem parcelas, não mostra o quadro de parcelas');
+  L.ok(await page.$eval('#parcelsCard', el => el.hidden), 'sem parcelas, não mostra o quadro de parcelas');
 
   const today = L.dayOffset(0);
   await L.patchDb(page, `
@@ -27,15 +27,35 @@ L.run(async ({page}) => {
   L.ok(/termina com R\$/.test(status) || /saldo do mês de R\$/.test(status), 'diz com quanto termina o mês');
 
   L.section('Parcelas: quantas foram e quantas faltam');
-  const parcels = await page.$$eval('#summaryCards .parcel-row', rs => rs.map(r => r.textContent.replace(/\s+/g, ' ')));
+  L.ok(await page.evaluate(() => { const p = document.getElementById('parcelsCard'), r = document.getElementById('recentTxList').closest('.card'); return p.nextElementSibling === r; }), 'o quadro fica logo antes de “Últimos lançamentos”');
+  const parcels = await page.$$eval('#parcelsCard .parcel-row', rs => rs.map(r => r.textContent.replace(/\s+/g, ' ')));
   const gel = parcels.find(p => /Geladeira/.test(p)), emp = parcels.find(p => /Empréstimo/.test(p)), ing = parcels.find(p => /Ingresso/.test(p));
   L.ok(gel && /4 de 10 pagas · faltam 6 de R\$\s?120,00/.test(gel) && /Cartão Nubank/.test(gel), 'compra no cartão: 4 de 10 pagas, faltam 6');
   L.ok(emp && /2 de 8 pagas · faltam 6 de R\$\s?150,00/.test(emp) && /Você deve a Tia Rosa/.test(emp), 'dívida com parcela mensal: 2 de 8 pagas, faltam 6, a quem');
   L.ok(ing && /1 de 3 recebidas · faltam 2/.test(ing) && /Bia te paga/.test(ing), 'Me devem parcelado aparece como “recebidas”');
-  L.ok(/Falta pagar R\$\s?1\.620,00 em 12 parcelas/.test(await L.text(page, '#summaryCards .sum-card-wide')), 'resumo: quanto falta pagar e em quantas parcelas (sem somar o que é para receber)');
-  L.ok(await page.$$eval('#summaryCards .parcel-row .progress', ps => ps.length === 3), 'cada uma com barra de progresso');
-  await page.click('#summaryCards .parcel-row[data-go="dividas"]'); await L.sleep(200);
-  L.ok(!(await page.$eval('#tab-dividas', el => el.hidden)), 'tocar numa parcela leva para a área dela');
+  L.ok(/Falta pagar R\$\s?1\.620,00 em 12 parcelas/.test(await L.text(page, '#parcelsCard')), 'resumo: quanto falta pagar e em quantas parcelas (sem somar o que é para receber)');
+  L.ok(await page.$$eval('#parcelsCard .parcel-row .progress', ps => ps.length === 3), 'cada uma com barra de progresso');
+
+  L.section('Janela com filtros');
+  await page.click('#dashDetailsBtn'); await L.sleep(150);
+  await page.click('#parcelsCard button.btn[data-parcels-open]'); await L.sleep(200);
+  L.ok(await L.modalTitle(page) === 'Parcelas em andamento' && await page.$$eval('#pfList .parcel-row', r => r.length) === 3, 'abre a janela com todas as parcelas');
+  const names = async () => page.$$eval('#pfList .parcel-top strong', r => r.map(x => x.textContent));
+  await L.setVal(page, '#pfWho', 'terceiros'); await L.sleep(100);
+  L.ok((await names()).sort().join('|') === 'Empréstimo|Ingresso', 'terceiros: o que envolve outra pessoa (a quem deve e quem te paga)');
+  await L.setVal(page, '#pfWho', 'minhas'); await L.sleep(100);
+  L.ok((await names()).join('|') === 'Geladeira', 'só minhas: a compra no meu cartão');
+  await L.setVal(page, '#pfWho', 'p:bia'); await L.sleep(100);
+  L.ok((await names()).join('|') === 'Ingresso', 'filtra por pessoa (Bia)');
+  await L.setVal(page, '#pfWho', ''); await L.sleep(50);
+  await page.click('input[name=pfStage][value=inicio] + span'); await L.sleep(100);
+  L.ok((await names()).join('|') === 'Ingresso', 'primeira parcela: só o que acabou de começar (1 de 3)');
+  await page.click('input[name=pfStage][value=perto] + span'); await L.sleep(100);
+  L.ok((await names()).join('|') === 'Ingresso', 'perto do fim: faltam até 2 (ou 1/4)');
+  await page.click('input[name=pfStage][value=longe] + span'); await L.sleep(100);
+  L.ok((await names()).sort().join('|') === 'Empréstimo|Geladeira', 'longe do fim: falta mais da metade');
+  await page.click('#pfList .parcel-row[data-go="dividas"]'); await L.sleep(250);
+  L.ok(!(await L.modalOpen(page)) && !(await page.$eval('#tab-dividas', el => el.hidden)), 'tocar numa parcela fecha a janela e leva para a área dela');
 
   L.section('Próximos pagamentos levam para a área certa');
   await L.tab(page, 'dashboard');

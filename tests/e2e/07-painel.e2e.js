@@ -15,7 +15,7 @@ L.run(async ({page}) => {
   L.section('Grupos do painel');
   const groups = await page.$$eval('#statTiles .tiles-group', els => els.map(e => e.textContent));
   L.ok(groups.length === 2 && /Neste mês/.test(groups[0]) && /realizado até hoje/.test(groups[0]) && groups[1] === 'Agora', 'painel separa “Neste mês” (realizado) e “Agora”');
-  L.ok(await tileOf('Faturas a pagar') === null && await tileOf('Disponível nas contas') === null, 'sem cartão e sem conta, esses quadros não aparecem');
+  L.ok(await tileOf('Faturas: falta pagar') === null && await tileOf('Disponível nas contas') === null, 'sem cartão e sem conta, esses quadros não aparecem');
 
   L.section('Realizado, agendado e esperado');
   await L.addTx(page, {type: 'income', amount: 2000, desc: 'Salário'});
@@ -51,10 +51,9 @@ L.run(async ({page}) => {
     u.transactions.push({id:'c1', type:'expense', amount:250, category:'compras', date: arg.prev + '-10', description:'Tênis', paymentMethod:'cartao', cardId: arg.card, createdAt: 1});
     u.transactions.push({id:'c2', type:'expense', amount:80, category:'lazer', date: arg.prev2 + '-02', description:'Show', paymentMethod:'cartao', cardId: arg.card, createdAt: 2});
   `, {prev, prev2: L.monthKey(-2), card: card.id});
-  let ft = await tileOf('Faturas a pagar');
-  const closedThisMonth = Number(today.slice(8)) > 3; // a fatura deste mês já fechou (dia 3)?
-  L.ok(ft !== null, 'com cartão, aparece “Faturas a pagar”');
-  L.ok(L.moneyOf(ft.val) === (closedThisMonth ? 330 : 80), 'soma as faturas fechadas e não pagas');
+  let ft = await tileOf('Faturas: falta pagar');
+  L.ok(ft !== null, 'com cartão, aparece “Faturas: falta pagar”');
+  L.ok(L.moneyOf(ft.val) === 330 && /Total das faturas: R\$\s?330,00/.test(ft.sub), 'soma o que falta das faturas fechadas e da aberta (total embaixo)');
   L.ok(/venceu/.test(ft.sub), 'fatura antiga aparece como vencida');
   // Marca a vencida como paga: só sobra a outra.
   await L.tab(page, 'cartoes');
@@ -63,8 +62,8 @@ L.run(async ({page}) => {
   await page.$eval(oldInvoice, el => el.click()); await L.sleep(200);
   await L.submitModal(page); await L.sleep(150);   // "Pagar fatura" (sempre pergunta: toda ou uma parte)
   await L.tab(page, 'dashboard');
-  ft = await tileOf('Faturas a pagar');
-  L.ok(L.moneyOf(ft.val) === (closedThisMonth ? 250 : 0), 'fatura paga sai da soma');
+  ft = await tileOf('Faturas: falta pagar');
+  L.ok(L.moneyOf(ft.val) === 250, 'fatura paga sai da soma');
   L.ok(L.moneyOf((await tileOf('Gastos do mês')).val) === 550, 'pelo mês da fatura: a compra do mês passado que vence na fatura deste mês conta agora (300 + 250); a de dois meses atrás, não');
 
   L.section('Explicação das regras (dentro dos detalhes)');
