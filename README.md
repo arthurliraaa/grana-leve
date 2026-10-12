@@ -59,7 +59,9 @@ pessoas sobre hábitos financeiros.
   criar categorias ali mesmo.
 - **Contas fixas** (em Ganhos e gastos, porque são gastos do mês): luz, água, aluguel, assinaturas; o gasto entra sozinho
   no dia, com valor ajustável mês a mês.
-- **Metas** com prazo, rendimento (taxa ao ano opcional), histórico do que foi guardado,
+- **Metas** com prazo, tipo de aplicação opcional (poupança, caixinha/conta remunerada, CDB e
+  LCI/LCA pelo % do CDI, Tesouro Selic, Tesouro IPCA+ ou taxa fixa), com a taxa atualizada pelo
+  Banco Central (API pública SGS: CDI, Selic e IPCA) se a pessoa quiser, histórico do que foi guardado,
   rendido e retirado, e previsões: quanto guardar por mês para chegar no prazo e quando a
   meta termina no ritmo atual (juros compostos), explicadas em frases.
 - **Compromissos**: “Eu devo” (agrupado por quem cobra) e “Me devem” (agrupado por quem
