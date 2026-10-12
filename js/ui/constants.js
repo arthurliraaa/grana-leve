@@ -92,8 +92,9 @@ export var INFO_PAGES = {
     '<p>O Grana Leve é um projeto acadêmico oferecido gratuitamente, “como está”. Ele ajuda a organizar suas finanças, mas não substitui orientação profissional.</p>' +
     '<ul><li>Os conteúdos da aba Aprenda são educativos e não são recomendação de investimento.</li><li>Você é responsável pelas informações que registra.</li><li>Como os dados ficam no seu navegador, recomendamos exportar seus lançamentos em CSV de tempos em tempos.</li></ul>'},
   'contato': {title:'Contato', body:
-    '<p>Sugestões, dúvidas ou problemas? O código do projeto está no GitHub, onde você pode abrir uma <em>issue</em>:</p>' +
-    '<p><strong>github.com/arthurliraaa/grana-leve</strong></p>'}
+    '<p>Sugestões, dúvidas ou problemas? Escreva para a equipe do Grana Leve:</p>' +
+    '<p><a href="mailto:' + CONTACT_EMAIL + '"><strong>' + CONTACT_EMAIL + '</strong></a></p>' +
+    '<p class="field-hint">Dentro do app, “Ajuda e sugestões” também chega até a gente. Não mande senhas nem dados de cartão.</p>'}
 };
 
 // Textos da versão com servidor (Supabase). A versão só no navegador continua em INFO_PAGES.
@@ -104,8 +105,7 @@ export var ONLINE_PAGES = {
     '<p>O Grana Leve guarda sua conta e seus dados num servidor no Brasil, para você usar o app em qualquer aparelho. Esta página explica o que guardamos, quem vê e como você controla seus dados.</p>' +
     '<h4>Quem é responsável</h4>' +
     '<p>O Grana Leve é um projeto de extensão do curso de Engenharia de Software, mantido por Arthur Lira, que é o controlador dos dados e o encarregado (LGPD, art. 41). ' +
-      (CONTACT_EMAIL ? 'Contato para assuntos de dados pessoais: <strong>' + escapeHtml(CONTACT_EMAIL) + '</strong>.' :
-        'Contato: github.com/arthurliraaa/grana-leve (aba Issues). Não escreva dados pessoais ou financeiros numa issue, porque ela é pública.') + '</p>' +
+      'Contato para assuntos de dados pessoais: <strong>' + escapeHtml(CONTACT_EMAIL) + '</strong>.</p>' +
     '<h4>O que guardamos</h4>' +
     '<ul><li><strong>Conta:</strong> nome, e-mail e senha. A senha é protegida pelo serviço de login: ninguém consegue lê-la, nem a administração do app.</li>' +
       '<li><strong>Entrar com o Google:</strong> o Google nos informa só o seu nome, e-mail e foto de perfil; não temos acesso à sua senha do Google, aos seus e-mails nem a outros dados da conta.</li>' +

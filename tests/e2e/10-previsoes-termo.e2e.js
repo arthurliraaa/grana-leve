@@ -29,7 +29,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#signupUf', 'PR');
   const email = 'pesq' + Date.now() + '@teste.com';
   await page.evaluate((key) => localStorage.setItem('granaleve_prefs_' + key, JSON.stringify({quickEntryOff: true})), email);
-  await page.type('#signupName', 'Bia'); await page.type('#signupEmail', email); await page.type('#signupPassword', 'senha@123');
+  await page.type('#signupName', 'Bia'); await page.type('#signupEmail', email); await page.type('#signupPassword', 'senha@123'); await L.acceptTerms(page);
   await page.click('#signupStorageOk');
   await page.click('#signupForm button[type=submit]');
   await page.waitForSelector('#viewApp:not([hidden])'); await L.sleep(300);

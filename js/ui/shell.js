@@ -243,7 +243,7 @@ export async function openMoreMenu(){
         return '<a class="more-item' + (State.activeTab === it[0] ? ' active' : '') + '" href="#/' + ROUTES[it[0]] + '" data-more="' + it[0] + '">' + icon(it[1]) + '<span>' + it[2] + '</span></a>';
       }).join('') +
       '<button type="button" class="more-item" data-more="dados">' + icon('lock') + '<span>Seus dados e backup</span></button>' +
-      '<button type="button" class="more-item" data-more="ajuda">' + icon('chat') + '<span>Ajuda e sugestões</span></button>' +
+      '<button type="button" class="more-item help-item" data-more="ajuda">' + icon('chat') + '<span>Ajuda e sugestões</span></button>' +
       '</nav>',
     onOpen: function(modal, close){
       modal.addEventListener('click', function(e){
@@ -419,6 +419,7 @@ export async function boot(){
       if (event === 'SIGNED_OUT' && State.session){ State.session = null; logout(); }
     });
     State.handlingLink = true;
+    var returnedWithCode = /[?&]code=/.test(location.search);   // volta do Google (ou do link do e-mail)
     var link = await handleEmailLink();
     State.handlingLink = false;
     try {
@@ -439,9 +440,16 @@ export async function boot(){
         else if (link && link.ok) toast('E-mail confirmado! Bem-vindo(a) ao Grana Leve.');
         return;
       }
-    } catch(e){ toast('Sem conexão com o servidor. Verifique a internet.'); }
+    } catch(e){ console.warn('[Grana Leve] erro ao abrir a sessão:', e); toast('Sem conexão com o servidor. Verifique a internet.'); }
     renderTopbar();
     showView('viewLanding');
+    if (returnedWithCode && !(link && (link.ok || link.error))){
+      // Voltou do Google com o código, mas a sessão não abriu: avisa em vez de só mostrar a página inicial.
+      cleanAuthParams();
+      openAuth('login');
+      document.getElementById('googleError').textContent = 'Não foi possível concluir o login. Tente de novo; se continuar, entre com e-mail e senha ou avise a equipe.';
+      return;
+    }
     if (link && link.oauthError){ openAuth('login'); document.getElementById('googleError').textContent = 'Não foi possível entrar com o Google (' + link.oauthError + '). Tente de novo ou use e-mail e senha.'; return; }
     if (link && link.error){ await linkProblemModal(link); return; }
     if (link && link.ok) await linkDoneModal(link);

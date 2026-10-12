@@ -41,11 +41,17 @@ export async function signup(page, opts = {}){
   await page.type('#signupName', 'Arthur Teste');
   await page.type('#signupEmail', email);
   await page.type('#signupPassword', 'senha@123');
+  await acceptTerms(page);
   if (await page.$('#signupStorageOk')) await page.click('#signupStorageOk');
   await page.click('#signupForm button[type=submit]');
   await page.waitForSelector('#viewApp:not([hidden])');
   await sleep(300);
   return email;
+}
+// Preenche a data de nascimento (maior de 18 anos) e aceita os termos no cadastro.
+export async function acceptTerms(page, birth){
+  await page.$eval('#signupBirth', (el, v) => { el.value = v; el.dispatchEvent(new Event('input', {bubbles: true})); }, birth || '1995-05-20');
+  await page.$eval('#signupTerms', el => { if (!el.checked) el.click(); });
 }
 export async function reload(page){
   await page.reload({waitUntil: 'domcontentloaded'});

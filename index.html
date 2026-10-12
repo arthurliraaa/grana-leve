@@ -233,7 +233,7 @@
           <a class="nav-item" href="#/admin" data-tab="admin" id="navAdmin" hidden><svg class="ico" aria-hidden="true"><use href="#i-shield"/></svg><span>Administração</span></a>
         </nav>
         <button type="button" class="nav-item nav-data" data-info="backup"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span>Seus dados e backup</span></button>
-        <button type="button" class="nav-item nav-data" data-help><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span>Ajuda e sugestões</span></button>
+        <button type="button" class="btn btn-primary help-cta" data-help><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg><span>Ajuda e sugestões</span></button>
       </aside>
       <div class="app-main">
       <h1 class="sr-only">Grana Leve</h1>
@@ -674,6 +674,7 @@
             <span>Continuar com o Google</span>
           </button>
           <p class="form-error" id="googleError" role="alert"></p>
+          <p class="field-hint oauth-hint">Ao continuar com o Google, você confirma a idade e aceita os termos na etapa seguinte.</p>
           <p class="oauth-or"><span>ou com e-mail e senha</span></p>
         </div>
 
@@ -706,6 +707,11 @@
               <input id="signupEmail" type="email" autocomplete="username" maxlength="120" required>
             </div>
             <div class="field">
+              <label for="signupBirth">Data de nascimento</label>
+              <input id="signupBirth" type="date" min="1900-01-01" autocomplete="bday" required>
+              <span class="field-hint">Só maiores de 18 anos. Usamos apenas para conferir a idade e não guardamos a data.</span>
+            </div>
+            <div class="field">
               <label for="signupPassword">Senha</label>
               <input id="signupPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
               <div id="signupPwRulesWrap"></div>
@@ -726,6 +732,7 @@
                 </div>
               </div>
             </details>
+            <label class="check terms-check"><input type="checkbox" id="signupTerms" required> <span>Li e aceito os <button type="button" class="linklike" data-info="termos">Termos de uso</button> e a <button type="button" class="linklike" data-info="privacidade">Política de privacidade</button>.</span></label>
             <div class="captcha-slot" data-captcha hidden></div>
             <p class="form-error" id="signupError" role="alert"></p>
             <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>

@@ -1,5 +1,6 @@
 // Texto do termo de consentimento da pesquisa. Ao mudar o conteúdo, aumente TERM_VERSION
 // em domain/research.js: quem já aceitou será perguntado de novo.
+import {CONTACT_EMAIL} from '../config.js';
 import {TERM_VERSION, TERM_DATE} from '../domain/research.js';
 import {formatDateFull} from '../domain/dates.js';
 
@@ -34,6 +35,6 @@ export function termHtml(online){
       '<p>Num servidor no Brasil (Supabase, região São Paulo), separados da sua conta e protegidos por regras que só deixam o responsável pela pesquisa ver os números agrupados.</p>' :
       '<p>Nesta versão o Grana Leve funciona só no seu navegador e <strong>não envia nenhum dado</strong>. Sua resposta fica registrada, e a coleta só começa quando o app passar a ter servidor.</p>') +
     '<h4>Contato</h4>' +
-    '<p>Dúvidas sobre a pesquisa: abra uma conversa em github.com/arthurliraaa/grana-leve (aba Issues).</p>' +
+    '<p>Dúvidas sobre a pesquisa: escreva para <strong>' + CONTACT_EMAIL + '</strong>.</p>' +
     '</div>';
 }

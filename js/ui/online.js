@@ -16,6 +16,9 @@ import {qs, qsa, escapeHtml, toast} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {enterApp, loadAllData, logout, openAuth, renderAll, renderTopbar, showAuthTab, showView} from './shell.js';
 import {State, k} from './state.js';
+import {ONLINE_PAGES} from './constants.js';
+import {termsOk, termsProblem, termsRecord} from '../domain/terms.js';
+import {todayKey} from '../domain/dates.js';
 
 /* ---------- Conta no servidor (Supabase) ---------- */
 export function siteUrl(){ return location.origin + location.pathname; }
@@ -116,6 +119,23 @@ export async function linkDoneModal(link){
     onSubmit: function(){ return true; }
   }).then(function(go){ if (go) openAuth('login'); });
 }
+// Janela obrigatória (não fecha sem decidir): data de nascimento e aceite. Retorna o registro do aceite,
+// ou null se a pessoa preferiu sair.
+export async function termsGate(){
+  return openModal({
+    title: 'Antes de continuar', cancelLabel: 'Sair', submitLabel: 'Aceitar e continuar',
+    body: '<p>Para usar o Grana Leve, confirme que você tem 18 anos ou mais e aceite os termos.</p>' +
+      '<div class="field"><label for="tgBirth">Data de nascimento</label><input id="tgBirth" name="birth" type="date" min="1900-01-01" autocomplete="bday">' +
+        '<span class="field-hint">Usamos só para conferir a idade e não guardamos a data.</span></div>' +
+      '<details class="term-peek"><summary>Ler os Termos de uso</summary>' + ONLINE_PAGES.termos.body + '</details>' +
+      '<details class="term-peek"><summary>Ler a Política de privacidade</summary>' + ONLINE_PAGES.privacidade.body + '</details>' +
+      '<label class="check terms-check"><input type="checkbox" name="accept"> <span>Li e aceito os Termos de uso e a Política de privacidade.</span></label>',
+    onSubmit: function(form){
+      var problem = termsProblem(form.birth.value, form.accept.checked, todayKey());
+      return problem ? {error: problem} : termsRecord();
+    }
+  });
+}
 export async function startOnlineSession(user){
   var profile = await Store.getUser(user.id).catch(function(){ return null; });
   if (profile && profile.blocked){
@@ -124,15 +144,29 @@ export async function startOnlineSession(user){
     showView('viewLanding'); renderTopbar();
     return;
   }
+  // Termos e maioridade: quem entrou pelo Google (ou criou a conta antes desta regra) aceita agora.
+  if (Store.mode === 'supabase' && !termsOk(user.user_metadata)){
+    var accepted = await termsGate();
+    if (!accepted){
+      await Store.signOut();
+      toast('Sem aceitar os termos não dá para usar o Grana Leve. Você saiu da conta.');
+      showView('viewLanding'); renderTopbar();
+      return;
+    }
+    try { await Store.saveTerms(accepted); } catch(e){ toast('Não foi possível guardar o aceite agora. Tente de novo.'); await Store.signOut(); showView('viewLanding'); renderTopbar(); return; }
+  }
   State.session = {emailKey: user.id, name: (profile && profile.name) || (user.user_metadata && user.user_metadata.name) || user.email.split('@')[0], email: user.email};
   try { await enterApp(profile || null); }
   catch(e){
     // Sem conexão (ou servidor fora do ar): não mostra um app vazio como se não houvesse dados.
     State.session = null;
+    console.warn('[Grana Leve] erro ao abrir a conta:', e);
     showView('viewLanding'); renderTopbar();
+    var offline = e && e.offline || navigator.onLine === false;
     var retry = await openModal({title: 'Não foi possível abrir sua conta',
-      body: '<p>' + (e && e.offline || navigator.onLine === false ? 'Você está sem internet. O Grana Leve precisa de conexão para abrir sua conta.' :
-        'O servidor não respondeu agora. Seus dados continuam salvos.') + '</p>',
+      body: '<p>' + (offline ? 'Você está sem internet. O Grana Leve precisa de conexão para abrir sua conta.' :
+        'Algo impediu de abrir sua conta agora. Seus dados continuam salvos.') + '</p>' +
+        (offline ? '' : '<p class="field-hint">Detalhe técnico, se precisar avisar a equipe: ' + escapeHtml(String((e && (e.message || e.userMessage)) || e).slice(0, 160)) + '</p>'),
       submitLabel: 'Tentar de novo', cancelLabel: 'Fechar'});
     if (retry) location.reload();
   }
@@ -319,6 +353,8 @@ export function wireAuth(){
     if (!name){ errEl.textContent = 'Informe seu nome.'; return; }
     if (!validEmail(email)){ errEl.textContent = 'Informe um e-mail válido.'; return; }
     var pwErr = passwordProblem(password);
+    var tErr = termsProblem(document.getElementById('signupBirth').value, document.getElementById('signupTerms').checked, todayKey());
+    if (!pwErr && tErr){ errEl.textContent = tErr; return; }
     if (!pwErr){
       // gmaill.com, hotmal.com...: um e-mail errado nunca recebe o link de confirmação.
       var chosen = await confirmEmailTypo(email);
@@ -330,7 +366,7 @@ export function wireAuth(){
     var research = Research.consentRecord(document.getElementById('signupResearch').checked, document.getElementById('signupAge').value, document.getElementById('signupUf').value);
     if (Store.mode === 'supabase'){
       try{
-        var res = await Store.signUp(email, password, {name: name, research: research}, siteUrl());
+        var res = await Store.signUp(email, password, {name: name, research: research, terms: termsRecord()}, siteUrl());
         document.getElementById('signupPassword').value = '';
         if (res.session){ State.freshLogin = true; await startOnlineSession(res.user); toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.'); return; }
         // Com confirmação por e-mail ligada, a conta só entra depois do link.
@@ -345,7 +381,7 @@ export function wireAuth(){
     try{
       if (await Store.getUser(emailKey)){ errEl.textContent = 'Já existe uma conta com esse e-mail. Tente entrar.'; return; }
       var profile = Object.assign({name: name, email: email, createdAt: Date.now(),
-        research: research},
+        research: research, terms: termsRecord()},
         await makePasswordRecord(password));
       await Store.createUser(emailKey, profile);
       State.session = newSession(emailKey, profile);
