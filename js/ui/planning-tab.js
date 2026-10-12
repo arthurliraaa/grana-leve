@@ -33,7 +33,19 @@ export function renderBudgets(){
   document.getElementById('budgetNewCat').hidden = locked;
   var monthTx = txForMonth(mb.key).filter(function(t){ return t.type==='expense' && isPersonal(t); });
   var list = document.getElementById('budgetList');
-  list.innerHTML = expenseCats().map(function(c){
+  // Mostra as categorias com limite, gasto no mês ou uso nos últimos 3 meses; as outras ficam
+  // recolhidas em “Outras categorias” (sem histórico nenhum, mostra todas para começar o plano).
+  var since = monthBounds(State.budgetMonthOffset - 2).key + '-01';
+  var recent = {};
+  State.transactions.forEach(function(t){ if (t.type === 'expense' && t.date >= since) recent[t.category] = true; });
+  var cats = expenseCats();
+  var shown = cats.filter(function(c){ return recent[c.id] || budgetLimit(mb.key, c.id) > 0 || State.budgetNewCats.indexOf(c.id) >= 0; });
+  if (!shown.length) shown = cats;
+  var hidden = cats.filter(function(c){ return shown.indexOf(c) < 0; });
+  list.innerHTML = shown.map(budgetRowHtml).join('') +
+    (hidden.length ? '<details class="budget-more"><summary>Outras categorias (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary>' +
+      hidden.map(budgetRowHtml).join('') + '</details>' : '');
+  function budgetRowHtml(c){
     var catTx = monthTx.filter(function(t){ return t.category === c.id; });
     var limit = budgetLimit(mb.key, c.id);
     var spent = sum(catTx, myShare);
@@ -52,7 +64,7 @@ export function renderBudgets(){
       ) +
       (catTx.length ? '<details class="budget-details"><summary>Ver com o que gastou (' + catTx.length + ')</summary>' + catTx.map(txRowHtml).join('') + '</details>' : '') +
       '</div>';
-  }).join('');
+  }
 
   qsa('[data-budget-cat]', list).forEach(function(input){
     input.addEventListener('change', async function(){
@@ -167,7 +179,7 @@ export function wirePlanning(){
   document.getElementById('budgetNext').addEventListener('click', function(){ if (State.budgetMonthOffset < 1){ State.budgetMonthOffset++; renderBudgets(); } });
   document.getElementById('budgetNewCat').addEventListener('click', async function(){
     var id = await createCategory('expense');
-    if (id){ populateCategorySelect(document.getElementById('txCategory').value); renderBudgets(); var inp = qs('[data-budget-cat="' + id + '"]'); if (inp) inp.focus(); }
+    if (id){ State.budgetNewCats.push(id); populateCategorySelect(document.getElementById('txCategory').value); renderBudgets(); var inp = qs('[data-budget-cat="' + id + '"]'); if (inp) inp.focus(); }
   });
   document.getElementById('budgetManageCats').addEventListener('click', manageCategories);
 

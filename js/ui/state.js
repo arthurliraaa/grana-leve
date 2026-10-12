@@ -6,6 +6,7 @@ import {todayKey, monthBounds} from '../domain/dates.js';
 import {sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, uid} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
+import {categoryFromText} from '../domain/parser.js';
 import * as Tx from '../domain/transactions.js';
 
 import * as Cards from '../domain/cards.js';
@@ -60,6 +61,38 @@ export function catBadge(id, type){
 }
 // Opções de select com o emoji antes do nome.
 export function catOptions(list){ return list.map(function(c){ return {id: c.id, label: (c.emoji ? c.emoji + ' ' : '') + c.label}; }); }
+// Seletor de categoria de um lançamento: as que a pessoa mais usou nos últimos 90 dias vêm primeiro
+// (“Mais usadas”), depois as outras. first: a mais usada (ou a primeira), para começar marcada.
+var USAGE_DAYS = 90;
+export function categorySelectHtml(type, selected, withNew){
+  var list = Cats.catsOfType(type, State.categories);
+  var since = todayKey(new Date(Date.now() - USAGE_DAYS * 86400000));
+  var g = Cats.splitByUsage(list, Cats.categoryUsage(State.transactions, type, since), 5);
+  function opts(l){ return optionsHtml(catOptions(l), selected); }
+  var html = g.used.length && g.others.length ? '<optgroup label="Mais usadas">' + opts(g.used) + '</optgroup><optgroup label="Outras">' + opts(g.others) + '</optgroup>' : opts(list);
+  return {html: html + (withNew ? '<option value="__new">+ Nova categoria…</option>' : ''), first: (g.used[0] || list[0]).id};
+}
+// Categoria sugerida pela descrição (histórico da pessoa ou palavras conhecidas). '' se não houver.
+export function suggestCat(description, type){
+  var ids = Cats.catsOfType(type, State.categories).map(function(c){ return c.id; });
+  return Cats.suggestCategory(description, type, State.transactions, ids, function(text){ return categoryFromText(text, type); });
+}
+// Liga a sugestão a um campo de descrição: enquanto a pessoa não escolher a categoria na mão, ela
+// acompanha o que é digitado, com um aviso curto (hint). Devolve reset() para um formulário novo.
+export function wireCategorySuggestion(descInput, catSelect, hint, typeOf){
+  var touched = false, auto = false;
+  catSelect.addEventListener('change', function(){ touched = true; auto = false; hint.hidden = true; catSelect.dataset.chosen = '1'; });
+  descInput.addEventListener('input', function(){
+    if (touched) return;
+    var id = suggestCat(descInput.value, typeOf());
+    if (id && catSelect.querySelector('option[value="' + id + '"]')){
+      catSelect.value = id; auto = true;
+      hint.textContent = 'Categoria sugerida pelo que você escreveu. Pode trocar.';
+      hint.hidden = false;
+    } else if (auto && !descInput.value.trim()){ hint.hidden = true; }
+  });
+  return function reset(){ touched = false; auto = false; hint.hidden = true; delete catSelect.dataset.chosen; };
+}
 export function categoryNameProblem(name, type, exceptId){ return Cats.categoryNameProblem(name, type, State.categories, exceptId); }
 export function txLabel(t){ return t.description || catLabel(t.category, t.type, t.categoryLabel); }
 export function sortTransactions(){ Tx.sortTransactions(State.transactions); }
@@ -115,6 +148,7 @@ export var State = {
   transfers: [],        // transferências entre contas (não contam como ganho nem gasto)
   txMonthOffset: 0,
   budgetMonthOffset: 0,
+  budgetNewCats: [],   // categorias criadas agora em Planejar: ficam visíveis mesmo sem uso
   invoiceOffsets: {},
   goalFilter: 'andamento',
   donutView: 'chart',
