@@ -24,7 +24,7 @@ import {maybeWelcome, openQuickEntry} from './chat.js';
 import {openFeedback} from './feedback.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
-import {chargePerson, chargeReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
+import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
@@ -458,6 +458,10 @@ export function wireShell(){
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();
   document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape'){
+      var menu = qsa('details.more-menu[open]')[0];
+      if (menu){ menu.open = false; menu.querySelector('summary').focus(); return; }
+    }
     if (e.key === 'Escape' && !document.getElementById('viewAuth').hidden && document.getElementById('modalRoot').hidden) closeAuth();
   });
   attachCounters(document);
@@ -465,6 +469,8 @@ export function wireShell(){
   document.addEventListener('click', async function(e){
     var t = e.target;
     var el;
+    // Menus “Mais” dos cartões: escolher uma ação ou clicar fora fecha.
+    qsa('details.more-menu[open]').forEach(function(m){ if (!m.contains(t) || t.closest('.more-pop button')) m.open = false; });
     // Janela de entrar / criar conta: o X e o fundo (fora do cartão) fecham.
     if (t.closest('[data-auth-close]') || t.id === 'viewAuth' || (t.classList && t.classList.contains('auth-wrap'))){ closeAuth(); return; }
     if ((el = t.closest('[data-action]'))){
@@ -632,6 +638,8 @@ export function wireShell(){
     }
     // Dívidas
     if ((el = t.closest('[data-debt-pay]'))){ payDebt(el.getAttribute('data-debt-pay')); return; }
+    if ((el = t.closest('[data-debt-edit]'))){ editDebt(el.getAttribute('data-debt-edit')); return; }
+    if ((el = t.closest('[data-recv-edit]'))){ editReceivable(el.getAttribute('data-recv-edit')); return; }
     if ((el = t.closest('[data-debt-del]'))){
       var d = findById(State.debts, el.getAttribute('data-debt-del'));
       if (!(await confirmAction({title:'Excluir dívida?', message:'Tem certeza que deseja excluir a dívida “' + d.name + '”?'}))) return;

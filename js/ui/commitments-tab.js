@@ -30,7 +30,27 @@ import {notifyDebtPayment, notifyDebtUndo, notifyReceipt, pendingPaidEvents, sav
 import {accountSelectHtml, fold, installStepperHtml} from './tx-list.js';
 
 /* ---------- Dívidas ---------- */
+// Nomes já usados em Compromissos (quem te deve e a quem você deve), para sugerir ao digitar.
+export function renderPeopleList(){
+  var people = {};
+  State.receivables.forEach(function(r){ var n = String(r.person || '').trim(); if (n) people[fold(n)] = n; });
+  State.debts.forEach(function(d){ var n = String(d.creditor || '').trim(); if (n && !people[fold(n)]) people[fold(n)] = n; });
+  document.getElementById('peopleList').innerHTML = Object.keys(people).sort().map(function(key){ return '<option value="' + escapeHtml(people[key]) + '">'; }).join('');
+}
+// Botão "Mais" com as ações menos usadas (editar, excluir...), para os cartões não ficarem lotados.
+export function moreMenu(items){
+  return '<details class="more-menu"><summary class="btn btn-ghost btn-sm" title="Mais ações">' + icon('more') + '<span class="sr-only">Mais ações</span></summary>' +
+    '<div class="more-pop">' + items.join('') + '</div></details>';
+}
+// Cabeçalho do grupo de uma pessoa: nome, resumo e quanto falta (label diz quem deve a quem).
+function personHead(name, meta, label, total, extra){
+  return '<div class="person-head"><span class="avatar" aria-hidden="true">' + escapeHtml((name[0] || '?').toUpperCase()) + '</span>' +
+    '<div class="person-info"><h4>' + escapeHtml(name || 'Sem nome de quem cobra') + '</h4><span class="tx-meta">' + meta + '</span></div>' +
+    '<div class="person-total"><span class="tx-meta">' + label + '</span><strong class="tabular">' + fmtMoney(total) + '</strong></div>' + (extra || '') + '</div>';
+}
+function debtLeft(d){ return Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0)); }
 export function renderDebts(){
+  renderPeopleList();
   var gs = installmentGroups().filter(function(g){ return g.future.length; });
   // As compras parceladas no cartão ficam só em "Contas e cartões" (não aparecem duas vezes).
   document.getElementById('installDebtWrap').innerHTML = gs.length ?
@@ -38,28 +58,50 @@ export function renderDebts(){
     '<button class="btn btn-ghost btn-sm" type="button" data-goto="cartoes">Ver nos cartões</button></div>' : '';
   var grid = document.getElementById('debtGrid');
   if (!State.debts.length){ grid.innerHTML = gs.length ? '' : '<p class="empty-state">Nenhuma dívida cadastrada. Se você não tem dívidas, ótimo: pode pular esta seção.</p>'; return; }
-  var debtLeft = function(d){ return Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0)); };
   // Quitadas por último; entre as abertas, a mais urgente e depois a maior.
   var debts = byUrgency(State.debts, function(a, b){ return debtLeft(b) - debtLeft(a); });
   debts.sort(function(a, b){ return (debtLeft(a) <= 0) - (debtLeft(b) <= 0); });
-  grid.innerHTML = debts.map(function(d){
-    var remaining = Math.max(0, Number(d.totalAmount||0) - Number(d.paidAmount||0));
-    var pct = d.totalAmount > 0 ? Math.min(1, Number(d.paidAmount||0)/Number(d.totalAmount)) : 0;
-    var done = remaining <= 0;
-    return '<div class="debt-card">' +
-      '<div class="budget-top"><h4>'+escapeHtml(d.name)+'</h4><span class="card-tags"><span class="pill">' + escapeHtml(labelOf(DEBT_KINDS, d.kind) || 'Dívida') + '</span>' +
-        (done ? '' : urgencySelectHtml('debts', d, d.name)) + '</span></div>' +
-      (d.creditor ? '<span class="tx-meta">Com: ' + escapeHtml(d.creditor) + (d.shared ? ' · cobrança enviada por ' + escapeHtml(d.shared.from) + ' em ' + formatDateBr(d.shared.at) : '') + '</span>' : '') +
-      (d.shared && d.shared.pix && !done ? '<span class="tx-meta pix-line">Chave Pix: <strong>' + escapeHtml(d.shared.pix) + '</strong> <button class="btn btn-ghost btn-sm" type="button" data-copy-pix="' + escapeHtml(d.shared.pix) + '">Copiar</button></span>' : '') +
-      sharedDebtHtml(d) +
-      '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
-      '<div class="debt-figs"><span class="tabular">Pago: '+fmtMoney(d.paidAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
-      (d.monthlyPayment ? '<span class="tx-meta">Parcela mensal: '+fmtMoney(d.monthlyPayment)+(remaining > 0 ? ' · cerca de ' + Math.ceil(remaining / d.monthlyPayment) + ' parcela(s) restante(s)' : '')+'</span>' : '') +
-      '<div class="card-actions">' +
-        (done ? '<span class="status-pill good">Quitada</span>' : '<button class="btn btn-ghost btn-sm" type="button" data-debt-pay="'+d.id+'">Registrar pagamento</button>') +
-        '<button class="btn btn-danger btn-sm" type="button" data-debt-del="'+d.id+'">Excluir</button>' +
-      '</div>' + paymentLogHtml(d.payments, 'debt', d.id) + '</div>';
+  // Agrupadas por quem cobra (sem diferenciar maiúscula e acento). Sem nenhum nome, a lista fica simples.
+  var groups = {}, order = [];
+  debts.forEach(function(d){
+    var name = String(d.creditor || '').trim(), key = name ? fold(name) : '';
+    if (!groups[key]){ groups[key] = {name: name, list: []}; order.push(key); }
+    groups[key].list.push(d);
+  });
+  if (order.length === 1 && order[0] === ''){ grid.innerHTML = debts.map(debtCardHtml).join(''); return; }
+  order.sort(function(a, b){ return (a === '') - (b === ''); });
+  grid.innerHTML = order.map(function(key){
+    var g = groups[key], open = g.list.filter(function(d){ return debtLeft(d) > 0; }), left = sumMoney(open, debtLeft);
+    var meta = g.list.length + (g.list.length === 1 ? ' dívida' : ' dívidas') + (open.length ? ' · ' + open.length + ' em aberto' : ' · tudo pago');
+    if (!key) return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="Dívidas sem nome de quem cobra">' +
+      personHead('', meta + ' · toque em ⋯ e em Editar para dizer a quem você deve', 'Você deve', left) +
+      '<div class="debt-grid person-items">' + g.list.map(debtCardHtml).join('') + '</div></section>';
+    return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="Você deve a ' + escapeHtml(g.name) + '">' +
+      personHead(g.name, meta, open.length ? 'Você deve a ' + escapeHtml(g.name) : 'Tudo pago', open.length ? left : sumMoney(g.list, function(d){ return d.totalAmount; })) +
+      '<div class="debt-grid person-items">' + g.list.map(debtCardHtml).join('') + '</div></section>';
   }).join('');
+}
+function debtCardHtml(d){
+  var remaining = debtLeft(d);
+  var pct = d.totalAmount > 0 ? Math.min(1, Number(d.paidAmount||0)/Number(d.totalAmount)) : 0;
+  var done = remaining <= 0;
+  var per = Number(d.monthlyPayment) || 0;
+  var total = per ? Math.ceil(Number(d.totalAmount || 0) / per - 0.0001) : 0, left = per ? Math.ceil(remaining / per - 0.0001) : 0;
+  return '<div class="debt-card">' +
+    '<div class="budget-top"><h4>'+escapeHtml(d.name)+'</h4><span class="card-tags"><span class="pill">' + escapeHtml(labelOf(DEBT_KINDS, d.kind) || 'Dívida') + '</span>' +
+      (done ? '' : urgencySelectHtml('debts', d, d.name)) + '</span></div>' +
+    (d.shared ? '<span class="tx-meta">Cobrança enviada por ' + escapeHtml(d.shared.from) + ' em ' + formatDateBr(d.shared.at) + '</span>' : '') +
+    (d.shared && d.shared.pix && !done ? '<span class="tx-meta pix-line">Chave Pix: <strong>' + escapeHtml(d.shared.pix) + '</strong> <button class="btn btn-ghost btn-sm" type="button" data-copy-pix="' + escapeHtml(d.shared.pix) + '">Copiar</button></span>' : '') +
+    sharedDebtHtml(d) +
+    '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
+    '<div class="debt-figs"><span class="tabular">Pago: '+fmtMoney(d.paidAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
+    (per ? '<span class="tx-meta">Parcela mensal: '+fmtMoney(per)+(remaining > 0 ? ' · faltam cerca de ' + left + ' de ' + total + ' parcela(s)' : '')+'</span>' : '') +
+    paymentLogHtml(d.payments, 'debt', d.id, d.creditor) +
+    '<div class="card-actions">' +
+      (done ? '<span class="status-pill good">Quitada</span>' : '<button class="btn btn-primary btn-sm" type="button" data-debt-pay="'+d.id+'">Registrar pagamento</button>') +
+      moreMenu(['<button type="button" data-debt-edit="' + d.id + '">' + icon('edit') + 'Editar nome e a quem devo</button>',
+        '<button type="button" class="danger" data-debt-del="' + d.id + '">' + icon('trash') + 'Excluir</button>']) +
+    '</div></div>';
 }
 
 // Cobrança compartilhada (shared-sync.js): com quem acompanha e avisos esperando decisão.
@@ -133,13 +175,17 @@ export async function payDebt(id){
 }
 
 // Histórico de pagamentos/recebimentos com "Desfazer" (o registro fica, marcado como desfeito).
-export function paymentLogHtml(list, kind, ownerId){
+// who: a quem você paga (dívida) ou quem te paga (A receber), para cada linha dizer quem pagou.
+export function paymentLogHtml(list, kind, ownerId, who){
   if (!list || !list.length) return '';
+  var first = String(who || '').trim().split(' ')[0];
   return '<details class="budget-details pay-log"><summary>' + (kind === 'debt' ? 'Pagamentos' : 'Recebimentos') + ' (' + list.length + ')</summary>' +
     list.slice().reverse().map(function(p){
       var acc = p.accountId ? accountName(p.accountId) : 'sem conta';
-      var how = kind === 'debt' ? (p.fromShared ? 'registrado por ' + p.fromShared : p.asExpense ? 'gasto do mês' : 'não contou como gasto') :
-        (p.fromInvoices ? 'parcelas que já passaram pelas faturas' : p.asIncome ? 'ganho do mês' : 'devolução');
+      var by = kind === 'debt' ? (p.fromShared ? '' : 'você pagou' + (first ? ' a ' + first : '') + ' · ') :
+        (p.fromInvoices ? '' : (first ? first + ' pagou' : 'recebido') + ' · ');
+      var how = by + (kind === 'debt' ? (p.fromShared ? 'registrado por ' + p.fromShared : p.asExpense ? 'gasto do mês' : 'não contou como gasto') :
+        (p.fromInvoices ? 'parcelas que já passaram pelas faturas' : p.asIncome ? 'ganho do mês' : 'devolução'));
       if (kind === 'recv' && p.fromShared) how += ' · avisado por ' + p.fromShared;
       if (kind === 'debt' && p.sharedEvent && !p.fromShared && !p.undone) how += ' · aviso enviado';
       if (p.rejected) how += ' · a outra pessoa disse que não recebeu';
@@ -169,6 +215,69 @@ export async function undoPayment(ref){
   // Cobrança compartilhada: avisa o outro lado.
   if (kind === 'debt') await notifyDebtUndo(owner, p);
   else await notifyReceipt(owner, p.amount, true);
+}
+
+// Editar dívida: nome, a quem você deve, tipo e parcela mensal (valores pagos ficam no histórico).
+export async function editDebt(id){
+  var d = findById(State.debts, id);
+  if (!d) return;
+  var a = await openModal({
+    title: 'Editar dívida',
+    body: '<div class="field"><label for="edName">Nome</label><input id="edName" name="name" type="text" maxlength="50" value="' + escapeHtml(d.name) + '"></div>' +
+      '<div class="field"><label for="edCreditor">A quem você deve</label><input id="edCreditor" name="creditor" type="text" list="peopleList" autocomplete="off" maxlength="50" value="' + escapeHtml(d.creditor || '') + '" placeholder="Ex: Banco X, João">' +
+        '<span class="field-hint">As dívidas com o mesmo nome ficam juntas, com o total que você deve a cada um.</span></div>' +
+      '<div class="field"><label for="edKind">Tipo</label><select id="edKind" name="kind">' + optionsHtml(DEBT_KINDS, d.kind) + '</select></div>' +
+      '<div class="field"><label for="edMonthly">Parcela mensal (opcional)</label><span class="money-input"><span>R$</span><input id="edMonthly" name="monthly" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (Number(d.monthlyPayment) || '') + '"></span></div>',
+    onSubmit: function(form){
+      var name = form.name.value.trim();
+      if (!name) return {error: 'Informe o nome da dívida.'};
+      return {name: name, creditor: form.creditor.value.trim(), kind: form.kind.value, monthlyPayment: Math.max(0, money(form.monthly.value || 0))};
+    }
+  });
+  if (!a) return;
+  await Store.update(k(), 'debts', d.id, a);
+  Object.assign(d, a);
+  renderDebts(); renderDashboard();
+  toast('Dívida atualizada.');
+}
+// Editar "Me devem": nome da pessoa, descrição e WhatsApp. O novo nome vale também nas compras
+// ligadas ("Pago por …", divididas) e na cobrança compartilhada.
+export async function editReceivable(id){
+  var r = findById(State.receivables, id);
+  if (!r) return;
+  var a = await openModal({
+    title: 'Editar “Me devem”',
+    body: '<div class="field"><label for="erPerson">Quem te deve</label><input id="erPerson" name="person" type="text" list="peopleList" autocomplete="off" maxlength="50" value="' + escapeHtml(r.person) + '">' +
+        '<span class="field-hint">Para juntar com outra pessoa da lista, use exatamente o mesmo nome.</span></div>' +
+      '<div class="field"><label for="erDesc">Descrição (opcional)</label><input id="erDesc" name="desc" type="text" maxlength="60" value="' + escapeHtml(r.description || '') + '"></div>' +
+      '<div class="field"><label for="erPhone">WhatsApp (opcional)</label><input id="erPhone" name="phone" type="tel" maxlength="20" value="' + escapeHtml(r.phone || '') + '" placeholder="(11) 98888-7777"></div>',
+    onSubmit: function(form){
+      var person = form.person.value.trim();
+      if (!person) return {error: 'Informe quem te deve.'};
+      if (whatsappNumber(form.phone.value) === null) return {error: 'Confira o WhatsApp: use DDD e número, por exemplo (11) 98888-7777.'};
+      return {person: person, description: form.desc.value.trim(), phone: form.phone.value.trim()};
+    }
+  });
+  if (!a) return;
+  var renamed = a.person !== r.person;
+  await Store.update(k(), 'receivables', r.id, a);
+  Object.assign(r, a);
+  if (renamed){
+    var touched = State.transactions.filter(function(t){
+      return (t.forOther && t.forOther.receivableId === r.id) || (t.split && t.split.people.some(function(p){ return p.receivableId === r.id; }));
+    });
+    var updates = touched.map(function(t){
+      var partial = {};
+      if (t.forOther && t.forOther.receivableId === r.id) partial.forOther = Object.assign({}, t.forOther, {person: a.person});
+      if (t.split) partial.split = Object.assign({}, t.split, {people: t.split.people.map(function(p){ return p.receivableId === r.id ? Object.assign({}, p, {person: a.person}) : p; })});
+      return {id: t.id, partial: partial};
+    });
+    if (updates.length) await Store.updateMany(k(), 'transactions', updates);
+    updates.forEach(function(u){ Object.assign(findById(State.transactions, u.id), u.partial); });
+    if (r.sharedId && Store.sharedSave){ var row = sharedRowOf(r.sharedId); saveSharedRow(r, row && row.pix || '').catch(function(){}); }
+  }
+  renderAll();
+  toast(renamed ? 'Nome atualizado para ' + a.person + '.' : 'Atualizado.');
 }
 
 /* ---------- A receber ---------- */
@@ -240,9 +349,7 @@ export function recvLinkOf(id){ return recvLinkCandidates().filter(function(c){ 
 
 export function renderReceivables(){
   populateRecvCards();
-  var people = {};
-  State.receivables.forEach(function(r){ var n = String(r.person || '').trim(); if (n) people[fold(n)] = n; });
-  document.getElementById('peopleList').innerHTML = Object.keys(people).sort().map(function(key){ return '<option value="' + escapeHtml(people[key]) + '">'; }).join('');
+  renderPeopleList();
   var grid = document.getElementById('recvGrid');
   if (!State.receivables.length){ grid.innerHTML = '<p class="empty-state">Ninguém te deve nada por aqui. Quando emprestar dinheiro ou alguém usar seu cartão, anote acima.</p>'; return; }
   var items = State.receivables.slice().sort(function(a,b){
@@ -260,13 +367,10 @@ export function renderReceivables(){
     var g = groups[key], open = g.list.filter(function(r){ return recvRemaining(r) > 0; });
     var left = sumMoney(open, recvRemaining);
     var late = open.filter(function(r){ var d = recvNextDue(r); return d && d < todayKey(); }).length;
-    return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="' + escapeHtml(g.name) + '">' +
-      '<div class="person-head"><span class="avatar" aria-hidden="true">' + escapeHtml((g.name[0] || '?').toUpperCase()) + '</span>' +
-        '<div class="person-info"><h4>' + escapeHtml(g.name) + '</h4><span class="tx-meta">' + g.list.length + ' registro(s)' + (open.length ? ' · ' + open.length + ' em aberto' : ' · tudo recebido') +
-          (late ? ' · <strong class="neg-text">' + late + ' atrasado(s)</strong>' : '') + '</span></div>' +
-        '<div class="person-total"><span class="tx-meta">Falta receber</span><strong class="tabular">' + fmtMoney(left) + '</strong></div>' +
-        (open.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge-all="' + escapeHtml(key) + '">' + icon('chat') + 'Cobrar tudo</button>' : '') +
-      '</div>' +
+    var meta = g.list.length + ' registro(s)' + (open.length ? ' · ' + open.length + ' em aberto' : ' · tudo recebido') + (late ? ' · <strong class="neg-text">' + late + ' atrasado(s)</strong>' : '');
+    return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="' + escapeHtml(g.name) + ' te deve">' +
+      personHead(g.name, meta, open.length ? escapeHtml(g.name) + ' te deve' : 'Tudo recebido', open.length ? left : sumMoney(g.list, function(r){ return r.totalAmount; }),
+        open.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge-all="' + escapeHtml(key) + '">' + icon('chat') + 'Cobrar tudo</button>' : '') +
       '<div class="debt-grid person-items">' + g.list.map(recvCardHtml).join('') + '</div></section>';
   }).join('');
 }
@@ -351,16 +455,18 @@ export function recvCardHtml(r){
     (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
         'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
       (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +
-    '<div class="card-actions">' +
+    paymentLogHtml(r.payments, 'recv', r.id, r.person) +
+    '<div class="card-actions recv-actions">' +
       (r.forgiven ? '<span class="status-pill warning">Não vai devolver (' + fmtMoney(r.forgivenAmount || 0) + ')</span>' :
         done ? '<span class="status-pill good">Recebido</span>' :
-        '<button class="btn btn-ghost btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
+        '<button class="btn btn-primary btn-sm" type="button" data-recv-get="'+r.id+'">Registrar recebimento</button>' +
         '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge="'+r.id+'">' + icon('chat') + 'Cobrar</button>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-recv-share="'+r.id+'" title="Link ou arquivo para a pessoa adicionar a cobrança no Grana Leve dela">' + icon('swap') + 'Compartilhar</button>' +
-        '<button class="btn btn-ghost btn-sm" type="button" data-recv-forgive="'+r.id+'">Não vai devolver</button>') +
-      (!r.linked && !r.forgiven && r.kind !== 'emprestimo' ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-link="'+r.id+'" title="Para “A receber” anotados antes: escolha o gasto que você pagou pela pessoa">Ligar à compra</button>' : '') +
-      '<button class="btn btn-danger btn-sm" type="button" data-recv-del="'+r.id+'">Excluir</button>' +
-    '</div>' + paymentLogHtml(r.payments, 'recv', r.id) + '</div>';
+        '<button class="btn btn-ghost btn-sm" type="button" data-recv-share="'+r.id+'" title="Link ou arquivo para a pessoa adicionar a cobrança no Grana Leve dela">' + icon('swap') + 'Compartilhar</button>') +
+      moreMenu(['<button type="button" data-recv-edit="' + r.id + '">' + icon('edit') + 'Editar nome e descrição</button>']
+        .concat(!r.linked && !r.forgiven && r.kind !== 'emprestimo' && !done ? ['<button type="button" data-recv-link="'+r.id+'" title="Para “A receber” anotados antes: escolha o gasto que você pagou pela pessoa">' + icon('card') + 'Ligar à compra</button>'] : [])
+        .concat(!r.forgiven && !done ? ['<button type="button" data-recv-forgive="'+r.id+'">' + icon('flag') + 'Não vai devolver</button>'] : [])
+        .concat(['<button type="button" class="danger" data-recv-del="'+r.id+'">' + icon('trash') + 'Excluir</button>'])) +
+    '</div></div>';
 }
 
 // "A receber" antigo (de antes do vínculo): liga a um gasto já lançado. O gasto passa a ser "pago por"

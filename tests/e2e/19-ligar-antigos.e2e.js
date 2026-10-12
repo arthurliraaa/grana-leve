@@ -20,7 +20,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'receber');
   L.ok(await page.$('[data-recv-link="r1"]') !== null, '“Ligar à compra” aparece no A receber antigo');
   L.ok(await page.$('[data-recv-link="r2"]') === null, 'não aparece em empréstimo (não há gasto para ligar)');
-  await page.click('[data-recv-link="r1"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-recv-link="r1"]'); await L.sleep(200);
   L.ok(await page.$eval('#lkTx', el => el.value) === 't:x1' && /★ Show/.test(await page.$eval('#lkTx', el => el.options[el.selectedIndex].text)), 'sugere o gasto de mesmo valor lançado no mesmo momento');
   L.ok(/Marcar 1 recebimento\(s\) já registrado\(s\) de Maria \(R\$\s?40,00\) como devolução/.test(await L.text(page, '#modalRoot')), 'oferece transformar o recebimento antigo em devolução');
   await L.submitModal(page); await L.sleep(300);

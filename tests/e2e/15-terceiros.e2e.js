@@ -57,7 +57,7 @@ L.run(async ({page}) => {
 
   L.section('Não vai devolver');
   await L.tab(page, 'receber');
-  await page.click('[data-recv-forgive="' + recv.id + '"]'); await L.sleep(150);
+  await L.menuAction(page, '[data-recv-forgive="' + recv.id + '"]'); await L.sleep(150);
   L.ok(await L.modalTitle(page) === 'Não vai devolver?' && await page.$eval('#modalRoot input[name=own]', el => el.checked), 'pergunta e já sugere contar como gasto seu');
   await L.submitModal(page); await L.sleep(250);
   d = await L.db(page);

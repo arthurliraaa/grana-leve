@@ -34,7 +34,7 @@ L.run(async ({page}) => {
   const joao = d.receivables.find(r => r.person === 'João');
   await page.click('[data-recv-get="' + joao.id + '"]'); await L.sleep(150);
   await L.submitModal(page); await L.sleep(300);
-  L.ok(await page.$eval('#recvGrid .person-group.all-done', g => /tudo recebido/.test(g.textContent)) && /Falta receber\s*R\$\s?0,00/.test(await L.text(page, '#recvGrid .person-group.all-done')), 'quem pagou tudo aparece como “tudo recebido”');
+  L.ok(await page.$eval('#recvGrid .person-group.all-done', g => /tudo recebido/.test(g.textContent)) && /Tudo recebido\s*R\$\s?\d/.test(await L.text(page, '#recvGrid .person-group.all-done')), 'quem pagou tudo aparece como “tudo recebido”');
   await page.setViewport({width: 375, height: 800});
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
 });
