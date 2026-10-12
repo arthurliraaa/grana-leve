@@ -45,18 +45,35 @@ export var TIPS_GROW = [
   {tag:'Diversificar', title:'Não coloque tudo no mesmo lugar',
    text:'Depois da reserva pronta, dividir o dinheiro entre tipos diferentes de investimento (renda fixa de prazos diferentes, por exemplo) reduz o risco de um único problema afetar tudo o que você juntou.'}
 ];
-export var HOW_TO = [
-  ['Painel', 'mostra o resumo do mês: saldo, ganhos, gastos, previsões de entrada e gráficos. O botão “Relatório em PDF” gera um resumo para guardar ou compartilhar.'],
-  ['Ganhos e gastos', 'é onde você anota o que entra e o que sai e deixa previsto o que ainda vai receber. Escolha a forma de pagamento (conta, dinheiro, vale ou cartão) e crie e personalize categorias (nome, emoji e cor) em “Personalizar categorias”.'],
-  ['Contas e cartões', 'cadastre suas contas de banco com o saldo de hoje, o cartão com limite, fechamento e vencimento e o seu vale-alimentação. O saldo de cada conta acompanha os ganhos e gastos ligados a ela; use “Transferir” para mover dinheiro entre contas e escolha a conta ao marcar uma fatura como paga.'],
-  ['Planejar gastos', 'defina quanto quer gastar por categoria. A barra fica amarela perto do valor planejado e vermelha quando passa.'],
-  ['Metas', 'crie objetivos com prazo, guarde valores aos poucos e escolha em “Me avise em” quando quer um lembrete na sua agenda.'],
-  ['Dívidas', 'registre o que você deve, para banco ou para pessoas, e marque cada parcela paga.'],
-  ['A receber', 'anote o que te devem e use “Cobrar” para enviar uma mensagem pronta.'],
-  ['Botão +', 'fica sempre no canto da tela e abre o formulário para lançar um gasto ou ganho. Para corrigir um lançamento, toque no lápis ao lado dele.'],
-  ['Chat de lançamento', 'aparece ao entrar, uma vez por dia, e também pelo link “Lance pelo chat” no botão +. Escreva como numa conversa: “gastei 30 no mercado e 20 no uber”.'],
-  ['Conexões', 'mostra as integrações: app no celular e Google Agenda (já disponíveis), WhatsApp e Open Finance (em preparação).'],
-  ['Seus dados e backup', 'abre pelo indicador “Só neste navegador”, no topo, ou pelo rodapé. Mostra onde os dados ficam e quando foi o último backup. Salve um backup de vez em quando: seus dados existem só neste navegador.']
+// Guia "Como usar" (aba Aprenda e rodapé). Texto simples: o HTML é montado em learn-tab.js.
+// Primeiros passos, na ordem em que fazem sentido: [título, explicação, área do app].
+export var HOW_TO_STEPS = [
+  ['Cadastre seus bancos e cartões', 'Em “Contas e cartões”, informe o saldo de hoje de cada conta e, se tiver, o cartão de crédito com limite, dia de fechamento e de vencimento. Assim o app sabe quanto você tem e em qual fatura cada compra cai.', 'cartoes'],
+  ['Anote o que entra e o que sai', 'Toque no + (ou escreva no chat, como “gastei 30 no mercado”). Digite o valor como no banco (1.500,00), diga o que foi — a categoria vem sugerida — e como pagou. Comprou parcelado no cartão? Escolha o número de parcelas.', 'lancamentos'],
+  ['Cadastre as contas de todo mês', 'Em “Contas fixas”, coloque luz, água, internet, aluguel e assinaturas. No dia de cada uma, o gasto entra sozinho; se o valor mudar (luz, água), é só ajustar naquele mês.', 'fixas'],
+  ['Planeje e guarde', 'Em “Planejar gastos”, diga quanto quer gastar por categoria. Em “Metas”, crie objetivos e use “Guardar” sempre que separar dinheiro: o app mostra quanto guardar por mês e quando você chega lá.', 'limites'],
+  ['Acompanhe pelo Início', 'A primeira tela resume o mês numa frase, mostra os próximos pagamentos e quantas parcelas já foram pagas e quantas faltam. Toque em um item para ir direto à área dele.', 'dashboard']
+];
+// Cada área do app: [nome, ícone, o que dá para fazer].
+export var HOW_TO_AREAS = [
+  ['Início', 'home', 'Resumo do mês: quanto tem, quanto gastou (e quanto do planejado), próximos pagamentos e parcelas. “Ver todos os detalhes do mês” abre gráficos, comparação com o mês passado e o relatório em PDF.'],
+  ['Ganhos e gastos', 'list', 'Todos os lançamentos, com busca e filtros, em lista, calendário ou ano. Toque no lápis para corrigir; num gasto, dá para registrar um estorno. “Previstas” guarda o que você ainda vai receber.'],
+  ['Contas fixas', 'calendar', 'Contas que se repetem (mensais, bimestrais, anuais). Mostra o que vence no mês, o que já foi lançado e o que está atrasado.'],
+  ['Contas e cartões', 'wallet', 'Saldo de cada conta, faturas dos cartões (com pagamento parcial ou parcelado) e vale-alimentação. “Transferir” move dinheiro entre contas sem contar como gasto.'],
+  ['Compromissos', 'handshake', 'Dinheiro entre você e outras pessoas. Em “Eu devo”, as dívidas agrupadas por quem cobra; em “Me devem”, quem te deve, com “Cobrar” (mensagem pronta no WhatsApp, com Pix) e “Compartilhar” (a pessoa acompanha no Grana Leve dela).'],
+  ['Planejar gastos', 'pie', 'Limite por categoria em cada mês. A barra fica amarela perto do limite e vermelha quando passa. Categorias que você não usa ficam recolhidas.'],
+  ['Metas', 'target', 'Objetivos com valor e prazo. Registre o que guardar, o rendimento e as retiradas; a meta mostra o ritmo, a previsão de conclusão e quanto guardar por mês.'],
+  ['Aprenda', 'book', 'Dicas para organizar o dinheiro e fazer ele render, e este guia.'],
+  ['Conexões', 'plug', 'Instalar o Grana Leve como app no celular e lembretes no Google Agenda. WhatsApp e Open Finance estão em preparação.'],
+  ['Perfil e conta', 'user', 'Nome, e-mail, senha (com “Esqueci minha senha” por e-mail), tema, pesquisa, backup e exclusão da conta.']
+];
+// Dicas rápidas.
+export var HOW_TO_TIPS = [
+  'Botões menos usados (editar, excluir, registrar rendimento) ficam no ⋯ de cada cartão.',
+  'As categorias que você mais usa aparecem primeiro; crie as suas em “Personalizar categorias”.',
+  'Esqueceu a senha? Na tela de entrar, use “Esqueci minha senha”. O link vale por 1 hora e só o do e-mail mais recente funciona.',
+  'Achou um problema ou tem uma ideia? Use “Ajuda e sugestões”, no menu: a mensagem chega para a equipe do Grana Leve.',
+  'Salve um backup de vez em quando em “Seus dados e backup”.'
 ];
 export var OPEN_FINANCE_BANKS = ['Nubank','Itaú','Bradesco','Banco do Brasil','Caixa','Santander','Inter','C6 Bank','Mercado Pago','PicPay'];
 export var INFO_PAGES = {

@@ -7,7 +7,8 @@ import {getPrefs} from '../data/session.js';
 import {escapeHtml, icon} from './dom.js';
 
 import {bubble} from './chat.js';
-import {HOW_TO, OPEN_FINANCE_BANKS, TIPS, TIPS_GROW} from './constants.js';
+import {HOW_TO_AREAS, HOW_TO_STEPS, HOW_TO_TIPS, OPEN_FINANCE_BANKS, TIPS, TIPS_GROW} from './constants.js';
+import {routeOf} from './shell.js';
 import {isStandalone} from './pwa.js';
 import {State} from './state.js';
 
@@ -25,10 +26,22 @@ export function renderLearn(){
     '<section class="learn-section"><h3>Organizar o dinheiro</h3>' + tipCards(of('tip', TIPS)) + '</section>' +
     '<section class="learn-section"><h3>Fazer o dinheiro render</h3>' + tipCards(of('tip_grow', TIPS_GROW)) +
       '<p class="disclaimer" style="margin-top:10px">Conteúdo educativo. Não é recomendação de investimento. Valores e taxas são exemplos e mudam com o tempo.</p></section>' +
-    '<section class="learn-section card"><h3>Como usar o Grana Leve</h3><ol class="howto-list">' +
-      HOW_TO.map(function(h){ return '<li><strong>' + escapeHtml(h[0]) + '</strong> ' + escapeHtml(h[1]) + '</li>'; }).join('') +
-    '</ol></section>';
+    '<section class="learn-section card" id="howTo"><h3>Como usar o Grana Leve</h3>' + howToHtml(true) + '</section>';
 }
+
+// Guia "Como usar": primeiros passos numerados, o que tem em cada área e dicas. links: atalhos
+// "Ir para…" (só dentro do app; no rodapé, sem conta aberta, eles não teriam para onde ir).
+export function howToHtml(links){
+  return '<h4 class="howto-h">Primeiros passos</h4><ol class="howto-steps">' + HOW_TO_STEPS.map(function(h){
+      return '<li><strong>' + escapeHtml(h[0]) + '</strong><span>' + escapeHtml(h[1]) + '</span>' +
+        (links ? '<a class="sum-link" href="#/' + routeOf(h[2]) + '" data-go="' + h[2] + '">Ir para ' + escapeHtml(TAB_NAMES[h[2]]) + ' →</a>' : '') + '</li>';
+    }).join('') + '</ol>' +
+    '<h4 class="howto-h">O que tem em cada área</h4><div class="howto-areas">' + HOW_TO_AREAS.map(function(a){
+      return '<div class="howto-area">' + icon(a[1]) + '<div><strong>' + escapeHtml(a[0]) + '</strong><p>' + escapeHtml(a[2]) + '</p></div></div>';
+    }).join('') + '</div>' +
+    '<h4 class="howto-h">Dicas rápidas</h4><ul class="howto-list">' + HOW_TO_TIPS.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>';
+}
+var TAB_NAMES = {cartoes: 'Contas e cartões', lancamentos: 'Ganhos e gastos', fixas: 'Contas fixas', limites: 'Planejar gastos', dashboard: 'Início'};
 
 /* ---------- Conexões ---------- */
 export function renderConnections(){
