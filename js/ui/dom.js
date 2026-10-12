@@ -2,7 +2,9 @@
 import {findById} from '../domain/util.js';
 
 export function escapeHtml(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-export function csvCell(s){ s = String(s == null ? '' : s); if (/^[=+\-@]/.test(s)) s = "'" + s; if (/[;"\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"'; return s; }
+// Célula de CSV (separador ;). Texto que começa com = + - @ (ou tab/CR) ganha um ' na frente para a
+// planilha não executar como fórmula; aspas, ; e quebras de linha vão entre aspas.
+export function csvCell(s){ s = String(s == null ? '' : s); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; if (/[;"\r\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"'; return s; }
 export function optionsHtml(list, selected){ return list.map(function(o){ return '<option value="'+escapeHtml(o.id)+'"'+(o.id===selected?' selected':'')+'>'+escapeHtml(o.label)+'</option>'; }).join(''); }
 export function labelOf(list, id){ var o = findById(list, id); return o ? o.label : ''; }
 export function icon(name, cls){ return '<svg class="ico'+(cls?' '+cls:'')+'" aria-hidden="true"><use href="#i-'+name+'"/></svg>'; }

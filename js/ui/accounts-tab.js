@@ -97,7 +97,7 @@ export async function addCardToBank(accId){
   var a = findById(State.accounts, accId);
   await openModal({
     title: 'Cartão de crédito · ' + a.name,
-    body: '<div class="field"><label for="bcLimit">Limite</label><span class="money-input"><span>R$</span><input id="bcLimit" name="limit" type="number" step="0.01" min="0" max="99999999"></span></div>' +
+    body: '<div class="field"><label for="bcLimit">Limite</label><span class="money-input"><span>R$</span><input id="bcLimit" name="limit" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
       '<div class="field"><label for="bcClosing">Dia do fechamento da fatura</label><input id="bcClosing" name="closing" type="number" min="1" max="31"></div>' +
       '<div class="field"><label for="bcDue">Dia do vencimento da fatura</label><input id="bcDue" name="due" type="number" min="1" max="31"></div>' +
       '<p class="field-hint">A compra entra na fatura que ainda não fechou; no dia do fechamento já vai para a próxima.</p>',
@@ -118,7 +118,7 @@ export async function addAccountToBank(cardId){
   var c = findById(State.cards, cardId);
   await openModal({
     title: 'Conta · ' + c.name,
-    body: '<div class="field"><label for="baBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="baBalance" name="balance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>',
+    body: '<div class="field"><label for="baBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="baBalance" name="balance" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00"></span></div>',
     submitLabel: 'Adicionar conta',
     onSubmit: async function(form){
       var a = {name: c.name, initialBalance: form.balance.value === '' ? 0 : money(form.balance.value), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now(),
@@ -140,7 +140,7 @@ export async function editAccount(id){
   await openModal({
     title: 'Editar conta',
     body: '<div class="field"><label for="eaName">Nome da conta</label><input id="eaName" name="name" type="text" maxlength="40" value="' + escapeHtml(a.name) + '"></div>' +
-      '<div class="field"><label for="eaBalance">Saldo hoje</label><span class="money-input"><span>R$</span><input id="eaBalance" name="balance" type="number" step="0.01" min="-99999999" max="99999999" value="' + current + '"></span>' +
+      '<div class="field"><label for="eaBalance">Saldo hoje</label><span class="money-input"><span>R$</span><input id="eaBalance" name="balance" type="text" data-money autocomplete="off" inputmode="decimal" value="' + current + '"></span>' +
       '<span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do banco. O app passa a contar a partir de agora.</span></div>' +
       '<fieldset class="brand-fieldset"><legend><span id="eaPreview"></span>Cor e ícone</legend>' + pickerHtml('eaP', a) + '</fieldset>',
     onOpen: function(modal){ wirePicker(modal, 'eaP', qs('#eaName', modal), qs('#eaPreview', modal)); },
@@ -166,7 +166,7 @@ export async function openTransfer(fromId){
     title: 'Transferir entre contas',
     body: '<div class="field"><label for="trFrom">De</label><select id="trFrom" name="from">' + optionsHtml(opts, from) + '</select></div>' +
       '<div class="field"><label for="trTo">Para</label><select id="trTo" name="to">' + optionsHtml(opts, to) + '</select></div>' +
-      '<div class="field"><label for="trAmount">Valor</label><span class="money-input"><span>R$</span><input id="trAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal"></span></div>' +
+      '<div class="field"><label for="trAmount">Valor</label><span class="money-input"><span>R$</span><input id="trAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
       '<div class="field"><label for="trDate">Data</label><input id="trDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
       '<div class="field"><label for="trDesc">Descrição (opcional)</label><input id="trDesc" name="desc" type="text" maxlength="60" placeholder="Ex: guardar na poupança"></div>' +
       '<p class="field-hint">Transferências mudam o saldo das duas contas, mas não contam como ganho nem como gasto.</p>',
@@ -236,14 +236,14 @@ export async function toggleInvoicePaid(cardId, key){
             '<span><strong>' + m.title + '</strong><small>' + m.hint + '</small></span></label>';
         }).join('') + '</fieldset>' +
         '<div class="field" data-part hidden><label for="ipPaid">Quanto você pagou agora</label><span class="money-input"><span>R$</span>' +
-          '<input id="ipPaid" name="paidNow" type="number" step="0.01" min="0" max="' + total + '" inputmode="decimal"></span></div>' +
+          '<input id="ipPaid" name="paidNow" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
         '<div class="field" data-only="aberto" hidden><label for="ipFee">Juros e encargos na próxima fatura <span class="opt">opcional</span></label><span class="money-input"><span>R$</span>' +
-          '<input id="ipFee" name="fee" type="number" step="0.01" min="0" inputmode="decimal"></span>' +
+          '<input id="ipFee" name="fee" type="text" data-money autocomplete="off" inputmode="decimal"></span>' +
           '<span class="field-hint">Se ainda não souber, deixe em branco e lance depois como gasto no cartão.</span></div>' +
         '<div class="pay-parcel" data-only="parcelado" hidden>' +
           '<div class="field"><label for="ipN">Em quantas parcelas</label><input id="ipN" name="n" type="number" min="2" max="48" step="1" value="6"></div>' +
           '<div class="field"><label for="ipParcel">Valor de cada parcela</label><span class="money-input"><span>R$</span>' +
-            '<input id="ipParcel" name="parcel" type="number" step="0.01" min="0" inputmode="decimal"></span>' +
+            '<input id="ipParcel" name="parcel" type="text" data-money autocomplete="off" inputmode="decimal"></span>' +
             '<span class="field-hint">O que o banco mostrou, já com juros.</span></div></div>' +
         '<p class="pay-sum tabular" id="ipSum" aria-live="polite"></p>' +
         (State.accounts.length ? '<div class="field"><label for="ipAcc">Paguei com a conta</label><select id="ipAcc" name="acc">' + optionsHtml(accOpts, payAccountFor(card)) + '</select>' +
@@ -374,8 +374,8 @@ export async function editVoucher(id){
   await openModal({
     title: 'Editar vale',
     body: '<div class="field"><label for="evName">Nome</label><input id="evName" name="name" type="text" maxlength="30" value="' + escapeHtml(v.name) + '"></div>' +
-      '<div class="field"><label for="evAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="evAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" value="' + v.amount + '"></span></div>' +
-      '<div class="field"><label for="evBalance">Saldo atual</label><span class="money-input"><span>R$</span><input id="evBalance" name="balance" type="number" step="0.01" min="0" max="99999999" value="' + voucherBalance(v) + '"></span><span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do cartão.</span></div>' +
+      '<div class="field"><label for="evAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="evAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + v.amount + '"></span></div>' +
+      '<div class="field"><label for="evBalance">Saldo atual</label><span class="money-input"><span>R$</span><input id="evBalance" name="balance" type="text" data-money autocomplete="off" inputmode="decimal" value="' + voucherBalance(v) + '"></span><span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do cartão.</span></div>' +
       '<label class="check"><input type="checkbox" name="carry"' + (v.carryOver ? ' checked' : '') + '> Saldo acumula de um mês para o outro</label>',
     onSubmit: async function(form){
       var name = form.name.value.trim(), amount = money(form.amount.value);

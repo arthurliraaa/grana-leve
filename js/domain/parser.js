@@ -33,9 +33,20 @@ function pad2(n){ return String(n).padStart(2, '0'); }
 function dateKey(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
 
 // "1.500,00" -> 1500 | "32,50" -> 32.5 | "32.50" -> 32.5 | "2 mil" -> 2000 | "R$ 40" -> 40
-var AMOUNT_RE = /(?:r\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(\s*mil\b)?\s*(?:reais|real|conto|contos|pila|r\$)?/i;
+// O número não pode estar colado em outros dígitos ou letras ("abc123", "1.500,005").
+var AMOUNT_RE = /(?:r\$\s*)?(?<![\d.,:a-zà-ú])(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)(?![\d.,]*\d)(\s*mil\b)?\s*(?:reais|real|conto|contos|pila|r\$)?/gi;
+// Números que não são o valor: o dia ("dia 15"), a hora ("às 10h", "10:30"), a porcentagem ("10%")
+// e o número de parcelas ("3x").
+var NOT_AMOUNT_BEFORE = /\bdia\s*$/;
+var NOT_AMOUNT_AFTER = /^\s*(?:h\b|hs\b|horas?\b|:\d|%|º|ª|°|x\b)/;
 export function parseAmount(text){
-  var m = AMOUNT_RE.exec(text);
+  AMOUNT_RE.lastIndex = 0;
+  var m;
+  while ((m = AMOUNT_RE.exec(text))){
+    var start = m.index + m[0].indexOf(m[1]);
+    if (!m[2] && (NOT_AMOUNT_BEFORE.test(text.slice(0, start)) || NOT_AMOUNT_AFTER.test(text.slice(start + m[1].length)))) continue;
+    break;
+  }
   if (!m) return null;
   var raw = m[1], value;
   if (/\.\d{3}/.test(raw)) value = Number(raw.replace(/\./g, '').replace(',', '.'));

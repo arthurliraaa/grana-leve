@@ -27,7 +27,7 @@ export function txModalBody(t, isEdit){
   var type = t.type || 'expense';
   function typeBtn(id, label){ return '<button type="button" data-type="' + id + '"' + (type === id ? ' class="active"' : '') + (inst ? ' disabled' : '') + '>' + label + '</button>'; }
   return '<div class="type-toggle" id="mType" role="group" aria-label="Tipo de lançamento">' + typeBtn('expense', 'Gasto') + typeBtn('income', 'Ganho') + '</div>' +
-    '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (t.amount || '') + '"></span></div>' +
+    '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (t.amount || '') + '"></span></div>' +
     '<div class="field"><label for="mCategory">Categoria</label><select id="mCategory" name="category"></select></div>' +
     '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
     '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
@@ -159,7 +159,7 @@ export async function reverseTx(id){
         (t.installment ? ' · ' + t.installment.total + 'x' : '') + (already ? ' · já estornado ' + fmtMoney(already) : '') + '</p>' +
       (t.installment ? '<p class="card-sub">Parcelas já cobradas: ' + charged.length + ' (' + fmtMoney(sumMoney(charged, function(x){ return x.amount; })) + ') · futuras: ' + future.length +
         ' (' + fmtMoney(sumMoney(future, function(x){ return x.amount; })) + ')</p>' : '') +
-      '<div class="field"><label for="rvAmount">Valor estornado' + (t.installment ? ' das parcelas já cobradas' : '') + '</label><span class="money-input"><span>R$</span><input id="rvAmount" name="amount" type="number" step="0.01" min="0" max="' + Math.max(0, base) + '" inputmode="decimal" value="' + money(Math.max(0, base)) + '"></span>' +
+      '<div class="field"><label for="rvAmount">Valor estornado' + (t.installment ? ' das parcelas já cobradas' : '') + '</label><span class="money-input"><span>R$</span><input id="rvAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + money(Math.max(0, base)) + '"></span>' +
         '<span class="field-hint">Estorno parcial? Informe só o que voltou.</span></div>' +
       '<div class="field"><label for="rvDate">Data do estorno</label><input id="rvDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + today + '"></div>' +
       (card ? '<div class="field"><label for="rvInv">Em qual fatura o estorno aparece?</label><select id="rvInv" name="inv">' + optionsHtml(keys, invoiceKeyFor(today, card)) + '</select>' +
@@ -211,7 +211,7 @@ export async function editInstallmentGroup(groupId){
     body: '<div class="field"><label for="gDesc">Descrição</label><input id="gDesc" name="desc" type="text" maxlength="80" value="' + escapeHtml(g.name) + '"></div>' +
       '<div class="field"><label for="gCat">Categoria</label><select id="gCat" name="cat">' + optionsHtml(catOptions(expenseCats()), g.category) + '</select></div>' +
       '<div class="field"><label for="gCard">Cartão</label><select id="gCard" name="card">' + optionsHtml(cards, g.cardId) + '</select></div>' +
-      '<div class="field"><label for="gAmount">Valor</label><span class="money-input"><span>R$</span><input id="gAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + g.totalAmount + '"></span></div>' +
+      '<div class="field"><label for="gAmount">Valor</label><span class="money-input"><span>R$</span><input id="gAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + g.totalAmount + '"></span></div>' +
       '<div class="field"><label for="gInstall">Parcelas</label>' + installStepperHtml('gInstall', 'install') + '<span class="field-hint tabular" id="gHint"></span>' + installExtrasHtml('gIx') + '</div>' +
       '<div class="field"><label for="gDate">Data da compra</label><input id="gDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(purchaseDate) + '">' +
         '<span class="field-hint">As parcelas que já venceram contam como pagas, pela data da compra e pelo cartão.</span></div>' +
@@ -476,7 +476,7 @@ export async function advanceInstallments(groupId){
         '<label class="check"><input type="radio" name="disc" value="sim"> Sim</label>' +
         '<label class="check"><input type="radio" name="disc" value="nao" checked> Não</label>' +
       '</fieldset>' +
-      '<div class="field" id="advPaidField" hidden><label for="advPaid">Quanto você pagou?</label><span class="money-input"><span>R$</span><input id="advPaid" name="paid" type="number" step="0.01" min="0.01" max="99999999"></span></div>' +
+      '<div class="field" id="advPaidField" hidden><label for="advPaid">Quanto você pagou?</label><span class="money-input"><span>R$</span><input id="advPaid" name="paid" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
       '<div class="tip-box" id="advTip"><strong>Dica: veja se compensa.</strong> Sem desconto, adiantar não gera economia: o dinheiro sai antes e deixa de render até a data das parcelas. Costuma valer a pena só se você precisa liberar limite do cartão. Se a compra tem juros, peça o abatimento: o Código de Defesa do Consumidor (art. 52, §2º) garante a redução proporcional dos juros para quem antecipa o pagamento.</div>' +
       '<p class="field-hint">O valor pago entra na fatura atual do cartão' + (g.card ? ' ' + escapeHtml(g.card.name) : '') + '.</p>',
     submitLabel: 'Adiantar',

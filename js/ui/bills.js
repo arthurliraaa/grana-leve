@@ -5,7 +5,7 @@
 import {Store} from '../data/store.js';
 import {BILL_FREQS, billOccurrences, billsMonthSummary, billNext, billAmountFor} from '../domain/bills.js';
 import {money, fmtMoney} from '../domain/money.js';
-import {todayKey, monthBounds, monthLabelOf, shiftMonthKey, formatDateBr, formatDateFull, validDateStr} from '../domain/dates.js';
+import {todayKey, toDateKey, monthBounds, monthLabelOf, shiftMonthKey, formatDateBr, formatDateFull, validDateStr} from '../domain/dates.js';
 import {findById} from '../domain/util.js';
 import {invoiceFor} from '../domain/cards.js';
 import {qs, escapeHtml, optionsHtml, labelOf, toast} from './dom.js';
@@ -27,7 +27,10 @@ export function billMonth(key){
   });
 }
 // Conta cadastrada depois do dia: aquele mês não é lançado sozinho (pode já ter sido lançado à mão).
-function beforeSignup(o){ return o.b.createdAt && o.date < new Date(o.b.createdAt).toISOString().slice(0, 10); }
+// Data de cadastro da conta fixa no fuso de quem usa (em UTC, uma conta criada às 22h “nascia” amanhã
+// e o vencimento de hoje não entrava sozinho).
+function createdKey(b){ return b.createdAt ? toDateKey(new Date(b.createdAt)) : ''; }
+function beforeSignup(o){ return o.b.createdAt && o.date < createdKey(o.b); }
 // Lança sozinho, no dia, cada vencimento que chegou (desde o cadastro da conta). Devolve quantos lançou.
 export async function runAutoBills(){
   if (!ctx || !bills().length) return 0;
@@ -35,7 +38,7 @@ export async function runAutoBills(){
   for (var i = 0; i < bills().length; i++){
     var b = bills()[i];
     var from = b.startMonth;
-    if (b.createdAt){ var cm = new Date(b.createdAt).toISOString().slice(0, 7); if (cm > from) from = cm; }
+    if (b.createdAt){ var cm = createdKey(b).slice(0, 7); if (cm > from) from = cm; }
     for (var key = from; key <= cur; key = shiftMonthKey(key, 1)){
       var o = billMonth(key).filter(function(x){ return x.b.id === b.id; })[0];
       if (!o || o.paid || o.skipped || o.date > today || beforeSignup(o)) continue;
@@ -168,7 +171,7 @@ async function payBill(id, key){
   var a = await openModal({
     title: 'Lançar ' + b.name,
     body: '<p>Vencimento de ' + monthLabelOf(key) + ': ' + formatDateFull(o.date) + '.</p>' +
-      '<div class="field"><label for="bpAmount">Valor</label><span class="money-input"><span>R$</span><input id="bpAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + o.amount + '"></span>' +
+      '<div class="field"><label for="bpAmount">Valor</label><span class="money-input"><span>R$</span><input id="bpAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + o.amount + '"></span>' +
         '<span class="field-hint">Conta que muda todo mês (luz, água)? Ajuste aqui o valor desta vez.</span></div>' +
       '<label class="check" id="bpKeepField" hidden><input type="checkbox" name="keep"> Usar este valor nos próximos meses também</label>' +
       '<div class="field"><label for="bpDate">Data</label><input id="bpDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + date + '"></div>' +
@@ -219,7 +222,7 @@ async function editBill(id){
       '<div class="field"><label for="beDay">Dia do pagamento (ou da compra no cartão)</label><input id="beDay" name="day" type="number" min="1" max="31" value="' + b.dueDay + '"></div>' +
       '<div class="field"><label for="bePay">Forma de pagamento</label><select id="bePay" name="pay">' + optionsHtml(ctx.paymentOptions().filter(function(x){ return x.id !== 'card:none'; }), b.pay) + '</select></div>' +
       '<fieldset class="brand-fieldset"><legend>Mudar o valor</legend>' +
-        '<div class="field"><label for="beAmount">Novo valor</label><span class="money-input"><span>R$</span><input id="beAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + billAmountFor(b, cur) + '"></span></div>' +
+        '<div class="field"><label for="beAmount">Novo valor</label><span class="money-input"><span>R$</span><input id="beAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + billAmountFor(b, cur) + '"></span></div>' +
         '<div class="field"><label for="beFrom">A partir de</label><input id="beFrom" name="from" type="month" value="' + cur + '"></div>' +
         '<p class="field-hint">Os meses anteriores continuam com o valor antigo.</p></fieldset>',
     submitLabel: 'Salvar',
