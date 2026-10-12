@@ -10,6 +10,8 @@ L.run(async ({page}) => {
   L.ok(!(await page.$eval('#signupResearch', el => el.checked)), 'participar da pesquisa começa desmarcado (opt-in)');
   L.ok(/18 anos ou mais/.test(await L.text(page, '.research-optin')), 'pede 18 anos ou mais');
   L.ok(await page.$eval('#signupResearchProfile', el => el.hidden), 'perfil opcional só aparece ao aceitar');
+  L.ok(await page.$eval('#signupForm details.research-optin', d => !d.open), 'pesquisa (opcional) começa recolhida, para o cadastro ficar curto');
+  await page.click('#signupForm details.research-optin summary'); await L.sleep(100);
   await page.click('#signupForm [data-info="pesquisa"]'); await L.sleep(150);
   L.ok(await L.modalTitle(page) === 'Termo de consentimento da pesquisa', 'link abre o termo');
   const term = await L.text(page, '#modalRoot');
