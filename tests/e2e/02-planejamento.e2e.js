@@ -24,7 +24,7 @@ L.run(async ({page}) => {
   L.ok(await dis('alimentacao') && await dis('lazer'), 'mês anterior está travado');
   L.ok(/Mês encerrado/.test(await L.text(page, '#budgetNote')), 'aviso de mês encerrado');
   L.ok(await page.$eval('#budgetNewCat', el => el.hidden), 'sem “Nova categoria” no mês travado');
-  L.ok(/R\$\s?450,00 de R\$\s?500,00/.test(await L.text(page, '#budgetList')), 'gasto do mês anterior comparado com o planejado dele');
+  L.ok(/Gasto\s*R\$\s?450,00\s*Restam\s*R\$\s?50,00/.test(await L.text(page, '#budgetList')) && /90%/.test(await L.text(page, '#budgetList')), 'gasto do mês anterior comparado com o planejado dele (450 de 500, restam 50, 90%)');
 
   L.section('Mudar o mês atual não altera o anterior');
   await page.click('#budgetNext'); await L.sleep(100);

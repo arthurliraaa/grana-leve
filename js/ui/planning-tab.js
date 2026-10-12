@@ -6,7 +6,7 @@ import {toDateKey, todayKey, parseDate, formatDateBr, formatDateFull, validDateS
 import * as Goals from '../domain/goals.js';
 import * as Inv from '../domain/investments.js';
 import {cachedIndexes, fetchIndexes} from '../data/rates.js';
-import {money, fmtMoney} from '../domain/money.js';
+import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import {isPersonal, myShare} from '../domain/transactions.js';
 
@@ -55,31 +55,60 @@ export function renderBudgets(){
   shown.sort(function(a, b){ return (spentM[b.id] || 0) - (spentM[a.id] || 0) || (spent3[b.id] || 0) - (spent3[a.id] || 0); });
   if (!shown.length) shown = cats;
   var hidden = cats.filter(function(c){ return shown.indexOf(c) < 0; });
-  list.innerHTML = shown.map(budgetRowHtml).join('') +
-    (hidden.length ? '<details class="budget-more"><summary>Sem gastos nos últimos 3 meses (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary>' +
-      hidden.map(budgetRowHtml).join('') + '</details>' : '');
+  // Resumo do mês: planejado × gasto nas categorias com limite, e o que ainda pode gastar.
+  var planned = sumMoney(cats, function(c){ return budgetLimit(mb.key, c.id); });
+  var spentPlanned = sumMoney(cats.filter(function(c){ return budgetLimit(mb.key, c.id) > 0; }), function(c){ return spentM[c.id] || 0; });
+  var spentAll = sumMoney(cats, function(c){ return spentM[c.id] || 0; });
+  var overs = cats.filter(function(c){ var l = budgetLimit(mb.key, c.id); return l > 0 && (spentM[c.id] || 0) > l; }).length;
+  var sumPct = planned > 0 ? spentPlanned / planned : 0, sumStatus = planned > 0 ? statusForPct(sumPct) : 'good';
+  var summary = '<div class="budget-summary">' +
+    '<div class="bs-fig"><span class="bs-lbl">Planejado</span><strong class="tabular">' + (planned > 0 ? fmtMoney(planned) : '—') + '</strong></div>' +
+    '<div class="bs-fig"><span class="bs-lbl">Gasto no mês</span><strong class="tabular">' + fmtMoney(spentAll) + '</strong></div>' +
+    '<div class="bs-fig"><span class="bs-lbl">' + (planned > 0 && spentPlanned > planned ? 'Passou' : 'Ainda pode gastar') + '</span><strong class="tabular ' + (planned > 0 && spentPlanned > planned ? 'neg-text' : 'pos-text') + '">' + (planned > 0 ? fmtMoney(Math.abs(planned - spentPlanned)) : '—') + '</strong></div>' +
+    (planned > 0 ? '<div class="bs-bar" role="img" aria-label="' + Math.round(sumPct * 100) + '% do planejado usado"><span class="' + sumStatus + '" style="width:' + Math.min(100, sumPct * 100) + '%"></span></div>' +
+      '<p class="bs-note">' + Math.round(sumPct * 100) + '% do planejado usado' + (overs ? ' · ' + overs + (overs === 1 ? ' categoria passou' : ' categorias passaram') + ' do limite' : '') + '.</p>' :
+      '<p class="bs-note">Digite quanto quer gastar em cada categoria para acompanhar o mês.</p>') +
+    '</div>';
+  list.innerHTML = summary + shown.map(budgetRowHtml).join('') +
+    (hidden.length ? '<details class="budget-more"><summary>Sem gastos nos últimos 3 meses (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary><div class="budget-cards">' +
+      hidden.map(budgetRowHtml).join('') + '</div></details>' : '');
   function budgetRowHtml(c){
-    var catTx = monthTx.filter(function(t){ return t.category === c.id; });
+    var catTx = monthTx.filter(function(t){ return t.category === c.id; }).sort(function(a, b){ return b.date.localeCompare(a.date); });
     var limit = budgetLimit(mb.key, c.id);
     var spent = sum(catTx, myShare);
     var pct = limit > 0 ? spent/limit : 0;
-    var status = limit > 0 ? statusForPct(pct) : 'good';
-    var barColor = status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)';
-    return '<div class="budget-row">' +
+    var status = limit > 0 ? statusForPct(pct) : 'none';
+    var avg3 = spent3[c.id] > 0 ? spent3[c.id] / 3 : 0;
+    var barClass = status === 'critical' ? 'critical' : status === 'warning' ? 'warning' : 'good';
+    var diff = limit > 0 ? limit - spent : 0;
+    var stats = limit > 0 ?
+      '<div class="bc-stats"><div><span>Gasto</span><strong class="tabular">' + fmtMoney(spent) + '</strong></div>' +
+        '<div><span>' + (diff >= 0 ? 'Restam' : 'Passou') + '</span><strong class="tabular ' + (diff >= 0 ? 'pos-text' : 'neg-text') + '">' + fmtMoney(Math.abs(diff)) + '</strong></div>' +
+        '<div><span>Média 3 meses</span><strong class="tabular">' + (avg3 > 0 ? fmtMoney(avg3) : '—') + '</strong></div></div>' :
+      '<div class="bc-stats"><div><span>Gasto no mês</span><strong class="tabular">' + fmtMoney(spent) + '</strong></div>' +
+        '<div><span>Média 3 meses</span><strong class="tabular">' + (avg3 > 0 ? fmtMoney(avg3) : '—') + '</strong></div>' +
+        (avg3 > 0 && !locked ? '<div><button type="button" class="linklike" data-budget-suggest="' + escapeHtml(c.id) + '" data-amount="' + Math.ceil(avg3 / 10) * 10 + '">Sugerir ' + fmtMoney(Math.ceil(avg3 / 10) * 10) + '</button></div>' : '') + '</div>';
+    return '<div class="budget-row bcard ' + status + '">' +
       '<div class="budget-top">' +
-        '<span class="budget-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label)+'</span>' +
+        '<span class="budget-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label) + (limit > 0 ? '<span class="status-pill ' + status + '">' + statusLabel[status] + '</span>' : '') + '</span>' +
         '<span class="money-input sm"><span>R$</span><input class="tabular" type="text" data-money autocomplete="off" inputmode="decimal" data-budget-cat="'+escapeHtml(c.id)+'" value="'+(limit||'')+'" placeholder="'+(locked ? '—' : 'Sem limite')+'"'+(locked ? ' disabled' : '')+' aria-label="Quanto quero gastar com '+escapeHtml(c.label)+'"></span>' +
       '</div>' +
-      (limit > 0 ?
-        '<div class="progress"><span style="width:'+Math.min(100,pct*100)+'%; background:'+barColor+'"></span></div>' +
-        '<div class="budget-top"><span class="budget-figs tabular">'+fmtMoney(spent)+' de '+fmtMoney(limit)+(limit > spent ? ' · restam ' + fmtMoney(limit-spent) : '')+'</span><span class="status-pill '+status+'">'+statusLabel[status]+'</span></div>'
-        : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+(locked ? '' : ' (digite ao lado quanto quer gastar)')+'</span>' :
-          spent3[c.id] > 0 ? '<span class="budget-figs tabular">Nada neste mês · média dos últimos 3 meses: ' + fmtMoney(spent3[c.id] / 3) + '</span>' : '')
-      ) +
-      (catTx.length ? '<details class="budget-details"><summary>Ver com o que gastou (' + catTx.length + ')</summary>' + catTx.map(txRowHtml).join('') + '</details>' : '') +
+      (limit > 0 ? '<div class="bc-bar" role="img" aria-label="' + Math.round(pct * 100) + '% do limite usado"><span class="' + barClass + '" style="width:' + Math.min(100, pct * 100) + '%"></span><em>' + Math.round(pct * 100) + '%</em></div>' : '') +
+      stats +
+      (catTx.length ? '<details class="budget-details bc-details"><summary><span>Ver os ' + catTx.length + (catTx.length === 1 ? ' lançamento' : ' lançamentos') + '</span><span class="bc-sum tabular">' + fmtMoney(spent) + '</span></summary><div class="bc-list">' + catTx.map(txRowHtml).join('') + '</div></details>' :
+        '<p class="bc-empty">Nenhum lançamento neste mês.</p>') +
       '</div>';
   }
 
+  qsa('[data-budget-suggest]', list).forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var cat = btn.getAttribute('data-budget-suggest'), key = monthBounds(State.budgetMonthOffset).key;
+      if (budgetLocked(key)) return;
+      await setBudget(key, cat, Number(btn.getAttribute('data-amount')));
+      renderBudgets();
+      toast('Planejamento de ' + catLabel(cat, 'expense') + ' em ' + monthLabelOf(key) + ' atualizado.');
+    });
+  });
   qsa('[data-budget-cat]', list).forEach(function(input){
     input.addEventListener('change', async function(){
       var cat = input.getAttribute('data-budget-cat');
