@@ -42,6 +42,7 @@ import {renderLearn} from './learn-tab.js';
 import {clearDataModal, dataModal, deleteMyAccount, researchModal, researchStatusHtml} from './my-data.js';
 import {confirmEmailTypo, forgotPassword, siteUrl, wireAuth} from './online.js';
 import {installMoneyInputs} from './money-input.js';
+import {initLanding} from './landing.js';
 import {wirePlanning} from './planning-tab.js';
 import {wirePwa} from './pwa.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
@@ -84,5 +85,6 @@ initProfile({
 });
 
 export function start(){
+  initLanding();
   if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
 }
