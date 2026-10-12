@@ -50,7 +50,7 @@ export var TIPS_GROW = [
 export var HOW_TO_STEPS = [
   ['Cadastre seus bancos e cartões', 'Em “Contas e cartões”, informe o saldo de hoje de cada conta e, se tiver, o cartão de crédito com limite, dia de fechamento e de vencimento. Assim o app sabe quanto você tem e em qual fatura cada compra cai.', 'cartoes'],
   ['Anote o que entra e o que sai', 'Toque no + (ou escreva no chat, como “gastei 30 no mercado”). Digite o valor como no banco (1.500,00), diga o que foi — a categoria vem sugerida — e como pagou. Comprou parcelado no cartão? Escolha o número de parcelas.', 'lancamentos'],
-  ['Cadastre as contas de todo mês', 'Em “Contas fixas”, coloque luz, água, internet, aluguel e assinaturas. No dia de cada uma, o gasto entra sozinho; se o valor mudar (luz, água), é só ajustar naquele mês.', 'fixas'],
+  ['Cadastre as contas de todo mês', 'Em “Ganhos e gastos → Contas fixas”, coloque luz, água, internet, aluguel e assinaturas. No dia de cada uma, o gasto entra sozinho; se o valor mudar (luz, água), é só ajustar naquele mês.', 'fixas'],
   ['Planeje e guarde', 'Em “Planejar gastos”, diga quanto quer gastar por categoria. Em “Metas”, crie objetivos e use “Guardar” sempre que separar dinheiro: o app mostra quanto guardar por mês e quando você chega lá.', 'limites'],
   ['Acompanhe pelo Início', 'A primeira tela resume o mês numa frase, mostra os próximos pagamentos e quantas parcelas já foram pagas e quantas faltam. Toque em um item para ir direto à área dele.', 'dashboard']
 ];
@@ -58,9 +58,9 @@ export var HOW_TO_STEPS = [
 export var HOW_TO_AREAS = [
   ['Início', 'home', 'Resumo do mês: quanto tem, quanto gastou (e quanto do planejado), próximos pagamentos e parcelas. “Ver todos os detalhes do mês” abre gráficos, comparação com o mês passado e o relatório em PDF.'],
   ['Ganhos e gastos', 'list', 'Todos os lançamentos, com busca e filtros, em lista, calendário ou ano. Toque no lápis para corrigir; num gasto, dá para registrar um estorno. “Previstas” guarda o que você ainda vai receber.'],
-  ['Contas fixas', 'calendar', 'Contas que se repetem (mensais, bimestrais, anuais). Mostra o que vence no mês, o que já foi lançado e o que está atrasado.'],
+  ['Contas fixas', 'calendar', 'Dentro de Ganhos e gastos: contas que se repetem (mensais, bimestrais, anuais), que são gastos do mês. Mostra o que vence, o que já foi lançado e o que está atrasado.'],
   ['Contas e cartões', 'wallet', 'Saldo de cada conta, faturas dos cartões (com pagamento parcial ou parcelado) e vale-alimentação. “Transferir” move dinheiro entre contas sem contar como gasto.'],
-  ['Compromissos', 'handshake', 'Dinheiro entre você e outras pessoas. Em “Eu devo”, as dívidas agrupadas por quem cobra; em “Me devem”, quem te deve, com “Cobrar” (mensagem pronta no WhatsApp, com Pix) e “Compartilhar” (a pessoa acompanha no Grana Leve dela).'],
+  ['Compromissos', 'handshake', 'Em Planejar: dinheiro entre você e outras pessoas. Em “Eu devo”, as dívidas agrupadas por quem cobra; em “Me devem”, quem te deve, com “Cobrar” (mensagem pronta no WhatsApp, com Pix) e “Compartilhar” (a pessoa acompanha no Grana Leve dela).'],
   ['Planejar gastos', 'pie', 'Limite por categoria em cada mês. A barra fica amarela perto do limite e vermelha quando passa. Categorias que você não usa ficam recolhidas.'],
   ['Metas', 'target', 'Objetivos com valor e prazo. Registre o que guardar, o rendimento e as retiradas; a meta mostra o ritmo, a previsão de conclusão e quanto guardar por mês.'],
   ['Aprenda', 'book', 'Dicas para organizar o dinheiro e fazer ele render, e este guia.'],

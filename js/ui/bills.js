@@ -1,5 +1,5 @@
 /*
- * Contas fixas (área própria): cadastro, vencimentos do mês, lançamento automático no dia (vira
+ * Ganhos e gastos → Contas fixas: cadastro, vencimentos do mês, lançamento automático no dia (vira
  * gasto sozinho), mudar o valor de um mês, desfazer, mudar o valor "a partir de", encerrar e excluir.
  */
 import {Store} from '../data/store.js';

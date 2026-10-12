@@ -189,12 +189,11 @@
         <nav class="sidenav-links">
           <a class="nav-item" href="#/inicio" data-tab="dashboard"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a>
           <a class="nav-item" href="#/lancamentos" data-tab="lancamentos"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg><span>Ganhos e gastos</span></a>
-          <a class="nav-item" href="#/contas-fixas" data-tab="fixas"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg><span>Contas fixas</span></a>
           <a class="nav-item" href="#/contas" data-tab="cartoes"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg><span>Contas e cartões</span></a>
-          <a class="nav-item" href="#/compromissos" data-tab="compromissos"><svg class="ico" aria-hidden="true"><use href="#i-handshake"/></svg><span>Compromissos</span></a>
           <p class="nav-group">Planejar</p>
           <a class="nav-item" href="#/planejar" data-tab="limites"><svg class="ico" aria-hidden="true"><use href="#i-pie"/></svg><span>Planejar gastos</span></a>
           <a class="nav-item" href="#/metas" data-tab="metas"><svg class="ico" aria-hidden="true"><use href="#i-target"/></svg><span>Metas</span></a>
+          <a class="nav-item" href="#/compromissos" data-tab="compromissos"><svg class="ico" aria-hidden="true"><use href="#i-handshake"/></svg><span>Compromissos</span></a>
           <p class="nav-group">Mais</p>
           <a class="nav-item" href="#/aprenda" data-tab="aprenda"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg><span>Aprenda</span></a>
           <a class="nav-item" href="#/conexoes" data-tab="conexoes"><svg class="ico" aria-hidden="true"><use href="#i-plug"/></svg><span>Conexões</span></a>
@@ -293,7 +292,11 @@
       <div id="tab-lancamentos" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg>Ganhos e gastos</h2>
         <p class="tab-intro">Anote aqui tudo o que entra (ganhos) e tudo o que sai (gastos). Quanto mais perto da hora, melhor. Em “Previstas” você anota o que ainda vai receber no mês.</p>
-        <div id="tab-lanc" class="subpanel">
+        <div class="segmented seg-wide" role="tablist" aria-label="Ganhos e gastos">
+          <button type="button" role="tab" id="segbtn-lanc" aria-controls="tab-lanc" data-sub="lanc" aria-selected="true">Lançamentos</button>
+          <button type="button" role="tab" id="segbtn-fixas" aria-controls="tab-fixas" data-sub="fixas" aria-selected="false" tabindex="-1">Contas fixas</button>
+        </div>
+        <div id="tab-lanc" class="subpanel" role="tabpanel" aria-labelledby="segbtn-lanc">
           <div class="card">
             <div class="card-head">
               <h3>Novo lançamento</h3>
@@ -397,11 +400,8 @@
             <div id="txList"></div>
           </div>
         </div>
-      </div>
-
-      <!-- Contas fixas (água, luz, internet, assinaturas…): área própria -->
-      <div id="tab-fixas" class="tab-panel" tabindex="-1" hidden>
-        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg>Contas fixas</h2>
+        <!-- Contas fixas (água, luz, internet, assinaturas…): gastos do mês, parte de Ganhos e gastos -->
+      <div id="tab-fixas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-fixas" hidden>
         <p class="tab-intro">Contas que se repetem: água, luz, internet, aluguel, assinaturas. No dia de cada uma, o gasto entra sozinho em “Ganhos e gastos”, na conta ou no cartão escolhido. Dá para mudar o valor de um mês (ex.: luz) ou desfazer.</p>
         <div class="card">
           <div class="card-head"><h3>Nova conta fixa</h3></div>
@@ -424,6 +424,7 @@
               <button type="button" id="billNext" aria-label="Próximo mês"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div></div>
           <div id="billMonth"></div>
         </div>
+      </div>
       </div>
 
       <!-- Cartões -->
@@ -522,7 +523,7 @@
       <!-- Compromissos: Eu devo (dívidas) e Me devem (a receber) -->
       <div id="tab-compromissos" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-handshake"/></svg>Compromissos</h2>
-        <p class="tab-intro">Dinheiro entre você e outras pessoas ou empresas: o que você deve (empréstimos, acordos, dívidas) e o que te devem. Contas que se repetem todo mês, como luz e assinaturas, ficam em <a href="#/contas-fixas" data-go="fixas">Contas fixas</a>.</p>
+        <p class="tab-intro">Dinheiro entre você e outras pessoas ou empresas: o que você deve (empréstimos, acordos, dívidas) e o que te devem. Contas que se repetem todo mês, como luz e assinaturas, são gastos do mês e ficam em <a href="#/lancamentos/contas-fixas" data-go="fixas">Ganhos e gastos → Contas fixas</a>.</p>
         <div class="segmented seg-wide" role="tablist" aria-label="Tipo de compromisso">
           <button type="button" role="tab" id="segbtn-dividas" aria-controls="tab-dividas" data-sub="dividas" aria-selected="true">Eu devo</button>
           <button type="button" role="tab" id="segbtn-receber" aria-controls="tab-receber" data-sub="receber" aria-selected="false" tabindex="-1">Me devem</button>

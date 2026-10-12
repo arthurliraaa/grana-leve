@@ -168,13 +168,14 @@ export function renderAll(){
 
 /* ============ Tabs / navigation ============ */
 // Áreas do app e o endereço de cada uma (#/metas). O endereço permite usar o botão Voltar do navegador.
-export var TABS = ['dashboard','lancamentos','fixas','cartoes','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
-export var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', fixas:'contas-fixas', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
-// Partes (subabas) de uma área: Compromissos = Eu devo | Me devem. slug é o pedaço do endereço
-// (#/compromissos/me-devem). Contas fixas viraram área própria; o endereço antigo
-// (#/lancamentos/contas-fixas) ainda leva até elas.
+export var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
+export var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
+// Partes (subabas) de uma área: Compromissos = Eu devo | Me devem; Ganhos e gastos = Lançamentos |
+// Contas fixas (contas de todo mês são gastos do mês, não compromissos). slug é o pedaço do
+// endereço (#/compromissos/me-devem); vazio = a parte padrão.
 export var SUBTABS = {
-  dividas: {parent: 'compromissos', slug: 'eu-devo'}, receber: {parent: 'compromissos', slug: 'me-devem'}
+  dividas: {parent: 'compromissos', slug: 'eu-devo'}, receber: {parent: 'compromissos', slug: 'me-devem'},
+  lanc: {parent: 'lancamentos', slug: ''}, fixas: {parent: 'lancamentos', slug: 'contas-fixas'}
 };
 function subsOf(parent){ return Object.keys(SUBTABS).filter(function(k){ return SUBTABS[k].parent === parent; }); }
 function currentSub(parent){ return (State.subTab || {})[parent] || subsOf(parent)[0]; }
@@ -185,7 +186,7 @@ export function routeOf(name){
 }
 export function tabFromHash(){
   var parts = location.hash.replace(/^#\/?/, '').split('/');
-  if (parts[0] === 'lancamentos' && parts[1] === 'contas-fixas') return 'fixas';
+  if (parts[0] === 'contas-fixas') return 'fixas';   // endereço de quando Contas fixas era área própria
   var tab = Object.keys(ROUTES).filter(function(t){ return ROUTES[t] === parts[0]; })[0];
   if (!tab) return null;
   if (parts[1]) return subsOf(tab).filter(function(k){ return SUBTABS[k].slug === parts[1]; })[0] || tab;
@@ -203,7 +204,7 @@ export function showSubTab(parent, sub){
   });
   subsOf(parent).forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
 }
-// name pode ser uma área (TABS) ou uma parte dela (SUBTABS: 'dividas', 'receber').
+// name pode ser uma área (TABS) ou uma parte dela (SUBTABS: 'dividas', 'receber', 'lanc', 'fixas').
 export function showTab(name){
   var sub = SUBTABS[name] ? name : null;
   if (sub) name = SUBTABS[sub].parent;
@@ -233,7 +234,7 @@ export function showTab(name){
 
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 export async function openMoreMenu(){
-  var items = [['fixas','calendar','Contas fixas'], ['cartoes','wallet','Contas e cartões'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
+  var items = [['cartoes','wallet','Contas e cartões'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
     ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões'], ['perfil','user','Perfil e conta']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
   await openModal({
     title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',
