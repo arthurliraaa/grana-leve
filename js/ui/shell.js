@@ -3,7 +3,7 @@
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
 import {whatsappNumber} from '../domain/contact.js';
-import {todayKey, monthBounds} from '../domain/dates.js';
+import {todayKey} from '../domain/dates.js';
 import {money, fmtMoney} from '../domain/money.js';
 import {findById} from '../domain/util.js';
 import {isReversal} from '../domain/transactions.js';
@@ -31,7 +31,7 @@ import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf} from './reports.js';
-import {State, accountName, catLabel, k, sortTransactions, txForMonth} from './state.js';
+import {State, accountName, catLabel, k, sortTransactions} from './state.js';
 import {advanceInstallments, openTxModal} from './tx-edit.js';
 import {TX_SORTS, populateCategorySelect, populateInstallSelect, populatePaymentSelect, renderTransactionsTab, syncTxFormVisibility} from './tx-list.js';
 
@@ -552,7 +552,7 @@ export function wireShell(){
     if ((el = t.closest('[data-collapse]'))){ toggleDashCard(el.getAttribute('data-collapse')); return; }
     if ((el = t.closest('[data-view-toggle]'))){
       var which = el.getAttribute('data-view-toggle');
-      if (which === 'donut'){ State.donutView = State.donutView === 'chart' ? 'table' : 'chart'; renderDonut(txForMonth(monthBounds(0).key)); }
+      if (which === 'donut'){ State.donutView = State.donutView === 'chart' ? 'table' : 'chart'; renderDonut(); }
       else if (which === 'invsplit' || which === 'creditdebit'){ toggleDashView(which); }
       else { State.barView = State.barView === 'chart' ? 'table' : 'chart'; renderBarChart(); }
       return;

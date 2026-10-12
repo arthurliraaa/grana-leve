@@ -6,14 +6,14 @@ import {bankGroups} from './accounts-tab.js';
 import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
-import {isForOther, isRefund, isPersonal, isReversal, reversalsOf, myShare, othersShare} from '../domain/transactions.js';
+import {isForOther, isRefund, isReversal, reversalsOf, myShare, othersShare} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
 import {recvDueByMonth, recvInstallInfo, recvRemaining} from '../domain/receivables.js';
 
 import {urgencyOf} from '../domain/urgency.js';
-import {pendingBills} from './bills.js';
+import {billMonth, pendingBills} from './bills.js';
 
 import {Store} from '../data/store.js';
 import {qs, escapeHtml, icon, optionsHtml, resolveVar, toast} from './dom.js';
@@ -21,7 +21,7 @@ import {openModal, askAmount} from './modal.js';
 import {wireTooltips} from './charts.js';
 import {generateMonthlyReport} from './reports.js';
 import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab} from './shell.js';
-import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthTotals, sortTransactions, totalAccountsBalance, txForMonth, voucherOf} from './state.js';
+import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthTotals, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
 import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
 
 /* ---------- Previsões de entrada ---------- */
@@ -388,27 +388,27 @@ export async function calcHelp(){
 }
 
 export function renderComparison(){
-  var cur = monthBounds(0), prev = monthBounds(-1);
+  var cur = dashMonth(), prev = monthBounds((State.dashOffset || 0) - 1);
   document.getElementById('comparisonMonthsLabel').textContent = cur.label + ' vs ' + prev.label;
-  var curT = monthTotals(cur.key), prevT = monthTotals(prev.key);
-  var curCats = expenseCategoryTotals(cur.key), prevCats = expenseCategoryTotals(prev.key);
-
+  var curP = monthProjection(cur.key), prevP = monthProjection(prev.key);
+  var curCats = projectCats(cur.key), prevCats = projectCats(prev.key), fc = curP.forecast ? ' <small>previsão</small>' : '';
   document.getElementById('comparisonSummary').innerHTML =
-    '<div class="tile tile-sm"><span class="tile-lbl">Ganhos</span><span class="tile-val tabular">'+fmtMoney(curT.income)+'</span>'+deltaBadge(curT.income, prevT.income, false)+'</div>' +
-    '<div class="tile tile-sm"><span class="tile-lbl">Gastos</span><span class="tile-val tabular">'+fmtMoney(curT.expense)+'</span>'+deltaBadge(curT.expense, prevT.expense, true)+'</div>' +
-    '<div class="tile tile-sm"><span class="tile-lbl">Saldo</span><span class="tile-val tabular">'+fmtMoney(curT.saldo)+'</span>'+deltaBadge(curT.saldo, prevT.saldo, false)+'</div>';
-
+    '<div class="tile tile-sm"><span class="tile-lbl">Ganhos' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.inc)+'</span>'+deltaBadge(curP.inc, prevP.inc, false)+'</div>' +
+    '<div class="tile tile-sm"><span class="tile-lbl">Gastos' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.exp)+'</span>'+deltaBadge(curP.exp, prevP.exp, true)+'</div>' +
+    '<div class="tile tile-sm"><span class="tile-lbl">Saldo' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.inc - curP.exp)+'</span>'+deltaBadge(curP.inc - curP.exp, prevP.inc - prevP.exp, false)+'</div>';
   var list = document.getElementById('comparisonList');
   var cats = expenseCats().map(function(c){
     return {id:c.id, label:c.label, color:c.color, cur: curCats[c.id]||0, prev: prevCats[c.id]||0};
-  }).filter(function(c){ return c.cur>0 || c.prev>0; });
+  }).filter(function(c){ return c.cur>0 || c.prev>0; }).sort(function(a, b){ return b.cur - a.cur || b.prev - a.prev; });
   if (!cats.length){
     list.innerHTML = '<p class="chart-empty">Ainda não há gastos suficientes para comparar os dois meses.</p>';
     return;
   }
+  var top = Math.max(1, Math.max.apply(null, cats.map(function(c){ return Math.max(c.cur, c.prev); })));
   list.innerHTML = '<div class="cmp-row cmp-head"><span>Categoria</span><span class="tabular">'+cur.label.slice(0,3)+'</span><span class="tabular">'+prev.label.slice(0,3)+'</span><span>Variação</span></div>' +
     cats.map(function(c){
-      return '<div class="cmp-row"><span class="cmp-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label)+'</span>' +
+      return '<div class="cmp-row"><span class="cmp-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label) +
+        '<span class="cmp-bars" aria-hidden="true"><span class="cmp-bar cur" style="width:' + (100 * c.cur / top) + '%"></span><span class="cmp-bar prev" style="width:' + (100 * c.prev / top) + '%"></span></span></span>' +
         '<span class="tabular">'+fmtMoney(c.cur)+'</span><span class="tabular">'+fmtMoney(c.prev)+'</span>' + deltaBadge(c.cur, c.prev, true) + '</div>';
     }).join('');
 }
@@ -420,7 +420,8 @@ export function renderDashboard(){
   renderSummary();
   renderStatTiles();
   renderForecasts();
-  renderDonut(txForMonth(cur.key));
+  renderDashNav();
+  renderDonut();
   renderBarChart();
   renderInvoiceSplit();
   renderCreditDebit();
@@ -594,18 +595,60 @@ export function renderCreditDebit(){
     outside;
   wireTooltips(wrap, '.inv-seg');
 }
-export function renderDonut(monthTx){
-  var wrap = document.getElementById('donutWrap');
-  setToggleLabel('donut');
-  var byCat = {};
-  monthTx.filter(function(t){ return t.type==='expense' && isPersonal(t); }).forEach(function(t){
-    byCat[t.category] = (byCat[t.category]||0) + myShare(t);
-  });
-  var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0}; }).filter(function(e){ return e.value>0; });
-  var total = sum(entries, function(e){ return e.value; });
+/* ---------- Gráficos do Início: mês escolhido (passado, atual ou futuro com previsão) ---------- */
+export var DASH_MIN = -36, DASH_MAX = 12;
+function dashMonth(){ return monthBounds(State.dashOffset || 0); }
+// R$ 1.234 -> "1,2 mil"; valores menores ficam inteiros. Para os eixos dos gráficos.
+export function compactMoney(v){
+  v = Math.round(Number(v) || 0);
+  if (Math.abs(v) >= 1000000) return (v / 1000000).toFixed(1).replace('.', ',').replace(',0', '') + ' mi';
+  if (Math.abs(v) >= 1000) return (v / 1000).toFixed(1).replace('.', ',').replace(',0', '') + ' mil';
+  return String(v);
+}
+// O que se espera de um mês: o registrado mais, daqui para frente, as contas fixas ainda não lançadas
+// e as previsões de entrada ainda não recebidas. Meses passados são só o registrado.
+export function monthProjection(key){
+  var cur = monthBounds(0).key, t = monthTotals(key), ahead = key >= cur;
+  var bills = ahead ? billMonth(key).filter(function(o){ return !o.paid && !o.skipped; }) : [];
+  var fcs = ahead ? forecastOccurrences(key).filter(function(o){ return o.received === undefined; }) : [];
+  var expExtra = sumMoney(bills, function(o){ return o.amount; }), incExtra = sumMoney(fcs, function(o){ return o.f.amount; });
+  return {key: key, inc: money(t.income + incExtra), exp: money(t.expense + expExtra), incReg: t.income, expReg: t.expense,
+    incExtra: incExtra, expExtra: expExtra, bills: bills, future: key > cur, forecast: key > cur || expExtra > 0 || incExtra > 0};
+}
+// Gastos por categoria do mês, com as contas fixas previstas.
+export function projectCats(key){
+  var out = Object.assign({}, expenseCategoryTotals(key));
+  monthProjection(key).bills.forEach(function(o){ out[o.b.category] = money((out[o.b.category] || 0) + o.amount); });
+  return out;
+}
+export function renderDashNav(){
+  var m = dashMonth(), off = State.dashOffset || 0;
+  document.getElementById('dashNavLabel').textContent = m.label;
+  var badge = document.getElementById('dashNavBadge');
+  badge.textContent = off === 0 ? 'Este mês' : off > 0 ? 'Previsão · ' + (off === 1 ? 'próximo mês' : 'daqui a ' + off + ' meses') : off === -1 ? 'Mês passado' : 'Há ' + (-off) + ' meses';
+  badge.className = 'dash-badge ' + (off > 0 ? 'future' : off < 0 ? 'past' : 'now');
+  document.getElementById('dashPrev').disabled = off <= DASH_MIN;
+  document.getElementById('dashNext').disabled = off >= DASH_MAX;
+  document.getElementById('dashToday').hidden = off === 0;
+  document.getElementById('donutTitle').textContent = 'Gastos por categoria · ' + m.label.split(' de ')[0];
+}
+export function setDashOffset(n){
+  State.dashOffset = Math.max(DASH_MIN, Math.min(DASH_MAX, n));
+  renderDashMonthViews();
+}
+export function renderDashMonthViews(){
+  renderDashNav(); renderDonut(); renderBarChart(); renderComparison();
+}
 
+export function renderDonut(){
+  var wrap = document.getElementById('donutWrap'), m = dashMonth(), key = m.key;
+  setToggleLabel('donut');
+  var byCat = projectCats(key), proj = monthProjection(key);
+  var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0}; })
+    .filter(function(e){ return e.value>0; }).sort(function(a, b){ return b.value - a.value; });
+  var total = sum(entries, function(e){ return e.value; });
   if (!total){
-    wrap.innerHTML = '<p class="chart-empty">Sem gastos registrados neste mês ainda.</p>';
+    wrap.innerHTML = '<p class="chart-empty">' + ((State.dashOffset || 0) > 0 ? 'Nada previsto para este mês ainda (parcelas, contas fixas ou gastos agendados).' : 'Sem gastos registrados neste mês.') + '</p>';
     return;
   }
   if (State.donutView === 'table'){
@@ -614,77 +657,87 @@ export function renderDonut(monthTx){
       '<tr><td><strong>Total</strong></td><td class="tabular"><strong>'+fmtMoney(total)+'</strong></td><td>100%</td></tr></tbody></table>';
     return;
   }
-  var size = 220, r = 80, cx = size/2, cy = size/2, circumference = 2*Math.PI*r;
+  var size = 220, r = 82, cx = size/2, cy = size/2, circumference = 2*Math.PI*r, gap = entries.length > 1 ? 3 : 0;
   var cum = 0;
-  var circles = entries.map(function(e){
-    var frac = e.value/total;
-    var dash = frac*circumference;
-    var offset = -cum*circumference;
+  var circles = entries.map(function(e, i){
+    var frac = e.value/total, dash = Math.max(0, frac*circumference - gap), offset = -cum*circumference;
     cum += frac;
-    return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+resolveVar(e.color, wrap)+'" stroke-width="26" ' +
+    return '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+resolveVar(e.color, wrap)+'" stroke-width="24" stroke-linecap="butt" style="--i:' + i + '" ' +
       'stroke-dasharray="'+dash.toFixed(2)+' '+(circumference-dash).toFixed(2)+'" stroke-dashoffset="'+offset.toFixed(2)+'" ' +
-      'transform="rotate(-90 '+cx+' '+cy+')" tabindex="0" data-label="'+escapeHtml(e.label)+'" data-value="'+fmtMoney(e.value)+'" class="donut-seg"></circle>';
+      'transform="rotate(-90 '+cx+' '+cy+')" tabindex="0" data-label="'+escapeHtml(e.label)+'" data-value="'+fmtMoney(e.value)+' ('+Math.round(100*frac)+'%)" class="donut-seg"></circle>';
   }).join('');
-
-  var svg = '<svg viewBox="0 0 '+size+' '+size+'" width="100%" height="240" role="img" aria-label="Gastos por categoria">' +
-    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--gridline)" stroke-width="26"></circle>' +
-    circles +
-    '<text x="'+cx+'" y="'+(cy-4)+'" text-anchor="middle" font-size="13" fill="var(--text-secondary)">Total</text>' +
-    '<text x="'+cx+'" y="'+(cy+16)+'" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text-primary)">'+fmtMoney(total)+'</text>' +
-    '</svg>';
-  var legend = '<div class="legend">' + entries.map(function(e){
-    return '<span class="legend-item"><span class="legend-swatch" style="background:'+resolveVar(e.color,wrap)+'"></span>' + escapeHtml(e.emoji + ' ' + e.label) + ' · ' + fmtMoney(e.value) + '</span>';
-  }).join('') + '</div>';
-
-  wrap.innerHTML = svg + legend;
+  var svg = '<svg class="donut-svg" viewBox="0 0 '+size+' '+size+'" role="img" aria-label="Gastos por categoria em ' + escapeHtml(m.label) + '">' +
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--gridline)" stroke-width="24" opacity=".6"></circle>' + circles +
+    '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : 'Total') + '</text>' +
+    '<text x="'+cx+'" y="'+(cy+14)+'" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text-primary)">'+fmtMoney(total)+'</text></svg>';
+  var rows = '<ol class="cat-rank">' + entries.slice(0, 8).map(function(e){
+    var pct = Math.round(100 * e.value / total);
+    return '<li><span class="cat-rank-top"><span class="cat-rank-name"><span class="legend-swatch" style="background:' + resolveVar(e.color, wrap) + '"></span>' + escapeHtml(e.emoji + ' ' + e.label) + '</span>' +
+      '<span class="tabular">' + fmtMoney(e.value) + ' <small>' + pct + '%</small></span></span>' +
+      '<span class="cat-rank-bar"><span style="width:' + pct + '%; background:' + resolveVar(e.color, wrap) + '"></span></span></li>';
+  }).join('') + (entries.length > 8 ? '<li class="tx-meta">+ ' + (entries.length - 8) + ' categorias menores</li>' : '') + '</ol>';
+  wrap.innerHTML = '<div class="donut-layout">' + svg + rows + '</div>' +
+    (proj.expExtra > 0 ? '<p class="chart-note">Inclui ' + fmtMoney(proj.expExtra) + ' de contas fixas previstas, ainda não lançadas.</p>' : '');
   wireTooltips(wrap, '.donut-seg');
 }
 
 export function renderBarChart(){
   var wrap = document.getElementById('barWrap');
   setToggleLabel('bar');
-  var n = State.barMonths;
-  var months = [];
-  for (var i=n-1;i>=0;i--){ months.push(monthBounds(-i)); }
-  var data = months.map(function(m){
-    var t = monthTotals(m.key);
-    return {label: m.label.slice(0,3), full: m.label, inc: t.income, exp: t.expense};
-  });
-
+  var n = State.barMonths, off = State.dashOffset || 0;
+  // A janela sempre inclui o mês escolhido: termina nele (se for futuro) ou no mês atual.
+  var end = off >= 0 ? off : Math.min(0, off + Math.floor(n / 2));
+  var data = [];
+  for (var i = n - 1; i >= 0; i--){
+    var mo = end - i, m = monthBounds(mo), p = monthProjection(m.key);
+    data.push({off: mo, label: m.label.slice(0, 3), year: m.key.slice(2, 4), full: m.label, p: p, sel: mo === off, now: mo === 0});
+  }
   if (State.barView === 'table'){
     wrap.innerHTML = '<table class="data-table"><thead><tr><th>Mês</th><th>Ganhos</th><th>Gastos</th><th>Saldo</th></tr></thead><tbody>' +
-      data.map(function(d){ return '<tr><td>'+d.full+'</td><td class="tabular">'+fmtMoney(d.inc)+'</td><td class="tabular">'+fmtMoney(d.exp)+'</td><td class="tabular">'+fmtMoney(d.inc-d.exp)+'</td></tr>'; }).join('') +
+      data.map(function(d){ return '<tr><td>'+d.full+(d.p.forecast ? ' <small>(previsão)</small>' : '')+'</td><td class="tabular">'+fmtMoney(d.p.inc)+'</td><td class="tabular">'+fmtMoney(d.p.exp)+'</td><td class="tabular">'+fmtMoney(d.p.inc-d.p.exp)+'</td></tr>'; }).join('') +
       '</tbody></table>';
     return;
   }
-
-  var max = Math.max(1, Math.max.apply(null, data.map(function(d){ return Math.max(d.inc,d.exp); })));
-  var W = 320, H = 200, padL = 34, padB = 22, padT = 10, padR = 6;
-  var plotW = W - padL - padR, plotH = H - padT - padB;
-  var groupW = plotW / data.length;
-  var barW = Math.min(16, groupW/3);
-  var incColor = resolveVar('var(--cat-1)', wrap), expColor = resolveVar('var(--cat-8)', wrap);
-  var grid = [0,0.5,1].map(function(f){
-    var y = padT + plotH*(1-f);
-    return '<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="var(--gridline)" stroke-width="1"></line>' +
-      '<text x="'+(padL-6)+'" y="'+(y+3)+'" text-anchor="end" font-size="8">'+fmtMoney(max*f).replace('R$','').trim()+'</text>';
+  var max = Math.max(1, Math.max.apply(null, data.map(function(d){ return Math.max(d.p.inc, d.p.exp); })));
+  var W = 340, H = 220, padL = 40, padB = 34, padT = 12, padR = 6;
+  var plotW = W - padL - padR, plotH = H - padT - padB, groupW = plotW / data.length, barW = Math.min(18, groupW / 2.6);
+  var incColor = resolveVar('var(--cat-3)', wrap), expColor = resolveVar('var(--cat-8)', wrap), selColor = resolveVar('var(--brand)', wrap);
+  var defs = '<defs>' +
+    '<linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + incColor + '"/><stop offset="1" stop-color="' + incColor + '" stop-opacity=".62"/></linearGradient>' +
+    '<linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + expColor + '"/><stop offset="1" stop-color="' + expColor + '" stop-opacity=".62"/></linearGradient>' +
+    '<pattern id="hInc" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="' + incColor + '" opacity=".18"/><rect width="2" height="5" fill="' + incColor + '" opacity=".75"/></pattern>' +
+    '<pattern id="hExp" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="' + expColor + '" opacity=".18"/><rect width="2" height="5" fill="' + expColor + '" opacity=".75"/></pattern></defs>';
+  var grid = [0, 0.5, 1].map(function(f){
+    var y = padT + plotH * (1 - f);
+    return '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="var(--gridline)" stroke-width="1"' + (f ? ' stroke-dasharray="3 4"' : '') + '></line>' +
+      '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="9" fill="var(--text-muted)">' + compactMoney(max * f) + '</text>';
   }).join('');
-  var bars = data.map(function(d, idx){
-    var gx = padL + idx*groupW;
-    var hInc = (d.inc/max)*plotH, hExp = (d.exp/max)*plotH;
-    var x1 = gx + groupW/2 - barW - 1, x2 = gx + groupW/2 + 1;
-    return '<rect class="bar-seg" data-label="Ganhos · '+d.full+'" data-value="'+fmtMoney(d.inc)+'" x="'+x1+'" y="'+(padT+plotH-hInc)+'" width="'+barW+'" height="'+Math.max(hInc,1)+'" rx="3" fill="'+incColor+'" tabindex="0"></rect>' +
-      '<rect class="bar-seg" data-label="Gastos · '+d.full+'" data-value="'+fmtMoney(d.exp)+'" x="'+x2+'" y="'+(padT+plotH-hExp)+'" width="'+barW+'" height="'+Math.max(hExp,1)+'" rx="3" fill="'+expColor+'" tabindex="0"></rect>' +
-      '<text x="'+(gx+groupW/2)+'" y="'+(H-4)+'" text-anchor="middle" font-size="'+(n > 6 ? 7 : 9)+'">'+d.label+'</text>';
+  function bar(x, val, extra, label, grad, hatch, idx, color, d){
+    var hTot = (val / max) * plotH, hExtra = (extra / max) * plotH, hReg = Math.max(0, hTot - hExtra), y0 = padT + plotH;
+    var tip = label + ' · ' + d.full + ': ' + fmtMoney(val) + (extra > 0 ? ' (' + fmtMoney(extra) + ' previsto)' : '');
+    var out = '';
+    if (hReg > 0.4) out += '<rect class="bar-seg" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' · ' + d.full) + '" data-value="' + fmtMoney(val) + (extra > 0 ? ' (' + fmtMoney(extra) + ' previsto)' : '') + '" x="' + x + '" y="' + (y0 - hReg) + '" width="' + barW + '" height="' + hReg + '" rx="' + Math.min(4, hReg / 2) + '" fill="url(#' + grad + ')" tabindex="0"><title>' + escapeHtml(tip) + '</title></rect>';
+    if (hExtra > 0.4) out += '<rect class="bar-seg bar-forecast" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' previsto · ' + d.full) + '" data-value="' + fmtMoney(extra) + '" x="' + x + '" y="' + (y0 - hTot) + '" width="' + barW + '" height="' + hExtra + '" rx="3" fill="url(#' + hatch + ')" stroke="' + color + '" stroke-width="1" stroke-dasharray="3 2" tabindex="0"></rect>';
+    if (hTot <= 0.4) out += '<rect x="' + x + '" y="' + (y0 - 1.5) + '" width="' + barW + '" height="1.5" rx="1" fill="' + color + '" opacity=".4"></rect>';
+    return out;
+  }
+  var groups = data.map(function(d, idx){
+    var gx = padL + idx * groupW, cx = gx + groupW / 2, x1 = cx - barW - 1.5, x2 = cx + 1.5;
+    return '<g class="bar-group' + (d.sel ? ' sel' : '') + '" data-off="' + d.off + '" role="button" tabindex="0" aria-label="Ver ' + escapeHtml(d.full) + (d.p.forecast ? ' (previsão)' : '') + '">' +
+      '<rect class="bar-hit" x="' + gx + '" y="' + padT + '" width="' + groupW + '" height="' + (plotH + padB - 2) + '" rx="8" fill="' + (d.sel ? selColor : 'transparent') + '" fill-opacity="' + (d.sel ? '.1' : '0') + '"></rect>' +
+      bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'gInc', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Gastos', 'gExp', 'hExp', idx, expColor, d) +
+      '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="' + (n > 6 ? 8 : 10) + '" font-weight="' + (d.sel ? 700 : 500) + '" fill="' + (d.sel ? 'var(--text-primary)' : 'var(--text-secondary)') + '">' + d.label + '</text>' +
+      '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">' + (d.now ? 'hoje' : d.p.forecast ? 'previsão' : "'" + d.year) + '</text></g>';
   }).join('');
-  var svg = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="220" role="img" aria-label="Ganhos e gastos dos últimos '+n+' meses">' +
-    grid + '<line x1="'+padL+'" y1="'+(padT+plotH)+'" x2="'+(W-padR)+'" y2="'+(padT+plotH)+'" stroke="var(--baseline)" stroke-width="1"></line>' +
-    bars + '</svg>';
+  var svg = '<svg class="bar-svg" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Ganhos e gastos por mês; toque em um mês para ver os detalhes">' + defs + grid +
+    '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '" stroke="var(--baseline)" stroke-width="1"></line>' + groups + '</svg>';
   var legend = '<div class="legend">' +
-    '<span class="legend-item"><span class="legend-swatch" style="background:'+incColor+'"></span>Ganhos</span>' +
-    '<span class="legend-item"><span class="legend-swatch" style="background:'+expColor+'"></span>Gastos</span>' +
-    '</div>';
-  wrap.innerHTML = svg + legend;
+    '<span class="legend-item"><span class="legend-swatch" style="background:' + incColor + '"></span>Ganhos</span>' +
+    '<span class="legend-item"><span class="legend-swatch" style="background:' + expColor + '"></span>Gastos</span>' +
+    '<span class="legend-item"><span class="legend-swatch hatch"></span>Previsto (contas fixas e entradas esperadas)</span></div>';
+  var sel = data.filter(function(d){ return d.sel; })[0];
+  var cap = sel ? '<p class="chart-note"><strong>' + escapeHtml(sel.full) + '</strong>: ganhos ' + fmtMoney(sel.p.inc) + ' · gastos ' + fmtMoney(sel.p.exp) + ' · saldo <strong class="' + (sel.p.inc - sel.p.exp < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sel.p.inc - sel.p.exp) + '</strong>' + (sel.p.forecast ? ' (previsão)' : '') + '</p>' : '';
+  wrap.innerHTML = svg + legend + cap;
   wireTooltips(wrap, '.bar-seg');
 }
 
@@ -772,6 +825,14 @@ export function wireHome(){
     if (open) document.getElementById('fcDesc').focus();
   });
   document.getElementById('barPeriod').addEventListener('change', function(e){ State.barMonths = Number(e.target.value); renderBarChart(); });
+  document.getElementById('dashPrev').addEventListener('click', function(){ setDashOffset((State.dashOffset || 0) - 1); });
+  document.getElementById('dashNext').addEventListener('click', function(){ setDashOffset((State.dashOffset || 0) + 1); });
+  document.getElementById('dashToday').addEventListener('click', function(){ setDashOffset(0); });
+  // Tocar num mês do gráfico de barras escolhe aquele mês para os três gráficos.
+  var barWrap = document.getElementById('barWrap');
+  function pick(e){ var g = e.target.closest && e.target.closest('.bar-group'); if (g) setDashOffset(Number(g.getAttribute('data-off'))); }
+  barWrap.addEventListener('click', pick);
+  barWrap.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(e); } });
 
   document.getElementById('forecastForm').addEventListener('submit', async function(e){
     e.preventDefault();

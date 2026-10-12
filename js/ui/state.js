@@ -154,6 +154,7 @@ export var State = {
   donutView: 'chart',
   barView: 'chart',
   barMonths: 6,
+  dashOffset: 0,   // mês dos gráficos do Início (0 = este mês, negativo = passado, positivo = previsão)
   activeTab: 'dashboard',
   commitTab: 'dividas',
   sumOpen: {},          // cartões do Início com os detalhes abertos (+)

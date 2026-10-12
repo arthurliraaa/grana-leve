@@ -1381,3 +1381,55 @@ details.research-optin{ padding:0; gap:0; }
 .term-peek > summary{ cursor:pointer; font-weight:600; color: var(--brand); }
 .term-peek[open] > summary{ margin-bottom:8px; }
 .term-peek .term{ max-height:220px; overflow:auto; }
+
+/* ===== Gráficos do Início: seletor de mês, rosca com ranking, barras com previsão ===== */
+.dash-nav{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); position:sticky; top:68px; z-index:5; }
+.dash-nav-mid{ flex:1; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center; min-width:0; }
+.dash-nav-mid strong{ font-family:"Outfit", system-ui, sans-serif; font-size:1.08rem; display:inline-block; }
+.dash-nav-mid strong::first-letter{ text-transform:uppercase; }
+.dash-nav-btn{ width:40px; height:40px; border-radius:12px; border:1px solid var(--border); background: var(--surface-2); color: var(--text-primary); display:grid; place-items:center; cursor:pointer; flex:none; }
+.dash-nav-btn:hover:not(:disabled){ background: var(--brand-tint); }
+.dash-nav-btn:disabled{ opacity:.4; cursor:default; }
+.dash-badge{ font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:999px; background: var(--surface-2); color: var(--text-secondary); }
+.dash-badge.now{ background: var(--brand-tint); color: var(--brand-strong); }
+.dash-badge.future{ background: var(--accent-tint); color: #8a5300; }
+.dash-badge.past{ background: var(--surface-2); }
+
+.donut-layout{ display:grid; grid-template-columns: 220px minmax(0, 1fr); gap:18px; align-items:center; }
+.donut-svg{ width:220px; height:220px; max-width:100%; }
+.donut-seg{ cursor:pointer; transition: stroke-width .15s ease, opacity .15s ease; }
+.donut-seg:hover, .donut-seg:focus-visible{ stroke-width:28; outline:none; }
+.cat-rank{ list-style:none; margin:0; padding:0; display:grid; gap:9px; min-width:0; }
+.cat-rank li{ display:grid; gap:4px; }
+.cat-rank-top{ display:flex; justify-content:space-between; gap:8px; font-size:.84rem; align-items:baseline; }
+.cat-rank-name{ display:flex; align-items:center; gap:7px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cat-rank-top small{ color: var(--text-muted); font-size:.72rem; margin-left:2px; }
+.cat-rank-bar{ display:block; height:6px; border-radius:6px; background: var(--gridline); overflow:hidden; }
+.cat-rank-bar > span{ display:block; height:100%; border-radius:6px; }
+.chart-note{ margin:10px 0 0; font-size:.82rem; color: var(--text-secondary); }
+.bar-svg{ width:100%; height:auto; display:block; }
+.bar-group{ cursor:pointer; outline:none; }
+.bar-group:hover .bar-hit{ fill: var(--brand); fill-opacity:.07; }
+.bar-group:focus-visible .bar-hit{ stroke: var(--brand); stroke-width:1.5; }
+.bar-seg{ transition: opacity .15s ease; }
+.bar-group:hover .bar-seg{ opacity:.9; }
+.legend-swatch.hatch{ background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--text-muted) 70%, transparent) 0 2px, transparent 2px 4px); border:1px dashed var(--text-muted); }
+.cmp-cat{ position:relative; flex-wrap:wrap; }
+.cmp-bars{ display:grid; gap:2px; flex-basis:100%; margin-top:3px; }
+.cmp-bar{ display:block; height:4px; border-radius:4px; }
+.cmp-bar.cur{ background: var(--brand); }
+.cmp-bar.prev{ background: var(--baseline); }
+@media (max-width: 620px){
+  .donut-layout{ grid-template-columns: minmax(0, 1fr); justify-items:center; }
+  .cat-rank{ width:100%; }
+  .dash-nav{ position:static; padding:8px; gap:8px; }
+  .dash-nav-mid{ order:0; flex-basis:calc(100% - 100px); }
+  .dash-nav #dashToday{ order:3; flex:1 1 100%; }
+}
+@media (prefers-reduced-motion: no-preference){
+  .donut-seg{ animation: segIn .6s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); }
+  .bar-seg{ transform-box: fill-box; transform-origin: bottom; animation: barUp .6s cubic-bezier(.2,.8,.3,1) both; animation-delay: calc(var(--i, 0) * 40ms); }
+  .cat-rank-bar > span{ animation: barGrow .8s cubic-bezier(.2,.8,.3,1) both; transform-origin:left; }
+}
+@keyframes segIn{ from{ opacity:0; } to{ opacity:1; } }
+@keyframes barUp{ from{ transform: scaleY(0); } to{ transform: scaleY(1); } }
