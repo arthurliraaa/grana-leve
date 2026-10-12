@@ -401,6 +401,16 @@ button{ font: inherit; cursor: pointer; }
 .card-actions{ flex-wrap:wrap; }
 .btn[disabled]{ opacity:.55; cursor:not-allowed; }
 .meta-line{ display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.78rem; color: var(--text-muted); }
+/* Metas: rendimento e previsão em frases. */
+.goal-yield{ display:flex; align-items:center; gap:8px; font-size:.84rem; color: var(--text-secondary); }
+.goal-yield .ico{ width:16px; height:16px; color: var(--good); flex:none; }
+.goal-forecast{ display:grid; gap:6px; padding:10px 12px; border-radius:10px; background: var(--surface-2); font-size:.84rem; color: var(--text-secondary); }
+.goal-forecast p{ margin:0; line-height:1.45; }
+.goal-forecast strong{ color: var(--text-primary); }
+.goal-forecast .fc-good{ color: var(--good); }
+.goal-forecast .fc-warn{ color: var(--warning); }
+.goal-card > .card-actions .deposit-form{ flex:1 1 200px; }
+.goal-card > .card-actions .deposit-form .money-input{ flex:1; min-width:0; }
 
 /* Limites */
 .budget-details summary{ cursor:pointer; font-size:.8rem; color: var(--brand); font-weight:600; }

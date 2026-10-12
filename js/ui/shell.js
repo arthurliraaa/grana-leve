@@ -29,7 +29,7 @@ import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderSta
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, track} from './online.js';
-import {editGoal, renderBudgets, renderGoals} from './planning-tab.js';
+import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions, txForMonth} from './state.js';
 import {advanceInstallments, openTxModal} from './tx-edit.js';
@@ -697,11 +697,9 @@ export function wireShell(){
     var g = findById(State.goals, form.getAttribute('data-goal-deposit'));
     var amount = money(form.amount.value);
     if (!(amount > 0)){ toast('Informe um valor para guardar.'); return; }
-    var newAmount = money(Number(g.currentAmount||0) + amount);
-    await Store.update(k(), 'goals', g.id, {currentAmount: newAmount});
-    g.currentAmount = newAmount;
-    renderGoals(); renderStatTiles();
-    toast(newAmount >= g.targetAmount ? 'Meta “' + g.name + '” concluída! Parabéns!' : 'Você guardou mais ' + fmtMoney(amount) + ' na meta “' + g.name + '”.');
+    await goalMove(g.id, 'deposit', amount);
+    renderStatTiles();
+    toast(g.currentAmount >= g.targetAmount ? 'Meta “' + g.name + '” concluída! Parabéns!' : 'Você guardou mais ' + fmtMoney(amount) + ' na meta “' + g.name + '”.');
   });
 
   document.getElementById('brandHome').addEventListener('click', function(){
