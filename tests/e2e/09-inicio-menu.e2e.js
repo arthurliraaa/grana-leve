@@ -7,7 +7,7 @@ L.run(async ({page}) => {
 
   L.section('Início: só 3 informações, detalhes no +');
   const titles = await page.$$eval('#summaryCards .sum-card h3', els => els.map(e => e.textContent));
-  L.ok(titles.join('|') === 'Quanto tenho|Gastos do mês|Próximo compromisso', 'três cartões: Quanto tenho, Gastos do mês, Próximo compromisso');
+  L.ok(titles.join('|') === 'Quanto tenho|Gastos do mês|Próximos pagamentos', 'três cartões: Quanto tenho, Gastos do mês, Próximos pagamentos');
   L.ok(await page.$eval('#dashDetails', el => el.hidden), 'gráficos e quadros ficam recolhidos');
   L.ok(/Nada pendente/.test(await L.text(page, card(3))), 'sem compromissos: “Nada pendente”');
   await page.click('#dashDetailsBtn');
@@ -56,7 +56,7 @@ L.run(async ({page}) => {
   L.ok(order[0] === 'Cartão atrasado' && order[order.length - 1] === 'Empréstimo da tia', 'mais urgente primeiro, menos urgente por último');
   L.ok(await page.$eval('[data-urgency="debts:' + atrasado.id + '"]', el => el.classList.contains('u-alta')), 'urgência alta fica destacada');
   await L.tab(page, 'dashboard');
-  L.ok(/Cartão atrasado/.test(await L.text(page, card(3))) && /urgente/.test(await L.text(page, card(3))) && L.moneyOf(await L.text(page, card(3) + ' .sum-value')) === 300, 'Próximo compromisso mostra a dívida urgente (parcela de 300)');
+  L.ok(/Cartão atrasado/.test(await L.text(page, card(3))) && /urgente/.test(await L.text(page, card(3))) && L.moneyOf(await L.text(page, card(3) + ' .sum-value')) === 300, 'Próximos pagamentos mostra a dívida urgente (parcela de 300)');
 
   await L.tab(page, 'receber');
   await page.type('#recvPerson', 'Maria'); await page.type('#recvTotal', '100'); await L.setVal(page, '#recvUrgency', 'baixa');

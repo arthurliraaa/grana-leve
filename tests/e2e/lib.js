@@ -55,12 +55,13 @@ export async function reload(page){
 
 // Abre uma área do app: pelo menu lateral quando ele aparece (computador) ou pelo endereço (celular).
 // 'dividas' e 'receber' são as duas partes de Compromissos (Eu devo / Me devem).
-const ROUTES = {dashboard: 'inicio', lancamentos: 'lancamentos', cartoes: 'contas', limites: 'planejar', metas: 'metas',
+const ROUTES = {dashboard: 'inicio', lancamentos: 'lancamentos', fixas: 'contas-fixas', cartoes: 'contas', limites: 'planejar', metas: 'metas',
   compromissos: 'compromissos', aprenda: 'aprenda', conexoes: 'conexoes', perfil: 'perfil'};
 export async function tab(page, name){
-  // Partes de áreas: Compromissos (Eu devo | Me devem) e Ganhos e gastos (Lançamentos | Contas fixas).
-  const SUBS = {dividas: 'compromissos', receber: 'compromissos', lanc: 'lancamentos', fixas: 'lancamentos'};
-  const sub = SUBS[name] ? name : (name === 'lancamentos' ? 'lanc' : null);
+  // Partes de Compromissos (Eu devo | Me devem). 'lanc' é o nome antigo de Ganhos e gastos.
+  const SUBS = {dividas: 'compromissos', receber: 'compromissos'};
+  if (name === 'lanc') name = 'lancamentos';
+  const sub = SUBS[name] ? name : null;
   const area = SUBS[name] || name;
   const link = '.sidenav [data-tab="' + area + '"]';
   // Tira o foco do campo atual (fecha sugestões de nomes que possam ficar por cima do menu).
@@ -74,7 +75,7 @@ export async function tab(page, name){
 }
 // Ação que fica no menu ⋯ (Mais) de um cartão: abre o menu e clica.
 export async function menuAction(page, sel){
-  await page.$eval(sel, el => { const d = el.closest('details.more-menu'); if (d && !d.open) d.querySelector('summary').click(); });
+  await page.$eval(sel, el => { const d = el.closest('details.card-menu'); if (d && !d.open) d.querySelector('summary').click(); });
   await sleep(80);
   await page.click(sel);
 }

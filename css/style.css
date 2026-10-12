@@ -723,6 +723,22 @@ button:focus-visible, select:focus-visible, summary:focus-visible, .chip:focus-v
 .sum-sub{ font-size:.84rem; color: var(--text-secondary); }
 .sum-details{ border-top:1px solid var(--gridline); padding-top:10px; margin-top:4px; display:grid; gap:2px; }
 .sum-row{ display:flex; align-items:center; gap:8px; justify-content:space-between; padding:6px 0; font-size:.86rem; }
+a.sum-row-link{ color:inherit; text-decoration:none; border-radius:8px; margin-inline:-6px; padding-inline:6px; }
+a.sum-row-link:hover, a.sum-row-link:focus-visible{ background: var(--surface-2); }
+/* Início: situação do mês numa frase e parcelas em andamento. */
+.month-status{ margin:-6px 0 14px; color: var(--text-secondary); font-size:.92rem; line-height:1.5; }
+.month-status strong{ color: var(--text-primary); }
+.month-status strong.neg-text{ color: var(--critical); }
+.month-status strong.pos-text{ color: var(--good); }
+.sum-card-wide{ grid-column: 1 / -1; }
+.parcel-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:10px 18px; margin-top:4px; }
+.parcel-row{ display:grid; gap:5px; padding:8px; margin:-8px; border-radius:10px; color:inherit; text-decoration:none; min-width:0; }
+.parcel-row:hover, .parcel-row:focus-visible{ background: var(--surface-2); }
+.parcel-top{ display:flex; justify-content:space-between; gap:8px; font-size:.88rem; }
+.parcel-top strong{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.parcel-top span{ color: var(--text-secondary); white-space:nowrap; font-size:.82rem; }
+.parcel-meta{ font-size:.78rem; color: var(--text-muted); }
+.parcel-meta strong{ color: var(--text-primary); }
 .sum-row > span:not(.cat-badge){ flex:1; min-width:0; color: var(--text-secondary); }
 .sum-row small{ display:block; color: var(--text-muted); font-size:.76rem; }
 .sum-row .cat-badge{ width:26px; height:26px; font-size:13px; }
@@ -865,22 +881,22 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .person-head .avatar{ align-self:center; }
 .person-head > .btn{ margin-left:auto; }
 /* Menu “Mais” dos cartões (editar, excluir, ações menos usadas). */
-.more-menu{ position:relative; }
-.more-menu > summary{ list-style:none; cursor:pointer; }
-.more-menu > summary::-webkit-details-marker{ display:none; }
-.more-menu[open] > summary{ background: var(--surface-2); }
+.card-menu{ position:relative; }
+.card-menu > summary{ list-style:none; cursor:pointer; }
+.card-menu > summary::-webkit-details-marker{ display:none; }
+.card-menu[open] > summary{ background: var(--surface-2); }
 .more-pop{ position:absolute; left:0; top:calc(100% + 6px); z-index:20; min-width:220px; display:grid; padding:6px; background: var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow: var(--shadow); }
 .more-pop button{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; padding:9px 10px; border-radius:7px; font-size:.86rem; color: var(--text-primary); }
 .more-pop button:hover, .more-pop button:focus-visible{ background: var(--surface-2); }
 .more-pop button.danger{ color: var(--critical); }
 .more-pop .ico{ width:16px; height:16px; flex:none; }
-.more-menu > summary.btn-sm{ padding-inline:10px; }
+.card-menu > summary.btn-sm{ padding-inline:10px; }
 /* "Me devem": ação principal numa linha; Cobrar, Compartilhar e ⋯ alinhados embaixo (mesma grade em todos os cartões). */
 .debt-card > .recv-actions{ display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap:8px; }
 .debt-card > .recv-actions > :first-child:not(:last-child){ grid-column: 1 / -1; }
 .debt-card > .recv-actions .btn{ width:100%; }
 .debt-card > .recv-actions > .status-pill:first-child{ justify-self:start; grid-column: 1 / 3; }
-.debt-card > .recv-actions > .more-menu{ grid-column: 3; }
+.debt-card > .recv-actions > .card-menu{ grid-column: 3; }
 .debt-card > .recv-actions .more-pop{ left:auto; right:0; }
 .person-info{ flex:1 1 160px; min-width:0; }
 .person-info h4{ font-size:1.05rem; }
