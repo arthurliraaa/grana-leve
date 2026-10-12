@@ -55,6 +55,59 @@ export function sanitizeEmailKey(email){
 }
 export function validEmail(email){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
+// Domínio digitado errado (gmaill.com, hotmal.com, gmail.com.br...): devolve o e-mail corrigido ou ''.
+// Só sugere quando o domínio fica a 1 letra (2 nos domínios com 11 letras ou mais) de um provedor conhecido e não é
+// ele mesmo. É só uma pergunta: a pessoa pode manter o que digitou.
+var EMAIL_DOMAINS = ['gmail.com', 'hotmail.com', 'hotmail.com.br', 'outlook.com', 'outlook.com.br', 'live.com', 'yahoo.com',
+  'yahoo.com.br', 'icloud.com', 'bol.com.br', 'uol.com.br', 'terra.com.br', 'msn.com', 'protonmail.com', 'proton.me',
+  'me.com', 'aol.com', 'gmx.com', 'ymail.com', 'mail.com', 'email.com', 'zoho.com', 'globo.com', 'ig.com.br', 'r7.com'];
+var EMAIL_FIXES = {'gmail.com.br': 'gmail.com', 'icloud.com.br': 'icloud.com', 'live.com.br': 'live.com',
+  'uol.com': 'uol.com.br', 'bol.com': 'bol.com.br', 'terra.com': 'terra.com.br'};
+// Distância entre dois textos (inserir, apagar, trocar uma letra ou inverter duas vizinhas = 1).
+function editDistance(a, b){
+  var d = [], i, j;
+  for (i = 0; i <= a.length; i++){ d[i] = [i]; }
+  for (j = 0; j <= b.length; j++) d[0][j] = j;
+  for (i = 1; i <= a.length; i++){
+    for (j = 1; j <= b.length; j++){
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+export function emailTypo(email){
+  var text = String(email || '').trim(), at = text.lastIndexOf('@');
+  if (at < 1) return '';
+  var user = text.slice(0, at), domain = text.slice(at + 1).toLowerCase();
+  if (!domain || EMAIL_DOMAINS.indexOf(domain) >= 0) return '';
+  if (EMAIL_FIXES[domain]) return user + '@' + EMAIL_FIXES[domain];
+  var max = domain.length >= 11 ? 2 : 1, best = '', bestD = max + 1;
+  EMAIL_DOMAINS.forEach(function(d){
+    var dist = editDistance(domain, d);
+    if (dist < bestD){ best = d; bestD = dist; }
+  });
+  return best ? user + '@' + best : '';
+}
+
+// Intervalo entre pedidos de link por e-mail (nova senha, confirmação): o Supabase recusa um pedido
+// novo para o mesmo endereço antes do intervalo, e cada link novo invalida o anterior.
+var LINK_KEY = 'granaleve_link_sent_v1';
+function readLinks(){ try{ return JSON.parse(localStorage.getItem(LINK_KEY)) || {}; } catch(e){ return {}; } }
+function linkId(kind, email){ return kind + ':' + String(email || '').trim().toLowerCase(); }
+export function linkWait(kind, email, seconds, now){
+  var at = readLinks()[linkId(kind, email)] || 0;
+  var left = at ? Math.ceil((at + seconds * 1000 - (now || Date.now())) / 1000) : 0;
+  return left > 0 ? left : 0;
+}
+export function markLinkSent(kind, email, at){
+  var all = readLinks(), now = at || Date.now();
+  // Guarda só o último dia, para a lista não crescer.
+  Object.keys(all).forEach(function(key){ if (now - all[key] > 86400000) delete all[key]; });
+  all[linkId(kind, email)] = now;
+  try{ localStorage.setItem(LINK_KEY, JSON.stringify(all)); } catch(e){ /* sem armazenamento: o servidor ainda limita */ }
+}
+
 // Limite de tentativas de login: 5 erros seguidos bloqueiam por 60 segundos.
 var LOCK_KEY = 'granaleve_login_lock_v1';
 function readLock(){ try{ return JSON.parse(localStorage.getItem(LOCK_KEY)) || {}; } catch(e){ return {}; } }

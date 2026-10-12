@@ -180,86 +180,6 @@
     </div>
   </section>
 
-  <!-- ================= Entrar / Criar conta ================= -->
-  <section id="viewAuth" hidden>
-    <div class="side-gutter auth-wrap">
-      <div class="auth-card">
-        <h1 class="sr-only">Entrar ou criar conta no Grana Leve</h1>
-        <div class="auth-tabs">
-          <button type="button" data-authtab="login">Entrar</button>
-          <button type="button" data-authtab="signup">Criar conta</button>
-        </div>
-
-        <form id="loginForm" novalidate>
-          <div class="stack">
-            <div class="field">
-              <label for="loginEmail">E-mail</label>
-              <input id="loginEmail" type="email" autocomplete="username" maxlength="120" required>
-            </div>
-            <div class="field">
-              <label for="loginPassword">Senha</label>
-              <input id="loginPassword" type="password" autocomplete="current-password" maxlength="128" required>
-            </div>
-            <div class="captcha-slot" data-captcha hidden></div>
-            <p class="form-error" id="loginError" role="alert"></p>
-            <button class="btn btn-primary btn-block" type="submit">Entrar</button>
-            <p class="auth-foot" data-local-only>Só funciona com uma conta criada <strong>neste navegador</strong>.</p>
-            <button type="button" class="linklike auth-forgot" id="forgotBtn" data-online-only hidden>Esqueci minha senha</button>
-          </div>
-        </form>
-
-        <form id="signupForm" novalidate hidden>
-          <div class="stack">
-            <div class="field">
-              <label for="signupName">Nome</label>
-              <input id="signupName" type="text" autocomplete="name" maxlength="60" required>
-            </div>
-            <div class="field">
-              <label for="signupEmail">E-mail</label>
-              <input id="signupEmail" type="email" autocomplete="username" maxlength="120" required>
-            </div>
-            <div class="field">
-              <label for="signupPassword">Senha</label>
-              <input id="signupPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
-              <div id="signupPwRulesWrap"></div>
-            </div>
-            <div class="storage-notice storage-online" data-online-only hidden>
-              <strong><svg class="ico"><use href="#i-lock"/></svg>Sua conta fica salva com segurança</strong>
-              <ul>
-                <li>Os dados ficam num servidor no Brasil e aparecem em qualquer aparelho em que você entrar.</li>
-                <li>Só você vê seus lançamentos. Se esquecer a senha, dá para criar outra pelo e-mail.</li>
-              </ul>
-            </div>
-            <div class="storage-notice" data-local-only>
-              <strong><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam só neste navegador</strong>
-              <ul>
-                <li>A conta não é sincronizada: não dá para entrar de outro aparelho ou navegador.</li>
-                <li>Limpar os dados do navegador apaga tudo, e não existe recuperação de senha.</li>
-                <li>Para não perder nada, salve um backup em “Seus dados e backup”.</li>
-              </ul>
-              <label class="check"><input type="checkbox" id="signupStorageOk"> Entendi onde meus dados ficam</label>
-            </div>
-            <fieldset class="research-optin">
-              <legend>Pesquisa acadêmica <span>(opcional)</span></legend>
-              <p>O Grana Leve é um projeto de extensão universitária. Você pode ajudar o estudo com dados de uso anônimos, sem valores nem textos. Não muda nada no app.</p>
-              <label class="check"><input type="checkbox" id="signupResearch"> Tenho 18 anos ou mais e aceito participar do estudo</label>
-              <button type="button" class="linklike" data-info="pesquisa">Ler o termo de consentimento</button>
-              <div class="research-profile" id="signupResearchProfile" hidden>
-                <div class="field"><label for="signupAge">Faixa etária (opcional)</label><select id="signupAge" data-age-options></select></div>
-                <div class="field"><label for="signupUf">Estado (opcional)</label><select id="signupUf" data-uf-options></select></div>
-              </div>
-            </fieldset>
-            <div class="captcha-slot" data-captcha hidden></div>
-            <p class="form-error" id="signupError" role="alert"></p>
-            <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
-            <p class="auth-foot">Não pedimos cartão de crédito.</p>
-          </div>
-        </form>
-        <p class="auth-foot" id="authFoot"></p>
-      </div>
-    </div>
-  </section>
-
   <!-- ================= App ================= -->
   <section id="viewApp" hidden>
     <div class="app-shell">
@@ -696,6 +616,89 @@
     </div>
   </section>
 </main>
+
+<!-- ================= Entrar / Criar conta (janela sobre a página inicial) ================= -->
+  <section id="viewAuth" class="auth-overlay" hidden>
+    <div class="side-gutter auth-wrap">
+      <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="auth-head">
+          <h2 id="authTitle">Entrar ou criar conta</h2>
+          <button type="button" class="modal-x" data-auth-close aria-label="Fechar">×</button>
+        </div>
+        <div class="auth-tabs">
+          <button type="button" data-authtab="login">Entrar</button>
+          <button type="button" data-authtab="signup">Criar conta</button>
+        </div>
+
+        <form id="loginForm" novalidate>
+          <div class="stack">
+            <div class="field">
+              <label for="loginEmail">E-mail</label>
+              <input id="loginEmail" type="email" autocomplete="username" maxlength="120" required>
+            </div>
+            <div class="field">
+              <label for="loginPassword">Senha</label>
+              <input id="loginPassword" type="password" autocomplete="current-password" maxlength="128" required>
+            </div>
+            <div class="captcha-slot" data-captcha hidden></div>
+            <p class="form-error" id="loginError" role="alert"></p>
+            <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+            <p class="auth-foot" data-local-only>Só funciona com uma conta criada <strong>neste navegador</strong>.</p>
+            <button type="button" class="linklike auth-forgot" id="forgotBtn" data-online-only hidden>Esqueci minha senha</button>
+          </div>
+        </form>
+
+        <form id="signupForm" novalidate hidden>
+          <div class="stack">
+            <div class="field">
+              <label for="signupName">Nome</label>
+              <input id="signupName" type="text" autocomplete="name" maxlength="60" required>
+            </div>
+            <div class="field">
+              <label for="signupEmail">E-mail</label>
+              <input id="signupEmail" type="email" autocomplete="username" maxlength="120" required>
+            </div>
+            <div class="field">
+              <label for="signupPassword">Senha</label>
+              <input id="signupPassword" type="password" autocomplete="new-password" minlength="6" maxlength="128" required>
+              <div id="signupPwRulesWrap"></div>
+            </div>
+            <div class="storage-notice storage-online" data-online-only hidden>
+              <strong><svg class="ico"><use href="#i-lock"/></svg>Sua conta fica salva com segurança</strong>
+              <ul>
+                <li>Os dados ficam num servidor no Brasil e aparecem em qualquer aparelho em que você entrar.</li>
+                <li>Só você vê seus lançamentos. Se esquecer a senha, dá para criar outra pelo e-mail.</li>
+              </ul>
+            </div>
+            <div class="storage-notice" data-local-only>
+              <strong><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam só neste navegador</strong>
+              <ul>
+                <li>A conta não é sincronizada: não dá para entrar de outro aparelho ou navegador.</li>
+                <li>Limpar os dados do navegador apaga tudo, e não existe recuperação de senha.</li>
+                <li>Para não perder nada, salve um backup em “Seus dados e backup”.</li>
+              </ul>
+              <label class="check"><input type="checkbox" id="signupStorageOk"> Entendi onde meus dados ficam</label>
+            </div>
+            <fieldset class="research-optin">
+              <legend>Pesquisa acadêmica <span>(opcional)</span></legend>
+              <p>O Grana Leve é um projeto de extensão universitária. Você pode ajudar o estudo com dados de uso anônimos, sem valores nem textos. Não muda nada no app.</p>
+              <label class="check"><input type="checkbox" id="signupResearch"> Tenho 18 anos ou mais e aceito participar do estudo</label>
+              <button type="button" class="linklike" data-info="pesquisa">Ler o termo de consentimento</button>
+              <div class="research-profile" id="signupResearchProfile" hidden>
+                <div class="field"><label for="signupAge">Faixa etária (opcional)</label><select id="signupAge" data-age-options></select></div>
+                <div class="field"><label for="signupUf">Estado (opcional)</label><select id="signupUf" data-uf-options></select></div>
+              </div>
+            </fieldset>
+            <div class="captcha-slot" data-captcha hidden></div>
+            <p class="form-error" id="signupError" role="alert"></p>
+            <button class="btn btn-primary btn-block" type="submit">Criar conta grátis</button>
+            <p class="auth-foot">Não pedimos cartão de crédito.</p>
+          </div>
+        </form>
+        <p class="auth-foot" id="authFoot"></p>
+      </div>
+    </div>
+  </section>
 
 <footer class="site-footer">
   <div class="side-gutter footer-inner">

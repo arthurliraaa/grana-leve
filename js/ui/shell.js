@@ -27,7 +27,7 @@ import {chargePerson, chargeReceivable, shareRecv, forgiveReceivable, linkReceiv
 import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
-import {cleanAuthParams, handleEmailLink, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, track} from './online.js';
+import {cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, track} from './online.js';
 import {editGoal, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions, txForMonth} from './state.js';
@@ -37,11 +37,45 @@ import {TX_SORTS, populateCategorySelect, populateInstallSelect, populatePayment
 /* ============ Rendering ============ */
 
 export function showView(name){
-  ['viewLanding','viewAuth','viewApp'].forEach(function(id){
+  // Entrar e Criar conta abrem numa janela por cima da página inicial (viewAuth).
+  if (name === 'viewAuth'){ openAuth(State.authTab || 'login'); return; }
+  closeAuth(true);
+  ['viewLanding','viewApp'].forEach(function(id){
     document.getElementById(id).hidden = (id !== name);
   });
   document.getElementById('bottomnav').hidden = (name !== 'viewApp');
   window.scrollTo(0,0);
+}
+
+// Janela de entrar / criar conta sobre a página inicial: fecha no X, no fundo ou com Esc, e o resto
+// da página fica inerte enquanto ela está aberta (o Tab não sai dela).
+var authBehind = [], authReturn = null;
+export function openAuth(tab){
+  var box = document.getElementById('viewAuth');
+  if (box.hidden){
+    authReturn = document.activeElement;
+    document.getElementById('viewLanding').hidden = false;
+    document.getElementById('viewApp').hidden = true;
+    document.getElementById('bottomnav').hidden = true;
+    box.hidden = false;
+    document.body.classList.add('auth-open');
+    authBehind = qsa('body > *').filter(function(el){ return el !== box && el.id !== 'modalRoot' && el.id !== 'toastWrap' && !el.hasAttribute('inert') && !el.classList.contains('captcha-box'); });
+    authBehind.forEach(function(el){ el.setAttribute('inert', ''); });
+  }
+  showAuthTab(tab || 'login');
+  var first = qs(tab === 'signup' ? '#signupName' : '#loginEmail');
+  if (first) first.focus();
+}
+// quiet: fechada pelo próprio app (ex.: entrou na conta), sem devolver o foco.
+export function closeAuth(quiet){
+  var box = document.getElementById('viewAuth');
+  if (box.hidden) return;
+  box.hidden = true;
+  document.body.classList.remove('auth-open');
+  authBehind.forEach(function(el){ el.removeAttribute('inert'); });
+  authBehind = [];
+  if (!quiet && authReturn && authReturn.focus && document.body.contains(authReturn)) authReturn.focus();
+  authReturn = null;
 }
 
 export function renderTopbar(){
@@ -383,18 +417,24 @@ export async function boot(){
     try {
       var current = await Store.getSession();
       cleanAuthParams();
+      if (current && link && link.ok && link.type === 'recovery'){
+        // Link de nova senha: a senha é trocada antes de abrir a conta, sem nada por cima.
+        renderTopbar(); showView('viewLanding');
+        if (await newPasswordModal()){ State.freshLogin = true; await startOnlineSession(current.user); }
+        return;
+      }
       if (current){
-        if (link && link.ok && link.type !== 'recovery') State.freshLogin = true;   // entrou pelo link do e-mail
+        if (link && link.ok) State.freshLogin = true;   // entrou pelo link do e-mail
         await startOnlineSession(current.user);
-        if (link && link.ok && link.type === 'recovery') newPasswordModal();
-        else if (link && link.ok && link.type === 'email_change') toast('Confirmação recebida. Se a troca pedir, confirme também pelo link enviado ao outro e-mail.');
+        if (link && link.ok && link.type === 'email_change') toast('Confirmação recebida. Se a troca pedir, confirme também pelo link enviado ao outro e-mail.');
         else if (link && link.ok) toast('E-mail confirmado! Bem-vindo(a) ao Grana Leve.');
         return;
       }
     } catch(e){ toast('Sem conexão com o servidor. Verifique a internet.'); }
-    if (link && link.error){ renderTopbar(); showView('viewLanding'); await linkProblemModal(link); return; }
     renderTopbar();
     showView('viewLanding');
+    if (link && link.error){ await linkProblemModal(link); return; }
+    if (link && link.ok) await linkDoneModal(link);
     return;
   }
   var session = loadSession();
@@ -416,15 +456,20 @@ export async function boot(){
 export function wireShell(){
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !document.getElementById('viewAuth').hidden && document.getElementById('modalRoot').hidden) closeAuth();
+  });
   attachCounters(document);
 
   document.addEventListener('click', async function(e){
     var t = e.target;
     var el;
+    // Janela de entrar / criar conta: o X e o fundo (fora do cartão) fecham.
+    if (t.closest('[data-auth-close]') || t.id === 'viewAuth' || (t.classList && t.classList.contains('auth-wrap'))){ closeAuth(); return; }
     if ((el = t.closest('[data-action]'))){
       var action = el.getAttribute('data-action');
-      if (action === 'go-login'){ showView('viewAuth'); showAuthTab('login'); }
-      if (action === 'go-signup'){ showView('viewAuth'); showAuthTab('signup'); }
+      if (action === 'go-login') openAuth('login');
+      if (action === 'go-signup') openAuth('signup');
       if (action === 'go-tab-lancamentos'){ showTab('lancamentos'); }
       return;
     }
