@@ -1345,3 +1345,24 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
   .brand-word{ font-size:1.05rem; }
   .brand-mark{ width:28px; height:28px; }
 }
+/* Cadastro enxuto: regras da senha em etiquetas, aviso curto e pesquisa recolhida. */
+.pw-rules{ display:flex; flex-wrap:wrap; gap:4px 6px; margin-top:4px; }
+.pw-rules li{ gap:4px; padding:2px 8px; border-radius:999px; background: var(--surface-2); font-size:.74rem; }
+.pw-rules.pending li{ color: var(--text-muted); }
+.pw-rules.pending .pw-mark{ display:none; }
+.pw-rules li.ok{ background: color-mix(in srgb, var(--good) 12%, transparent); }
+.pw-rules:not(.pending) li.bad{ background: color-mix(in srgb, var(--critical) 10%, transparent); }
+.auth-foot.storage-online{ display:flex; align-items:flex-start; justify-content:center; gap:6px; background:none; border:none; padding:0; margin:0; text-align:center; }
+.auth-foot.storage-online .ico{ flex:none; margin-top:1px; width:14px; height:14px; }
+.storage-local p{ margin:0; display:flex; align-items:flex-start; gap:6px; font-size:.82rem; color: var(--text-secondary); line-height:1.45; }
+.storage-local p .ico{ flex:none; margin-top:2px; }
+.storage-local{ display:grid; gap:8px; }
+details.research-optin{ padding:0; gap:0; }
+.research-optin > summary{ list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 14px; font-weight:700; }
+.research-optin > summary::-webkit-details-marker{ display:none; }
+.research-optin > summary::after{ content:'+'; font-weight:700; color: var(--text-muted); }
+.research-optin[open] > summary::after{ content:'−'; }
+.research-sum{ display:block; font-weight:500; color: var(--text-muted); font-size:.76rem; margin-top:2px; }
+.research-body{ display:grid; gap:8px; padding:0 14px 12px; }
+#signupForm .stack{ gap:12px; }
+.storage-local p strong{ display:inline; }

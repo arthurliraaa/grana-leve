@@ -98,6 +98,7 @@ L.run(async ({page, errors}) => {
   await page.$eval('#signupEmail', el => { el.value = ''; });
   await page.type('#signupEmail', 'outra@gmail.com');
   await page.type('#signupPassword', 'senha@123');
+  await page.$eval('#signupForm details.research-optin', d => { d.open = true; });
   await page.click('#signupResearch');
   L.ok(!(await page.$eval('#signupResearchProfile', el => el.hidden)), 'marcar a pesquisa mostra faixa etária e estado');
   await L.setVal(page, '#signupAge', '18-24');
