@@ -283,10 +283,16 @@
           </div>
         </div>
 
+        <div class="dash-nav" id="dashNav" role="group" aria-label="Mês dos gráficos">
+          <button type="button" class="dash-nav-btn" id="dashPrev" aria-label="Mês anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+          <div class="dash-nav-mid"><strong id="dashNavLabel"></strong><span class="dash-badge now" id="dashNavBadge"></span></div>
+          <button type="button" class="dash-nav-btn" id="dashNext" aria-label="Próximo mês"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+          <button type="button" class="btn btn-ghost btn-sm" id="dashToday" hidden>Voltar para este mês</button>
+        </div>
         <div class="dash-grid">
           <div class="card">
             <div class="card-head">
-              <h3>Neste mês: gastos por categoria</h3>
+              <h3 id="donutTitle">Gastos por categoria</h3>
               <button class="linklike" type="button" data-view-toggle="donut">Ver como tabela</button>
             </div>
             <div class="chart-wrap" id="donutWrap"></div>
