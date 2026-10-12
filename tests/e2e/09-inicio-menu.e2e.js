@@ -29,8 +29,9 @@ L.run(async ({page}) => {
   await page.click('[data-sum-more="2"]'); await L.sleep(80);
   L.ok(await page.$eval('[data-sum-more="2"]', el => el.getAttribute('aria-expanded')) === 'true' && !(await page.$eval('#sumD2', el => el.hidden)), '+ abre os detalhes do cartão');
   L.ok(await page.evaluate(() => document.activeElement.getAttribute('data-sum-more')) === '2', 'foco continua no +');
-  const top = await page.$$eval('#sumD2 .sum-row', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
-  L.ok(/Alimentação/.test(top[0]) && /🍽️/.test(top[0]) && /Transporte/.test(top[1]), 'mostra onde mais gastou, com emoji, do maior para o menor');
+  const rows = await page.$$eval('#sumD2 .bp-row', els => els.map(e => [...e.children].map(c => c.textContent.trim()).join(' | ')));
+  L.ok(rows.some(r => /^Nubank \| R\$\s?280,00 \| R\$\s?0,00$/.test(r)) && rows.some(r => /^Total \| R\$\s?280,00/.test(r)), 'por banco: o que foi pago e o que falta no mês (Nubank: pagou 280, falta 0)');
+  L.ok(/Nenhum pagamento pendente|Tudo pago neste mês/.test(await L.text(page, card(2))), 'sem nada pendente, diz que está tudo pago');
   await page.click('[data-sum-more="1"]'); await L.sleep(80);
   L.ok(/Nubank\s*R\$\s?720,00/.test(await L.text(page, '#sumD1')), 'detalhe de Quanto tenho lista as contas');
   await page.click('#sumD1 [data-go]'); await L.sleep(120);

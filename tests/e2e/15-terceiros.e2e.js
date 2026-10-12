@@ -53,7 +53,7 @@ L.run(async ({page}) => {
   L.ok(await bal() === 960, 'saldo volta 60 (900 → 960)');
   await L.tab(page, 'dashboard');
   L.ok(L.moneyOf((await tile('Ganhos do mês')).val) === 0, 'devolução não conta em “Ganhos do mês”');
-  L.ok(L.moneyOf((await tile('A receber')).val) === 40, 'falta receber 40');
+  L.ok(L.moneyOf((await tile('A receber neste mês')).val) === 40, 'falta receber 40');
 
   L.section('Não vai devolver');
   await L.tab(page, 'receber');
@@ -65,7 +65,7 @@ L.run(async ({page}) => {
   L.ok(off && off.amount === 40 && off.paymentMethod === null && d.receivables[0].forgiven === true, 'vira gasto de 40 sem mexer em conta');
   L.ok(/Não vai devolver \(R\$\s?40,00\)/.test(await L.text(page, '#recvGrid')), 'Me devem mostra “não vai devolver”');
   await L.tab(page, 'dashboard');
-  L.ok(L.moneyOf((await tile('Gastos do mês')).val) === 40 && L.moneyOf((await tile('A receber')).val) === 0, 'painel: gastos 40 e nada a receber');
+  L.ok(L.moneyOf((await tile('Gastos do mês')).val) === 40 && L.moneyOf((await tile('A receber neste mês')).val) === 0, 'painel: gastos 40 e nada a receber');
   await L.tab(page, 'cartoes');
   L.ok(await bal() === 960, 'saldo continua 960');
 
@@ -100,6 +100,8 @@ L.run(async ({page}) => {
   L.ok(await page.evaluate(() => location.hash) === '#/contas', '“Ver nos cartões” leva para Contas e cartões');
   L.ok(await page.$eval('#bankList .credit-card details.budget-details:last-of-type', el => !el.open), 'parceladas do cartão começam recolhidas');
   await L.tab(page, 'dashboard');
-  g = await tile('Dívida restante');
-  L.ok(L.moneyOf(g.val) === 0 && /Parcelas do cartão à parte/.test(g.sub), '“Dívida restante” não soma as parcelas do cartão de novo');
+  g = await tile('Dívidas: falta pagar');
+  L.ok(L.moneyOf(g.val) === 0 && /nenhuma dívida em aberto/.test(g.sub), '“Dívidas” não soma as parcelas do cartão de novo');
+  g = await tile('Parcelas no cartão: falta');
+  L.ok(g && L.moneyOf(g.val) > 0 && /já entram nas próximas faturas/.test(g.sub), 'as parcelas do cartão ficam num quadro próprio, explicado');
 });

@@ -25,7 +25,7 @@ import {openFeedback} from './feedback.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
-import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
+import {openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, track} from './online.js';
@@ -499,6 +499,7 @@ export function wireShell(){
       qs('[data-sum-more="' + n + '"]').focus();
       return;
     }
+    if (t.closest('[data-parcels-open]')){ openParcels(); return; }
     if ((el = t.closest('[data-go]'))){ e.preventDefault(); showTab(el.getAttribute('data-go')); return; }
     if (t.closest('#dashDetailsBtn')){
       State.dashDetails = !State.dashDetails;

@@ -745,6 +745,26 @@ a.sum-row-link:hover, a.sum-row-link:focus-visible{ background: var(--surface-2)
 .month-status strong.neg-text{ color: var(--critical); }
 .month-status strong.pos-text{ color: var(--good); }
 .sum-card-wide{ grid-column: 1 / -1; }
+/* Gastos do mês: por banco, o que foi pago e o que falta (tabelinha de 3 colunas). */
+.bank-pay{ display:grid; font-size:.84rem; }
+.bp-row{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:12px; align-items:center; padding:6px 6px; margin-inline:-6px; border-radius:8px; color:inherit; text-decoration:none; }
+.bp-row > :nth-child(n+2){ text-align:right; min-width:84px; }
+.bp-row > :first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+a.bp-row:hover, a.bp-row:focus-visible{ background: var(--surface-2); }
+.bp-head{ font-size:.72rem; font-weight:700; color: var(--text-muted); text-transform:uppercase; letter-spacing:.04em; padding-block:2px; }
+.bp-total{ border-top:1px solid var(--border); margin-top:2px; font-weight:600; }
+/* Parcelas em andamento: quadro antes de “Últimos lançamentos” e janela com filtros. */
+.parcels-card .parcel-grid{ margin-top:10px; }
+.parcels-title{ font:inherit; color:inherit; }
+.parcel-filters{ display:flex; flex-wrap:wrap; gap:10px 16px; align-items:end; }
+.parcel-filters .field{ flex:1 1 200px; }
+.chip-group{ border:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
+.chip-group legend{ font-size:.8rem; font-weight:600; color: var(--text-secondary); margin-bottom:6px; padding:0; }
+.chip-radio input{ position:absolute; opacity:0; pointer-events:none; }
+.chip-radio span{ display:inline-block; padding:6px 12px; border:1px solid var(--border); border-radius:999px; font-size:.82rem; cursor:pointer; background: var(--surface); }
+.chip-radio input:checked + span{ background: var(--brand); color: var(--on-brand); border-color: var(--brand); }
+.chip-radio input:focus-visible + span{ outline:2px solid var(--brand); outline-offset:2px; }
+.parcel-grid-modal{ margin-top:4px; }
 .parcel-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:10px 18px; margin-top:4px; }
 .parcel-row{ display:grid; gap:5px; padding:8px; margin:-8px; border-radius:10px; color:inherit; text-decoration:none; min-width:0; }
 .parcel-row:hover, .parcel-row:focus-visible{ background: var(--surface-2); }

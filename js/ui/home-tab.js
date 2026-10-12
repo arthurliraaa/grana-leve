@@ -10,19 +10,19 @@ import {isForOther, isRefund, isPersonal, isReversal, reversalsOf, myShare, othe
 import * as Cards from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
-import {recvInstallInfo, recvRemaining} from '../domain/receivables.js';
+import {recvDueByMonth, recvInstallInfo, recvRemaining} from '../domain/receivables.js';
 
 import {urgencyOf} from '../domain/urgency.js';
 import {pendingBills} from './bills.js';
 
 import {Store} from '../data/store.js';
-import {qs, escapeHtml, icon, resolveVar, toast} from './dom.js';
+import {qs, escapeHtml, icon, optionsHtml, resolveVar, toast} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {wireTooltips} from './charts.js';
 import {generateMonthlyReport} from './reports.js';
-import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen} from './shell.js';
-import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthTotals, sortTransactions, totalAccountsBalance, txForMonth, voucherOf} from './state.js';
-import {accountSelectHtml, renderTransactionsTab} from './tx-list.js';
+import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab} from './shell.js';
+import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthTotals, sortTransactions, totalAccountsBalance, txForMonth, voucherOf} from './state.js';
+import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
 
 /* ---------- Previsões de entrada ---------- */
 
@@ -94,20 +94,30 @@ export function renderStatTiles(){
   function tile(label, value, cls, sub){
     return '<div class="tile"><span class="tile-lbl">' + label + '</span><span class="tile-val tabular ' + (cls||'') + '">' + fmtMoney(value) + '</span>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>';
   }
-  var inv = f.invoices, invoiceSub = '';
+  // Faturas: em destaque o que falta pagar (fechadas e a aberta, sem o que já foi adiantado);
+  // nas linhas, o total das faturas e o vencimento.
+  var inv = f.invoices, invLeft = money(inv.toPayLeft + inv.openLeft), invTotal = money(inv.toPayTotal + inv.openTotal), invPaid = money(inv.toPayPaid + inv.openPaid);
+  var invoiceSub = invTotal > 0 ? 'Total das faturas: ' + fmtMoney(invTotal) + (invPaid > 0 ? ' · já pago ' + fmtMoney(invPaid) : '') : '';
   if (inv.toPay.length){
     var next = inv.toPay[0];
-    invoiceSub = (next.status === 'vencida' ? '<span class="neg-text">venceu ' : 'vence ') + formatDateBr(next.due) + (next.status === 'vencida' ? '</span>' : '') + (inv.toPay.length > 1 ? ' · ' + inv.toPay.length + ' faturas' : '');
-  } else if (inv.openTotal > 0) invoiceSub = 'Fatura aberta: ' + fmtMoney(inv.openTotal);
+    invoiceSub += '<br>' + (next.status === 'vencida' ? '<span class="neg-text">venceu ' : 'vence ') + formatDateBr(next.due) + (next.status === 'vencida' ? '</span>' : '') + (inv.toPay.length > 1 ? ' · ' + inv.toPay.length + ' faturas fechadas' : '');
+  } else if (inv.open.length) invoiceSub += '<br>fatura aberta vence ' + formatDateBr(inv.open[0].due);
+  // A receber: em destaque o que vence neste mês; o total fica menor.
+  var cur = monthBounds(0).key, recvMonth = sumMoney(State.receivables, function(r){ return r.forgiven ? 0 : recvDueByMonth(r, cur); });
+  // Dívidas (Eu devo): valor original, já pago e o que falta. Parcelas do cartão em quadro próprio.
+  var debtsOpen = State.debts.filter(function(d){ return Number(d.totalAmount || 0) - Number(d.paidAmount || 0) > 0.004; });
+  var debtOrig = sumMoney(debtsOpen, function(d){ return d.totalAmount; }), debtPaid = sumMoney(debtsOpen, function(d){ return d.paidAmount || 0; });
+  var gs = installmentGroups().filter(function(g){ return g.future.length; });
   var month = tile('Ganhos do mês', t.incomeDone, '', f.expectedIncome > 0 ? 'Esperado ainda: + ' + fmtMoney(f.expectedIncome) : '') +
     tile('Gastos do mês', t.expenseDone, '', [t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : '',
       t.forOther > 0 ? 'Fora daqui: ' + fmtMoney(t.forOther) + ' pagos por outras pessoas' : ''].filter(Boolean).join(' · ')) +
     tile('Saldo do mês', f.balanceDone, f.balanceDone < 0 ? 'neg' : 'pos', f.balanceEnd !== f.balanceDone ? 'Previsto no fim do mês: ' + fmtMoney(f.balanceEnd) + (f.billsPending > 0 ? ' (já tirando ' + fmtMoney(f.billsPending) + ' de contas fixas)' : '') : '');
   var now = (State.accounts.length ? tile('Disponível nas contas', totalAccountsBalance(), totalAccountsBalance() < 0 ? 'neg' : '', 'hoje, em ' + State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta')) : '') +
-    (State.cards.length ? tile('Faturas a pagar', inv.toPayTotal, '', invoiceSub) : '') +
+    (State.cards.length ? tile('Faturas: falta pagar', invLeft, '', invoiceSub) : '') +
     tile('Guardado nas metas', f.savedInGoals) +
-    tile('Dívida restante', f.debtRemaining, '', f.installRemaining > 0 ? 'Parcelas do cartão à parte: ' + fmtMoney(f.installRemaining) : '') +
-    tile('A receber', f.toReceive);
+    tile('Dívidas: falta pagar', f.debtRemaining, '', debtsOpen.length ? debtsOpen.length + (debtsOpen.length === 1 ? ' dívida' : ' dívidas') + ' em “Eu devo”<br>valor original ' + fmtMoney(debtOrig) + ' · já pago ' + fmtMoney(debtPaid) : 'nenhuma dívida em aberto') +
+    (gs.length ? tile('Parcelas no cartão: falta', f.installRemaining, '', gs.length + (gs.length === 1 ? ' compra parcelada' : ' compras parceladas') + ' · ' + sum(gs, function(g){ return g.future.length; }) + ' parcelas<br>já entram nas próximas faturas') : '') +
+    tile('A receber neste mês', recvMonth, '', 'Total a receber: ' + fmtMoney(f.toReceive));
   document.getElementById('statTiles').innerHTML =
     '<p class="tiles-group">Neste mês <span>realizado até hoje</span></p><div class="stat-tiles stat-tiles-auto">' + month + '</div>' +
     '<p class="tiles-group">Agora</p><div class="stat-tiles stat-tiles-auto">' + now + '</div>';
@@ -119,8 +129,9 @@ export function upcomingCommitments(){
   var today = todayKey(), out = [];
   var inv = Cards.invoicesSummary(State.transactions, State.cards, today);
   inv.toPay.concat(inv.open).forEach(function(i){
-    out.push({title: 'Fatura ' + i.card.name, amount: i.total, date: i.due, late: i.status === 'vencida' || i.due < today,
-      urgency: i.status === 'vencida' ? 'alta' : 'media', note: i.status === 'aberta' ? 'fatura aberta' : '', go: 'cartoes'});
+    if (!(i.left > 0)) return;
+    out.push({title: 'Fatura ' + i.card.name, amount: i.left, date: i.due, late: i.status === 'vencida' || i.due < today,
+      urgency: i.status === 'vencida' ? 'alta' : 'media', note: (i.status === 'aberta' ? 'fatura aberta' : '') + (i.paid > 0 ? (i.status === 'aberta' ? ' · ' : '') + 'falta, de ' + fmtMoney(i.total) : ''), go: 'cartoes'});
   });
   pendingBills().forEach(function(o){
     out.push({title: o.b.name, amount: o.amount, date: o.date, late: o.status === 'atrasada', urgency: o.status === 'atrasada' ? 'alta' : o.status === 'logo' ? 'media' : 'baixa',
@@ -137,6 +148,39 @@ export function upcomingCommitments(){
     return (b.late - a.late) || (URGENCY_RANK[a.urgency] - URGENCY_RANK[b.urgency]) || String(a.date || '9999').localeCompare(String(b.date || '9999'));
   });
 }
+// O que sai do bolso neste mês, por banco: o que já foi pago (débitos, Pix, faturas e adiantamentos
+// que saíram da conta) e o que ainda falta (fatura que vence no mês, contas fixas e gastos agendados).
+// Transferências entre contas não contam. Linha "Dinheiro" para o que não tem banco.
+export function monthPayments(){
+  var cur = monthBounds(0).key, today = todayKey(), rows = [];
+  var bills = pendingBills().filter(function(o){ return o.key === cur; });
+  function scheduled(match){
+    return sumMoney(State.transactions.filter(function(t){ return t.type === 'expense' && !t.reversal && t.date > today && t.date.slice(0, 7) === cur && t.paymentMethod !== 'cartao' && match(t); }), function(t){ return t.amount; });
+  }
+  bankGroups().forEach(function(g){
+    var first = g.acc || g.cards[0], paid = 0, left = 0;
+    if (g.acc){
+      paid += -sumMoney(accountMoves(g.acc).filter(function(m){ return m.amount < 0 && m.kind !== 'Transferência' && m.date.slice(0, 7) === cur; }), function(m){ return m.amount; });
+      left += scheduled(function(t){ return t.accountId === g.acc.id; });
+      left += sumMoney(bills.filter(function(o){ return o.b.pay === 'acc:' + g.acc.id; }), function(o){ return o.amount; });
+    }
+    g.cards.forEach(function(c){
+      Cards.invoiceKeys(State.transactions, c).forEach(function(key){
+        if (Cards.invoiceDates(key, c).due.slice(0, 7) !== cur) return;
+        var pay = (c.invoicePayments || {})[key];
+        // Pagamentos sem conta escolhida não aparecem no saldo: entram aqui.
+        if (pay && !pay.accountId && Cards.invoiceStatus(c, key, today) === 'paga') paid += Number(pay.amount) || 0;
+        paid += sumMoney(Cards.invoiceAdvances(c, key).filter(function(x){ return !x.accountId; }), function(x){ return x.amount; });
+        if (Cards.invoiceStatus(c, key, today) !== 'paga') left += Cards.invoiceLeft(State.transactions, c, key);
+      });
+    });
+    if (paid > 0 || left > 0) rows.push({name: first.name, paid: money(paid), left: money(left), go: 'cartoes'});
+  });
+  var cashPaid = sumMoney(State.transactions.filter(function(t){ return t.type === 'expense' && !t.reversal && t.paymentMethod === 'conta' && !t.accountId && t.date <= today && t.date.slice(0, 7) === cur && !t.outsideTotals; }), function(t){ return t.amount; });
+  var cashLeft = scheduled(function(t){ return !t.accountId; }) + sumMoney(bills.filter(function(o){ return o.b.pay === 'conta' || !o.b.pay; }), function(o){ return o.amount; });
+  if (cashPaid > 0 || cashLeft > 0) rows.push({name: 'Dinheiro', paid: money(cashPaid), left: money(cashLeft), go: 'lancamentos'});
+  return {rows: rows, paid: sumMoney(rows, function(r){ return r.paid; }), left: sumMoney(rows, function(r){ return r.left; })};
+}
 // Dívida com parcela mensal: quantas parcelas no total e quantas já foram pagas (estimado pelo valor).
 function debtParcels(d){
   var per = Number(d.monthlyPayment) || 0, total = Number(d.totalAmount) || 0;
@@ -149,18 +193,22 @@ export function installmentProgress(){
   var out = [];
   installmentGroups().forEach(function(g){
     if (!g.future.length) return;
-    out.push({kind: 'pagar', title: g.name, where: g.card ? 'Cartão ' + g.card.name : 'Cartão', total: g.total, done: g.done, left: g.future.length,
-      leftAmount: g.remaining, per: g.perInstallment, go: 'cartoes'});
+    // Compra para outra pessoa (pago por) ou dividida: a parcela também é de terceiros.
+    var t0 = g.items[0], people = t0.forOther ? [t0.forOther.person] : t0.split ? t0.split.people.map(function(x){ return x.person; }) : [];
+    out.push({kind: 'pagar', title: g.name, where: (g.card ? 'Cartão ' + g.card.name : 'Cartão') + (t0.forOther ? ' · para ' + t0.forOther.person : t0.split ? ' · dividida com ' + people.join(', ') : ''),
+      total: g.total, done: g.done, left: g.future.length, leftAmount: g.remaining, per: g.perInstallment, go: 'cartoes', people: people.filter(Boolean)});
   });
   State.debts.forEach(function(d){
     var p = debtParcels(d), left = money(Math.max(0, Number(d.totalAmount || 0) - Number(d.paidAmount || 0)));
     if (!p || !(left > 0)) return;
-    out.push({kind: 'pagar', title: d.name, where: d.creditor ? 'Você deve a ' + d.creditor : 'Dívida', total: p.total, done: p.done, left: p.left, leftAmount: left, per: Number(d.monthlyPayment), go: 'dividas'});
+    out.push({kind: 'pagar', title: d.name, where: d.creditor ? 'Você deve a ' + d.creditor : 'Dívida', total: p.total, done: p.done, left: p.left, leftAmount: left, per: Number(d.monthlyPayment), go: 'dividas',
+      people: d.creditor ? [d.creditor] : []});
   });
   State.receivables.forEach(function(r){
     var info = recvInstallInfo(r), left = recvRemaining(r);
     if (!info || !(left > 0) || r.forgiven) return;
-    out.push({kind: 'receber', title: r.description || r.person, where: r.person + ' te paga', total: info.n, done: info.paid, left: info.n - info.paid, leftAmount: left, per: info.per, go: 'receber'});
+    out.push({kind: 'receber', title: r.description || r.person, where: r.person + ' te paga', total: info.n, done: info.paid, left: info.n - info.paid, leftAmount: left, per: info.per, go: 'receber',
+      people: [r.person]});
   });
   return out.sort(function(a, b){ return (a.kind === 'receber') - (b.kind === 'receber') || a.left - b.left; });
 }
@@ -170,6 +218,72 @@ function parcelRowHtml(p){
     '<span class="parcel-top"><strong>' + escapeHtml(p.title) + '</strong><span class="tabular">' + (p.kind === 'receber' ? 'faltam receber ' : 'faltam ') + fmtMoney(p.leftAmount) + '</span></span>' +
     '<span class="progress" role="img" aria-label="' + p.done + ' de ' + p.total + ' parcelas ' + (p.kind === 'receber' ? 'recebidas' : 'pagas') + '"><span style="width:' + pct + '%; background:' + (p.kind === 'receber' ? 'var(--brand)' : 'var(--good)') + '"></span></span>' +
     '<span class="parcel-meta">' + escapeHtml(p.where) + ' · <strong>' + p.done + ' de ' + p.total + '</strong> ' + (p.kind === 'receber' ? 'recebidas' : 'pagas') + ' · faltam ' + p.left + ' de ' + fmtMoney(p.per) + '</span></a>';
+}
+// Filtros da janela de parcelas: quem (todas, só minhas, terceiros ou uma pessoa) e em que ponto
+// estão (começando: até 1 paga; perto do fim: faltam até 2 ou 1/4; longe do fim: falta mais da metade
+// e não está perto do fim).
+export var PARCEL_STAGES = [
+  {id: 'todas', label: 'Todas'},
+  {id: 'inicio', label: 'Primeira parcela'},
+  {id: 'perto', label: 'Perto do fim'},
+  {id: 'longe', label: 'Longe do fim'}
+];
+export function filterParcels(list, who, stage){
+  return list.filter(function(p){
+    var people = (p.people || []).map(function(n){ return fold(n); });
+    if (who === 'minhas' && people.length) return false;
+    if (who === 'terceiros' && !people.length) return false;
+    if (who && who.indexOf('p:') === 0 && people.indexOf(who.slice(2)) < 0) return false;
+    var near = p.left <= Math.max(2, Math.ceil(p.total / 4));
+    if (stage === 'inicio') return p.done <= 1;
+    if (stage === 'perto') return near;
+    if (stage === 'longe') return !near && p.left > p.total / 2;
+    return true;
+  });
+}
+// Quadro do Início (antes de “Últimos lançamentos”): resumo e as 3 primeiras; tocar abre a janela.
+export function renderParcels(){
+  var card = document.getElementById('parcelsCard'), parcels = installmentProgress();
+  card.hidden = !parcels.length;
+  if (!parcels.length){ card.innerHTML = ''; return; }
+  var pay = parcels.filter(function(p){ return p.kind === 'pagar'; });
+  card.innerHTML = '<div class="card-head"><h3><button type="button" class="linklike parcels-title" data-parcels-open>Parcelas em andamento</button></h3>' +
+      '<button class="btn btn-ghost btn-sm" type="button" data-parcels-open>Ver todas e filtrar</button></div>' +
+    (pay.length ? '<p class="card-sub">Falta pagar <strong class="tabular">' + fmtMoney(sumMoney(pay, function(p){ return p.leftAmount; })) + '</strong> em ' + sum(pay, function(p){ return p.left; }) + ' parcelas (' + pay.length + (pay.length === 1 ? ' compra ou dívida' : ' compras e dívidas') + ').</p>' : '') +
+    '<div class="parcel-grid">' + parcels.slice(0, 3).map(parcelRowHtml).join('') + '</div>';
+}
+export async function openParcels(){
+  var all = installmentProgress(), names = {};
+  all.forEach(function(p){ (p.people || []).forEach(function(n){ names[fold(n)] = n; }); });
+  var whoOpts = [{id: '', label: 'Todas as pessoas'}, {id: 'minhas', label: 'Só minhas'}, {id: 'terceiros', label: 'De terceiros (todas)'}]
+    .concat(Object.keys(names).sort().map(function(k){ return {id: 'p:' + k, label: names[k]}; }));
+  await openModal({
+    title: 'Parcelas em andamento', wide: true, submitLabel: null, cancelLabel: 'Fechar',
+    body: '<div class="parcel-filters"><div class="field"><label for="pfWho">Pessoa ou terceiro</label><select id="pfWho">' + optionsHtml(whoOpts, '') + '</select></div>' +
+        '<fieldset class="chip-group"><legend>Situação</legend>' + PARCEL_STAGES.map(function(st, i){
+          return '<label class="chip-radio"><input type="radio" name="pfStage" value="' + st.id + '"' + (i ? '' : ' checked') + '><span>' + st.label + '</span></label>';
+        }).join('') + '</fieldset></div>' +
+      '<p class="tx-meta" id="pfCount" aria-live="polite"></p><div class="parcel-grid parcel-grid-modal" id="pfList"></div>',
+    onOpen: function(modal){
+      function draw(){
+        var stage = (qs('input[name=pfStage]:checked', modal) || {}).value || 'todas';
+        var list = filterParcels(all, qs('#pfWho', modal).value, stage);
+        var pay = list.filter(function(p){ return p.kind === 'pagar'; });
+        qs('#pfCount', modal).textContent = list.length + (list.length === 1 ? ' item' : ' itens') + (pay.length ? ' · falta pagar ' + fmtMoney(sumMoney(pay, function(p){ return p.leftAmount; })) : '');
+        qs('#pfList', modal).innerHTML = list.length ? list.map(parcelRowHtml).join('') : '<p class="empty-state">Nada com esse filtro.</p>';
+      }
+      modal.addEventListener('change', draw);
+      // Tocar numa parcela fecha a janela e abre a área dela.
+      qs('#pfList', modal).addEventListener('click', function(e){
+        var a = e.target.closest('[data-go]');
+        if (!a) return;
+        e.preventDefault();
+        qs('.modal-x', modal).click();
+        showTab(a.getAttribute('data-go'));
+      });
+      draw();
+    }
+  });
 }
 // Linha do topo do Início: a situação do mês numa frase.
 export function monthStatusHtml(){
@@ -219,15 +333,21 @@ export function renderSummary(){
   var status = statusForPct(pct);
   var bar = planned > 0 ? '<div class="progress" role="img" aria-label="' + Math.round(pct * 100) + '% do planejado"><span style="width:' + Math.min(100, pct * 100) + '%; background:' +
     (status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)') + '"></span></div>' : '';
-  var cats = expenseCats().map(function(c){ return {c: c, v: sumMoney(txForMonth(cur).filter(function(x){ return x.type === 'expense' && isPersonal(x) && x.category === c.id && x.date <= todayKey(); }), myShare)}; })
-    .filter(function(x){ return x.v > 0; }).sort(function(a, b){ return b.v - a.v; }).slice(0, 3);
+  // Em destaque o total gasto; embaixo, quanto ainda falta pagar no mês. O + mostra, por banco, o que
+  // já foi pago e o que falta (faturas, contas fixas e gastos agendados).
+  var mp = monthPayments();
   var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(spent), '',
-    planned > 0 ? Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' · passou ' + fmtMoney(spent - planned) : '') :
-      (t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : 'Ainda sem planejamento para o mês'),
+    (mp.left > 0 ? 'Falta pagar <strong class="tabular">' + fmtMoney(mp.left) + '</strong> neste mês' : mp.paid > 0 ? 'Tudo pago neste mês por enquanto' : 'Nenhum pagamento pendente') +
+      (planned > 0 ? ' · ' + Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' (passou ' + fmtMoney(spent - planned) + ')' : '') : ''),
     bar,
-    (cats.length ? '<p class="sum-caption">Onde mais gastou</p>' + cats.map(function(x){ return '<div class="sum-row">' + catBadge(x.c.id, 'expense') + '<span>' + escapeHtml(x.c.label) + '</span><strong class="tabular">' + fmtMoney(x.v) + '</strong></div>'; }).join('') :
-      '<p class="sum-caption">Nenhum gasto neste mês ainda.</p>') +
-    (t.expenseScheduled > 0 ? detailRow('Agendado até o fim do mês', '+ ' + fmtMoney(t.expenseScheduled)) : '') +
+    (mp.rows.length ? '<p class="sum-caption">Por banco: pago e o que falta no mês</p>' +
+      '<div class="bank-pay" role="table" aria-label="Pago e o que falta no mês, por banco"><div class="bp-row bp-head" role="row"><span role="columnheader">Banco</span><span role="columnheader">Pago</span><span role="columnheader">Falta</span></div>' +
+      mp.rows.map(function(r){
+        return '<a class="bp-row" role="row" href="#/' + routeOf(r.go) + '" data-go="' + r.go + '"><span role="cell">' + escapeHtml(r.name) + '</span>' +
+          '<span role="cell" class="tabular">' + fmtMoney(r.paid) + '</span><strong role="cell" class="tabular' + (r.left > 0 ? '' : ' pos-text') + '">' + fmtMoney(r.left) + '</strong></a>';
+      }).join('') +
+      '<div class="bp-row bp-total" role="row"><span role="cell">Total</span><span role="cell" class="tabular">' + fmtMoney(mp.paid) + '</span><strong role="cell" class="tabular">' + fmtMoney(mp.left) + '</strong></div></div>' :
+      '<p class="sum-caption">Nenhum pagamento neste mês ainda.</p>') +
     goLink('limites', 'Planejar gastos'));
   // 3. Próximos pagamentos: faturas, contas fixas e dívidas (cada um leva para a sua área)
   var list = upcomingCommitments(), next = list[0];
@@ -239,13 +359,8 @@ export function renderSummary(){
       list.slice(0, 5).map(function(c){ return '<a class="sum-row sum-row-link" href="#/' + routeOf(c.go) + '" data-go="' + c.go + '"><span>' + URGENCY_MARK[c.urgency] + ' ' + escapeHtml(c.title) + ' <small>' + when(c) + '</small></span><strong class="tabular">' + fmtMoney(c.amount) + '</strong></a>'; }).join('')) :
     sumCard(3, 'clock', 'Próximos pagamentos', 'Nada pendente', 'sum-value-text', 'Sem faturas, contas fixas nem dívidas para pagar. 🎉', '',
       '<p class="sum-caption">Cadastre cartões em “Contas e cartões”, contas de todo mês em “Ganhos e gastos → Contas fixas” e dívidas em “Compromissos” para ver aqui o que vem pela frente.</p>' + goLink('fixas', 'Ver contas fixas'));
-  // 4. Parcelas em andamento (só quando existem): quantas foram e quantas faltam.
-  var parcels = installmentProgress(), pay = parcels.filter(function(p){ return p.kind === 'pagar'; });
-  var c4 = parcels.length ? '<article class="sum-card sum-card-wide" aria-labelledby="sumT4"><div class="sum-head"><span class="sum-icon" aria-hidden="true">' + icon('calendar') + '</span><h3 id="sumT4">Parcelas em andamento</h3></div>' +
-    (pay.length ? '<p class="sum-sub">Falta pagar <strong class="tabular">' + fmtMoney(sumMoney(pay, function(p){ return p.leftAmount; })) + '</strong> em ' + sum(pay, function(p){ return p.left; }) + ' parcelas (' + pay.length + (pay.length === 1 ? ' compra ou dívida' : ' compras e dívidas') + ').</p>' : '') +
-    '<div class="parcel-grid">' + parcels.map(parcelRowHtml).join('') + '</div></article>' : '';
   document.getElementById('monthStatus').innerHTML = monthStatusHtml();
-  document.getElementById('summaryCards').innerHTML = c1 + c2 + c3 + c4;
+  document.getElementById('summaryCards').innerHTML = c1 + c2 + c3;
 }
 
 export var CALC_RULES = [
@@ -253,8 +368,11 @@ export var CALC_RULES = [
   ['Esperado', 'Soma as previsões de entrada ainda não recebidas e os ganhos com data futura no mês.'],
   ['Cartão de crédito', 'Cada compra no cartão (ou parcela) conta como gasto no mês em que vence a fatura dela, como no app do banco: compra de 04/10 com fatura vencendo em novembro conta em novembro. No mês da compra ela aparece só como aviso. A compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.'],
   ['Pagar a fatura', 'Não é um gasto novo (as compras já contaram). Se você escolher uma conta ao marcar a fatura como paga, o valor sai do saldo dessa conta.'],
-  ['Faturas a pagar', 'Soma as faturas que já fecharam e não foram marcadas como pagas. A fatura aberta, que ainda recebe compras, aparece embaixo.'],
-  ['Parcelas', 'Cada parcela é um gasto no mês dela. Os centavos que sobram da divisão ficam na 1ª parcela. No Início, “Parcelas em andamento” mostra quantas já foram pagas e quantas faltam; em “Dívida restante”, as parcelas futuras do cartão aparecem à parte.'],
+  ['Faturas: falta pagar', 'O que ainda falta pagar das faturas fechadas e da fatura aberta, já descontando o que foi adiantado. Embaixo, o total das faturas e o vencimento.'],
+  ['Gastos do mês', 'O número grande é o total gasto no mês. “Falta pagar” soma o que ainda vai sair: o que falta das faturas que vencem no mês, as contas fixas do mês ainda não lançadas e os gastos agendados. No +, o mesmo por banco.'],
+  ['Dívidas: falta pagar', 'Soma das dívidas em Compromissos → Eu devo: valor original menos o que já foi pago. Compras parceladas no cartão não entram aqui: ficam em “Parcelas no cartão”, porque já estão nas próximas faturas.'],
+  ['A receber neste mês', 'O que vence neste mês (parcelas e combinados até o fim do mês, inclusive atrasados) em “Me devem”. Embaixo, o total que ainda falta receber.'],
+  ['Parcelas', 'Cada parcela é um gasto no mês dela. Os centavos que sobram da divisão ficam na 1ª parcela. “Parcelas em andamento” mostra quantas já foram pagas e quantas faltam, com filtros.'],
   ['Próximos pagamentos', 'Junta o que vem para pagar: faturas fechadas e abertas, contas fixas do mês e dívidas (pela urgência e pela data). Cada item leva para a área dele.'],
   ['Disponível nas contas', 'Parte do saldo que você informou e soma o que veio depois: ganhos e gastos ligados à conta, transferências e faturas pagas com ela. Transferência não é ganho nem gasto.']
 ];
@@ -303,6 +421,7 @@ export function renderDashboard(){
   renderInvoiceSplit();
   renderCreditDebit();
   renderComparison();
+  renderParcels();
   renderRecentTx();
 }
 
