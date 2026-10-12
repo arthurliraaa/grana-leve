@@ -18,7 +18,6 @@ import {enterApp, loadAllData, logout, openAuth, renderAll, renderTopbar, showAu
 import {State, k} from './state.js';
 import {ONLINE_PAGES} from './constants.js';
 import {termsOk, termsProblem, termsRecord} from '../domain/terms.js';
-import {todayKey} from '../domain/dates.js';
 
 /* ---------- Conta no servidor (Supabase) ---------- */
 export function siteUrl(){ return location.origin + location.pathname; }
@@ -119,19 +118,17 @@ export async function linkDoneModal(link){
     onSubmit: function(){ return true; }
   }).then(function(go){ if (go) openAuth('login'); });
 }
-// Janela obrigatória (não fecha sem decidir): data de nascimento e aceite. Retorna o registro do aceite,
-// ou null se a pessoa preferiu sair.
+// Janela obrigatória (não fecha sem decidir) para quem entrou pelo Google: aceitar os termos.
+// Retorna o registro do aceite, ou null se a pessoa preferiu sair.
 export async function termsGate(){
   return openModal({
     title: 'Antes de continuar', cancelLabel: 'Sair', submitLabel: 'Aceitar e continuar',
-    body: '<p>Para usar o Grana Leve, confirme que você tem 18 anos ou mais e aceite os termos.</p>' +
-      '<div class="field"><label for="tgBirth">Data de nascimento</label><input id="tgBirth" name="birth" type="date" min="1900-01-01" autocomplete="bday">' +
-        '<span class="field-hint">Usamos só para conferir a idade e não guardamos a data.</span></div>' +
+    body: '<p>Para usar o Grana Leve, leia e aceite os termos.</p>' +
       '<details class="term-peek"><summary>Ler os Termos de uso</summary>' + ONLINE_PAGES.termos.body + '</details>' +
       '<details class="term-peek"><summary>Ler a Política de privacidade</summary>' + ONLINE_PAGES.privacidade.body + '</details>' +
       '<label class="check terms-check"><input type="checkbox" name="accept"> <span>Li e aceito os Termos de uso e a Política de privacidade.</span></label>',
     onSubmit: function(form){
-      var problem = termsProblem(form.birth.value, form.accept.checked, todayKey());
+      var problem = termsProblem(form.accept.checked);
       return problem ? {error: problem} : termsRecord();
     }
   });
@@ -353,7 +350,7 @@ export function wireAuth(){
     if (!name){ errEl.textContent = 'Informe seu nome.'; return; }
     if (!validEmail(email)){ errEl.textContent = 'Informe um e-mail válido.'; return; }
     var pwErr = passwordProblem(password);
-    var tErr = termsProblem(document.getElementById('signupBirth').value, document.getElementById('signupTerms').checked, todayKey());
+    var tErr = termsProblem(document.getElementById('signupTerms').checked);
     if (!pwErr && tErr){ errEl.textContent = tErr; return; }
     if (!pwErr){
       // gmaill.com, hotmal.com...: um e-mail errado nunca recebe o link de confirmação.
@@ -363,7 +360,7 @@ export function wireAuth(){
     }
     if (pwErr){ errEl.textContent = pwErr; return; }
     if (Store.mode === 'local' && !document.getElementById('signupStorageOk').checked){ errEl.textContent = 'Confirme que entendeu onde seus dados ficam.'; return; }
-    var research = Research.consentRecord(document.getElementById('signupResearch').checked, document.getElementById('signupAge').value, document.getElementById('signupUf').value);
+    var research = Research.consentRecord(false);
     if (Store.mode === 'supabase'){
       try{
         var res = await Store.signUp(email, password, {name: name, research: research, terms: termsRecord()}, siteUrl());

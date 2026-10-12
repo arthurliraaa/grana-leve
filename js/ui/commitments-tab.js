@@ -13,7 +13,6 @@ import {invoiceKeyFor, invoiceDates} from '../domain/cards.js';
 import {recvInstallInfo, recvNextDue, recvRemaining, recvDefaultRefund, recvDueByMonth, recvDueCount} from '../domain/receivables.js';
 
 import {DEFAULT_URGENCY, urgencyOf, byUrgency} from '../domain/urgency.js';
-import * as Research from '../domain/research.js';
 import {Store} from '../data/store.js';
 
 import {getPrefs, setPref} from '../data/session.js';
@@ -21,7 +20,6 @@ import {qs, qsa, escapeHtml, optionsHtml, labelOf, icon, toast} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {DEBT_KINDS, RECV_KINDS} from './constants.js';
 import {paymentLabel, renderDashboard} from './home-tab.js';
-import {ufOptions} from './my-data.js';
 import {renderAll} from './shell.js';
 import {State, URGENCY_RANK, accountName, catLabel, expandInstallments, installHint, installmentGroups, k, setUrgency, sortTransactions, urgencyOptions, urgencySelectHtml} from './state.js';
 import {saveTransactions} from './tx-edit.js';
@@ -829,9 +827,6 @@ export function wireCommitments(){
   document.getElementById('debtKind').innerHTML = optionsHtml(DEBT_KINDS, 'banco');
   document.getElementById('recvKind').innerHTML = optionsHtml(RECV_KINDS, 'emprestimo');
   qsa('[data-urgency-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(urgencyOptions(), DEFAULT_URGENCY); });
-  qsa('[data-age-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(Research.AGE_RANGES, ''); });
-  qsa('[data-uf-options]').forEach(function(sel){ sel.innerHTML = optionsHtml(ufOptions(), ''); });
-  document.getElementById('signupResearch').addEventListener('change', function(e){ document.getElementById('signupResearchProfile').hidden = !e.target.checked; });
   // Depois de enviar um formulário, a urgência volta para média.
   ['goalForm', 'debtForm', 'recvForm'].forEach(function(id){
     document.getElementById(id).addEventListener('reset', function(e){ setTimeout(function(){ qsa('[data-urgency-options]', e.target).forEach(function(sel){ sel.value = DEFAULT_URGENCY; }); }, 0); });

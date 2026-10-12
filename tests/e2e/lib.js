@@ -48,9 +48,8 @@ export async function signup(page, opts = {}){
   await sleep(300);
   return email;
 }
-// Preenche a data de nascimento (maior de 18 anos) e aceita os termos no cadastro.
-export async function acceptTerms(page, birth){
-  await page.$eval('#signupBirth', (el, v) => { el.value = v; el.dispatchEvent(new Event('input', {bubbles: true})); }, birth || '1995-05-20');
+// Aceita os termos no cadastro.
+export async function acceptTerms(page){
   await page.$eval('#signupTerms', el => { if (!el.checked) el.click(); });
 }
 export async function reload(page){

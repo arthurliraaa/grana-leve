@@ -78,16 +78,14 @@ L.run(async ({page, errors}) => {
   L.ok(await L.noHorizontalScroll(page) && await page.$eval('.auth-card', el => el.getBoundingClientRect().right <= window.innerWidth), 'no celular, a janela cabe na tela');
   await page.setViewport({width: 1280, height: 900});
 
-  L.section('Cadastro: e-mail com erro de digitação e confirmação dos 18 anos');
+  L.section('Cadastro: e-mail com erro de digitação e aceite dos termos');
   replies['signup'] = () => ({status: 200, body: {...USER, email: calls.at(-1).body.email, confirmation_sent_at: new Date().toISOString()}});
-  L.ok(await page.$$eval('#signupAge option', os => os.every(o => !o.value || !/^1[0-7]|menos|menor/.test(o.value + o.textContent))), 'faixa etária não oferece menores de 18');
+  L.ok(!(await page.$('#signupBirth')) && !(await page.$('#signupResearch')), 'sem data de nascimento nem caixa de pesquisa');
   await page.type('#signupName', 'Jorge');
   await page.type('#signupEmail', 'jorge@gmail.com'); await page.type('#signupPassword', 'senha@123');
   await page.click('#signupForm button[type=submit]'); await L.sleep(150);
-  L.ok(/data de nascimento/i.test(await L.text(page, '#signupError')), 'cadastro sem data de nascimento: recusa');
-  await L.acceptTerms(page, '2012-01-01'); await page.click('#signupForm button[type=submit]'); await L.sleep(150);
-  L.ok(/maiores de 18 anos/.test(await L.text(page, '#signupError')), 'menor de 18: recusa');
-  await L.acceptTerms(page, '1990-01-01'); await page.$eval('#signupTerms', el => { el.checked = false; });
+  L.ok(/aceite os Termos/.test(await L.text(page, '#signupError')), 'sem aceitar os termos: recusa');
+  await L.acceptTerms(page); await page.$eval('#signupTerms', el => { el.checked = false; });
   await page.click('#signupForm button[type=submit]'); await L.sleep(150);
   L.ok(/aceite os Termos/.test(await L.text(page, '#signupError')), 'sem aceitar os termos: recusa');
   await page.$eval('#signupEmail', el => { el.value = ''; }); await page.$eval('#signupPassword', el => { el.value = ''; });
@@ -99,22 +97,18 @@ L.run(async ({page, errors}) => {
   await L.submitModal(page); await L.sleep(300);
   const sent = calls.filter(c => c.path.endsWith('/signup')).at(-1);
   L.ok(sent && sent.body.email === 'seujorge@gmail.com', 'o cadastro vai com o e-mail corrigido');
-  L.ok(sent && sent.body.data.terms && sent.body.data.terms.adult === true && sent.body.data.terms.version === '1' && !JSON.stringify(sent.body).includes('1995-05-20'), 'o aceite dos termos vai no cadastro (sem a data de nascimento)');
-  L.ok(sent && sent.body.data.research.consent === false, 'sem marcar a pesquisa, o consentimento vai como “não”');
+  L.ok(sent && sent.body.data.terms && sent.body.data.terms.version === '1' && /^\d{4}-/.test(sent.body.data.terms.at) && !('adult' in sent.body.data.terms), 'o aceite dos termos vai no cadastro (versão e momento)');
+  L.ok(sent && sent.body.data.research.consent === false, 'a pesquisa vai como “não participa”');
   L.ok(await L.modalTitle(page) === 'Confirme seu e-mail' && /1 hora/.test(await L.text(page, '#modalRoot')) && /Spam/.test(await L.text(page, '#modalRoot')), 'explica o link: validade de 1 hora e onde procurar');
   await L.closeModal(page);
-  // De novo, agora marcando “Tenho 18 anos ou mais”.
+  // De novo, com um e-mail sem erro de digitação.
   await page.click('[data-authtab="signup"]');
   await page.$eval('#signupEmail', el => { el.value = ''; });
   await page.type('#signupEmail', 'outra@gmail.com');
   await page.type('#signupPassword', 'senha@123'); await L.acceptTerms(page);
-  await page.$eval('#signupForm details.research-optin', d => { d.open = true; });
-  await page.click('#signupResearch');
-  L.ok(!(await page.$eval('#signupResearchProfile', el => el.hidden)), 'marcar a pesquisa mostra faixa etária e estado');
-  await L.setVal(page, '#signupAge', '18-24');
   await page.click('#signupForm button[type=submit]'); await L.sleep(300);
   const sent2 = calls.filter(c => c.path.endsWith('/signup')).at(-1);
-  L.ok(sent2.body.email === 'outra@gmail.com' && sent2.body.data.research.consent === true && sent2.body.data.research.ageRange === '18-24', 'marcando 18+ e o termo, o consentimento vai com a faixa etária');
+  L.ok(sent2.body.email === 'outra@gmail.com', 'e-mail sem erro de digitação segue direto');
   L.ok(!(await L.modalOpen(page)) || await L.modalTitle(page) === 'Confirme seu e-mail', 'e-mail sem erro de digitação não pergunta nada');
   await L.closeModal(page);
 
@@ -210,22 +204,15 @@ L.run(async ({page, errors}) => {
   const au = new URL(authorizeUrl || 'http://x/');
   L.ok(au.searchParams.get('provider') === 'google' && au.searchParams.get('redirect_to') === L.BASE && au.searchParams.get('code_challenge'), 'vai para o Google com retorno ao app (PKCE)');
   await L.sleep(500);
-  L.ok(await L.modalTitle(page) === 'Antes de continuar' && await page.$eval('#viewApp', el => el.hidden), 'conta do Google sem aceite: pede data de nascimento e termos antes de abrir');
-  await L.submitModal(page);
-  L.ok(/data de nascimento/i.test(await L.modalError(page)), 'sem data, não segue');
-  await page.$eval('#tgBirth', el => { el.value = '2012-03-01'; });
-  await page.$eval('#modalRoot input[name=accept]', el => el.click());
-  await L.submitModal(page);
-  L.ok(/maiores de 18 anos/.test(await L.modalError(page)), 'menor de 18: bloqueia');
-  await page.$eval('#tgBirth', el => { el.value = '1995-03-01'; });
-  await page.$eval('#modalRoot input[name=accept]', el => el.click());
+  L.ok(await L.modalTitle(page) === 'Antes de continuar' && await page.$eval('#viewApp', el => el.hidden), 'conta do Google sem aceite: pede só o aceite dos termos antes de abrir');
+  L.ok(!(await page.$('#tgBirth')), 'sem pedir data de nascimento');
   await L.submitModal(page);
   L.ok(/aceite os Termos/.test(await L.modalError(page)), 'sem aceitar os termos, não segue');
   await page.$eval('#modalRoot input[name=accept]', el => el.click());
   await L.submitModal(page);
   await page.waitForSelector('#viewApp:not([hidden])', {timeout: 5000}).catch(() => {});
   L.ok(!(await page.$eval('#viewApp', el => el.hidden)) && /Bem-vindo\(a\), Ana/.test(await L.allToasts(page)), 'aceitando, a conta abre e dá boas-vindas');
-  L.ok(calls.some(c => c.method === 'PUT' && /\/auth\/v1\/user/.test(c.path) && c.body && c.body.data && c.body.data.terms && c.body.data.terms.adult === true && !JSON.stringify(c.body).includes('1995')), 'guarda só o aceite (sem a data de nascimento)');
+  L.ok(calls.some(c => c.method === 'PUT' && /\/auth\/v1\/user/.test(c.path) && c.body && c.body.data && c.body.data.terms && c.body.data.terms.version === '1' && !('adult' in c.body.data.terms)), 'guarda só o aceite dos termos');
   L.ok(!/code=/.test(await page.evaluate(() => location.href)), 'o código sai do endereço');
   L.ok(calls.some(c => c.path.endsWith('/token') && c.body && c.body.auth_code === 'cod-google'), 'troca o código pela sessão');
 

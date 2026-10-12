@@ -2,31 +2,17 @@
 import * as L from './lib.js';
 
 L.run(async ({page}) => {
-  L.section('Termo da pesquisa no cadastro');
+  L.section('Cadastro enxuto e senha');
   await page.goto(L.BASE, {waitUntil: 'domcontentloaded'});
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('granaleve_backend', 'local'); });
   await page.reload({waitUntil: 'domcontentloaded'});
   await page.click('[data-action="go-signup"]');
-  L.ok(!(await page.$eval('#signupResearch', el => el.checked)), 'participar da pesquisa começa desmarcado (opt-in)');
-  L.ok(/18 anos ou mais/.test(await L.text(page, '.research-optin')), 'pede 18 anos ou mais');
-  L.ok(await page.$eval('#signupResearchProfile', el => el.hidden), 'perfil opcional só aparece ao aceitar');
-  L.ok(await page.$eval('#signupForm details.research-optin', d => !d.open), 'pesquisa (opcional) começa recolhida, para o cadastro ficar curto');
-  await page.click('#signupForm details.research-optin summary'); await L.sleep(100);
-  await page.click('#signupForm [data-info="pesquisa"]'); await L.sleep(150);
-  L.ok(await L.modalTitle(page) === 'Termo de consentimento da pesquisa', 'link abre o termo');
-  const term = await L.text(page, '#modalRoot');
-  L.ok(/O que nunca é coletado/.test(term) && /Valores, descrições/.test(term) && /art\. 7º, I/.test(term) && /não envia nenhum dado/.test(term), 'termo diz o que não é coletado, a base legal e que nada é enviado nesta versão');
-  await L.closeModal(page);
+  L.ok(!(await page.$('#signupResearch')) && !(await page.$('#signupBirth')) && !(await page.$('.research-optin')), 'o cadastro não pede data de nascimento nem traz a caixa da pesquisa');
   L.ok(await page.$$eval('#signupPwRules li.bad', els => els.length) === 4, 'cadastro mostra as 4 regras da senha em vermelho antes de digitar');
   await page.type('#signupPassword', 'abc1');
   L.ok(await page.$$eval('#signupPwRules li.ok', els => els.map(e => e.dataset.rule).join(',')) === 'letter,number', 'regras cumpridas ficam verdes');
   L.ok(await page.$eval('#signupPassword', el => el.getAttribute('aria-describedby')) === 'signupPwRules', 'leitor de tela lê as regras junto com o campo');
   await page.$eval('#signupPassword', el => { el.value = ''; });
-  await page.click('#signupResearch');
-  L.ok(!(await page.$eval('#signupResearchProfile', el => el.hidden)), 'aceitar mostra faixa etária e estado');
-  L.ok(await page.$$eval('#signupAge option', os => os.map(o => o.value)).then(v => v[0] === '' && !v.includes('15-17')), 'faixas etárias começam em 18 e há “Prefiro não dizer”');
-  await L.setVal(page, '#signupAge', '18-24');
-  await L.setVal(page, '#signupUf', 'PR');
   const email = 'pesq' + Date.now() + '@teste.com';
   await page.evaluate((key) => localStorage.setItem('granaleve_prefs_' + key, JSON.stringify({quickEntryOff: true})), email);
   await page.type('#signupName', 'Bia'); await page.type('#signupEmail', email); await page.type('#signupPassword', 'senha@123'); await L.acceptTerms(page);
@@ -34,26 +20,18 @@ L.run(async ({page}) => {
   await page.click('#signupForm button[type=submit]');
   await page.waitForSelector('#viewApp:not([hidden])'); await L.sleep(300);
   const profile = await page.evaluate((key) => JSON.parse(localStorage.getItem('granaleve_local_db_v1')).users[key].profile, email);
-  L.ok(profile.research && profile.research.consent === true && profile.research.version === '2' && /^\d{4}-\d{2}-\d{2}T/.test(profile.research.at), 'consentimento salvo com versão e data');
-  L.ok(profile.research.ageRange === '18-24' && profile.research.uf === 'PR', 'perfil opcional salvo');
+  L.ok(profile.research && profile.research.consent === false && profile.terms && profile.terms.version === '1', 'a pesquisa começa desligada e o aceite dos termos fica salvo');
 
-  L.section('Sair e voltar ao estudo em “Seus dados”');
+  L.section('Participar do estudo em “Seus dados” (opcional)');
   await page.click('#storageBtn'); await L.sleep(150);
-  L.ok(/Você participa do estudo desde/.test(await L.text(page, '#researchStatus')), 'mostra que participa');
-  await page.click('#modalRoot [data-research]'); await L.sleep(200);
-  L.ok(await L.modalTitle(page) === 'Sair do estudo?', 'abre a confirmação de saída');
-  await L.submitModal(page); await L.sleep(150);
-  let p = await page.evaluate((key) => JSON.parse(localStorage.getItem('granaleve_local_db_v1')).users[key].profile.research, email);
-  L.ok(p.consent === false && !p.ageRange, 'saiu do estudo e o perfil opcional foi apagado');
-  await page.click('#storageBtn'); await L.sleep(150);
-  L.ok(/não participa/.test(await L.text(page, '#researchStatus')), 'status atualizado');
+  L.ok(/não participa/.test(await L.text(page, '#researchStatus')), 'começa sem participar');
   await page.click('#modalRoot [data-research]'); await L.sleep(200);
   await L.submitModal(page);
   L.ok(/18 anos ou mais e aceita/.test(await L.modalError(page)), 'para participar precisa marcar o aceite');
   await page.click('#modalRoot input[name=accept]');
   await L.submitModal(page); await L.sleep(150);
-  p = await page.evaluate((key) => JSON.parse(localStorage.getItem('granaleve_local_db_v1')).users[key].profile.research, email);
-  L.ok(p.consent === true, 'voltou a participar');
+  const p = await page.evaluate((key) => JSON.parse(localStorage.getItem('granaleve_local_db_v1')).users[key].profile.research, email);
+  L.ok(p.consent === true, 'passou a participar');
 
   L.section('Previsões recolhidas no card de novo lançamento');
   await L.tab(page, 'lancamentos');
