@@ -38,7 +38,7 @@ L.run(async ({page}) => {
   L.ok(/já tinham vencido antes do cadastro e já foram acertadas/.test(t2), 'explica que as parcelas já foram acertadas');
 
   L.section('“Ligar à compra” já atualiza pelas faturas');
-  await page.click('[data-recv-link="rjo"]'); await L.sleep(200);
+  await L.menuAction(page, '[data-recv-link="rjo"]'); await L.sleep(200);
   await L.setVal(page, '#lkTx', 't:old1');
   await L.submitModal(page); await L.sleep(300);
   L.ok(await L.modalTitle(page) === 'Atualizar pelas faturas', 'compra antiga: já abre a atualização pelas faturas');

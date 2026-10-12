@@ -62,7 +62,7 @@ L.run(async ({page}) => {
   let d = await L.db(page);
   let debt = d.debts.find(x => x.shared);
   L.ok(debt && debt.totalAmount === 1200 && debt.monthlyPayment === 100 && debt.creditor === 'Arthur Teste' && debt.shared.ref === ref && debt.shared.pix === 'arthur@pix.com', 'vira dívida em “Eu devo” com valor, parcela, quem cobra e Pix');
-  L.ok(/cobrança enviada por Arthur Teste/.test(await L.text(page, '#debtGrid')) && /Chave Pix: arthur@pix\.com/.test(await L.text(page, '#debtGrid')), 'cartão da dívida mostra quem enviou e a chave Pix');
+  L.ok(/Cobrança enviada por Arthur Teste/.test(await L.text(page, '#debtGrid')) && /Chave Pix: arthur@pix\.com/.test(await L.text(page, '#debtGrid')), 'cartão da dívida mostra quem enviou e a chave Pix');
 
   L.section('Reenviar atualiza, não duplica');
   await L.patchDb(page, `u.receivables[0].receivedAmount = 300;`);

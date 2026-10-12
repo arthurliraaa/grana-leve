@@ -66,7 +66,7 @@ L.run(async ({page}) => {
   await page.$eval(btn, el => el.click()); await L.sleep(200);
   await mode('parcelado');
   await L.setVal(page, '#ipPaid', 400); await L.setVal(page, '#ipN', 4);
-  L.ok(await page.$eval('#ipParcel', el => el.value) === '150.00', 'sugere a parcela sem juros (600 ÷ 4)');
+  L.ok(Number(await page.$eval('#ipParcel', el => el.value)) === 150, 'sugere a parcela sem juros (600 ÷ 4)');
   await L.setVal(page, '#ipParcel', 165);
   L.ok(/4x de R\$\s?165,00 = R\$\s?660,00/.test(await L.text(page, '#ipSum')) && /Juros: R\$\s?60,00/.test(await L.text(page, '#ipSum')), 'mostra o total parcelado e os juros');
   await L.setVal(page, '#ipParcel', 100);

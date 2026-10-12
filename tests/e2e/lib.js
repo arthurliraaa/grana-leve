@@ -72,6 +72,12 @@ export async function tab(page, name){
   if (sub) await page.click('#segbtn-' + sub);
   await sleep(80);
 }
+// Ação que fica no menu ⋯ (Mais) de um cartão: abre o menu e clica.
+export async function menuAction(page, sel){
+  await page.$eval(sel, el => { const d = el.closest('details.more-menu'); if (d && !d.open) d.querySelector('summary').click(); });
+  await sleep(80);
+  await page.click(sel);
+}
 export async function modalOpen(page){ return page.$eval('#modalRoot', el => !el.hidden).catch(() => false); }
 export async function modalTitle(page){ return page.$eval('#modalTitle', el => el.textContent).catch(() => null); }
 export async function submitModal(page){ await page.click('#modalRoot .modal-actions button[type=submit]'); await sleep(250); }
