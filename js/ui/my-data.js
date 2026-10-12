@@ -12,9 +12,10 @@ import {Store} from '../data/store.js';
 import {readBackup} from '../data/backup.js';
 import {getPrefs, setPref, prefsKey} from '../data/session.js';
 
-import {qs, escapeHtml, optionsHtml, icon, toast} from './dom.js';
+import {qs, optionsHtml, icon, toast} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
-import {HOW_TO, INFO_PAGES} from './constants.js';
+import {INFO_PAGES} from './constants.js';
+import {howToHtml} from './learn-tab.js';
 import {backupCounts, daysAgoText, exportBackup, loadAllData, logout, renderAll} from './shell.js';
 import {State, k} from './state.js';
 
@@ -128,7 +129,7 @@ export async function showInfo(id){
   }
   var page = INFO_PAGES[id];
   if (id === 'como-usar'){
-    page = {title:'Como usar o Grana Leve', body:'<ol class="howto-list">' + HOW_TO.map(function(h){ return '<li><strong>' + escapeHtml(h[0]) + '</strong> ' + escapeHtml(h[1]) + '</li>'; }).join('') + '</ol>'};
+    page = {title:'Como usar o Grana Leve', body: howToHtml(false)};
   }
   var canDelete = id === 'privacidade' && State.session;
   var r = await openModal({

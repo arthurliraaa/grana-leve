@@ -7,13 +7,15 @@ pessoas sobre hábitos financeiros.
 ## Funcionalidades
 
 - **Menu fácil de achar**: no computador, menu lateral com ícones em grupos (Início,
-  Ganhos e gastos, Contas e cartões; Planejar: Planejar gastos, Metas, Compromissos;
-  Mais: Aprenda, Conexões). No celular, barra inferior com Início, Ganhos e gastos, o
+  Ganhos e gastos, Contas fixas, Contas e cartões, Compromissos; Planejar: Planejar gastos,
+  Metas; Mais: Aprenda, Conexões). No celular, barra inferior com Início, Ganhos e gastos, o
   **+** no centro, Planejar e **Mais**. Cada área tem endereço próprio (`#/metas`), então
   o Voltar do navegador funciona.
-- **Início em 3 cartões**: Quanto tenho, Gastos do mês (com a barra do planejado) e
-  Próximo compromisso. O **+** de cada cartão abre os detalhes; gráficos, comparação e
-  últimos lançamentos ficam em “Ver todos os detalhes do mês”.
+- **Início**: a situação do mês numa frase (quanto entrou, quanto saiu e com quanto termina
+  se o previsto se confirmar) e 3 cartões: Quanto tenho, Gastos do mês (com a barra do
+  planejado) e Próximos pagamentos (faturas, contas fixas e dívidas, cada um levando para a
+  sua área). Havendo parcelas, “Parcelas em andamento” mostra quantas foram pagas e quantas
+  faltam. Gráficos, comparação e últimos lançamentos ficam em “Ver todos os detalhes do mês”.
 - **Categorias com emoji e cor**: todas, inclusive as padrão, podem ganhar nome, emoji
   (36 sugestões ou qualquer um digitado) e cor em “Personalizar categorias”. As padrão
   podem voltar ao original. O emoji aparece nas listas, nos campos, no planejamento e nos
@@ -40,6 +42,10 @@ pessoas sobre hábitos financeiros.
   Também abre pelo link “Lance pelo chat” no botão +.
 - **Detalhes do mês** (no Início): realizado × agendado, faturas a pagar, metas, dívidas e
   a receber; gráficos com opção de tabela e período de 3, 6 ou 12 meses; relatório em PDF.
+- **Valores no jeito brasileiro**: os campos de dinheiro entendem “1.500”, “1.500,00” e
+  “32,50” (o campo numérico do navegador lia “1.500” como 1,5).
+- **Categorias conforme o uso**: as mais usadas aparecem primeiro e a categoria é sugerida
+  pela descrição (pelo histórico ou por palavras conhecidas); telas mostram só as em uso.
 - **Ganhos e gastos**: categorias personalizadas, forma de pagamento
   (conta, dinheiro, cartão de crédito, vale), compra para outra pessoa vai direto para
   “A receber”, exportação CSV. Cada lançamento pode ser editado pelo lápis.
@@ -51,12 +57,18 @@ pessoas sobre hábitos financeiros.
 - **Planejar gastos** por categoria, com o planejamento guardado mês a mês: mudar o mês
   atual não altera os anteriores, que ficam travados. Dá para planejar o próximo mês e
   criar categorias ali mesmo.
-- **Metas** com prazo, lembrete no Google Agenda, observação e abas por situação.
-- **Compromissos**: “Eu devo” (dívidas de banco, empréstimo, pessoal) e “Me devem”
-  (a receber, com cobrança por mensagem pronta), numa tela só.
+- **Contas fixas** (área própria): luz, água, aluguel, assinaturas; o gasto entra sozinho
+  no dia, com valor ajustável mês a mês.
+- **Metas** com prazo, rendimento (taxa ao ano opcional), histórico do que foi guardado,
+  rendido e retirado, e previsões: quanto guardar por mês para chegar no prazo e quando a
+  meta termina no ritmo atual (juros compostos), explicadas em frases.
+- **Compromissos**: “Eu devo” (agrupado por quem cobra) e “Me devem” (agrupado por quem
+  deve, com cobrança por mensagem pronta e chave Pix conferida), numa tela só. Nomes podem
+  ser editados e o histórico diz quem pagou cada valor.
   “A receber” aceita parcelas (informando o total ou o valor de cada parcela) e, para
   compra feita no seu cartão, pode lançar a compra parcelada na fatura.
-- **Aprenda**: organização, rendimento e guia de uso.
+- **Aprenda**: organização, rendimento e o guia “Como usar” (primeiros passos, cada área e
+  dicas).
 - **Compras parceladas** no cartão (até 24x, com seletor − / + que mostra o valor de cada
   parcela), que aparecem nos cartões e em Dívidas com opção de adiantar pagamento.
 - **Vale-alimentação/refeição** com saldo, e **relatório por cartão** com filtros.
