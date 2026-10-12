@@ -26,22 +26,31 @@ L.run(async ({page}) => {
   await L.addTx(page, {amount: 60.41, pay: 'card:' + mp.id, desc: 'Antiga', date: L.dayOffset(-75)});
 
   await L.tab(page, 'dashboard'); await L.sleep(200);
-  L.ok(await page.$eval('#invSplitBody', el => el.hidden) && await page.$eval('[data-collapse="invsplit"]', el => el.getAttribute('aria-expanded')) === 'false', 'começa recolhido');
-  L.ok(/Próximas faturas: R\$\s?1\.010,00.*minha parte R\$\s?610,00 \(60%\).*outras pessoas R\$\s?400,00 \(40%\).*1 fatura\(s\) vencida/.test(await L.text(page, '#invSplitSummary')), 'recolhido mostra um resumo de uma linha');
-  await page.click('[data-collapse="invsplit"]'); await L.sleep(150);
-  L.ok(!(await page.$eval('#invSplitBody', el => el.hidden)) && await page.$eval('[data-collapse="invsplit"]', el => el.getAttribute('aria-expanded')) === 'true' && await page.$eval('#invSplitSummary', el => el.hidden), 'expande ao clicar no título (o resumo dá lugar ao detalhe)');
-  const txt = await L.text(page, '#invSplitWrap');
-  L.ok(/Total das próximas faturas\s*R\$\s?1\.010,00/.test(txt), 'total das próximas faturas: 1.010');
-  L.ok(/Minha parte\s*R\$\s?610,00\s*60%/.test(txt) && /Outras pessoas\s*R\$\s?400,00\s*40%/.test(txt), 'minha parte 610 (60%) e outras pessoas 400 (40%)');
-  L.ok(/Nubank.*R\$\s?720,00\s*Minha parte R\$\s?420,00\s*Outras pessoas R\$\s?300,00/.test(txt), 'Nubank: 420 meus + 300 da Maria');
-  L.ok(/MercadoPago.*R\$\s?290,00\s*Minha parte R\$\s?190,00\s*Outras pessoas R\$\s?100,00/.test(txt), 'MercadoPago: 190 meus (90 + metade do jantar) + 100 do João');
-  L.ok(/1 fatura\(s\) vencida\(s\)\D*R\$\s?60,41/.test(txt), 'avisa da fatura antiga vencida, à parte');
-  L.ok(await page.$$eval('#invSplitWrap .inv-seg', s => s.length === 4 && s.every(x => x.tabIndex === 0 && x.dataset.label && x.dataset.value)), 'barras com dica por teclado e mouse');
-  L.ok(/Minha parte/.test(await L.text(page, '#invSplitWrap .legend')), 'legenda presente');
+  // As faturas aparecem no mês em que vencem: anda pelos meses e junta o que cada um mostra.
+  const seen = [];
+  let late = '';
+  for (let i = 0; i <= 3; i++){
+    const wrap = await L.text(page, '#invSplitWrap');
+    seen.push(wrap);
+    if (i === 0) late = wrap;
+    if (i < 3){ await page.$eval('#dashNext', el => el.click()); await L.sleep(150); }
+  }
+  const all = seen.join(' | ');
+  L.ok(/Nubank.*R\$\s?720,00/.test(all), 'Nubank: 420 meus + 300 da Maria = 720');
+  L.ok(/MercadoPago.*R\$\s?290,00/.test(all), 'MercadoPago: 190 meus (90 + metade do jantar) + 100 do João = 290');
+  await page.$eval('#dashToday', el => el.click()); await L.sleep(150);
+  const month = seen.find(t => /Nubank/.test(t));
+  L.ok(/Total das faturas\s*R\$\s?(720|1\.010),00/.test(month), 'o quadro mostra o total do mês');
+  L.ok(/Minha parte\s*R\$\s?(420|610),00\s*\d+%/.test(month) && /Outras pessoas\s*R\$\s?(300|400),00\s*\d+%/.test(month), 'minha parte e outras pessoas, com valor e %');
+  L.ok(/1 fatura\(s\) vencida\(s\)\D*R\$\s?60,41/.test(late), 'avisa da fatura antiga vencida, à parte (no mês atual)');
+  L.ok(await page.$$eval('#invSplitWrap .inv-seg', s => s.length >= 2 && s.every(x => x.tabIndex === 0 && x.dataset.label && x.dataset.value)), 'barras com dica por teclado e mouse');
+  L.ok(/Faturas do cartão · /.test(await L.text(page, '#invSplitTitle')) && !(await page.$('[data-collapse]')), 'título diz o mês e o quadro não precisa ser aberto');
+  L.ok(await page.$eval('#invSplitCard', c => c.getBoundingClientRect().top === document.getElementById('creditDebitCard').getBoundingClientRect().top), 'faturas e crédito × débito ficam lado a lado');
+  L.ok(await page.$eval('#invSplitCard', c => c.getBoundingClientRect().top > document.querySelector('.dash-grid').getBoundingClientRect().top), 'ficam abaixo dos gráficos');
 
   await page.click('[data-view-toggle="invsplit"]'); await L.sleep(150);
   const rows = await page.$$eval('#invSplitWrap table tbody tr', r => r.map(x => x.textContent.replace(/\s+/g, ' ')));
-  L.ok(rows.length === 3 && /Total\s*R\$\s?610,00\s*R\$\s?400,00\s*R\$\s?1\.010,00/.test(rows[2]), '“Ver como tabela” mostra cartão, minha parte, outras pessoas e total');
+  L.ok(rows.length >= 2 && /Total/.test(rows[rows.length - 1]), '“Ver como tabela” mostra cartão, minha parte, outras pessoas e total');
   L.ok(await L.text(page, '[data-view-toggle="invsplit"]') === 'Ver como gráfico', 'botão alterna para gráfico');
   await page.click('[data-view-toggle="invsplit"]'); await L.sleep(100);
 

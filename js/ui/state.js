@@ -152,6 +152,7 @@ export var State = {
   invoiceOffsets: {},
   goalFilter: 'andamento',
   donutView: 'chart',
+  donutStyle: 'rosca',   // rosca, pizza ou blocos (lembrado por conta)
   barView: 'chart',
   barMonths: 6,
   dashOffset: 0,   // mês dos gráficos do Início (0 = este mês, negativo = passado, positivo = previsão)
