@@ -1432,3 +1432,47 @@ details.research-optin{ padding:0; gap:0; }
 }
 @keyframes segIn{ from{ opacity:0; } to{ opacity:1; } }
 @keyframes barUp{ from{ transform: scaleY(0); } to{ transform: scaleY(1); } }
+
+/* ===== Planejar gastos: resumo e categorias em cartões ===== */
+#budgetList{ display:grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap:14px; }
+#budgetList > .budget-summary, #budgetList > .budget-more{ grid-column: 1 / -1; }
+.budget-summary{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:6px 14px; padding:16px 18px; border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--brand-tint), var(--surface-2)); border:1px solid var(--border); }
+.bs-fig{ display:grid; gap:2px; }
+.bs-lbl{ font-size:.74rem; font-weight:600; color: var(--text-secondary); text-transform:uppercase; letter-spacing:.04em; }
+.bs-fig strong{ font-size:1.3rem; letter-spacing:-.01em; }
+.bs-bar{ grid-column: 1 / -1; height:10px; border-radius:10px; background: color-mix(in srgb, var(--text-primary) 10%, transparent); overflow:hidden; }
+.bs-bar > span, .bc-bar > span{ display:block; height:100%; border-radius:10px; transition: width .6s cubic-bezier(.2,.8,.3,1); }
+.bs-bar .good, .bc-bar .good{ background: linear-gradient(90deg, var(--good), color-mix(in srgb, var(--good) 65%, white)); }
+.bs-bar .warning, .bc-bar .warning{ background: linear-gradient(90deg, var(--warning), #e8a02a); }
+.bs-bar .critical, .bc-bar .critical{ background: linear-gradient(90deg, var(--critical), #e66a6a); }
+.bs-note{ grid-column: 1 / -1; margin:0; font-size:.84rem; color: var(--text-secondary); }
+.budget-more > .budget-cards{ display:grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap:14px; }
+.bcard{ padding:16px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); display:grid; gap:12px; align-content:start; border-bottom:1px solid var(--border);
+  transition: box-shadow .2s ease, transform .2s ease; }
+.bcard:last-child{ border-bottom:1px solid var(--border); }
+.bcard:hover{ box-shadow: var(--shadow); }
+.bcard.critical{ border-color: color-mix(in srgb, var(--critical) 45%, var(--border)); }
+.bcard.warning{ border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
+.bcard .budget-top{ align-items:center; flex-wrap:wrap; }
+.bcard .budget-cat{ flex-wrap:wrap; min-width:0; }
+.bcard .budget-cat .status-pill{ font-size:.68rem; }
+.bc-bar{ position:relative; height:12px; border-radius:12px; background: var(--gridline); overflow:hidden; }
+.bc-bar em{ position:absolute; right:8px; top:50%; transform:translateY(-50%); font-style:normal; font-size:.64rem; font-weight:700; color: var(--text-primary); text-shadow: 0 0 3px var(--surface); }
+.bc-stats{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; align-items:end; }
+.bc-stats > div{ display:grid; gap:1px; min-width:0; }
+.bc-stats span{ font-size:.7rem; color: var(--text-muted); font-weight:600; }
+.bc-stats strong{ font-size:.95rem; }
+.bc-empty{ margin:0; font-size:.8rem; color: var(--text-muted); }
+.bc-details{ border-top:1px dashed var(--border); padding-top:10px; }
+.bc-details > summary{ list-style:none; display:flex; justify-content:space-between; align-items:center; gap:8px; cursor:pointer; font-size:.84rem; font-weight:600; color: var(--brand); padding:8px 12px; margin:-2px 0; border-radius:10px; background: var(--brand-tint); }
+.bc-details > summary::-webkit-details-marker{ display:none; }
+.bc-details > summary::after{ content:'›'; font-size:1.1rem; transition: transform .2s ease; margin-left:6px; }
+.bc-details[open] > summary::after{ transform: rotate(90deg); }
+.bc-details > summary .bc-sum{ margin-left:auto; color: var(--text-secondary); font-weight:600; }
+.bc-list{ margin-top:8px; max-height:300px; overflow:auto; }
+@media (max-width: 620px){
+  #budgetList, .budget-more > .budget-cards{ grid-template-columns: minmax(0, 1fr); }
+  .budget-summary{ grid-template-columns: repeat(3, minmax(0, 1fr)); padding:14px; }
+  .bs-fig strong{ font-size:1.02rem; }
+}
