@@ -107,7 +107,7 @@ input, select{ font: inherit; }
   border-bottom: 1px solid var(--border); }
 .topbar-inner{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding-block:12px; }
 .brand{ display:flex; align-items:center; gap:9px; background:none; border:none; padding:0; color:inherit; }
-.brand{ cursor:pointer; }
+.brand{ cursor:pointer; white-space:nowrap; flex:none; }
 .brand-mark{ width:30px; height:30px; flex:none; }
 .brand-mark-bg{ fill: var(--brand); }
 .brand-mark-leaf, .brand-mark-vein{ fill:none; stroke: var(--bg); stroke-linecap:round; stroke-linejoin:round; }
@@ -217,7 +217,7 @@ body.auth-open{ overflow:hidden; }
 .tab-panel{ display:grid; gap:22px; padding-bottom:90px; }
 
 .stat-tiles{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
-.tile{ background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; display:grid; gap:4px; }
+.tile{ background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; display:grid; gap:4px; min-width:0; }
 .tile .tile-lbl{ font-size:.76rem; color: var(--text-secondary); }
 .tile .tile-val{ font-size:1.32rem; font-weight:700; }
 .tile .tile-val.neg{ color: var(--critical); }
@@ -497,7 +497,7 @@ body.modal-open{ overflow:hidden; }
   .add-tx-form .f-half{ grid-column: 1 / -1; }
   .inline-form{ grid-template-columns: 1fr; }
   .new-item-form .field{ grid-column: span 2; }
-  .stat-tiles-auto{ grid-template-columns: repeat(2, 1fr); }
+  .stat-tiles-auto{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card-head{ flex-wrap:wrap; }
 }
 .new-item-form .f-half{ grid-column: span 2; }
@@ -1236,3 +1236,112 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .shared-confirm select{ max-width:100%; }
 .sc-actions{ display:flex; gap:8px; flex-wrap:wrap; }
 .nav-data + .nav-data{ border-top:0; padding-top:6px; border-radius:10px; }
+
+/* ================= Página inicial (antes de entrar) ================= */
+.landing{ position:relative; isolation:isolate; overflow-x:clip; }
+.landing-bg{ position:absolute; inset:0 0 auto 0; height:760px; z-index:-1; pointer-events:none; overflow:hidden; }
+.landing-bg .blob{ position:absolute; border-radius:50%; filter: blur(60px); opacity:.55; }
+.landing-bg .b1{ width:520px; height:520px; left:-140px; top:-160px; background: radial-gradient(circle, color-mix(in srgb, var(--brand) 45%, transparent), transparent 70%); }
+.landing-bg .b2{ width:460px; height:460px; right:-120px; top:40px; background: radial-gradient(circle, color-mix(in srgb, var(--accent) 38%, transparent), transparent 70%); }
+.landing-bg .b3{ width:380px; height:380px; left:38%; top:320px; background: radial-gradient(circle, color-mix(in srgb, var(--cat-1) 26%, transparent), transparent 70%); }
+
+.hero-split{ grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); justify-items:start; text-align:left; align-items:center; gap:40px; padding-block:64px 48px; }
+.hero-copy{ display:grid; gap:20px; justify-items:start; }
+.hero-split h1{ font-size: clamp(2.1rem, 4.6vw, 3.5rem); max-width: 14ch; letter-spacing:-.02em; }
+.hero-split .lede{ max-width: 48ch; font-size:1.12rem; }
+.hero-split .hero-ctas, .hero-split .trust-list{ justify-content:flex-start; }
+.hl{ background: linear-gradient(100deg, var(--brand), var(--accent)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+/* Prévia do app: um celular com o Início e balões flutuando. */
+.hero-visual{ position:relative; justify-self:center; text-align:left; width:min(100%, 360px); padding:58px 0 70px; perspective:1200px; }
+.mock-phone{ position:relative; display:grid; gap:10px; padding:26px 16px 18px; border-radius:34px; background: var(--surface);
+  border:1px solid var(--border); box-shadow: 0 30px 60px -24px rgba(11,11,11,.35), 0 10px 20px -12px rgba(11,11,11,.2);
+  transform: rotateY(-8deg) rotateX(4deg); transform-style: preserve-3d; transition: transform .4s ease; }
+.hero-visual:hover .mock-phone{ transform: rotateY(-2deg) rotateX(1deg); }
+.mock-notch{ position:absolute; top:9px; left:50%; width:70px; height:6px; border-radius:6px; background: var(--gridline); transform:translateX(-50%); }
+.mock-head{ display:flex; justify-content:space-between; align-items:baseline; font-size:.9rem; }
+.mock-head span{ color: var(--text-muted); font-size:.75rem; }
+.mock-status{ margin:0; font-size:.74rem; line-height:1.45; color: var(--text-secondary); }
+.mock-status b{ color: var(--text-primary); }
+.mock-phone .pos, .mock-bubble .ok{ color: var(--good); }
+.mock-card{ display:grid; gap:3px; padding:10px 12px; border-radius:14px; background: var(--surface-2); }
+.mock-lbl{ font-size:.68rem; color: var(--text-muted); font-weight:600; }
+.mock-big{ font-size:1.15rem; letter-spacing:-.01em; }
+.mock-sub{ font-size:.66rem; color: var(--text-secondary); }
+.mock-bar{ display:block; height:6px; border-radius:6px; background: var(--gridline); overflow:hidden; }
+.mock-bar > span{ display:block; height:100%; width: var(--w); border-radius:6px; background: linear-gradient(90deg, var(--brand), var(--good)); transform-origin:left; }
+.mock-list{ list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.mock-list li{ display:grid; grid-template-columns: 26px 1fr auto; align-items:center; gap:8px; font-size:.74rem; padding:6px 8px; border-radius:10px; background: var(--surface-2); }
+.mock-ico{ width:26px; height:26px; display:grid; place-items:center; border-radius:8px; background: var(--surface); }
+.mock-bubble{ position:absolute; display:grid; gap:4px; padding:10px 12px; border-radius:14px; background: var(--surface); border:1px solid var(--border);
+  box-shadow: 0 14px 30px -14px rgba(11,11,11,.35); font-size:.74rem; max-width:200px; }
+.mock-bubble small{ color: var(--text-muted); font-size:.66rem; }
+.b-chat{ left:-40px; top:0; }
+.b-chat .typing{ font-style:italic; color: var(--text-secondary); }
+.b-goal{ right:-30px; bottom:0; min-width:170px; }
+
+.stat-strip{ box-shadow: var(--shadow); }
+.stat-cell .num{ background: linear-gradient(100deg, var(--brand), var(--brand-strong)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.section-head .eyebrow{ margin-bottom:2px; }
+.feature-card{ transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; }
+.feature-card:hover{ transform: translateY(-4px); box-shadow: 0 18px 36px -20px rgba(11,11,11,.35); border-color: color-mix(in srgb, var(--brand) 35%, var(--border)); }
+.feature-icon{ transition: transform .25s ease; }
+.feature-card:hover .feature-icon{ transform: scale(1.08) rotate(-4deg); }
+.steps{ position:relative; }
+.steps li{ transition: transform .25s ease; }
+.final-cta{ margin-block:24px 40px; padding:44px 24px; border-radius: calc(var(--radius) + 8px); color: var(--on-brand);
+  background: linear-gradient(120deg, var(--brand-strong), var(--brand) 55%, color-mix(in srgb, var(--brand) 70%, var(--accent))); box-shadow: 0 24px 50px -28px color-mix(in srgb, var(--brand) 70%, black); }
+.final-cta h2{ color: var(--on-brand); }
+.final-cta p{ margin:0; color: color-mix(in srgb, var(--on-brand) 85%, transparent); }
+.final-cta .btn-primary{ background: var(--on-brand); color: var(--brand-strong); }
+.final-cta .btn-primary:hover{ background: color-mix(in srgb, var(--on-brand) 90%, var(--brand)); }
+
+/* Surge ao rolar (só com JavaScript e para quem não pediu menos movimento). */
+@media (prefers-reduced-motion: no-preference){
+  .js-reveal .landing [data-reveal]{ opacity:0; transform: translateY(18px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.8,.3,1); transition-delay: calc(var(--i, 0) * 80ms); }
+  .js-reveal .landing [data-reveal].is-in{ opacity:1; transform:none; }
+  .landing-bg .b1{ animation: blobDrift 18s ease-in-out infinite alternate; }
+  .landing-bg .b2{ animation: blobDrift 22s ease-in-out infinite alternate-reverse; }
+  .landing-bg .b3{ animation: blobDrift 26s ease-in-out infinite alternate; }
+  .mock-phone{ animation: phoneIn .9s cubic-bezier(.2,.8,.3,1) both .15s; }
+  .hero-visual .mock-phone{ animation: phoneIn .9s cubic-bezier(.2,.8,.3,1) both .15s, floatY 6s ease-in-out 1.2s infinite; }
+  .mock-bar > span{ animation: barGrow 1.4s cubic-bezier(.2,.8,.3,1) both .8s; }
+  .mock-list li{ animation: rowIn .5s ease-out both; animation-delay: calc(1.1s + var(--i) * .18s); }
+  .b-chat{ animation: bubbleIn .6s cubic-bezier(.2,.8,.3,1) both 1.6s, floatY 7s ease-in-out 2.4s infinite; }
+  .b-chat .typing{ display:inline-block; overflow:hidden; white-space:nowrap; animation: typing 1.2s steps(20) both 1.9s; }
+  .b-chat .ok{ animation: fadeIn .4s ease both 3.2s; }
+  .b-goal{ animation: bubbleIn .6s cubic-bezier(.2,.8,.3,1) both 2.2s, floatY 8s ease-in-out 3s infinite reverse; }
+}
+@keyframes blobDrift{ from{ transform: translate(0, 0) scale(1); } to{ transform: translate(40px, 30px) scale(1.12); } }
+@keyframes phoneIn{ from{ opacity:0; transform: translateY(30px) rotateY(-14deg) rotateX(8deg); } to{ opacity:1; transform: rotateY(-8deg) rotateX(4deg); } }
+@keyframes floatY{ 0%, 100%{ translate: 0 0; } 50%{ translate: 0 -8px; } }
+@keyframes barGrow{ from{ transform: scaleX(0); } to{ transform: scaleX(1); } }
+@keyframes rowIn{ from{ opacity:0; transform: translateX(-12px); } to{ opacity:1; transform:none; } }
+@keyframes bubbleIn{ from{ opacity:0; transform: translateY(12px) scale(.94); } to{ opacity:1; transform:none; } }
+@keyframes typing{ from{ max-width:0; } to{ max-width:200px; } }
+
+@media (max-width: 860px){
+  .hero-split{ grid-template-columns: minmax(0, 1fr); justify-items:center; text-align:center; padding-block:40px 28px; gap:20px; }
+  .hero-copy{ justify-items:center; }
+  .hero-split .hero-ctas, .hero-split .trust-list{ justify-content:center; }
+  .hero-visual{ width:min(100%, 320px); }
+  .b-chat{ left:-4px; } .b-goal{ right:-4px; }
+  .landing-bg{ height:640px; }
+}
+@media (max-width: 420px){
+  .mock-bubble{ max-width:180px; }
+  .topbar .btn-sm{ padding:7px 10px; }
+  .landing .eyebrow{ font-size:.68rem; letter-spacing:.02em; }
+}
+/* Celular: a página inicial não rola para o lado por causa das manchas do fundo, e os blocos dos
+   detalhes do mês encolhem junto com a tela (antes, as linhas passavam da borda). */
+.landing{ overflow:hidden; }
+.dash-details, .dash-details > *, #recentTxList, #recentTxList .tx-row{ min-width:0; }
+#recentTxList .tx-row > :not(.tx-main){ flex:none; }
+/* Topo em telas estreitas: a marca não quebra linha e os botões ficam mais compactos. */
+@media (max-width: 400px){
+  .topbar-actions{ gap:6px; }
+  .brand{ gap:7px; }
+  .brand-word{ font-size:1.05rem; }
+  .brand-mark{ width:28px; height:28px; }
+}

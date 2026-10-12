@@ -86,99 +86,131 @@
 </div>
 <main id="main" tabindex="-1">
   <!-- ================= Apresentação ================= -->
-  <section id="viewLanding">
-    <div class="side-gutter hero">
-      <span class="eyebrow">Pesquisa com 48 pessoas · projeto de Engenharia de Software</span>
-      <h1>Anotar gasto não devia dar ansiedade.</h1>
-      <p class="lede">Na pesquisa que fizemos, 54% das pessoas disseram esquecer de anotar despesas e 1 em cada 4 sente desânimo só de olhar os números. O Grana Leve existe pra resolver isso: lançar um gasto em segundos, ver pra onde o dinheiro vai e guardar um pouco todo mês, sem planilha e sem culpa.</p>
-      <div class="hero-ctas">
-        <button class="btn btn-primary" data-action="go-signup">Criar conta grátis</button>
-        <button class="btn btn-ghost" data-action="go-login">Já tenho conta</button>
+  <section id="viewLanding" class="landing">
+    <div class="landing-bg" aria-hidden="true"><span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span></div>
+
+    <div class="side-gutter hero hero-split">
+      <div class="hero-copy">
+        <span class="eyebrow" data-reveal>Grátis · feito a partir de uma pesquisa com 48 pessoas</span>
+        <h1 data-reveal>Anotar gasto não devia dar <span class="hl">ansiedade</span>.</h1>
+        <p class="lede" data-reveal>Lance um gasto em segundos, veja para onde o dinheiro vai e quanto ainda falta pagar no mês, sem planilha e sem economês.</p>
+        <div class="hero-ctas" data-reveal>
+          <button class="btn btn-primary btn-lg" data-action="go-signup">Criar conta grátis</button>
+          <button class="btn btn-ghost btn-lg" data-action="go-login">Já tenho conta</button>
+        </div>
+        <ul class="trust-list" data-reveal>
+          <li><svg class="ico"><use href="#i-check"/></svg>100% gratuito</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Sem cartão de crédito</li>
+          <li data-online-only><svg class="ico"><use href="#i-lock"/></svg>Só você vê seus lançamentos</li>
+          <li data-local-only hidden><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam no seu aparelho</li>
+          <li><svg class="ico"><use href="#i-check"/></svg>Feito para o celular</li>
+        </ul>
       </div>
-      <ul class="trust-list">
-        <li><svg class="ico"><use href="#i-check"/></svg>100% gratuito</li>
-        <li><svg class="ico"><use href="#i-check"/></svg>Não pede cartão de crédito</li>
-        <li><svg class="ico"><use href="#i-check"/></svg>Pronto em menos de 1 minuto</li>
-        <li><svg class="ico"><use href="#i-lock"/></svg>Seus dados ficam no seu aparelho</li>
-        <li><svg class="ico"><use href="#i-check"/></svg>Feito para o celular</li>
-      </ul>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="mock-phone">
+          <div class="mock-notch"></div>
+          <div class="mock-head"><strong>Olá, Ana</strong><span>Outubro</span></div>
+          <p class="mock-status">Entraram <b>R$ 3.200</b> e saíram <b>R$ 1.480</b>. Você termina o mês com <b class="pos">R$ 1.620</b>.</p>
+          <div class="mock-card">
+            <span class="mock-lbl">Quanto tenho</span><strong class="mock-big">R$ 2.440,00</strong>
+          </div>
+          <div class="mock-card">
+            <span class="mock-lbl">Gastos do mês</span><strong class="mock-big">R$ 1.480,00</strong>
+            <span class="mock-bar"><span style="--w:62%"></span></span>
+            <span class="mock-sub">62% do planejado · falta pagar R$ 340</span>
+          </div>
+          <ul class="mock-list">
+            <li style="--i:0"><span class="mock-ico">🍽️</span><span>Mercado</span><b>− R$ 86,40</b></li>
+            <li style="--i:1"><span class="mock-ico">🚌</span><span>Uber</span><b>− R$ 18,90</b></li>
+            <li style="--i:2"><span class="mock-ico">💼</span><span>Salário</span><b class="pos">+ R$ 3.200</b></li>
+          </ul>
+        </div>
+        <div class="mock-bubble b-chat"><span class="typing">gastei 30 no mercado</span><span class="ok">✓ Lançado em Alimentação</span></div>
+        <div class="mock-bubble b-goal"><span>🎯 Viagem</span><span class="mock-bar"><span style="--w:64%"></span></span><small>chega lá em mar/2027</small></div>
+      </div>
     </div>
 
     <div class="side-gutter">
-      <div class="stat-strip">
-        <div class="stat-cell"><span class="num tabular">54%</span><span class="lbl">esquecem de anotar os gastos no dia a dia</span></div>
-        <div class="stat-cell"><span class="num tabular">71%</span><span class="lbl">só usariam a ferramenta se fosse fácil de mexer</span></div>
-        <div class="stat-cell"><span class="num tabular">67%</span><span class="lbl">têm algum tipo de dívida hoje</span></div>
-        <div class="stat-cell"><span class="num tabular">79%</span><span class="lbl">acessam a internet principalmente pelo celular</span></div>
+      <div class="stat-strip" data-reveal>
+        <div class="stat-cell"><span class="num tabular" data-count="54">54%</span><span class="lbl">esquecem de anotar os gastos no dia a dia</span></div>
+        <div class="stat-cell"><span class="num tabular" data-count="71">71%</span><span class="lbl">só usariam a ferramenta se fosse fácil de mexer</span></div>
+        <div class="stat-cell"><span class="num tabular" data-count="67">67%</span><span class="lbl">têm algum tipo de dívida hoje</span></div>
+        <div class="stat-cell"><span class="num tabular" data-count="79">79%</span><span class="lbl">acessam a internet principalmente pelo celular</span></div>
       </div>
     </div>
 
     <div class="side-gutter section">
-      <div class="section-head">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">O que dá para fazer</span>
         <h2>Feito a partir do que as pessoas realmente disseram precisar</h2>
-        <p>Cada funcionalidade do Grana Leve responde a uma dificuldade ou a um pedido que apareceu na pesquisa.</p>
+        <p>Cada função responde a uma dificuldade ou a um pedido que apareceu na pesquisa.</p>
       </div>
       <div class="feature-grid">
-        <div class="feature-card">
+        <div class="feature-card" data-reveal style="--i:0">
           <div class="feature-icon"><svg class="ico"><use href="#i-bolt"/></svg></div>
           <h3>Lance em segundos</h3>
-          <p>Ao entrar, o Grana Leve pergunta se você teve algum gasto ou ganho. É só responder como numa conversa: “gastei 30 no mercado”.</p>
-          <span class="feature-tag">Resposta à maior dificuldade apontada: esquecimento</span>
+          <p>Escreva como numa conversa, “gastei 30 no mercado”, ou use o +. A categoria vem sugerida e o valor entende “1.500,00”.</p>
+          <span class="feature-tag">Resposta à maior dificuldade: esquecer de anotar</span>
         </div>
-        <div class="feature-card">
+        <div class="feature-card" data-reveal style="--i:1">
           <div class="feature-icon"><svg class="ico"><use href="#i-gauge"/></svg></div>
-          <h3>Planeje seus gastos</h3>
-          <p>Defina quanto quer gastar em cada categoria e veja, em tempo real, quanto ainda pode gastar sem sustos no fim do mês.</p>
+          <h3>O mês numa frase</h3>
+          <p>Quanto entrou, quanto saiu, quanto falta pagar em cada banco e com quanto você termina o mês.</p>
           <span class="feature-tag">60% pediram relatórios de gastos claros</span>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon"><svg class="ico"><use href="#i-target"/></svg></div>
-          <h3>Metas sem peso</h3>
-          <p>Guarde dinheiro para um objetivo com prazo, escolha quando quer ser avisado na sua agenda e acompanhe o progresso.</p>
-          <span class="feature-tag">32 de 48 pessoas dão nota máxima à importância de poupar</span>
-        </div>
-        <div class="feature-card">
+        <div class="feature-card" data-reveal style="--i:2">
           <div class="feature-icon"><svg class="ico"><use href="#i-card"/></svg></div>
-          <h3>Cartões e faturas</h3>
-          <p>Cadastre seus cartões com limite, fechamento e vencimento. A fatura se monta sozinha e vira PDF quando você precisar.</p>
+          <h3>Cartões sem susto</h3>
+          <p>A fatura se monta sozinha, com o que falta pagar, parcelas e pagamentos adiantados. Contas fixas entram no dia certo.</p>
           <span class="feature-tag">O cartão de crédito é a dívida mais citada</span>
         </div>
-        <div class="feature-card">
+        <div class="feature-card" data-reveal style="--i:3">
+          <div class="feature-icon"><svg class="ico"><use href="#i-target"/></svg></div>
+          <h3>Metas que rendem</h3>
+          <p>Diga onde o dinheiro está (poupança, CDB, caixinha) e veja quanto guardar por mês e quando você chega lá.</p>
+          <span class="feature-tag">32 de 48 pessoas dão nota máxima a poupar</span>
+        </div>
+        <div class="feature-card" data-reveal style="--i:4">
           <div class="feature-icon"><svg class="ico"><use href="#i-handshake"/></svg></div>
-          <h3>Dívidas e cobranças</h3>
-          <p>Controle o que você deve e também o que te devem: empréstimo para um amigo, compra no seu cartão, valor combinado.</p>
+          <h3>Quem deve e quem te deve</h3>
+          <p>Empréstimos, compras divididas e cobranças com mensagem pronta no WhatsApp e chave Pix.</p>
           <span class="feature-tag">67% têm dívidas; 25% relatam dificuldade em pagar</span>
         </div>
-        <div class="feature-card">
+        <div class="feature-card" data-reveal style="--i:5">
           <div class="feature-icon"><svg class="ico"><use href="#i-book"/></svg></div>
           <h3>Aprenda no seu ritmo</h3>
-          <p>Conteúdos curtos sobre planejamento, cartão, dívidas e como fazer o dinheiro render, sem economês.</p>
+          <p>Dicas curtas sobre planejamento, cartão, dívidas e como fazer o dinheiro render.</p>
           <span class="feature-tag">100% querem aprender mais sobre finanças</span>
         </div>
       </div>
     </div>
 
     <div class="side-gutter section section-tight">
-      <div class="section-head">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Em 3 passos</span>
         <h2>Como funciona</h2>
       </div>
       <ol class="steps">
-        <li><span class="step-num">1</span><h3>Crie sua conta</h3><p>Só nome, e-mail e senha. Nada de cartão ou documentos.</p></li>
-        <li><span class="step-num">2</span><h3>Anote o que entra e sai</h3><p>Pelo botão “+”, sempre à mão, ou pelo chat de boas-vindas.</p></li>
-        <li><span class="step-num">3</span><h3>Acompanhe e ajuste</h3><p>Veja o painel do mês, seus limites, metas e faturas em um só lugar.</p></li>
+        <li data-reveal style="--i:0"><span class="step-num">1</span><h3>Crie sua conta</h3><p>Com e-mail e senha ou com o Google. Nada de cartão ou documentos.</p></li>
+        <li data-reveal style="--i:1"><span class="step-num">2</span><h3>Anote o que entra e sai</h3><p>Pelo botão +, sempre à mão, ou pelo chat de boas-vindas.</p></li>
+        <li data-reveal style="--i:2"><span class="step-num">3</span><h3>Acompanhe e ajuste</h3><p>O Início mostra o mês, o que falta pagar, suas parcelas e metas.</p></li>
       </ol>
     </div>
 
     <div class="side-gutter section section-tight">
-      <div class="research-note">
+      <div class="research-note" data-reveal>
         <h3>Sobre este projeto</h3>
         <p>O Grana Leve nasceu de um trabalho de extensão universitária sobre hábitos financeiros: 48 respostas coletadas, a maioria de 18 a 24 anos, mostrando que quase ninguém usa um aplicativo dedicado a controle financeiro hoje. A maior parte usa planilha, caderno ou nada. Esta versão já é funcional: crie sua conta e use de verdade.</p>
       </div>
     </div>
 
-    <div class="side-gutter final-cta">
-      <h2>Comece a organizar suas finanças hoje</h2>
-      <button class="btn btn-primary" data-action="go-signup">Criar minha conta</button>
+    <div class="side-gutter">
+      <div class="final-cta" data-reveal>
+        <h2>Comece a organizar suas finanças hoje</h2>
+        <p>Leva menos de 1 minuto. E é de graça.</p>
+        <button class="btn btn-primary btn-lg" data-action="go-signup">Criar minha conta</button>
+      </div>
     </div>
   </section>
 

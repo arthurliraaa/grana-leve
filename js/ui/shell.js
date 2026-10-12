@@ -401,6 +401,9 @@ export async function boot(){
   // Captcha nas ações de login, quando houver site key (o Supabase precisa estar com o captcha ligado).
   if (captchaEnabled() && Store.setCaptcha) Store.setCaptcha(getCaptchaToken);
   syncOnlineState();
+  // Textos que dependem de onde os dados ficam (servidor ou só este navegador).
+  qsa('[data-local-only]').forEach(function(el){ el.hidden = Store.mode !== 'local'; });
+  qsa('[data-online-only]').forEach(function(el){ el.hidden = Store.mode !== 'supabase'; });
   if (Store.cloudError){
     var retry = await openModal({
       title: 'Não foi possível acessar seus dados',
