@@ -268,10 +268,16 @@ export function wireInvestment(root, p){
     qs('[data-inv-preview]', block).textContent = !type || r.error ? '' : type === 'nenhum' ? 'A previsão considera que o dinheiro não rende.' :
       'Hoje isso dá cerca de ' + Inv.fmtPct(r.yieldRate) + ' ao ano (antes do IR)' + (t.index ? (idx.reference ? ', com valores de referência de ' : ', com índices do Banco Central de ') + formatDateFull(idx.date) : '') + '.';
   }
-  block.addEventListener('input', sync); block.addEventListener('change', sync);
-  sync();
-  // Busca os índices de hoje (uma vez por dia) e atualiza a prévia.
-  fetchIndexes().then(function(){ if (document.body.contains(block)) sync(); });
+  // Busca os índices de hoje só quando o tipo escolhido depende deles (uma vez por dia).
+  var asked = false;
+  function maybeFetch(){
+    if (asked || !Inv.investmentType(f.type.value).index) return;
+    asked = true;
+    fetchIndexes().then(function(){ if (document.body.contains(block)) sync(); });
+  }
+  block.addEventListener('input', sync);
+  block.addEventListener('change', function(){ sync(); maybeFetch(); });
+  sync(); maybeFetch();
 }
 // Metas com "atualizar sozinho": recalcula a taxa com os índices de hoje (uma vez por sessão).
 var ratesChecked = false;
