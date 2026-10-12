@@ -102,6 +102,5 @@ L.run(async ({page}) => {
   await L.tab(page, 'dashboard');
   g = await tile('Dívidas: falta pagar');
   L.ok(L.moneyOf(g.val) === 0 && /nenhuma dívida em aberto/.test(g.sub), '“Dívidas” não soma as parcelas do cartão de novo');
-  g = await tile('Parcelas no cartão: falta');
-  L.ok(g && L.moneyOf(g.val) > 0 && /já entram nas próximas faturas/.test(g.sub), 'as parcelas do cartão ficam num quadro próprio, explicado');
+
 });
