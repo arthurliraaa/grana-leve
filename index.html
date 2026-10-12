@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob: https://challenges.cloudflare.com; connect-src 'self' https://aapixkwfdktevqpopmnv.supabase.co https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob: https://challenges.cloudflare.com; connect-src 'self' https://aapixkwfdktevqpopmnv.supabase.co https://api.bcb.gov.br https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Grana Leve: controle financeiro pessoal simples para jovens e famílias.">
   <title>Grana Leve</title>
@@ -511,7 +511,7 @@
             <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" maxlength="50" required placeholder="Ex: viagem, reserva de emergência"></div>
             <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
             <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
-            <div class="field"><label for="goalYield">Rendimento ao ano <span class="opt">(opcional)</span></label><span class="money-input"><input id="goalYield" type="text" inputmode="decimal" autocomplete="off" maxlength="6" placeholder="Ex: 10"><span>%</span></span></div>
+            <div class="f-full" id="goalInvWrap"></div>
             <div class="field"><label for="goalReminder">Me avise em</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field"><label for="goalUrgency">Urgência</label><select id="goalUrgency" data-urgency-options></select></div>
             <div class="field f-submit"><label for="goalNote">Observação (opcional)</label><textarea id="goalNote" rows="2" maxlength="300" placeholder="Ex: guardar R$ 100 todo dia 5"></textarea></div>

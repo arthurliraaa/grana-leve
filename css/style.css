@@ -403,6 +403,11 @@ button{ font: inherit; cursor: pointer; }
 .meta-line{ display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.78rem; color: var(--text-muted); }
 /* Metas: rendimento e previsão em frases. */
 .goal-yield{ display:flex; align-items:center; gap:8px; font-size:.84rem; color: var(--text-secondary); }
+.goal-yield strong{ color: var(--text-primary); }
+/* Onde o dinheiro da meta está guardado. */
+.inv-block{ display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px 14px; align-items:end; }
+.inv-block > .field:first-child, .inv-block > .check, .inv-block > .inv-preview{ grid-column: 1 / -1; }
+.inv-preview:empty{ display:none; }
 .goal-yield .ico{ width:16px; height:16px; color: var(--good); flex:none; }
 .goal-forecast{ display:grid; gap:6px; padding:10px 12px; border-radius:10px; background: var(--surface-2); font-size:.84rem; color: var(--text-secondary); }
 .goal-forecast p{ margin:0; line-height:1.45; }

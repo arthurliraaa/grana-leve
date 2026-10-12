@@ -62,7 +62,7 @@ export var HOW_TO_AREAS = [
   ['Contas e cartões', 'wallet', 'Saldo de cada conta, faturas dos cartões (com pagamento parcial ou parcelado) e vale-alimentação. “Transferir” move dinheiro entre contas sem contar como gasto.'],
   ['Compromissos', 'handshake', 'Em Planejar: dinheiro entre você e outras pessoas. Em “Eu devo”, as dívidas agrupadas por quem cobra; em “Me devem”, quem te deve, com “Cobrar” (mensagem pronta no WhatsApp, com Pix) e “Compartilhar” (a pessoa acompanha no Grana Leve dela).'],
   ['Planejar gastos', 'pie', 'Limite por categoria em cada mês. A barra fica amarela perto do limite e vermelha quando passa. Categorias que você não usa ficam recolhidas.'],
-  ['Metas', 'target', 'Objetivos com valor e prazo. Registre o que guardar, o rendimento e as retiradas; a meta mostra o ritmo, a previsão de conclusão e quanto guardar por mês.'],
+  ['Metas', 'target', 'Objetivos com valor e prazo. Diga onde o dinheiro está (poupança, caixinha, CDB, Tesouro…) para a taxa ser calculada — e, se quiser, atualizada pelo Banco Central. Registre o que guardar, o rendimento e as retiradas; a meta mostra o ritmo, a previsão de conclusão e quanto guardar por mês.'],
   ['Aprenda', 'book', 'Dicas para organizar o dinheiro e fazer ele render, e este guia.'],
   ['Conexões', 'plug', 'Instalar o Grana Leve como app no celular e lembretes no Google Agenda. WhatsApp e Open Finance estão em preparação.'],
   ['Perfil e conta', 'user', 'Nome, e-mail, senha (com “Esqueci minha senha” por e-mail), tema, pesquisa, backup e exclusão da conta.']
