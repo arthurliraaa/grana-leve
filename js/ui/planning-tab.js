@@ -37,17 +37,26 @@ export function renderBudgets(){
   document.getElementById('budgetNewCat').hidden = locked;
   var monthTx = txForMonth(mb.key).filter(function(t){ return t.type==='expense' && isPersonal(t); });
   var list = document.getElementById('budgetList');
-  // Mostra as categorias com limite, gasto no mês ou uso nos últimos 3 meses; as outras ficam
-  // recolhidas em “Outras categorias” (sem histórico nenhum, mostra todas para começar o plano).
-  var since = monthBounds(State.budgetMonthOffset - 2).key + '-01';
-  var recent = {};
-  State.transactions.forEach(function(t){ if (t.type === 'expense' && t.date >= since) recent[t.category] = true; });
+  // Categorias pelo uso real: o que você gastou (sua parte, sem estornos nem compras pagas por outras
+  // pessoas) no mês e nos 2 anteriores, até o fim do mês mostrado — parcelas futuras não contam.
+  // Ordem: maior gasto no mês, depois maior gasto nos 3 meses; as com limite mas sem gasto vêm em
+  // seguida. As nunca usadas ficam recolhidas (sem histórico nenhum, mostra todas para começar).
+  var since = monthBounds(State.budgetMonthOffset - 2).key + '-01', until = mb.key + '-31';
+  var spent3 = {}, spentM = {};
+  State.transactions.forEach(function(t){
+    if (t.type !== 'expense' || !isPersonal(t) || t.reversal || t.date < since || t.date > until) return;
+    var v = myShare(t);
+    if (!(v > 0)) return;
+    spent3[t.category] = (spent3[t.category] || 0) + v;
+  });
+  monthTx.forEach(function(t){ if (!t.reversal) spentM[t.category] = (spentM[t.category] || 0) + myShare(t); });
   var cats = expenseCats();
-  var shown = cats.filter(function(c){ return recent[c.id] || budgetLimit(mb.key, c.id) > 0 || State.budgetNewCats.indexOf(c.id) >= 0; });
+  var shown = cats.filter(function(c){ return spent3[c.id] > 0 || spentM[c.id] > 0 || budgetLimit(mb.key, c.id) > 0 || State.budgetNewCats.indexOf(c.id) >= 0; });
+  shown.sort(function(a, b){ return (spentM[b.id] || 0) - (spentM[a.id] || 0) || (spent3[b.id] || 0) - (spent3[a.id] || 0); });
   if (!shown.length) shown = cats;
   var hidden = cats.filter(function(c){ return shown.indexOf(c) < 0; });
   list.innerHTML = shown.map(budgetRowHtml).join('') +
-    (hidden.length ? '<details class="budget-more"><summary>Outras categorias (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary>' +
+    (hidden.length ? '<details class="budget-more"><summary>Sem gastos nos últimos 3 meses (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary>' +
       hidden.map(budgetRowHtml).join('') + '</details>' : '');
   function budgetRowHtml(c){
     var catTx = monthTx.filter(function(t){ return t.category === c.id; });
@@ -64,7 +73,8 @@ export function renderBudgets(){
       (limit > 0 ?
         '<div class="progress"><span style="width:'+Math.min(100,pct*100)+'%; background:'+barColor+'"></span></div>' +
         '<div class="budget-top"><span class="budget-figs tabular">'+fmtMoney(spent)+' de '+fmtMoney(limit)+(limit > spent ? ' · restam ' + fmtMoney(limit-spent) : '')+'</span><span class="status-pill '+status+'">'+statusLabel[status]+'</span></div>'
-        : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+(locked ? '' : ' (digite ao lado quanto quer gastar)')+'</span>' : '')
+        : (spent > 0 ? '<span class="budget-figs tabular">Gasto no mês: '+fmtMoney(spent)+(locked ? '' : ' (digite ao lado quanto quer gastar)')+'</span>' :
+          spent3[c.id] > 0 ? '<span class="budget-figs tabular">Nada neste mês · média dos últimos 3 meses: ' + fmtMoney(spent3[c.id] / 3) + '</span>' : '')
       ) +
       (catTx.length ? '<details class="budget-details"><summary>Ver com o que gastou (' + catTx.length + ')</summary>' + catTx.map(txRowHtml).join('') + '</details>' : '') +
       '</div>';

@@ -46,7 +46,8 @@ L.run(async ({page}) => {
   await L.tab(page, 'limites');
   const visible = await page.$$eval('#budgetList > .budget-row [data-budget-cat]', is => is.map(i => i.getAttribute('data-budget-cat')));
   L.ok(visible.includes('lazer') && visible.includes('alimentacao') && !visible.includes('moradia'), 'Planejar mostra as categorias em uso');
-  L.ok(/Outras categorias \(\d+\): Moradia/.test(await L.text(page, '#budgetList .budget-more summary')), 'as outras ficam recolhidas, com os nomes');
+  L.ok(visible.slice(0, 3).join('|') === 'lazer|alimentacao|transporte', 'na ordem do que mais gastou no mês (Lazer 80, Alimentação 30, Transporte 12)');
+  L.ok(/Sem gastos nos últimos 3 meses \(\d+\): Moradia/.test(await L.text(page, '#budgetList .budget-more summary')), 'as nunca usadas ficam recolhidas, com os nomes');
   await page.click('#budgetList .budget-more summary'); await L.sleep(100);
   await page.$eval('[data-budget-cat="moradia"]', el => { el.focus(); });
   await page.keyboard.type('900'); await page.keyboard.press('Tab'); await L.sleep(250);
