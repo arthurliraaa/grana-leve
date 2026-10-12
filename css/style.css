@@ -1476,3 +1476,43 @@ details.research-optin{ padding:0; gap:0; }
   .budget-summary{ grid-template-columns: repeat(3, minmax(0, 1fr)); padding:14px; }
   .bs-fig strong{ font-size:1.02rem; }
 }
+
+/* ===== Celular: toque confortável, campos sem zoom e janelas em folha ===== */
+@media (max-width: 760px), (pointer: coarse){
+  /* Alvos de toque de pelo menos 44 px (recomendação de Apple e Google). */
+  .btn, .btn-sm{ min-height:44px; }
+  .field input:not([type=checkbox]):not([type=radio]), .field select, .field textarea, .money-input input, .filters input, .filters select,
+  .tx-filters input, .tx-filters select, input[type=search], select.select-sm, .stepper input{ min-height:44px; font-size:16px; }
+  .field textarea{ font-size:16px; }
+  .money-input{ min-height:44px; }
+  .segmented button, .chip, .month-switch button, .dash-nav-btn, .theme-toggle, #themeToggle, .sum-more, .details-toggle, .tx-del, .card-menu > summary,
+  .modal-x, .stepper button, .auth-tabs button, .bank-look-toggle, #bankLookToggle, #forecastToggle{ min-height:44px; min-width:44px; }
+  .month-switch button{ width:44px; height:44px; }
+  .modal-x{ width:44px; height:44px; font-size:1.7rem; }
+  button.linklike, .card-head button.linklike{ padding:12px 6px; margin:-12px -6px; }
+  .type-toggle button{ min-height:44px; }
+  p button.linklike, label button.linklike, li button.linklike, .terms-check button.linklike{ padding:12px 2px; margin:-12px -2px; }
+  .sync-badge{ min-height:44px; min-width:44px; justify-content:center; }
+  .user-chip{ min-height:44px; }
+  .brand{ min-height:44px; }
+  .check{ min-height:36px; }
+  .check input[type=checkbox], .check input[type=radio]{ width:22px; height:22px; }
+  .nav-item, .bn-item, .more-item{ min-height:48px; }
+  .budget-limit-input, .money-input.sm input{ min-height:44px; }
+}
+@media (max-width: 620px){
+  /* Janelas: folha que sobe de baixo, com o título e os botões sempre à vista. */
+  .modal-root{ place-items:end center; padding:0; }
+  .modal{ max-width:none; max-height: min(92dvh, 100dvh - env(safe-area-inset-top, 0px) - 8px); border-radius:22px 22px 0 0; border-bottom:none; display:flex; flex-direction:column; overflow:hidden; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .modal.modal-wide{ max-width:none; }
+  .modal-head{ padding:16px 12px 0 18px; flex:none; position:relative; }
+  .modal-head::before{ content:''; position:absolute; top:6px; left:50%; width:40px; height:4px; border-radius:4px; background: var(--gridline); transform: translateX(-50%); }
+  .modal > form.modal-body{ overflow:auto; overscroll-behavior:contain; padding:12px 18px 0; flex:1; min-height:0; align-content:start; -webkit-overflow-scrolling:touch; }
+  .modal-actions{ position:sticky; bottom:0; background: var(--surface); padding:12px 0 14px; margin-top:4px; border-top:1px solid var(--border); justify-content:stretch; }
+  .modal-actions .btn{ flex:1 1 0; }
+  .modal-actions:has(.btn:only-child){ justify-content:center; }
+}
+@media (max-width: 620px) and (prefers-reduced-motion: no-preference){
+  .modal-root:not([hidden]) .modal{ animation: sheetIn .26s cubic-bezier(.2,.8,.3,1) both; }
+}
+@keyframes sheetIn{ from{ transform: translateY(40px); opacity:0; } to{ transform:none; opacity:1; } }
