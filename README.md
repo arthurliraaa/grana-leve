@@ -7,8 +7,8 @@ pessoas sobre hábitos financeiros.
 ## Funcionalidades
 
 - **Menu fácil de achar**: no computador, menu lateral com ícones em grupos (Início,
-  Ganhos e gastos, Contas fixas, Contas e cartões, Compromissos; Planejar: Planejar gastos,
-  Metas; Mais: Aprenda, Conexões). No celular, barra inferior com Início, Ganhos e gastos, o
+  Ganhos e gastos, Contas e cartões; Planejar: Planejar gastos, Metas, Compromissos;
+  Mais: Aprenda, Conexões). No celular, barra inferior com Início, Ganhos e gastos, o
   **+** no centro, Planejar e **Mais**. Cada área tem endereço próprio (`#/metas`), então
   o Voltar do navegador funciona.
 - **Início**: a situação do mês numa frase (quanto entrou, quanto saiu e com quanto termina
@@ -57,7 +57,7 @@ pessoas sobre hábitos financeiros.
 - **Planejar gastos** por categoria, com o planejamento guardado mês a mês: mudar o mês
   atual não altera os anteriores, que ficam travados. Dá para planejar o próximo mês e
   criar categorias ali mesmo.
-- **Contas fixas** (área própria): luz, água, aluguel, assinaturas; o gasto entra sozinho
+- **Contas fixas** (em Ganhos e gastos, porque são gastos do mês): luz, água, aluguel, assinaturas; o gasto entra sozinho
   no dia, com valor ajustável mês a mês.
 - **Metas** com prazo, rendimento (taxa ao ano opcional), histórico do que foi guardado,
   rendido e retirado, e previsões: quanto guardar por mês para chegar no prazo e quando a

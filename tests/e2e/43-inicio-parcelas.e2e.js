@@ -51,9 +51,9 @@ L.run(async ({page}) => {
 
   L.section('Áreas com o nome certo');
   const nav = await page.$$eval('.sidenav .sidenav-links > *', els => els.map(e => e.textContent.trim()));
-  L.ok(nav.indexOf('Compromissos') < nav.indexOf('Planejar') && nav.indexOf('Contas fixas') > nav.indexOf('Ganhos e gastos'), 'Compromissos fica com o dinheiro do dia a dia (não em “Planejar”); Contas fixas tem item próprio');
+  L.ok(nav.indexOf('Compromissos') > nav.indexOf('Planejar') && !nav.includes('Contas fixas'), 'Compromissos fica em “Planejar”; Contas fixas fica dentro de Ganhos e gastos');
   await L.tab(page, 'dividas');
-  L.ok(/Contas que se repetem todo mês.*ficam em Contas fixas/.test(await L.text(page, '#tab-compromissos .tab-intro')), 'Compromissos explica o que é e onde ficam as contas fixas');
+  L.ok(/são gastos do mês e ficam em Ganhos e gastos → Contas fixas/.test(await L.text(page, '#tab-compromissos .tab-intro')), 'Compromissos explica que contas fixas são gastos do mês');
   await page.setViewport({width: 360, height: 760}); await L.tab(page, 'dashboard'); await L.sleep(150);
   L.ok(await L.noHorizontalScroll(page), 'Início cabe no celular');
   await page.setViewport({width: 1280, height: 900});

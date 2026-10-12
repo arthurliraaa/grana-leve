@@ -238,7 +238,7 @@ export function renderSummary(){
       '<p class="sum-caption">Próximos ' + Math.min(5, list.length) + ' de ' + list.length + '</p>' +
       list.slice(0, 5).map(function(c){ return '<a class="sum-row sum-row-link" href="#/' + routeOf(c.go) + '" data-go="' + c.go + '"><span>' + URGENCY_MARK[c.urgency] + ' ' + escapeHtml(c.title) + ' <small>' + when(c) + '</small></span><strong class="tabular">' + fmtMoney(c.amount) + '</strong></a>'; }).join('')) :
     sumCard(3, 'clock', 'Próximos pagamentos', 'Nada pendente', 'sum-value-text', 'Sem faturas, contas fixas nem dívidas para pagar. 🎉', '',
-      '<p class="sum-caption">Cadastre cartões em “Contas e cartões”, contas de todo mês em “Contas fixas” e dívidas em “Compromissos” para ver aqui o que vem pela frente.</p>' + goLink('fixas', 'Ver contas fixas'));
+      '<p class="sum-caption">Cadastre cartões em “Contas e cartões”, contas de todo mês em “Ganhos e gastos → Contas fixas” e dívidas em “Compromissos” para ver aqui o que vem pela frente.</p>' + goLink('fixas', 'Ver contas fixas'));
   // 4. Parcelas em andamento (só quando existem): quantas foram e quantas faltam.
   var parcels = installmentProgress(), pay = parcels.filter(function(p){ return p.kind === 'pagar'; });
   var c4 = parcels.length ? '<article class="sum-card sum-card-wide" aria-labelledby="sumT4"><div class="sum-head"><span class="sum-icon" aria-hidden="true">' + icon('calendar') + '</span><h3 id="sumT4">Parcelas em andamento</h3></div>' +
