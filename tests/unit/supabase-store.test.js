@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createSupabaseStore, authMessage} from '../../js/data/supabase.js';
+import {createSupabaseStore, authMessage, retryAfter} from '../../js/data/supabase.js';
 
 const COLLS = ['transactions', 'budgets', 'goals', 'debts', 'cards', 'receivables', 'forecasts', 'categories', 'vouchers', 'accounts', 'transfers'];
 
@@ -137,7 +137,19 @@ test('mensagens de login em português', () => {
   const warn = console.warn; console.warn = () => {};
   assert.equal(authMessage({message: 'Invalid login credentials'}), 'E-mail ou senha incorretos.');
   assert.match(authMessage({message: 'Email not confirmed'}), /Confirme seu e-mail/);
-  assert.match(authMessage({message: 'email rate limit exceeded'}), /Muitas tentativas/);
+  assert.match(authMessage({message: 'email rate limit exceeded'}), /muitos e-mails na última hora/);
+  assert.match(authMessage({message: 'Too many requests'}), /Muitas tentativas/);
+  // Intervalo entre e-mails para o mesmo endereço: diz quanto falta e que o link anterior vale.
+  assert.match(authMessage({code: 'over_email_send_rate_limit', message: 'For security purposes, you can only request this after 42 seconds.'}), /espere 42 segundos.*continua valendo/);
+  assert.equal(retryAfter({message: 'For security purposes, you can only request this after 1 second.'}), 1);
+  assert.equal(retryAfter({message: 'Invalid login credentials'}), 0);
+  // Senha recusada pelo servidor (vazada, fácil ou igual à antiga): antes caía na mensagem genérica.
+  assert.match(authMessage({code: 'weak_password', message: 'Password is known to be weak and easy to guess, please choose a different one.'}), /não é aceita/);
+  assert.match(authMessage({message: 'Password is known to be weak and easy to guess, please choose a different one.'}), /não é aceita/);
+  assert.match(authMessage({code: 'same_password', message: 'New password should be different from the old password.'}), /diferente da senha atual/);
+  assert.match(authMessage({code: 'email_address_invalid', message: 'Email address "a@b" is invalid'}), /não foi aceito/);
+  assert.match(authMessage({code: 'email_exists', message: 'A user with this email address has already been registered'}), /Já existe uma conta/);
+  assert.match(authMessage({code: 'otp_expired', message: 'Email link is invalid or has expired'}), /expirou/);
   assert.match(authMessage({message: 'Failed to fetch'}), /Sem conexão/);
   assert.match(authMessage({message: 'algo inesperado'}), /Não foi possível/);
   assert.match(authMessage({message: 'Error sending recovery email', status: 500}), /Não conseguimos enviar o e-mail/);

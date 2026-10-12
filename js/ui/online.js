@@ -8,12 +8,13 @@ import {passwordRulesHtml, wirePasswordRules} from './password.js';
 
 import {Store, COLLECTIONS} from '../data/store.js';
 import {readBackup} from '../data/backup.js';
-import {authMessage} from '../data/supabase.js';
-import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, lockRemaining, registerFail, clearFails} from '../data/auth.js';
+import {authMessage, retryAfter} from '../data/supabase.js';
+import {EMAIL_LINK_HOURS, EMAIL_RESEND_SECONDS} from '../config.js';
+import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, emailTypo, linkWait, markLinkSent, lockRemaining, registerFail, clearFails} from '../data/auth.js';
 import {saveSession, newSession, getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, toast} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
-import {enterApp, loadAllData, logout, renderAll, renderTopbar, showAuthTab, showView} from './shell.js';
+import {enterApp, loadAllData, logout, openAuth, renderAll, renderTopbar, showAuthTab, showView} from './shell.js';
 import {State, k} from './state.js';
 
 /* ---------- Conta no servidor (Supabase) ---------- */
@@ -29,31 +30,87 @@ export async function handleEmailLink(){
   var h = new URLSearchParams(location.hash.replace(/^#\/?/, ''));
   var tokenHash = q.get('token_hash'), type = q.get('type') || h.get('type');
   var failed = q.get('error_description') || h.get('error_description') || q.get('error_code') || h.get('error_code');
+  // Formato antigo do link de senha (#access_token=...&type=recovery): o Supabase já abriu a sessão.
+  if (!tokenHash && !failed && h.get('access_token') && type === 'recovery'){ history.replaceState(null, '', siteUrl()); return {ok: true, type: 'recovery'}; }
   if (!tokenHash && !failed) return null;
   history.replaceState(null, '', siteUrl());   // o token não fica no endereço nem no histórico
   if (failed || !type) return {error: true, type: type};
   try { await Store.verifyEmailLink(tokenHash, type); return {ok: true, type: type}; }
   catch(e){ return {error: true, type: type, offline: /fetch|network/i.test(String(e && e.message))}; }
 }
+var HOURS_TEXT = EMAIL_LINK_HOURS === 1 ? '1 hora' : EMAIL_LINK_HOURS + ' horas';
+var LINK_RULES = 'O link vale por ' + HOURS_TEXT + ' e só pode ser usado uma vez. Se você pedir outro, só o do e-mail mais recente funciona.';
+
+// Pede um link por e-mail respeitando o intervalo entre pedidos. send(email) chama o servidor.
+// Retorna {error} para mostrar no formulário ou {sent: true}.
+async function requestLink(kind, email, send){
+  var wait = linkWait(kind, email, EMAIL_RESEND_SECONDS);
+  if (wait) return {error: 'Já enviamos um link para esse e-mail agora há pouco. Espere ' + wait + ' segundos para pedir outro: enquanto isso, o link enviado continua valendo.'};
+  try { await send(email); }
+  catch(err){
+    var cause = err.cause || err;
+    // O servidor diz quanto falta: guarda para o próximo pedido não ser recusado de novo.
+    var left = retryAfter(cause);
+    if (left) markLinkSent(kind, email, Date.now() - (EMAIL_RESEND_SECONDS - left) * 1000);
+    return {error: authMessage(cause)};
+  }
+  markLinkSent(kind, email);
+  return {sent: true};
+}
+async function linkSentModal(title, intro){
+  await openModal({title: title, submitLabel: null, cancelLabel: 'Entendi',
+    body: '<p>' + intro + '</p>' +
+      '<ul class="link-tips"><li>' + escapeHtml(LINK_RULES) + '</li>' +
+      '<li>Pode levar alguns minutos. Confira também o <strong>Spam</strong> e as abas <strong>Promoções</strong> ou <strong>Atualizações</strong>.</li>' +
+      '<li>Não chegou depois de alguns minutos? Confira se o e-mail está escrito certo e peça de novo.</li></ul>'});
+}
+// E-mail com domínio parecido com um provedor (gmaill.com): pergunta antes de seguir.
+// Retorna o e-mail escolhido, ou null se a pessoa fechou.
+export async function confirmEmailTypo(email){
+  var fix = emailTypo(email);
+  if (!fix) return email;
+  var r = await openModal({title: 'Confira o seu e-mail',
+    body: '<p>Você digitou <strong>' + escapeHtml(email) + '</strong>. Quis dizer <strong>' + escapeHtml(fix) + '</strong>?</p>' +
+      '<p class="field-hint">Um e-mail com erro de digitação não recebe os nossos links (confirmação e nova senha).</p>',
+    submitLabel: 'Usar ' + fix, cancelLabel: null,
+    onOpen: function(modal, close){
+      var keep = document.createElement('button');
+      keep.type = 'button'; keep.className = 'btn btn-ghost'; keep.textContent = 'Manter como digitei';
+      keep.addEventListener('click', function(){ close('keep'); });
+      qs('.modal-actions', modal).prepend(keep);
+    }});
+  return r === 'keep' ? email : r ? fix : null;
+}
 export async function linkProblemModal(link){
   var recovery = link.type === 'recovery';
   if (link.offline){ toast('Sem conexão com o servidor. Abra o link de novo quando a internet voltar.'); return; }
   var r = await openModal({
     title: 'Este link expirou ou já foi usado',
-    body: '<p>' + (recovery ? 'O link para criar uma nova senha vale por pouco tempo e só pode ser usado uma vez.' :
-        'O link de confirmação vale por pouco tempo e só pode ser usado uma vez. Se você já confirmou, é só entrar.') + '</p>' +
+    body: '<p>' + (recovery ? 'Cada link para criar uma nova senha vale por ' + HOURS_TEXT + ' e só pode ser usado uma vez. Se você pediu mais de um, só o do e-mail mais recente funciona.' :
+        'O link de confirmação vale por ' + HOURS_TEXT + ' e só pode ser usado uma vez. Se você já confirmou, é só entrar.') + '</p>' +
       (recovery ? '' : '<div class="field"><label for="lkEmail">Seu e-mail</label><input id="lkEmail" name="email" type="email" autocomplete="username" maxlength="120"></div>'),
     submitLabel: recovery ? 'Pedir um novo link' : 'Enviar novo link', cancelLabel: 'Agora não',
     onSubmit: async function(form){
       if (recovery) return {forgot: true};
       var email = form.email.value.trim();
       if (!validEmail(email)) return {error: 'Informe um e-mail válido.'};
-      try { await Store.resendConfirmation(email, siteUrl()); } catch(err){ return {error: authMessage(err.cause || err)}; }
-      return {sent: true};
+      return requestLink('signup', email, function(e){ return Store.resendConfirmation(e, siteUrl()); });
     }
   });
   if (r && r.forgot) forgotPassword();
-  if (r && r.sent) toast('Enviamos um novo link. Ele chega em alguns minutos.');
+  if (r && r.sent) await linkSentModal('Enviamos um novo link', 'Abra o e-mail e toque no link para ativar a conta.');
+}
+// Link aceito, mas sem sessão aberta (confirmação feita em outro aparelho, ou a primeira das duas
+// confirmações da troca de e-mail): explica o próximo passo em vez de só mostrar a página inicial.
+export async function linkDoneModal(link){
+  var change = link.type === 'email_change';
+  await openModal({title: change ? 'Falta só mais uma confirmação' : 'E-mail confirmado',
+    submitLabel: change ? null : 'Entrar', cancelLabel: change ? 'Entendi' : 'Agora não',
+    body: change ? '<p>Recebemos esta confirmação. Para concluir a troca de e-mail, abra também o link que enviamos para o outro endereço (o atual e o novo recebem um link cada).</p>' +
+        '<p>Depois disso, entre com o <strong>novo e-mail</strong> e a mesma senha.</p>' :
+      '<p>Pronto! Agora é só entrar com o seu e-mail e a senha que você criou.</p>',
+    onSubmit: function(){ return true; }
+  }).then(function(go){ if (go) openAuth('login'); });
 }
 export async function startOnlineSession(user){
   var profile = await Store.getUser(user.id).catch(function(){ return null; });
@@ -76,29 +133,34 @@ export async function startOnlineSession(user){
     if (retry) location.reload();
   }
 }
-export async function forgotPassword(){
+// “Esqueci minha senha”: funciona sem estar logado (tela de entrar) e também de dentro do app
+// (Perfil), com o e-mail da conta já preenchido.
+export async function forgotPassword(prefill){
+  var initial = prefill || (document.getElementById('loginEmail') || {}).value || '';
   var r = await openModal({
     title: 'Criar nova senha',
-    body: '<p>Informe o e-mail da conta. Se ele estiver cadastrado, enviamos um link para criar uma senha nova.</p>' +
-      '<div class="field"><label for="fpEmail">E-mail</label><input id="fpEmail" name="email" type="email" autocomplete="username" maxlength="120" value="' + escapeHtml(document.getElementById('loginEmail').value) + '"></div>',
+    body: '<p>Informe o e-mail da conta. Se ele estiver cadastrado, enviamos um link para você criar uma senha nova, sem precisar da antiga.</p>' +
+      '<div class="field"><label for="fpEmail">E-mail</label><input id="fpEmail" name="email" type="email" autocomplete="username" maxlength="120" value="' + escapeHtml(initial) + '"></div>' +
+      '<p class="field-hint">' + escapeHtml(LINK_RULES) + '</p>',
     submitLabel: 'Enviar link',
     onSubmit: async function(form){
       var email = form.email.value.trim();
       if (!validEmail(email)) return {error: 'Informe um e-mail válido.'};
-      try { await Store.resetPassword(email, siteUrl()); } catch(err){ return {error: authMessage(err.cause || err)}; }
-      return true;
+      var sent = await requestLink('recovery', email, function(e){ return Store.resetPassword(e, siteUrl()); });
+      return sent.error ? sent : {email: email};
     }
   });
-  if (r) toast('Se houver uma conta com esse e-mail, o link chega em alguns minutos.');
+  if (r && r.email) await linkSentModal('Confira o seu e-mail', 'Se houver uma conta com <strong>' + escapeHtml(r.email) + '</strong>, enviamos o link para criar a nova senha. Abra o link neste ou em outro aparelho: não é preciso estar logado.');
 }
-// Quem entra pelo link de nova senha precisa definir a senha antes de usar o app:
-// cancelar ou fechar encerra a sessão aberta pelo link.
+// Quem entra pelo link de nova senha define a senha antes de usar o app. Na volta pelo link, isso
+// acontece antes de abrir os dados (nada abre por cima). Retorna true se a senha foi trocada;
+// cancelar encerra a sessão aberta pelo link e a senha antiga continua valendo.
 export async function newPasswordModal(){
   var done = await openModal({
     title: 'Escolha a nova senha',
-    cancelLabel: 'Cancelar e sair',
+    cancelLabel: 'Cancelar',
     onOpen: function(modal){ wirePasswordRules(qs('#npPass', modal), qs('#npPwRules', modal)); },
-    body: '<p>Por segurança, defina a nova senha para continuar. Se cancelar, você sai da conta.</p>' +
+    body: '<p>Crie a nova senha da sua conta. Se cancelar, a senha antiga continua valendo.</p>' +
       '<div class="field"><label for="npPass">Nova senha</label><input id="npPass" name="pass" type="password" autocomplete="new-password" minlength="6" maxlength="128">' +
       passwordRulesHtml('npPwRules') + '</div>' +
       '<div class="field"><label for="npPass2">Repita a nova senha</label><input id="npPass2" name="pass2" type="password" autocomplete="new-password" maxlength="128"></div>',
@@ -107,13 +169,20 @@ export async function newPasswordModal(){
       var problem = passwordProblem(form.pass.value);
       if (problem) return {error: problem};
       if (form.pass.value !== form.pass2.value) return {error: 'As duas senhas não são iguais.'};
-      try { await Store.updatePassword(form.pass.value); } catch(err){ return {error: authMessage(err.cause || err)}; }
+      try { await Store.updatePassword(form.pass.value); }
+      catch(err){
+        var cause = err.cause || err;
+        // Sessão do link perdida (aba aberta por muito tempo): só um link novo resolve.
+        if (/session|jwt|not authenticated|auth session missing/i.test(String(cause.message))) return {error: 'O link perdeu a validade enquanto a tela estava aberta. Cancele e peça um novo link.'};
+        return {error: authMessage(cause)};
+      }
       return true;
     }
   });
-  if (done){ toast('Senha atualizada. Use a nova senha nas próximas entradas.'); return; }
-  logout();
-  toast('Você saiu da conta. Quando quiser trocar a senha, peça um novo link.');
+  if (done){ toast('Senha atualizada. Use a nova senha nas próximas entradas.'); return true; }
+  if (State.session) logout(); else await Store.signOut().catch(function(){});
+  toast('A senha não foi trocada. Quando quiser, peça um novo link em “Esqueci minha senha”.');
+  return false;
 }
 // Primeira entrada online: se este navegador tem dados da versão local com o mesmo e-mail,
 // oferece levar para a conta (só quando a conta ainda está vazia). Retorna true se mostrou a oferta.
@@ -152,10 +221,23 @@ export function track(event, field, minIntervalMs){
   Store.track(event, field);
 }
 
+// Mensagem de “confirme seu e-mail” no login: botão para pedir o link de novo.
+function offerResend(errEl, email){
+  var b = document.createElement('button');
+  b.type = 'button'; b.className = 'linklike'; b.textContent = 'Reenviar o link de confirmação';
+  b.addEventListener('click', async function(){
+    var r = await requestLink('signup', email, function(e){ return Store.resendConfirmation(e, siteUrl()); });
+    if (r.error){ errEl.textContent = r.error; return; }
+    errEl.textContent = '';
+    await linkSentModal('Enviamos um novo link', 'Abra o e-mail enviado para <strong>' + escapeHtml(email) + '</strong> e toque no link para ativar a conta.');
+  });
+  errEl.append(' ', b);
+}
+
 // Eventos de entrar e criar conta.
 export function wireAuth(){
   qsa('[data-authtab]').forEach(function(b){ b.addEventListener('click', function(){ showAuthTab(b.getAttribute('data-authtab')); }); });
-  document.getElementById('forgotBtn').addEventListener('click', forgotPassword);
+  document.getElementById('forgotBtn').addEventListener('click', function(){ forgotPassword(); });
   document.getElementById('signupPwRulesWrap').innerHTML = passwordRulesHtml('signupPwRules');
   wirePasswordRules(document.getElementById('signupPassword'), document.getElementById('signupPwRules'));
 
@@ -172,7 +254,12 @@ export function wireAuth(){
         State.freshLogin = true;   // a pergunta "teve gastos?" aparece só depois de um login de verdade
         await startOnlineSession(res.user);
         toast('Bem-vindo de volta, ' + State.session.name.split(' ')[0] + '!');
-      } catch(err){ errEl.textContent = authMessage(err.cause || err); }
+      } catch(err){
+        var cause = err.cause || err;
+        errEl.textContent = authMessage(cause);
+        // Conta ainda não confirmada: oferece mandar o link de novo ali mesmo.
+        if (/email not confirmed|email_not_confirmed/i.test((cause.code || '') + ' ' + (cause.message || ''))) offerResend(errEl, email);
+      }
       return;
     }
     var emailKey = sanitizeEmailKey(email);
@@ -204,6 +291,12 @@ export function wireAuth(){
     if (!name){ errEl.textContent = 'Informe seu nome.'; return; }
     if (!validEmail(email)){ errEl.textContent = 'Informe um e-mail válido.'; return; }
     var pwErr = passwordProblem(password);
+    if (!pwErr){
+      // gmaill.com, hotmal.com...: um e-mail errado nunca recebe o link de confirmação.
+      var chosen = await confirmEmailTypo(email);
+      if (!chosen) return;
+      if (chosen !== email){ email = chosen; document.getElementById('signupEmail').value = chosen; }
+    }
     if (pwErr){ errEl.textContent = pwErr; return; }
     if (Store.mode === 'local' && !document.getElementById('signupStorageOk').checked){ errEl.textContent = 'Confirme que entendeu onde seus dados ficam.'; return; }
     var research = Research.consentRecord(document.getElementById('signupResearch').checked, document.getElementById('signupAge').value, document.getElementById('signupUf').value);
@@ -213,9 +306,8 @@ export function wireAuth(){
         document.getElementById('signupPassword').value = '';
         if (res.session){ State.freshLogin = true; await startOnlineSession(res.user); toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.'); return; }
         // Com confirmação por e-mail ligada, a conta só entra depois do link.
-        await openModal({title: 'Confirme seu e-mail', submitLabel: null, cancelLabel: 'Entendi',
-          body: '<p>Enviamos um link de confirmação para <strong>' + escapeHtml(email) + '</strong>. Abra o e-mail e toque no link para ativar a conta; depois é só entrar.</p>' +
-            '<p class="field-hint">Não chegou? Confira a caixa de spam. O envio pode levar alguns minutos.</p>'});
+        markLinkSent('signup', email);
+        await linkSentModal('Confirme seu e-mail', 'Enviamos um link de confirmação para <strong>' + escapeHtml(email) + '</strong>. Abra o e-mail e toque no link para ativar a conta; depois é só entrar.');
         showAuthTab('login');
         document.getElementById('loginEmail').value = email;
       } catch(err){ errEl.textContent = authMessage(err.cause || err); }

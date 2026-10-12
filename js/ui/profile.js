@@ -41,7 +41,7 @@ export function renderProfile(){
       '<p class="card-sub">E-mail atual: <strong>' + escapeHtml(s.email) + '</strong></p>' +
       (online() ?
         '<form id="pfEmailForm" class="profile-form">' + field('pfEmail', 'Novo e-mail', '<input id="pfEmail" type="email" maxlength="120" autocomplete="email">') +
-        '<p class="field-hint">Por segurança, enviamos um link de confirmação para o e-mail atual e outro para o novo. A troca só vale depois de confirmar.</p>' +
+        '<p class="field-hint">Por segurança, enviamos um link de confirmação para o e-mail atual e outro para o novo. A troca só vale depois de confirmar nos dois.</p>' +
         formMsg('pfEmailMsg') + '<div class="card-actions"><button class="btn btn-primary btn-sm" type="submit">Trocar e-mail</button></div></form>' :
         '<p class="field-hint">Nesta versão, que guarda os dados só no navegador, o e-mail não pode ser trocado.</p>')) +
 
@@ -51,7 +51,7 @@ export function renderProfile(){
         field('pfNew', 'Nova senha', '<input id="pfNew" type="password" autocomplete="new-password" maxlength="128">') +
         field('pfNew2', 'Repita a nova senha', '<input id="pfNew2" type="password" autocomplete="new-password" maxlength="128">') +
         passwordRulesHtml('pfPwRules') +
-        (online() ? '<p class="field-hint">Esqueceu a atual? Saia e use “Esqueci minha senha”.</p>' : '') +
+        (online() ? '<p class="field-hint">Esqueceu a senha atual? <button type="button" class="linklike" id="pfForgot">Receber um link por e-mail</button> para criar outra sem precisar dela.</p>' : '') +
         formMsg('pfPassMsg') + '<div class="card-actions"><button class="btn btn-primary btn-sm" type="submit">Trocar senha</button></div></form>') +
 
     card('pfT4', 'sun', 'Preferências',
@@ -107,10 +107,13 @@ async function changeEmail(e){
   var current = ctx.state().session.email;
   if (!validEmail(email)){ msg('pfEmailMsg', 'Informe um e-mail válido.'); return; }
   if (email.toLowerCase() === current.toLowerCase()){ msg('pfEmailMsg', 'Esse já é o seu e-mail.'); return; }
+  var chosen = await ctx.confirmEmailTypo(email);
+  if (!chosen) return;
+  email = chosen; qs('#pfEmail').value = chosen;
   try { await Store.updateEmail(email, ctx.siteUrl()); }
   catch(err){ msg('pfEmailMsg', authMessage(err.cause || err)); return; }
   qs('#pfEmail').value = '';
-  msg('pfEmailMsg', 'Pronto! Abra os links enviados para ' + current + ' e para ' + email + ' para concluir a troca.', true);
+  msg('pfEmailMsg', 'Pronto! Abra os dois links: um foi para ' + current + ' e outro para ' + email + '. A troca só vale depois dos dois; cada link vale por 1 hora. Depois, entre com o novo e-mail.', true);
 }
 
 async function changePassword(e){
@@ -158,6 +161,7 @@ export function initProfile(context){
     if (id === 'pfData') ctx.openData();
     if (id === 'pfDelete') ctx.deleteAccount();
     if (id === 'pfClear') ctx.clearData();
+    if (id === 'pfForgot') ctx.forgotPassword(ctx.state().session.email);
     if (id === 'pfHelp') ctx.openFeedback('ajuda');
     if (id === 'pfIdea') ctx.openFeedback('melhoria');
     if (id === 'pfSignOutAll'){

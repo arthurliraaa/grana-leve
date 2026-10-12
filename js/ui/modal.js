@@ -27,7 +27,7 @@ export function openModal(opts){
     root.hidden = false;
     document.body.classList.add('modal-open');
     // O resto da página fica inerte: o Tab não sai do popup e o leitor de tela não lê o fundo.
-    var behind = qsa('body > *').filter(function(el){ return el !== root && el.id !== 'toastWrap' && !el.hasAttribute('inert'); });
+    var behind = qsa('body > *').filter(function(el){ return el !== root && el.id !== 'toastWrap' && !el.classList.contains('captcha-box') && !el.hasAttribute('inert'); });
     behind.forEach(function(el){ el.setAttribute('inert', ''); });
     var form = root.querySelector('form');
     var done = false;

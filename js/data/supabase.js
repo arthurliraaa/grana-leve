@@ -6,24 +6,40 @@
  */
 import {uid} from '../domain/util.js';
 
-// Mensagens do Supabase Auth traduzidas para o que a pessoa entende.
+// Mensagens do Supabase Auth traduzidas para o que a pessoa entende. Cada regra olha o código do
+// erro (error.code, quando o servidor manda) e o texto em inglês. A primeira que bater vale.
 var AUTH_MESSAGES = [
   [/captcha/i, 'Não conseguimos confirmar que você não é um robô. Recarregue a página e tente de novo.'],
-  [/invalid login credentials/i, 'E-mail ou senha incorretos.'],
-  [/email not confirmed/i, 'Confirme seu e-mail antes de entrar: abra o link que enviamos para a sua caixa de entrada.'],
-  [/user already registered|already been registered/i, 'Já existe uma conta com esse e-mail. Tente entrar.'],
-  [/rate limit|too many requests|security purposes/i, 'Muitas tentativas seguidas. Espere um pouco e tente de novo.'],
-  [/password should be at least|weak password/i, 'A senha é fraca. Use pelo menos 6 caracteres, com letras e números.'],
-  [/error sending .*email|sending (confirmation|recovery|magic link)|smtp|mail/i, 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos; se continuar, avise a equipe do Grana Leve.'],
-  [/expired|invalid.*(token|link|otp)|otp/i, 'Este link expirou ou já foi usado. Peça um novo.'],
+  [/invalid login credentials|invalid_credentials/i, 'E-mail ou senha incorretos.'],
+  [/email not confirmed|email_not_confirmed/i, 'Confirme seu e-mail antes de entrar: abra o link que enviamos para a sua caixa de entrada.'],
+  [/user already registered|already been registered|user_already_exists|email_exists|already (been )?(registered|in use)/i, 'Já existe uma conta com esse e-mail. Tente entrar.'],
+  [/same_password|different from the old password/i, 'A nova senha precisa ser diferente da senha atual.'],
+  [/reauthentication|reauthenticate/i, 'Por segurança, saia e entre de novo na conta antes de trocar a senha.'],
+  // O servidor recusa senhas curtas, fáceis de adivinhar ou que já apareceram em vazamentos.
+  [/weak_password|weak password|easy to guess|pwned|leaked|password should be at least|password should contain/i,
+    'Essa senha não é aceita: ela é curta, fácil de adivinhar ou já apareceu em vazamentos de dados. Escolha outra, com letras, números e um símbolo.'],
+  // Limite do projeto inteiro (e-mails por hora): não é culpa de quem pediu.
+  [/email rate limit|over_email_send_rate_limit.*hour/i, 'O Grana Leve enviou muitos e-mails na última hora e precisa esperar para mandar outro. Tente de novo mais tarde. Se um link já chegou, use o mais recente.'],
+  [/rate limit|too many requests|security purposes|over_request_rate_limit|over_email_send_rate_limit/i, 'Muitas tentativas seguidas. Espere um pouco e tente de novo.'],
+  [/email_address_invalid|email address .*invalid|invalid.*email address|unable to validate email/i, 'Esse e-mail não foi aceito. Confira se está escrito certo (por exemplo, gmail.com).'],
+  [/otp_expired|expired|invalid.*(token|link|otp)|otp/i, 'Este link expirou ou já foi usado. Peça um novo.'],
+  [/error sending .*email|sending (confirmation|recovery|magic link|email change)|smtp/i, 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos; se continuar, avise a equipe do Grana Leve.'],
   [/failed to fetch|network/i, 'Sem conexão com o servidor. Verifique a internet e tente de novo.']
 ];
+// Quantos segundos o servidor pede para esperar (“you can only request this after 42 seconds”), ou 0.
+export function retryAfter(error){
+  var m = /after (\d+) seconds?/i.exec(String((error && (error.message || error.error_description)) || ''));
+  return m ? Number(m[1]) : 0;
+}
 export function authMessage(error){
   if (error && error.userMessage) return error.userMessage;   // explicação já pronta (ex.: captcha)
   var msg = (error && (error.message || error.error_description)) || '';
   // Detalhe técnico no console do navegador (F12), para diagnosticar sem mostrar à pessoa.
   if (typeof console !== 'undefined' && error) console.warn('[Grana Leve] erro do login:', error.status || '', error.code || '', msg);
-  for (var i = 0; i < AUTH_MESSAGES.length; i++) if (AUTH_MESSAGES[i][0].test(msg)) return AUTH_MESSAGES[i][1];
+  var wait = retryAfter(error);
+  if (wait) return 'Por segurança, espere ' + wait + (wait === 1 ? ' segundo' : ' segundos') + ' para pedir de novo. O último link que enviamos continua valendo.';
+  var text = (error && error.code ? error.code + ' ' : '') + msg;
+  for (var i = 0; i < AUTH_MESSAGES.length; i++) if (AUTH_MESSAGES[i][0].test(text)) return AUTH_MESSAGES[i][1];
   return 'Não foi possível concluir agora. Tente novamente.';
 }
 
