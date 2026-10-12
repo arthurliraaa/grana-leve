@@ -8,6 +8,7 @@
  * ao aceitar, as duas contas passam a acompanhar juntas (veja shared-sync.js). Sem servidor, o link
  * funciona do mesmo jeito, só sem o acompanhamento automático.
  */
+import {whatsappNumber} from '../domain/contact.js';
 import {todayKey, formatDateFull, validDateStr} from '../domain/dates.js';
 import {money, fmtMoney} from '../domain/money.js';
 import {recvInstallInfo} from '../domain/receivables.js';
@@ -198,13 +199,12 @@ export async function shareReceivable(r, pix){
         if (navigator.clipboard) navigator.clipboard.writeText(link).then(function(){ toast('Link copiado.'); }, function(){ toast('Não foi possível copiar.'); });
       });
       qs('[data-share="file"]', root).addEventListener('click', function(){
-        var name = 'cobranca-' + r.person.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-') + '.json';
+        var name = 'cobranca-' + r.person.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-') + '.json';
         saveFile(name, new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'}), 'application/json').then(function(){ toast('Arquivo baixado. Envie para ' + r.person.split(' ')[0] + ' importar em “Eu devo”.'); });
       });
     },
     onSubmit: function(){
-      var phone = String(r.phone || '').replace(/\D/g, '');
-      if (phone.length >= 10 && phone.length <= 11) phone = '55' + phone;
+      var phone = whatsappNumber(r.phone) || '';   // sem número válido, o WhatsApp pede o contato
       var msg = 'Oi, ' + r.person.split(' ')[0] + '! Anotei no Grana Leve o que ficou combinado entre a gente. Se quiser acompanhar na sua conta, é só abrir: ' + link;
       window.open('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg), '_blank', 'noopener');
       return true;

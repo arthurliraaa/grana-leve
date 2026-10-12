@@ -66,8 +66,10 @@ L.run(async ({page}) => {
   }
 
   L.section('Lançamento automático no dia');
-  await L.patchDb(page, `u.bills.push({id: 'alug', name: 'Aluguel', category: 'moradia', amount: 800, every: 1, dueDay: 1, startMonth: arg.prev, pay: 'acc:' + arg.acc, amounts: [], paid: {}, createdAt: Date.now() - 40 * 86400000});`,
-    {prev: L.monthKey(-1), acc: acc.id});
+  // Cadastrada no meio do mês retrasado (uma data fixa: “há 40 dias” caía depois do dia 1 do mês passado
+  // a partir do dia 11, e o teste falhava conforme a data).
+  await L.patchDb(page, `u.bills.push({id: 'alug', name: 'Aluguel', category: 'moradia', amount: 800, every: 1, dueDay: 1, startMonth: arg.prev, pay: 'acc:' + arg.acc, amounts: [], paid: {}, createdAt: new Date(arg.made + 'T12:00:00').getTime()});`,
+    {prev: L.monthKey(-1), made: L.monthKey(-2) + '-15', acc: acc.id});
   await goBills(); await L.sleep(300);
   d = await L.db(page);
   const auto = d.transactions.filter(t => t.billId === 'alug');

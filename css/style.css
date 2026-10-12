@@ -196,6 +196,7 @@ body.auth-open{ overflow:hidden; }
 .field label{ font-size:.8rem; font-weight:600; color: var(--text-secondary); }
 .field input, .field select{ padding:10px 12px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); }
 .field input:focus, .field select:focus{ outline:2px solid var(--brand); outline-offset:0; }
+.field input.is-invalid{ border-color: var(--critical); }
 .form-error{ font-size:.82rem; color: var(--critical); min-height:1em; }
 .auth-foot{ font-size:.8rem; color: var(--text-muted); text-align:center; }
 

@@ -41,6 +41,7 @@ import {wireHome} from './home-tab.js';
 import {renderLearn} from './learn-tab.js';
 import {clearDataModal, dataModal, deleteMyAccount, researchModal, researchStatusHtml} from './my-data.js';
 import {confirmEmailTypo, forgotPassword, siteUrl, wireAuth} from './online.js';
+import {installMoneyInputs} from './money-input.js';
 import {wirePlanning} from './planning-tab.js';
 import {wirePwa} from './pwa.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
@@ -49,6 +50,8 @@ import {setThemePref, themePref, wireTheme} from './theme.js';
 import {saveTransactions} from './tx-edit.js';
 import {applyPayment, paymentOptions, wireTransactions} from './tx-list.js';
 
+// Campos de dinheiro entendem "1.500,00" (antes de ligar os eventos das áreas).
+installMoneyInputs();
 // Liga os eventos de cada área (cada função fica no módulo da área).
 wireTheme();
 wireShell();

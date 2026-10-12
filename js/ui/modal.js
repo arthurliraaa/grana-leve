@@ -94,7 +94,7 @@ export async function askAmount(opts){
     title: opts.title,
     body: (opts.message ? '<p>' + escapeHtml(opts.message) + '</p>' : '') +
       '<div class="field"><label for="askAmount">' + escapeHtml(opts.label || 'Valor') + '</label>' +
-      '<span class="money-input"><span>R$</span><input id="askAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (opts.value ? money(opts.value) : '') + '"></span></div>' +
+      '<span class="money-input"><span>R$</span><input id="askAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (opts.value ? money(opts.value) : '') + '"></span></div>' +
       (opts.checkbox ? '<label class="check"><input type="checkbox" name="extra"' + (opts.checkboxDefault ? ' checked' : '') + '> ' + escapeHtml(opts.checkbox) + '</label>' : '') +
       (opts.extraHtml || ''),
     submitLabel: opts.submitLabel || 'Confirmar',

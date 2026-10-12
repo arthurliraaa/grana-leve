@@ -2,6 +2,7 @@
  * Estrutura do app: telas, barra do topo, carregamento dos dados, navegação entre abas e inicialização.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
+import {whatsappNumber} from '../domain/contact.js';
 import {todayKey, monthBounds} from '../domain/dates.js';
 import {money, fmtMoney} from '../domain/money.js';
 import {findById} from '../domain/util.js';
@@ -23,7 +24,7 @@ import {maybeWelcome, openQuickEntry} from './chat.js';
 import {openFeedback} from './feedback.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
-import {chargePerson, chargeReceivable, shareRecv, forgiveReceivable, linkReceivable, onlyDigits, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
+import {chargePerson, chargeReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, toggleDashCard, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
@@ -675,7 +676,7 @@ export function wireShell(){
     if (e.target.id !== 'waOptinForm') return;
     e.preventDefault();
     var phone = e.target.phone.value.trim();
-    if (onlyDigits(phone).length < 10){ toast('Informe o número com DDD.'); return; }
+    if (!whatsappNumber(phone)){ toast('Informe o número com DDD, por exemplo (11) 98888-7777.'); return; }
     setPref('waOptin', {phone: phone, at: Date.now()});
     renderConnections();
     toast('Combinado! Vamos avisar quando o WhatsApp estiver disponível.');

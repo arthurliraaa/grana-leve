@@ -24,7 +24,7 @@ export var BANKS = [
   {id: 'will', name: 'Will Bank', mark: 'Wi', color: '#ffd500', match: /\bwill ?bank\b/}
 ];
 
-function plain(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function plain(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 
 export function bankById(id){ return BANKS.filter(function(b){ return b.id === id; })[0] || null; }
 export function detectBank(name){

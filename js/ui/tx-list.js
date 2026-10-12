@@ -179,7 +179,7 @@ export function addSplitRow(){
   var row = document.createElement('div');
   row.className = 'split-row';
   row.innerHTML = '<input class="sp-name" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Nome" aria-label="Nome da pessoa ' + i + '">' +
-    '<span class="money-input"><span class="sp-unit">R$</span><input class="sp-val" type="number" step="0.01" min="0" max="99999999" inputmode="decimal" aria-label="Parte da pessoa ' + i + '"></span>' +
+    '<span class="money-input"><span class="sp-unit">R$</span><input class="sp-val" type="text" data-money autocomplete="off" inputmode="decimal" aria-label="Parte da pessoa ' + i + '"></span>' +
     '<button type="button" class="tx-del" data-sp-del aria-label="Remover pessoa ' + i + '" title="Remover">' + icon('trash') + '</button>';
   wrap.appendChild(row);
   syncSplitUnits();

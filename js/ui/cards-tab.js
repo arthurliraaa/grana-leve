@@ -226,7 +226,7 @@ export function carryRowHtml(c, x){
 export function cardFormBody(c){
   c = c || {};
   return '<div class="field"><label for="ecName">Nome do cartão</label><input id="ecName" name="name" type="text" maxlength="40" value="' + escapeHtml(c.name||'') + '"></div>' +
-    '<div class="field"><label for="ecLimit">Limite</label><span class="money-input"><span>R$</span><input id="ecLimit" name="limit" type="number" step="0.01" min="0" max="99999999" value="' + (c.limit||'') + '"></span></div>' +
+    '<div class="field"><label for="ecLimit">Limite</label><span class="money-input"><span>R$</span><input id="ecLimit" name="limit" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (c.limit||'') + '"></span></div>' +
     '<div class="field"><label for="ecClosing">Dia do fechamento</label><input id="ecClosing" name="closing" type="number" min="1" max="31" value="' + (c.closingDay||'') + '"></div>' +
     '<div class="field"><label for="ecDue">Dia do vencimento</label><input id="ecDue" name="due" type="number" min="1" max="31" value="' + (c.dueDay||'') + '"></div>' +
     (State.accounts.length ? '<div class="field"><label for="ecPayAcc">Conta que paga a fatura</label><select id="ecPayAcc" name="payAcc">' +

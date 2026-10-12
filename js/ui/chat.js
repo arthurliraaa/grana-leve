@@ -86,7 +86,7 @@ export function draftHtml(pid, i, d){
     '<legend class="sr-only">Item ' + (i + 1) + '</legend>' +
     '<div class="draft-head">' +
       '<select id="' + id + 'type" data-f="type" aria-label="Gasto ou ganho"' + cls(rec.type) + '>' + optionsHtml([{id:'expense', label:'Gasto'}, {id:'income', label:'Ganho'}], d.type) + '</select>' +
-      '<span class="money-input sm"><span>R$</span><input id="' + id + 'amount" data-f="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + d.amount + '" aria-label="Valor"></span>' +
+      '<span class="money-input sm"><span>R$</span><input id="' + id + 'amount" data-f="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + d.amount + '" aria-label="Valor"></span>' +
       '<button type="button" class="tx-del" data-draft-del aria-label="Remover este item" title="Remover">' + icon('trash') + '</button>' +
     '</div>' +
     '<div class="draft-grid">' +

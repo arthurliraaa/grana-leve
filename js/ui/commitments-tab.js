@@ -2,6 +2,7 @@
  * Compromissos: dívidas (Eu devo) e valores a receber (Me devem).
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
+import {pixKeyProblem, whatsappNumber} from '../domain/contact.js';
 import * as Cards from '../domain/cards.js';
 import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthLabelOf, shiftMonthKey, monthBounds} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
@@ -88,7 +89,7 @@ export async function payDebt(id){
     title: 'Registrar pagamento',
     body: '<p>“' + escapeHtml(d.name) + '”: faltam ' + fmtMoney(remaining) + (per ? ' (cerca de ' + maxN + ' parcela(s) de ' + fmtMoney(per) + ')' : '') + '.</p>' +
       (per ? '<div class="field"><label for="dpN">Quantas parcelas você pagou?</label>' + installStepperHtml('dpN', 'n') + '</div>' : '') +
-      '<div class="field"><label for="dpAmount">Valor pago</label><span class="money-input"><span>R$</span><input id="dpAmount" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + money(per ? Math.min(per, remaining) : remaining) + '"></span>' +
+      '<div class="field"><label for="dpAmount">Valor pago</label><span class="money-input"><span>R$</span><input id="dpAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + money(per ? Math.min(per, remaining) : remaining) + '"></span>' +
         (per ? '<span class="field-hint">Muda sozinho com o número de parcelas; ajuste se pagou com juros ou desconto.</span>' : '') + '</div>' +
       accountSelectHtml('dpAcc', 'acc', 'De onde saiu o dinheiro?') +
       '<label class="check"><input type="checkbox" name="expense" checked> Contar como gasto do mês (categoria Dívidas)</label>' +
@@ -425,7 +426,7 @@ export async function receiveReceivable(id){
           '<label class="check"><input type="radio" name="mode" value="parcela" checked> Valor da parcela (' + fmtMoney(suggested) + ')</label>' +
           '<label class="check"><input type="radio" name="mode" value="outro"> Outro valor (a mais, a menos ou várias parcelas)</label>' +
         '</fieldset>' : '') +
-      '<div class="field" id="rcvOtherField"' + (info ? ' hidden' : '') + '><label for="rcvOther">Valor recebido</label><span class="money-input"><span>R$</span><input id="rcvOther" name="amount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" value="' + (info ? '' : remaining) + '"></span></div>' +
+      '<div class="field" id="rcvOtherField"' + (info ? ' hidden' : '') + '><label for="rcvOther">Valor recebido</label><span class="money-input"><span>R$</span><input id="rcvOther" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (info ? '' : remaining) + '"></span></div>' +
       (State.accounts.length ? accountSelectHtml('rcvAcc', 'acc', 'Para onde foi o dinheiro?') : '') +
       '<fieldset class="radio-group"><legend>Como contar?</legend>' +
         '<label class="check"><input type="radio" name="as" value="refund"' + (refundDefault ? ' checked' : '') + '> Devolução: é dinheiro meu voltando (empréstimo ou algo que paguei pela pessoa). Não conta como ganho.</label>' +
@@ -510,7 +511,6 @@ export async function forgiveReceivable(id){
   toast('Registrado: ' + r.person + ' não vai devolver.' + (a.extra ? ' O valor entrou nos seus gastos.' : ''));
 }
 
-export function onlyDigits(s){ return String(s||'').replace(/\D/g,''); }
 
 // Cobrar uma pendência, ou todas as da mesma pessoa numa mensagem só ("Cobrar tudo").
 export async function chargePerson(key){
@@ -607,12 +607,13 @@ export async function chargeReceivable(id, all){
     },
     onSubmit: async function(form){
       if (form.pix.checked && !form.pixKey.value.trim()) return {error: 'Digite a chave Pix ou desmarque “Incluir minha chave Pix”.'};
+      if (form.pix.checked && pixKeyProblem(form.pixKey.value)) return {error: pixKeyProblem(form.pixKey.value)};
+      var phone = whatsappNumber(form.phone.value);
+      if (phone === null) return {error: 'Confira o WhatsApp: use DDD e número, por exemplo (11) 98888-7777. Ou deixe em branco para escolher o contato no WhatsApp.'};
       if (withLink && r.sharedId) saveSharedRow(r, form.pix.checked ? form.pixKey.value.trim() : '').catch(function(){});
       setPref('pixKey', form.pixKey.value.trim() || getPrefs().pixKey || '');
       setPref('pixInCharge', form.pix.checked);
-      var phone = onlyDigits(form.phone.value);
-      if (phone && phone.length >= 10 && phone.length <= 11) phone = '55' + phone;
-      if (phone !== onlyDigits(r.phone) && form.phone.value.trim()){
+      if (phone !== whatsappNumber(r.phone) && form.phone.value.trim()){
         var ph = {phone: form.phone.value.trim()};
         await Store.updateMany(k(), 'receivables', list.map(function(x){ return {id: x.id, partial: ph}; }));
         list.forEach(function(x){ x.phone = ph.phone; });

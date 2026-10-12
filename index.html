@@ -312,7 +312,7 @@
               <div id="forecastList"></div>
               <form id="forecastForm" class="inline-form">
                 <div class="field"><label for="fcDesc">Descrição</label><input id="fcDesc" type="text" maxlength="60" placeholder="Ex: salário" required></div>
-                <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+                <div class="field"><label for="fcAmount">Valor</label><span class="money-input"><span>R$</span><input id="fcAmount" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
                 <div class="field"><label for="fcDate">Data prevista</label><input id="fcDate" type="date" min="1900-01-01" max="3000-12-31" required></div>
                 <label class="check"><input type="checkbox" id="fcRecurring"> Repete todo mês</label>
                 <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
@@ -324,7 +324,7 @@
               <button type="button" data-type="income" aria-pressed="false">Ganho</button>
             </div>
             <div class="tx-main-row f-full">
-              <div class="field amount-field"><label for="txAmount">Valor</label><span class="money-input money-xl"><span>R$</span><input id="txAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" placeholder="0,00" required></span></div>
+              <div class="field amount-field"><label for="txAmount">Valor</label><span class="money-input money-xl"><span>R$</span><input id="txAmount" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00" required></span></div>
               <div class="field"><label for="txDesc">O que foi? <span class="opt">(opcional)</span></label><input id="txDesc" type="text" maxlength="80" placeholder="Ex: mercado da semana"></div>
             </div>
             <div class="field"><label for="txCategory">Categoria</label><select id="txCategory"></select></div>
@@ -405,7 +405,7 @@
           <form id="billForm" class="new-item-form bill-form">
             <div class="field"><label for="billCat">Categoria</label><select id="billCat"></select></div>
             <div class="field f-half"><label for="billName">Nome da despesa</label><input id="billName" type="text" autocomplete="off" maxlength="60" required placeholder="Digite o nome, ex.: Internet, Aluguel, Netflix"></div>
-            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="number" step="0.01" min="0.01" max="99999999" inputmode="decimal" required></span></div>
+            <div class="field"><label for="billAmount">Valor previsto</label><span class="money-input"><span>R$</span><input id="billAmount" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
             <div class="field"><label for="billEvery">Frequência</label><select id="billEvery"></select></div>
             <div class="field f-half"><label for="billPay">Forma de pagamento</label><select id="billPay"></select></div>
             <div class="field"><label for="billDay" id="billDayLabel">Dia do pagamento</label><input id="billDay" type="number" min="1" max="31" required placeholder="Ex: 10"></div>
@@ -446,8 +446,8 @@
               <label class="check"><input type="checkbox" id="bankHasCard"> Cartão de crédito</label>
               <button type="button" class="look-toggle" id="bankLookToggle" aria-expanded="false" aria-controls="bankLookPanel" title="Opcional: escolher a cor e o ícone do banco"><span id="accNewPreview"></span>Cor e ícone</button>
             </fieldset>
-            <div class="field" data-bank-part="acc"><label for="accBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="accBalance" type="number" step="0.01" min="-99999999" max="99999999" placeholder="0,00"></span></div>
-            <div class="field" data-bank-part="card" hidden><label for="cardLimit">Limite do cartão</label><span class="money-input"><span>R$</span><input id="cardLimit" type="number" step="0.01" min="0" max="99999999"></span></div>
+            <div class="field" data-bank-part="acc"><label for="accBalance">Saldo atual da conta</label><span class="money-input"><span>R$</span><input id="accBalance" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00"></span></div>
+            <div class="field" data-bank-part="card" hidden><label for="cardLimit">Limite do cartão</label><span class="money-input"><span>R$</span><input id="cardLimit" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>
             <div class="field" data-bank-part="card" hidden><label for="cardClosing">Dia do fechamento da fatura</label><input id="cardClosing" type="number" min="1" max="31" placeholder="Ex: 3"></div>
             <div class="field" data-bank-part="card" hidden><label for="cardDue">Dia do vencimento da fatura</label><input id="cardDue" type="number" min="1" max="31" placeholder="Ex: 10"></div>
             <p class="field-hint f-full" data-bank-part="card" hidden>Como a fatura funciona: a compra entra na fatura que ainda não fechou. Compra feita no dia do fechamento já vai para a próxima. Se o mês não tem o dia escolhido (ex.: 31), vale o último dia do mês.</p>
@@ -463,8 +463,8 @@
           <p class="card-sub">Cadastre seu vale para saber quanto ainda tem de saldo. Gastos pagos com o vale entram aqui sozinhos e já vão para a categoria Alimentação.</p>
           <form id="voucherForm" class="new-item-form">
             <div class="field"><label for="vName">Nome</label><input id="vName" type="text" maxlength="30" placeholder="Ex: VR, Alelo" required></div>
-            <div class="field"><label for="vAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="vAmount" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
-            <div class="field"><label for="vBalance">Saldo atual (opcional)</label><span class="money-input"><span>R$</span><input id="vBalance" type="number" step="0.01" min="0" max="99999999" placeholder="Se já tiver saldo"></span></div>
+            <div class="field"><label for="vAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="vAmount" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
+            <div class="field"><label for="vBalance">Saldo atual (opcional)</label><span class="money-input"><span>R$</span><input id="vBalance" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="Se já tiver saldo"></span></div>
             <div class="field"><label class="check" style="margin-top:22px"><input type="checkbox" id="vCarry" checked> Saldo acumula de um mês para o outro</label></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar vale</button></div>
           </form>
@@ -504,7 +504,7 @@
           <div class="card-head"><h3>Nova meta</h3></div>
           <form id="goalForm" class="new-item-form">
             <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" maxlength="50" required placeholder="Ex: viagem, reserva de emergência"></div>
-            <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="number" step="0.01" min="1" max="99999999" required></span></div>
+            <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
             <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field"><label for="goalReminder">Me avise em</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field"><label for="goalUrgency">Urgência</label><select id="goalUrgency" data-urgency-options></select></div>
@@ -537,9 +537,9 @@
             <div class="field"><label for="debtName">Nome</label><input id="debtName" type="text" maxlength="50" required placeholder="Ex: empréstimo do João"></div>
             <div class="field"><label for="debtKind">Tipo</label><select id="debtKind"></select></div>
             <div class="field"><label for="debtCreditor">Com quem (opcional)</label><input id="debtCreditor" type="text" maxlength="50" placeholder="Ex: Banco X, João"></div>
-            <div class="field"><label for="debtTotal">Valor total</label><span class="money-input"><span>R$</span><input id="debtTotal" type="number" step="0.01" min="1" max="99999999" required></span></div>
-            <div class="field"><label for="debtPaid">Já pago</label><span class="money-input"><span>R$</span><input id="debtPaid" type="number" step="0.01" min="0" max="99999999" value="0"></span></div>
-            <div class="field"><label for="debtInstallment">Parcela mensal</label><span class="money-input"><span>R$</span><input id="debtInstallment" type="number" step="0.01" min="0" max="99999999"></span></div>
+            <div class="field"><label for="debtTotal">Valor total</label><span class="money-input"><span>R$</span><input id="debtTotal" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
+            <div class="field"><label for="debtPaid">Já pago</label><span class="money-input"><span>R$</span><input id="debtPaid" type="text" data-money autocomplete="off" inputmode="decimal" value="0"></span></div>
+            <div class="field"><label for="debtInstallment">Parcela mensal</label><span class="money-input"><span>R$</span><input id="debtInstallment" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>
             <div class="field"><label for="debtUrgency">Urgência</label><select id="debtUrgency" data-urgency-options></select></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar dívida</button></div>
           </form>
@@ -557,7 +557,7 @@
           <form id="recvForm" class="new-item-form">
             <div class="field"><label for="recvPerson">Quem vai te pagar</label><input id="recvPerson" type="text" list="peopleList" autocomplete="off" maxlength="50" required placeholder="Ex: Maria"></div>
             <div class="field"><label for="recvKind">Tipo</label><select id="recvKind"></select></div>
-            <div class="field"><label for="recvTotal" id="recvTotalLabel">Valor</label><span class="money-input"><span>R$</span><input id="recvTotal" type="number" step="0.01" min="0.01" max="99999999" required></span></div>
+            <div class="field"><label for="recvTotal" id="recvTotalLabel">Valor</label><span class="money-input"><span>R$</span><input id="recvTotal" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
             <div class="field"><label for="recvDue" id="recvDueLabel">Combinado para</label><input id="recvDue" type="date" min="1900-01-01" max="3000-12-31"></div>
             <div class="field"><label for="recvInstall">Parcelas</label>
               <div class="stepper"><button type="button" data-step="-1" data-for="recvInstall" aria-label="Menos parcelas">−</button><input id="recvInstall" type="number" min="1" max="24" step="1" value="1" inputmode="numeric"><span class="stepper-x" aria-hidden="true">x</span><button type="button" data-step="1" data-for="recvInstall" aria-label="Mais parcelas">+</button></div>

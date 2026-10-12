@@ -7,7 +7,7 @@ import {authMessage} from '../data/supabase.js';
 import {verifyPassword, makePasswordRecord, passwordProblem, validEmail} from '../data/auth.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, escapeHtml, icon, toast} from './dom.js';
-import {formatDateFull} from '../domain/dates.js';
+import {formatDateFull, toDateKey} from '../domain/dates.js';
 import {passwordRulesHtml, wirePasswordRules} from './password.js';
 
 // ctx: {state(), onNameChange(name), themePref(), setThemePref(v), openResearch(), researchStatus(),
@@ -67,7 +67,7 @@ export function renderProfile(){
     card('pfT6', 'shield', 'Seus dados e segurança',
       '<div class="pref-row"><span>Backup, onde os dados ficam e importação.</span><button class="btn btn-ghost btn-sm" type="button" id="pfData">Seus dados e backup</button></div>' +
       (online() ? '<div class="pref-row"><span>Esqueceu a conta aberta em outro aparelho? Encerre todas as sessões, inclusive esta.</span><button class="btn btn-ghost btn-sm" type="button" id="pfSignOutAll">Sair de todos os aparelhos</button></div>' : '') +
-      (st.profileCreatedAt ? '<p class="tx-meta">Conta criada em ' + formatDateFull(String(st.profileCreatedAt).slice(0, 10)) + '.</p>' : '')) +
+      (st.profileCreatedAt ? '<p class="tx-meta">Conta criada em ' + formatDateFull(toDateKey(new Date(st.profileCreatedAt))) + '.</p>' : '')) +
 
     card('pfT9', 'chat', 'Ajuda e sugestões',
       '<p class="card-sub">Ficou com dúvida, achou um problema ou tem uma ideia? Mande para a equipe do Grana Leve.</p>' +
