@@ -1410,7 +1410,6 @@ details.research-optin{ padding:0; gap:0; }
 .bar-svg{ width:100%; height:auto; display:block; }
 .bar-group{ cursor:pointer; outline:none; }
 .bar-group:hover .bar-hit{ fill: var(--brand); fill-opacity:.07; }
-.bar-group:focus-visible .bar-hit{ stroke: var(--brand); stroke-width:1.5; }
 .bar-seg{ transition: opacity .15s ease; }
 .bar-group:hover .bar-seg{ opacity:.9; }
 .legend-swatch.hatch{ background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--text-muted) 70%, transparent) 0 2px, transparent 2px 4px); border:1px dashed var(--text-muted); }

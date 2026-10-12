@@ -723,13 +723,14 @@ export function renderBarChart(){
   }
   var groups = data.map(function(d, idx){
     var gx = padL + idx * groupW, cx = gx + groupW / 2, x1 = cx - barW - 1.5, x2 = cx + 1.5;
-    return '<g class="bar-group' + (d.sel ? ' sel' : '') + '" data-off="' + d.off + '" role="button" tabindex="0" aria-label="Ver ' + escapeHtml(d.full) + (d.p.forecast ? ' (previsão)' : '') + '">' +
+    var sub = d.now ? 'hoje' : d.p.forecast ? 'previsão' : "'" + d.year;
+    return '<g class="bar-group' + (d.sel ? ' sel' : '') + '" data-off="' + d.off + '" >' +
       '<rect class="bar-hit" x="' + gx + '" y="' + padT + '" width="' + groupW + '" height="' + (plotH + padB - 2) + '" rx="8" fill="' + (d.sel ? selColor : 'transparent') + '" fill-opacity="' + (d.sel ? '.1' : '0') + '"></rect>' +
       bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'gInc', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Gastos', 'gExp', 'hExp', idx, expColor, d) +
       '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="' + (n > 6 ? 8 : 10) + '" font-weight="' + (d.sel ? 700 : 500) + '" fill="' + (d.sel ? 'var(--text-primary)' : 'var(--text-secondary)') + '">' + d.label + '</text>' +
-      '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">' + (d.now ? 'hoje' : d.p.forecast ? 'previsão' : "'" + d.year) + '</text></g>';
+      '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">' + sub + '</text></g>';
   }).join('');
-  var svg = '<svg class="bar-svg" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Ganhos e gastos por mês; toque em um mês para ver os detalhes">' + defs + grid +
+  var svg = '<svg class="bar-svg" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Ganhos e gastos por mês. Para trocar de mês, use os botões de mês anterior e próximo.">' + defs + grid +
     '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '" stroke="var(--baseline)" stroke-width="1"></line>' + groups + '</svg>';
   var legend = '<div class="legend">' +
     '<span class="legend-item"><span class="legend-swatch" style="background:' + incColor + '"></span>Ganhos</span>' +
