@@ -24,7 +24,7 @@ pessoas sobre hábitos financeiros.
   confirmação nos dois endereços) e senha (pedindo a atual), tema claro/escuro/automático,
   pergunta ao entrar, confirmações, pesquisa, sair de todos os aparelhos e excluir a conta.
 - **Previsões de entrada** recolhidas num ícone com contador no card “Novo lançamento”.
-- **Pesquisa acadêmica opcional**: consentimento separado no cadastro (18+), termo completo,
+- **Pesquisa acadêmica opcional**: consentimento separado e opcional (em “Seus dados e backup”; 18+), termo completo,
   perfil opcional (faixa etária e estado) e opção de sair em “Seus dados e backup”. Nesta
   versão nada é enviado; a coleta começa com o servidor (veja `docs/publicar.md`).
 - **Transições suaves** ao trocar de área e abrir painéis e popups (desligadas para quem
