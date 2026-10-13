@@ -368,8 +368,8 @@ export function renderSummary(){
   // ainda falta pagar. O + mostra, por banco, o que já foi pago, o que falta e a parte que é minha.
   var sp = spendFigures(), mp = sp.mp;
   var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(sp.total), '',
-    '<span class="sum-line">Realmente seus: <strong class="tabular">' + fmtMoney(sp.mine) + '</strong>' + (sp.others > 0.004 ? ' · de outras pessoas ' + fmtMoney(sp.others) : '') +
-      (planned > 0 ? ' · ' + Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' (passou ' + fmtMoney(spent - planned) + ')' : '') : '') + '</span>' +
+    (sp.total > 0 || planned > 0 ? '<span class="sum-line">Realmente seus: <strong class="tabular">' + fmtMoney(sp.mine) + '</strong>' + (sp.others > 0.004 ? ' · de outras pessoas ' + fmtMoney(sp.others) : '') +
+      (planned > 0 ? ' · ' + Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' (passou ' + fmtMoney(spent - planned) + ')' : '') : '') + '</span>' : '') +
     '<span class="sum-line">' + (mp.left > 0 ? 'Falta pagar <strong class="tabular">' + fmtMoney(mp.left) + '</strong> neste mês' + (sp.leftOthers > 0.004 ? ', dos quais ' + fmtMoney(mp.leftMine) + ' são seus' : '') : mp.paid > 0 ? 'Tudo pago neste mês por enquanto' : 'Nenhum pagamento pendente') + '</span>',
     bar,
     (mp.rows.length ? '<p class="sum-caption">Por banco: o que já foi pago, o que falta e quanto do que falta é seu</p>' +

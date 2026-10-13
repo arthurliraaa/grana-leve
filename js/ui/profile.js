@@ -57,6 +57,7 @@ export function renderProfile(){
     card('pfT4', 'sun', 'Preferências',
       '<fieldset class="radio-group"><legend>Tema</legend>' + themeOpt('system', 'Automático (igual ao aparelho)') + themeOpt('light', 'Claro') + themeOpt('dark', 'Escuro') + '</fieldset>' +
       '<label class="check"><input type="checkbox" id="pfWelcome"' + (getPrefs().quickEntryOff ? '' : ' checked') + '> Perguntar se tive gastos ou ganhos ao entrar na conta (só logo depois do login)</label>' +
+      '<div class="pref-row"><span>Tutorial de primeiros passos: as partes principais e por onde começar.</span><button class="btn btn-ghost btn-sm" type="button" data-tutorial>Ver o tutorial</button></div>' +
       '<div class="pref-row"><span>Confirmações que você pediu para não mostrar mais: <strong>' + skipped + '</strong></span>' +
         '<button class="btn btn-ghost btn-sm" type="button" id="pfResetConfirm"' + (skipped ? '' : ' disabled') + '>Voltar a perguntar</button></div>') +
 
