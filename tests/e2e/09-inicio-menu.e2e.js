@@ -30,7 +30,7 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('[data-sum-more="2"]', el => el.getAttribute('aria-expanded')) === 'true' && !(await page.$eval('#sumD2', el => el.hidden)), '+ abre os detalhes do cartão');
   L.ok(await page.evaluate(() => document.activeElement.getAttribute('data-sum-more')) === '2', 'foco continua no +');
   const rows = await page.$$eval('#sumD2 .bp-row', els => els.map(e => [...e.children].map(c => c.textContent.trim()).join(' | ')));
-  L.ok(rows.some(r => /^Nubank \| R\$\s?280,00 \| R\$\s?0,00$/.test(r)) && rows.some(r => /^Total \| R\$\s?280,00/.test(r)), 'por banco: o que foi pago e o que falta no mês (Nubank: pagou 280, falta 0)');
+  L.ok(rows.some(r => /^Nubank \| R\$\s?280,00 \| R\$\s?0,00 \| R\$\s?0,00$/.test(r)) && rows.some(r => /^Total \| R\$\s?280,00/.test(r)), 'por banco: o que foi pago e o que falta no mês (Nubank: pagou 280, falta 0)');
   L.ok(/Nenhum pagamento pendente|Tudo pago neste mês/.test(await L.text(page, card(2))), 'sem nada pendente, diz que está tudo pago');
   await page.click('[data-sum-more="1"]'); await L.sleep(80);
   L.ok(/Nubank\s*R\$\s?720,00/.test(await L.text(page, '#sumD1')), 'detalhe de Quanto tenho lista as contas');
@@ -85,12 +85,12 @@ L.run(async ({page}) => {
   await L.tab(page, 'dashboard');
   L.ok(await page.$eval('.sidenav', el => getComputedStyle(el).display) === 'none', 'menu lateral some no celular');
   const items = await page.$$eval('#bottomnav > *', els => els.map(e => (e.textContent || e.getAttribute('aria-label')).trim()));
-  L.ok(items.join('|') === 'Início|Ganhos e gastos|Lançar gasto ou ganho|Planejar|Mais' || items.join('|') === 'Início|Ganhos e gastos||Planejar|Mais', 'barra: Início, Ganhos e gastos, +, Planejar, Mais');
-  await page.click('#bottomnav [data-tab="limites"]'); await L.sleep(120);
-  L.ok(!(await page.$eval('#tab-limites', el => el.hidden)) && await page.$eval('#bottomnav [data-tab="limites"]', el => el.classList.contains('active')), 'barra abre Planejar e marca o item');
+  L.ok(items.join('|') === 'Início|Ganhos e gastos|Lançar gasto ou ganho|Cartões|Mais' || items.join('|') === 'Início|Ganhos e gastos||Cartões|Mais', 'barra: Início, Ganhos e gastos, +, Cartões, Mais');
+  await page.click('#bottomnav [data-tab="cartoes"]'); await L.sleep(120);
+  L.ok(!(await page.$eval('#tab-cartoes', el => el.hidden)) && await page.$eval('#bottomnav [data-tab="cartoes"]', el => el.classList.contains('active')), 'barra abre Cartões e marca o item');
   await page.click('#moreBtn'); await L.sleep(150);
   L.ok(await L.modalTitle(page) === 'Mais', '“Mais” abre as outras áreas');
-  L.ok(/Contas e cartões.*Metas.*Compromissos.*Aprenda.*Conexões.*Seus dados e backup/.test(await L.text(page, '.more-menu')), 'lista Contas, Metas, Compromissos, Aprenda, Conexões e Seus dados');
+  L.ok(/Planejar gastos.*Metas.*Compromissos.*Aprenda.*Conexões.*Seus dados e backup/.test(await L.text(page, '.more-menu')), 'lista Planejar gastos, Metas, Compromissos, Aprenda, Conexões e Seus dados');
   await page.click('[data-more="metas"]'); await L.sleep(150);
   L.ok(!(await L.modalOpen(page)) && !(await page.$eval('#tab-metas', el => el.hidden)), 'escolher no “Mais” abre a área');
   L.ok(await page.$eval('#moreBtn', el => el.classList.contains('active')), '“Mais” fica marcado quando a área está nele');

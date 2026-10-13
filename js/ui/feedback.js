@@ -5,10 +5,13 @@
  */
 import {CONTACT_EMAIL} from '../config.js';
 import {Store} from '../data/store.js';
-import {qs, escapeHtml, toast} from './dom.js';
+import {qs, escapeHtml, icon} from './dom.js';
+import {getPrefs, setPref} from '../data/session.js';
 import {openModal} from './modal.js';
 import {State} from './state.js';
 
+// Tempo mínimo entre duas mensagens (contra envios repetidos e spam).
+export var FEEDBACK_COOLDOWN_MS = 60000;
 var KINDS = [
   {id: 'ajuda', title: 'Preciso de ajuda', hint: 'Não sei fazer algo ou algo não ficou claro.'},
   {id: 'melhoria', title: 'Tenho uma sugestão', hint: 'Uma ideia para o Grana Leve ficar melhor.'},
@@ -20,7 +23,7 @@ function mailto(kind, message){
 }
 export async function openFeedback(kind){
   var online = !!Store.sendFeedback;   // só a conta online tem
-  var r = await openModal({
+  await openModal({
     title: 'Ajuda e sugestões',
     body: '<fieldset class="option-cards fb-kinds"><legend class="sr-only">Sobre o quê?</legend>' + KINDS.map(function(x){
         return '<label class="option-card"><input type="radio" name="kind" value="' + x.id + '"' + (x.id === (kind || 'ajuda') ? ' checked' : '') + '>' +
@@ -34,8 +37,21 @@ export async function openFeedback(kind){
       var msg = form.msg.value.trim();
       if (msg.length < 5) return {error: 'Escreva a sua mensagem (pelo menos algumas palavras).'};
       if (!online){ location.href = mailto(form.kind.value, msg); return {mail: true}; }
-      try { await Store.sendFeedback(form.kind.value, msg, State.activeTab || ''); return {sent: true}; }
+      var wait = FEEDBACK_COOLDOWN_MS - (Date.now() - (Number(getPrefs().lastFeedbackAt) || 0));
+      if (wait > 0) return {error: 'Sua última mensagem acabou de ser enviada. Aguarde ' + Math.ceil(wait / 1000) + ' segundos para enviar outra.'};
+      var send = form.querySelector('button[type=submit]');
+      send.disabled = true; send.textContent = 'Enviando…';
+      try {
+        await Store.sendFeedback(form.kind.value, msg, State.activeTab || '');
+        setPref('lastFeedbackAt', Date.now());
+        // Confirmação à vista: troca o formulário por um aviso e fecha sozinho em seguida.
+        form.innerHTML = '<div class="fb-done" role="status"><span class="fb-done-ico" aria-hidden="true">' + icon('check') + '</span><strong>Mensagem enviada!</strong>' +
+          '<p>Obrigado. A resposta chega no seu e-mail.</p></div>';
+        await new Promise(function(ok){ setTimeout(ok, 1900); });
+        return {sent: true};
+      }
       catch(e){
+        send.disabled = false; send.textContent = 'Enviar';
         if (e.offline) return {error: e.userMessage};
         if (/muitas mensagens/.test(e.userMessage || '')) return {error: e.userMessage};
         // Servidor sem a tabela (migração não rodada) ou outro erro: oferece o e-mail.
@@ -45,5 +61,5 @@ export async function openFeedback(kind){
       }
     }
   });
-  if (r && r.sent) toast('Mensagem enviada. Obrigado! A resposta chega no seu e-mail.');
+
 }

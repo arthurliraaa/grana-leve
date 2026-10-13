@@ -43,7 +43,7 @@ L.run(async ({page}) => {
   L.ok(/Total das faturas\s*R\$\s?(720|1\.010),00/.test(month), 'o quadro mostra o total do mês');
   L.ok(/Minha parte\s*R\$\s?(420|610),00\s*\d+%/.test(month) && /Outras pessoas\s*R\$\s?(300|400),00\s*\d+%/.test(month), 'minha parte e outras pessoas, com valor e %');
   L.ok(/1 fatura\(s\) vencida\(s\)\D*R\$\s?60,41/.test(late), 'avisa da fatura antiga vencida, à parte (no mês atual)');
-  L.ok(await page.$$eval('#invSplitWrap .inv-seg', s => s.length >= 2 && s.every(x => x.tabIndex === 0 && x.dataset.label && x.dataset.value)), 'barras com dica por teclado e mouse');
+  L.ok(await page.$$eval('#invSplitWrap .inv-seg', s => s.length >= 2 && s.every(x => x.tabIndex === 0 && x.dataset.tip && x.dataset.tip.split('||').length >= 3)), 'barras com dica por teclado e mouse');
   L.ok(/Faturas do cartão · /.test(await L.text(page, '#invSplitTitle')) && !(await page.$('[data-collapse]')), 'título diz o mês e o quadro não precisa ser aberto');
   L.ok(await page.$eval('#invSplitCard', c => c.getBoundingClientRect().top === document.getElementById('creditDebitCard').getBoundingClientRect().top), 'faturas e crédito × débito ficam lado a lado');
   L.ok(await page.$eval('#invSplitCard', c => c.getBoundingClientRect().top > document.querySelector('.dash-grid').getBoundingClientRect().top), 'ficam abaixo dos gráficos');

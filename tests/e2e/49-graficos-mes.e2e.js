@@ -37,7 +37,7 @@ L.run(async ({page}) => {
   await page.click('#dashNext'); await L.sleep(200);
   L.ok(/Previsão · próximo mês/.test(await txt('#dashNavBadge')), 'badge diz que é previsão');
   L.ok(/Moradia.*R\$\s?900,00/.test(await txt('#donutWrap')) && /Inclui R\$\s?900,00 de contas fixas previstas/.test(await txt('#donutWrap')), 'a conta fixa (aluguel) entra na previsão do mês');
-  L.ok(await page.$('#barWrap .bar-forecast') !== null && /\(previsão\)/.test(await txt('#barWrap .chart-note')), 'barras com parte hachurada (prevista)');
+  L.ok(await page.$('#barWrap .bar-forecast') !== null && /previsão/.test(await txt('#barWrap .chart-note')), 'barras com parte hachurada (prevista)');
   L.ok(/ganhos R\$\s?600,00.*gastos R\$\s?900,00.*saldo.*-R\$\s?300,00|ganhos R\$\s?600,00.*gastos R\$\s?900,00/.test(await txt('#barWrap .chart-note')), 'resumo do mês: ganhos 600 (freela previsto), gastos 900');
   L.ok(/previsão/.test(await txt('#comparisonSummary')), 'comparação marca como previsão');
   await page.click('#dashNext'); await page.click('#dashNext'); await L.sleep(150);
@@ -56,7 +56,7 @@ L.run(async ({page}) => {
   await style('pizza');
   L.ok(await page.$$eval('#donutWrap .donut-seg.pie', e => e.length) >= 2 && /\d+%/.test(await txt('#donutWrap .donut-svg')) && /Total\s*R\$/.test(await txt('#donutWrap .donut-total')), 'pizza: fatias cheias com a porcentagem e o total');
   await style('blocos');
-  L.ok(await page.$$eval('#donutWrap .tm-block', e => e.length) >= 2 && await page.$$eval('#donutWrap .tm-block', e => e.every(b => b.tabIndex === 0 && b.dataset.label && b.dataset.value)), 'blocos: um retângulo por categoria, com dica por teclado');
+  L.ok(await page.$$eval('#donutWrap .tm-block', e => e.length) >= 2 && await page.$$eval('#donutWrap .tm-block', e => e.every(b => b.tabIndex === 0 && b.dataset.tip)), 'blocos: um retângulo por categoria, com dica por teclado');
   const areas = await page.$$eval('#donutWrap .tm-block', e => e.map(b => b.getBoundingClientRect()).map(r => r.width * r.height));
   L.ok(areas[0] >= areas[areas.length - 1], 'o maior gasto ocupa o maior bloco');
   L.ok(/Moradia/.test(await txt('#donutWrap .cat-rank')), 'o ranking continua abaixo, em qualquer estilo');

@@ -33,8 +33,8 @@ L.run(async ({page}) => {
   L.ok(L.moneyOf(await L.text(page, '#bankList .account-balance')) === 1900, 'o adiantado sai do saldo da conta');
   L.ok(/R\$\s?2\.800,00/.test(await L.text(page, '#bankList .avail')), 'libera limite (3.000 − 200)');
   const sum = await L.text(page, '#walletSummary');
-  L.ok(/Faturas a pagar\s*R\$\s?200,00\s*Aberta: R\$\s?200,00/.test(sum), 'resumo: só o que falta (300 − 100 adiantados), sem contar de novo o que já saiu');
-  L.ok(/Sobra depois de pagar\s*R\$\s?1\.700,00\s*R\$\s?1\.900,00 − R\$\s?200,00/.test(sum), 'sobra = 1.900 nas contas − 200 que faltam, com a conta à mostra');
+  L.ok(/Faturas a pagar\s*R\$\s?0,00\s*nenhuma fatura a pagar neste mês/.test(sum), 'resumo: esta fatura só vence no mês que vem, então ainda não entra em “Faturas a pagar”');
+  L.ok(/Sobra depois de pagar\s*R\$\s?1\.900,00/.test(sum), 'sobra = 1.900 nas contas (o adiantado já saiu da conta)');
 
   L.section('Pagar o resto e desfazer');
   await page.click('#bankList [data-inv-paid]'); await L.sleep(200);

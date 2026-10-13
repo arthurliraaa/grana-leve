@@ -35,12 +35,11 @@ L.run(async ({page}) => {
   L.ok(L.moneyOf(exp.val) === 300, 'gastos do mês = só o feito até hoje (300)');
   L.ok(L.moneyOf(bal.val) === 1700, 'saldo do mês realizado (1.700)');
   if (later){
-    L.ok(/Esperado ainda: \+ R\$\s?450,00/.test(inc.sub), 'esperado = previsão (400) + ganho agendado (50)');
-    L.ok(/Agendado: \+ R\$\s?120,00/.test(exp.sub), 'gasto agendado aparece separado (120)');
-    L.ok(/Previsto no fim do mês: R\$\s?2\.030,00/.test(bal.sub), 'previsão do fim do mês: 1.700 + 450 − 120 = 2.030');
+    L.ok(/fecham o mês em R\$\s?2\.030,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 450 − 120 = 2.030');
   } else {
-    L.ok(/Esperado ainda: \+ R\$\s?400,00/.test(inc.sub), 'esperado = previsão (400)');
+    L.ok(/fecham o mês em R\$\s?2\.100,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 400 = 2.100');
   }
+  L.ok(!inc.sub && !bal.sub, 'os quadros de ganhos e saldo não trazem textos auxiliares');
 
   L.section('Faturas a pagar');
   await L.addCard(page, 'Inter', 5000, 3, 10);
@@ -53,7 +52,7 @@ L.run(async ({page}) => {
   `, {prev, prev2: L.monthKey(-2), card: card.id});
   let ft = await tileOf('Falta pagar');
   L.ok(ft !== null, 'com fatura em aberto, “Falta pagar” mostra as faturas');
-  L.ok(L.moneyOf(ft.val) === (later ? 450 : 330) && /faturas R\$\s?330,00/.test(ft.sub), 'soma as faturas (a vencida e a do mês) e o gasto agendado do teste, explicando de onde vem');
+  L.ok(L.moneyOf(ft.val) === (later ? 450 : 330), 'soma as faturas (a vencida e a do mês) e o gasto agendado do teste');
   // Marca a vencida como paga: só sobra a outra.
   await L.tab(page, 'cartoes');
   const oldInvoice = '[data-inv-paid="' + card.id + '"][data-key="' + L.monthKey(-2) + '"]';

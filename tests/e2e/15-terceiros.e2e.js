@@ -28,13 +28,13 @@ L.run(async ({page}) => {
   const tx = d.transactions[0], recv = d.receivables[0];
   L.ok(recv.linked === true && recv.person === 'Maria' && tx.forOther && tx.forOther.receivableId === recv.id, 'gasto fica ligado ao “A receber” da Maria');
   L.ok(/Pago por Maria · vai devolver · fora dos seus gastos/.test(await L.text(page, '#txList')), 'lista mostra a etiqueta “pago por Maria”');
-  L.ok(/gastos R\$\s?0,00/.test(await L.text(page, '#txSummary')) && /pagos por outras pessoas R\$\s?100,00 \(fora dos gastos\)/.test(await L.text(page, '#txSummary')), 'resumo do mês: gastos 0 e 100 pagos por outras pessoas');
+  L.ok(/gastos R\$\s?100,00 \(seus R\$\s?0,00 · de outras pessoas R\$\s?100,00\)/.test(await L.text(page, '#txSummary')), 'resumo do mês: gastos 100 no total, 0 seus e 100 de outras pessoas');
   await L.setVal(page, '#txFilterType', 'others'); await L.sleep(100);
   L.ok(await page.$$eval('#txList .tx-row', r => r.length) === 1, 'filtro “Pagos por outras pessoas” mostra o gasto');
   await L.setVal(page, '#txFilterType', 'all');
   await L.tab(page, 'dashboard');
   let g = await tile('Gastos do mês');
-  L.ok(L.moneyOf(g.val) === 0 && /Fora daqui: R\$\s?100,00 pagos por outras pessoas/.test(g.sub), 'painel: não entra em “Gastos do mês” e aparece à parte');
+  L.ok(L.moneyOf(g.val) === 100 && /Seus\s*R\$\s?0,00/.test(g.sub) && /De outras pessoas\s*R\$\s?100,00/.test(g.sub), 'painel: o total (100) aparece, com os seus gastos (0) e os de outras pessoas (100) separados');
   await L.tab(page, 'cartoes');
   L.ok(await bal() === 900, 'o dinheiro saiu da conta (1000 → 900)');
 
@@ -65,7 +65,8 @@ L.run(async ({page}) => {
   L.ok(off && off.amount === 40 && off.paymentMethod === null && d.receivables[0].forgiven === true, 'vira gasto de 40 sem mexer em conta');
   L.ok(/Não vai devolver \(R\$\s?40,00\)/.test(await L.text(page, '#recvGrid')), 'Me devem mostra “não vai devolver”');
   await L.tab(page, 'dashboard');
-  L.ok(L.moneyOf((await tile('Gastos do mês')).val) === 40 && L.moneyOf((await tile('A receber neste mês')).val) === 0, 'painel: gastos 40 e nada a receber');
+  const gm = await tile('Gastos do mês');
+  L.ok(L.moneyOf(gm.val) === 100 && /Seus\s*R\$\s?40,00/.test(gm.sub) && /De outras pessoas\s*R\$\s?60,00/.test(gm.sub) && L.moneyOf((await tile('A receber neste mês')).val) === 0, 'painel: total 100 = 40 seus (o que não vai ser devolvido) + 60 que a Maria devolveu; nada a receber');
   await L.tab(page, 'cartoes');
   L.ok(await bal() === 960, 'saldo continua 960');
 

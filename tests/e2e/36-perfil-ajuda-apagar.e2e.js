@@ -30,10 +30,18 @@ L.run(async ({page}) => {
   await L.submitModal(page);
   L.ok(/Escreva a sua mensagem/.test(await L.modalError(page)), 'mensagem vazia: pede para escrever');
   await page.type('#fbMsg', 'Como faço para dividir uma compra?');
-  await L.submitModal(page); await L.sleep(200);
+  await L.submitModal(page); await L.sleep(300);
   const fb = await page.evaluate(() => window.__fb);
   L.ok(fb.length === 1 && fb[0][0] === 'ajuda' && /dividir uma compra/.test(fb[0][1]) && fb[0][2] === 'perfil', 'envia tipo, mensagem e a tela');
-  L.ok(/Mensagem enviada/.test(await L.allToasts(page)), 'confirma o envio');
+  L.ok(/Mensagem enviada!/.test(await L.text(page, '#modalRoot .fb-done')) && await page.$('#modalRoot textarea') === null, 'mostra a confirmação visual de envio no lugar do formulário');
+  await L.sleep(2300);
+  L.ok(!(await L.modalOpen(page)), 'fecha sozinho depois da confirmação');
+  // Outra mensagem logo em seguida: o app pede um intervalo entre os envios.
+  await page.$eval('[data-help]', el => el.click()); await L.sleep(200);
+  await page.type('#fbMsg', 'Mais uma mensagem rápida');
+  await L.submitModal(page);
+  L.ok(/Aguarde \d+ segundos/.test(await L.modalError(page)) && (await page.evaluate(() => window.__fb)).length === 1, 'segunda mensagem em seguida: pede para aguardar e não envia');
+  await L.closeModal(page);
   await page.evaluate(async () => { const {Store} = await import('/js/data/store.js'); delete Store.sendFeedback; });
 
   L.section('Apagar dados');
