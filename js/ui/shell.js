@@ -22,6 +22,7 @@ import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, 
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
 import {openFeedback} from './feedback.js';
+import {maybeTutorial, startTutorial} from './tutorial.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
@@ -243,6 +244,7 @@ export async function openMoreMenu(){
         return '<a class="more-item' + (State.activeTab === it[0] ? ' active' : '') + '" href="#/' + ROUTES[it[0]] + '" data-more="' + it[0] + '">' + icon(it[1]) + '<span>' + it[2] + '</span></a>';
       }).join('') +
       '<button type="button" class="more-item" data-more="dados">' + icon('lock') + '<span>Seus dados e backup</span></button>' +
+      '<button type="button" class="more-item" data-more="tutorial">' + icon('book') + '<span>Tutorial de primeiros passos</span></button>' +
       '<button type="button" class="more-item help-item" data-more="ajuda">' + icon('chat') + '<span>Ajuda e sugestões</span></button>' +
       '</nav>',
     onOpen: function(modal, close){
@@ -252,7 +254,7 @@ export async function openMoreMenu(){
         e.preventDefault();
         close(null);
         var what = el.getAttribute('data-more');
-        if (what === 'dados') dataModal(); else if (what === 'ajuda') openFeedback('ajuda'); else showTab(what);
+        if (what === 'dados') dataModal(); else if (what === 'ajuda') openFeedback('ajuda'); else if (what === 'tutorial') setTimeout(startTutorial, 150); else showTab(what);
       });
     }
   });
@@ -312,7 +314,11 @@ export async function enterApp(profileHint){
   if (await acceptPendingCharge()) return;
   // Cobranças compartilhadas: novidades da outra pessoa (pagamentos, confirmações).
   await syncShared();
-  if (!(await offerLocalImport())) maybeWelcome();
+  if (!(await offerLocalImport())){
+    // Conta nova: primeiro o tutorial; o chat de boas-vindas vem depois (e não vem se a pessoa foi cadastrar o banco).
+    var tut = maybeTutorial();
+    if (tut) tut.then(function(how){ if (how !== 'start') maybeWelcome(); }); else maybeWelcome();
+  }
 }
 
 export function logout(){
@@ -676,6 +682,10 @@ export function wireShell(){
     if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
     if ((el = t.closest('[data-recv-share]'))){ shareRecv(el.getAttribute('data-recv-share')); return; }
     if (t.closest('[data-help]')){ openFeedback('ajuda'); return; }
+    if (t.closest('[data-tutorial]')){
+      var mx = document.querySelector('#modalRoot:not([hidden]) .modal-x'); if (mx) mx.click();
+      setTimeout(startTutorial, 150); return;
+    }
     if ((el = t.closest('[data-shared-pending]'))){ openPendingFor(el.getAttribute('data-shared-pending')); return; }
     if ((el = t.closest('[data-copy-pix]'))){
       var pixKey = el.getAttribute('data-copy-pix');

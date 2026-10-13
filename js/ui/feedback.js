@@ -30,6 +30,7 @@ export async function openFeedback(kind){
           '<span><strong>' + x.title + '</strong><small>' + x.hint + '</small></span></label>';
       }).join('') + '</fieldset>' +
       '<div class="field"><label for="fbMsg">Sua mensagem</label><textarea id="fbMsg" name="msg" rows="5" maxlength="2000" placeholder="Conte com suas palavras. Se for um problema, diga em qual tela e o que você fez."></textarea></div>' +
+      '<p class="field-hint">Primeira vez por aqui? <button type="button" class="linklike" data-tutorial>Ver o tutorial de primeiros passos</button>.</p>' +
       '<p class="field-hint">' + (online ? 'A resposta vai para o seu e-mail (' + escapeHtml(State.session ? State.session.email : '') + '). Não mande senhas nem dados de cartão.' :
         'Vai abrir o seu e-mail com a mensagem pronta para ' + escapeHtml(CONTACT_EMAIL) + '. Não mande senhas nem dados de cartão.') + '</p>',
     submitLabel: online ? 'Enviar' : 'Abrir meu e-mail',

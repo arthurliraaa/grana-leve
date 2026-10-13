@@ -19,6 +19,8 @@ export async function launch(){
   if (!CHROME) throw new Error('Chrome não encontrado. Defina CHROME_PATH.');
   const browser = await puppeteer.launch({executablePath: CHROME, headless: 'new', args: ['--no-sandbox', '--lang=pt-BR']});
   const page = await browser.newPage();
+  // O tutorial de primeiro uso fica desligado nos testes (o teste dele liga de volta).
+  await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_tutorial')) localStorage.setItem('granaleve_tutorial', 'off'); } catch(e){} });
   await page.setViewport({width: 1280, height: 900});
   // Sem animações nos testes (como quem pede menos movimento no sistema): o estado é verificado na hora.
   if (!process.env.E2E_MOTION) await page.emulateMediaFeatures([{name: 'prefers-reduced-motion', value: 'reduce'}]);

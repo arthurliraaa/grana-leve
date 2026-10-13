@@ -9,13 +9,20 @@ pessoas sobre hábitos financeiros.
 - **Menu fácil de achar**: no computador, menu lateral com ícones em grupos (Início,
   Ganhos e gastos, Contas e cartões; Planejar: Planejar gastos, Metas, Compromissos;
   Mais: Aprenda, Conexões). No celular, barra inferior com Início, Ganhos e gastos, o
-  **+** no centro, Planejar e **Mais**. Cada área tem endereço próprio (`#/metas`), então
+  **+** no centro, Cartões e **Mais** (Planejar gastos fica no Mais). Cada área tem endereço próprio (`#/metas`), então
   o Voltar do navegador funciona.
 - **Início**: a situação do mês numa frase (quanto entrou, quanto saiu e com quanto termina
   se o previsto se confirmar) e 3 cartões: Quanto tenho, Gastos do mês (com a barra do
   planejado) e Próximos pagamentos (faturas, contas fixas e dívidas, cada um levando para a
   sua área). Havendo parcelas, “Parcelas em andamento” mostra quantas foram pagas e quantas
   faltam. Gráficos, comparação e últimos lançamentos ficam em “Ver todos os detalhes do mês”.
+- **Total × realmente meu**: compras pagas para outras pessoas e a parte delas nas divididas contam
+  no total (é dinheiro que sai), mas só a sua parte é gasto seu. Resumo, quadros do mês, gastos por
+  banco (pago, falta e “seu”), gráficos, lista e “Contas e cartões” mostram sempre as duas versões.
+  O gráfico por categoria alterna entre “Tudo” e “Somente meus gastos”.
+- **Tutorial de primeiro uso**: abre sozinho numa conta nova (pode ser pulado) e pode ser revisto
+  em “Perfil e conta”, no “Mais” do celular e na janela de ajuda.
+- **Ajuda e sugestões**: confirmação visual do envio e intervalo de 60 s entre mensagens.
 - **Categorias com emoji e cor**: todas, inclusive as padrão, podem ganhar nome, emoji
   (36 sugestões ou qualquer um digitado) e cor em “Personalizar categorias”. As padrão
   podem voltar ao original. O emoji aparece nas listas, nos campos, no planejamento e nos
