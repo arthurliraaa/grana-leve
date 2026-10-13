@@ -104,7 +104,8 @@ Tx.setMonthResolver(function(t){
 });
 export function txForMonth(key){ return Tx.txForMonth(State.transactions, key); }
 export function monthTotals(key){ return Tx.monthTotals(State.transactions, key, todayKey()); }
-export function expenseCategoryTotals(key){ return Tx.expenseCategoryTotals(State.transactions, key); }
+export function expenseCategoryTotals(key, all){ return Tx.expenseCategoryTotals(State.transactions, key, all); }
+export function monthOthers(key, untilToday){ return Tx.monthOthers(State.transactions, key, untilToday ? todayKey() : null); }
 export function maxTxMonthOffset(){ return Tx.maxMonthOffset(State.transactions, monthBounds(0).key); }
 // Parcelas a partir da data da compra (tx.date); start = primeira ainda não vencida (padrão 1).
 export function expandInstallments(tx, n, start){ return Tx.expandPurchase(tx, n, uid(), tx.description || catLabel(tx.category, tx.type), start); }
@@ -152,6 +153,7 @@ export var State = {
   invoiceOffsets: {},
   goalFilter: 'andamento',
   donutView: 'chart',
+  donutScope: 'all',   // gastos por categoria: 'all' (tudo, inclusive de outras pessoas) ou 'mine' (só os meus)
   donutStyle: 'rosca',   // rosca, pizza ou blocos (lembrado por conta)
   barView: 'chart',
   barMonths: 6,

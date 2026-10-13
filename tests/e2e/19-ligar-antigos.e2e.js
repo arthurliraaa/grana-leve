@@ -29,5 +29,7 @@ L.run(async ({page}) => {
   L.ok(d.transactions.find(t => t.id === 'x2').refund === true && d.receivables.find(r => r.id === 'r1').linked, 'recebimento antigo vira devolução e o A receber fica ligado');
   L.ok(await page.$('[data-recv-link="r1"]') === null, 'botão some depois de ligar');
   await L.tab(page, 'dashboard');
-  L.ok(await tile('Gastos do mês') === 100 && await tile('Ganhos do mês') === 0, 'depois: gasto da Maria fora dos seus gastos e devolução fora dos ganhos');
+  L.ok(await tile('Gastos do mês') === 200 && await tile('Ganhos do mês') === 0, 'depois: o total continua 200 e a devolução não conta como ganho');
+  const seus = await page.evaluate(() => [...document.querySelectorAll('#statTiles .tile')].find(x => x.querySelector('.tile-lbl').textContent === 'Gastos do mês').querySelector('.tile-sub').textContent);
+  L.ok(/Seus\s*R\$\s?100,00/.test(seus) && /De outras pessoas\s*R\$\s?100,00/.test(seus), 'o gasto da Maria aparece como dela: seus 100 e de outras pessoas 100');
 });

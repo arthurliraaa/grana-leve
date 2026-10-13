@@ -47,7 +47,7 @@ L.run(async ({page}) => {
     await page.click('#nextMonth'); await L.sleep(150);
   }
   L.ok(/Dividida: sua parte R\$\s?50,00 · Mãe, Irmão/.test(await L.text(page, '#txList')), 'no mês da fatura: a parcela dividida e a sua parte');
-  L.ok(/gastos R\$\s?50,00/.test(await L.text(page, '#txSummary')) && /pagos por outras pessoas R\$\s?150,00/.test(await L.text(page, '#txSummary')), 'resumo do mês da fatura: sua parte 50, outras pessoas 150');
+  L.ok(/gastos R\$\s?200,00 \(seus R\$\s?50,00 · de outras pessoas R\$\s?150,00\)/.test(await L.text(page, '#txSummary')), 'resumo do mês da fatura: total 200, sua parte 50, outras pessoas 150');
   await L.tab(page, 'dashboard');
   L.ok(await tile('Gastos do mês') === (sameMonth ? 50 : 0), 'painel deste mês: ' + (sameMonth ? 'só a sua parte (50)' : 'nada ainda (a parcela é da fatura do mês que vem)'));
   await L.tab(page, 'cartoes');

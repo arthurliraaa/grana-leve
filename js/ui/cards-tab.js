@@ -17,7 +17,7 @@ import {pdfWriter, pdfReady} from './pdf.js';
 import {wireTooltips} from './charts.js';
 import {isForOther, isPersonal, myShare, othersShare} from '../domain/transactions.js';
 import {payAccountFor, renderBanks} from './accounts-tab.js';
-import {txRowHtml} from './home-tab.js';
+import {monthPayments, txRowHtml} from './home-tab.js';
 import {State, accountName, cardUsed, catOptions, expenseCats, installmentGroups, invoiceItems, invoiceStatus, k, totalAccountsBalance} from './state.js';
 import {installmentRowHtml} from './tx-edit.js';
 import {populatePaymentSelect} from './tx-list.js';
@@ -65,9 +65,15 @@ export async function cardReport(cardId){
   function render(modal){
     var d = data(), whoTxt = st.who === 'mine' ? ' da sua parte' : st.who === 'others' ? ' de outras pessoas' : '';
     var max = Math.max(1, Math.max.apply(null, d.rows.map(function(r){ return st.who === 'all' ? r.mine + r.others : r.total; }).concat([0])));
+    function tipOf(r){
+      var lines = [monthLabelOf(r.key)];
+      if (st.who === 'all') lines.push('Minha parte: ' + fmtMoney(r.mine) + ' (' + pct(r.mine, r.total) + '%)', 'Outras pessoas: ' + fmtMoney(r.others) + ' (' + pct(r.others, r.total) + '%)');
+      lines.push('Total da fatura: ' + fmtMoney(r.total));
+      return escapeHtml(lines.join('||'));
+    }
     function seg(cls, v, label, r){
       if (!(v > 0)) return '';
-      return '<span class="inv-seg ' + cls + '" style="width:' + (100 * v / max).toFixed(2) + '%" tabindex="0" data-label="' + escapeHtml(invoiceLabel(r.key, c) + ' · ' + label) + '" data-value="' + fmtMoney(v) + '"></span>';
+      return '<span class="inv-seg ' + cls + '" style="width:' + (100 * v / max).toFixed(2) + '%" tabindex="0" data-tip="' + tipOf(r) + '"></span>';
     }
     qs('#crBody', modal).innerHTML = !d.total ? '<p class="empty-state">Nenhum gasto' + whoTxt + ' neste período' + (st.cat !== 'all' ? ' nessa categoria' : '') + '.</p>' :
       '<div class="inv-total cr-split">' +
@@ -80,7 +86,7 @@ export async function cardReport(cardId){
       '<h4>Por fatura</h4><div class="report-bars">' + d.rows.map(function(r){
         var track = st.who === 'all' ? '<span class="inv-track cr-track">' + seg('mine', r.mine, 'minha parte', r) + seg('others', r.others, 'outras pessoas', r) + '</span>' :
           '<span class="bar-track"><span style="width:' + (100*Math.max(0, r.total)/max) + '%; background: var(' + (st.who === 'mine' ? '--cat-1' : '--cat-4') + ')"></span></span>';
-        return '<div class="report-bar"><span>' + monthLabelOf(r.key) + '</span>' + track + '<strong class="tabular">' + fmtMoney(r.total) + '</strong></div>';
+        return '<div class="report-bar" data-tip="' + tipOf(r) + '"><span>' + monthLabelOf(r.key) + '</span>' + track + '<strong class="tabular">' + fmtMoney(r.total) + '</strong></div>';
       }).join('') + '</div>' +
       (st.who === 'all' ? '<div class="legend"><span class="legend-item"><span class="legend-swatch inv-key mine"></span>Minha parte</span><span class="legend-item"><span class="legend-swatch inv-key others"></span>Outras pessoas</span></div>' : '') +
       (st.who !== 'mine' && d.people.length ? '<h4>Quanto é de cada pessoa</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>Pessoa</th><th>Valor</th><th>%</th></tr></thead><tbody>' +
@@ -89,7 +95,7 @@ export async function cardReport(cardId){
       '<h4>Por categoria</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>Categoria</th><th>Valor</th><th>%</th></tr></thead><tbody>' + d.catRows.map(function(x){
         return '<tr><td><span class="legend-swatch" style="display:inline-block;margin-right:6px;background:' + resolveVar(x.color) + '"></span>' + escapeHtml(x.label) + '</td><td class="tabular">' + fmtMoney(x.value) + '</td><td class="tabular">' + pct(x.value, d.total) + '%</td></tr>';
       }).join('') + '</tbody></table></div>';
-    wireTooltips(qs('#crBody', modal), '.inv-seg');
+    wireTooltips(qs('#crBody', modal), '.inv-seg, .report-bar');
   }
   function pdf(){
     if (!pdfReady()) return;
@@ -138,29 +144,23 @@ export async function cardReport(cardId){
 
 export var INVOICE_PILL = {aberta:'good', fechada:'warning', vencida:'critical', paga:'good'};
 
-// Resumo de "Contas e cartões": dinheiro nas contas, faturas a pagar e quanto sobra depois.
+// Resumo de "Contas e cartões": dinheiro nas contas, faturas que se pagam neste mês e quanto sobra.
+// "Faturas a pagar" é o total das faturas (inclusive a parte de outras pessoas); embaixo, quanto é seu.
 export function renderWalletSummary(){
   var el = document.getElementById('walletSummary');
   if (!State.accounts.length && !State.cards.length){ el.innerHTML = ''; return; }
-  var inv = Cards.invoicesSummary(State.transactions, State.cards, todayKey());
+  var mp = monthPayments();
   var cash = State.accounts.length ? totalAccountsBalance() : null;
-  var next = inv.toPay[0];
   function box(label, value, sub, cls){ return '<div class="ws-box"><span class="tile-lbl">' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>'; }
-  // Três caixas que se leem como uma conta: o que há nas contas − o que falta nas faturas = o que sobra.
-  var rest = money(inv.toPayLeft + inv.openLeft), after = cash === null ? 0 : money(cash - rest);
-  function parts(){
-    var l = [];
-    if (inv.toPayLeft > 0 || inv.toPay.length) l.push('Fechadas: ' + fmtMoney(inv.toPayLeft) + (next ? ' (' + (next.status === 'vencida' ? 'venceu ' : 'vence ') + formatDateBr(next.due) + ')' : ''));
-    l.push('Aberta: ' + fmtMoney(inv.openLeft));
-    return l.join('<br>');
-  }
-  var showCards = State.cards.length > 0;
+  // Três caixas que se leem como uma conta: o que há nas contas − o que falta nas faturas do mês = o que sobra.
+  var rest = mp.invoices, after = cash === null ? 0 : money(cash - rest), showCards = State.cards.length > 0;
+  var others = money(rest - mp.invoicesMine);
   el.innerHTML = '<div class="ws-eq">' +
     (cash !== null ? box('Nas contas', cash, State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta'), cash < 0 ? 'neg-text' : '') : '') +
-    (showCards ? (cash !== null ? '<span class="ws-op" aria-hidden="true">−</span>' : '') + box('Faturas a pagar', rest, parts()) : '') +
-    (cash !== null && showCards ? '<span class="ws-op" aria-hidden="true">=</span>' + box('Sobra depois de pagar', after, fmtMoney(cash) + ' − ' + fmtMoney(rest), after < 0 ? 'neg-text' : '') : '') +
+    (showCards ? (cash !== null ? '<span class="ws-op" aria-hidden="true">−</span>' : '') + box('Faturas a pagar', rest, rest > 0 ? (others > 0.004 ? 'Desse total, seu: ' + fmtMoney(mp.invoicesMine) : '') : 'nenhuma fatura a pagar neste mês') : '') +
+    (cash !== null && showCards ? '<span class="ws-op" aria-hidden="true">=</span>' + box('Sobra depois de pagar', after, '', after < 0 ? 'neg-text' : '') : '') +
     '</div>' +
-    (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas fechadas e da aberta (o que você já pagou ou adiantou não entra). A fatura aberta ainda recebe compras, então esse valor pode crescer.</p>' : '');
+    (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas que vencem neste mês (o que você já pagou ou adiantou não entra), com tudo o que está nelas, inclusive a parte de outras pessoas.</p>' : '');
 }
 // Cartões aparecem dentro do bloco do banco (renderBanks, em accounts-tab.js).
 export function renderCards(){

@@ -66,10 +66,19 @@ export function monthTotals(list, key, today){
   }
   return out;
 }
-export function expenseCategoryTotals(list, key){
+// Quanto do mês é de outras pessoas (pago por elas ou a parte delas nas compras divididas), com a data que for.
+// "Não vai devolver" vira gasto seu (writeOff) sem sair mais dinheiro: a parte já estava no que
+// outras pessoas pagaram, então sai dessa conta para o total não contar duas vezes.
+export function monthOthers(list, key, today){
+  var all = txForMonth(list, key).filter(function(t){ return !today || t.date <= today; });
+  var off = sumMoney(all.filter(function(t){ return t.type === 'expense' && t.writeOff && !t.reversal; }), function(t){ return t.amount; });
+  return money(Math.max(0, sumMoney(all, othersShare) - off));
+}
+// Gastos por categoria contando tudo o que saiu, inclusive a parte de outras pessoas (all = true).
+export function expenseCategoryTotals(list, key, all){
   var out = {};
-  txForMonth(list, key).filter(function(t){ return t.type === 'expense' && isPersonal(t); }).forEach(function(t){
-    out[t.category] = money((out[t.category] || 0) + myShare(t));
+  txForMonth(list, key).filter(function(t){ return t.type === 'expense' && (isPersonal(t) || (all && isForOther(t))); }).forEach(function(t){
+    out[t.category] = money((out[t.category] || 0) + (all ? (Number(t.amount) || 0) : myShare(t)));
   });
   return out;
 }

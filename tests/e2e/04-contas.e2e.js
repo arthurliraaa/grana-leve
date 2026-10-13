@@ -37,7 +37,7 @@ L.run(async ({page}) => {
   let d = await L.db(page);
   const nu = d.accounts.find(a => a.name === 'Nubank'), it = d.accounts.find(a => a.name === 'Itaú');
   await L.tab(page, 'dashboard');
-  L.ok(/Disponível nas contas: R\$\s?1\.500,00/.test(await L.text(page, '#statTiles')), 'painel mostra o saldo nas contas (em Ganhos do mês)');
+  L.ok(/[Vv]ocê tem R\$\s?1\.500,00 nas contas/.test(await L.text(page, '#monthStatus')), 'o resumo do mês mostra o saldo nas contas');
 
   L.section('Gastos e ganhos ligados à conta');
   await L.tab(page, 'lancamentos');
@@ -86,7 +86,7 @@ L.run(async ({page}) => {
   const tiles = await L.text(page, '#statTiles');
   L.ok(/Ganhos do mês\s*R\$\s?300,00/.test(tiles), 'transferência não conta como ganho');
   L.ok(L.moneyOf(tiles.match(/Gastos do mês\s*(R\$\s?[\d.,]+)/)[1]) === expensesMonth, 'transferência não conta como gasto');
-  L.ok(/Disponível nas contas: R\$\s?1\.700,00/.test(tiles), 'total nas contas continua igual');
+  L.ok(/[Vv]ocê tem R\$\s?1\.700,00 nas contas/.test(await L.text(page, '#monthStatus')), 'total nas contas continua igual');
   await L.tab(page, 'cartoes');
   await page.evaluate(() => document.querySelectorAll('#bankList details').forEach(x => { x.open = true; }));
   const accTxt = await L.text(page, '#bankList');

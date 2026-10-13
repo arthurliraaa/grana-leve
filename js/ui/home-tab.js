@@ -22,7 +22,7 @@ import {openModal, askAmount} from './modal.js';
 import {wireTooltips} from './charts.js';
 import {generateMonthlyReport} from './reports.js';
 import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab} from './shell.js';
-import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthTotals, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
+import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthOthers, monthTotals, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
 import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
 
 /* ---------- Previsões de entrada ---------- */
@@ -90,8 +90,19 @@ export function dashboardFigures(){
     toReceive: sumMoney(State.receivables, recvRemaining)
   };
 }
+// Os números do mês nas duas versões: o TOTAL (tudo o que saiu, inclusive o que é de outras pessoas e
+// elas vão devolver) e o que é REALMENTE MEU. Mesma regra em todas as telas.
+export function spendFigures(){
+  var f = dashboardFigures(), t = f.t, mp = monthPayments(), hasAcc = State.accounts.length > 0, avail = hasAcc ? totalAccountsBalance() : 0;
+  var mine = t.expenseDone, others = monthOthers(monthBounds(0).key, true), total = money(mine + others);
+  return {f: f, mp: mp, hasAcc: hasAcc, avail: avail, income: t.incomeDone, mine: mine, others: others, total: total,
+    left: mp.left, leftMine: mp.leftMine, leftOthers: money(mp.left - mp.leftMine),
+    saldoAll: hasAcc ? money(avail - mp.left) : money(f.balanceDone - others),
+    saldoMine: hasAcc ? money(avail - mp.leftMine) : f.balanceDone};
+}
+function two(label, value, cls){ return '<span class="tile-two"><span>' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong></span>'; }
 export function renderStatTiles(){
-  var f = dashboardFigures(), t = f.t;
+  var sp = spendFigures(), f = sp.f, t = f.t;
   function tile(label, value, cls, sub){
     return '<div class="tile"><span class="tile-lbl">' + label + '</span><span class="tile-val tabular ' + (cls||'') + '">' + fmtMoney(value) + '</span>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>';
   }
@@ -103,16 +114,14 @@ export function renderStatTiles(){
   // Neste mês: o que entrou (e o que há disponível nas contas), o que gastou, o que falta pagar e o saldo.
   // Saldo = o que está disponível nas contas menos o que ainda falta pagar (o que já foi pago, como uma
   // fatura quitada, já saiu do disponível e não é descontado de novo). Sem contas cadastradas, ganhos − gastos.
-  var mp = monthPayments(), hasAcc = State.accounts.length > 0, avail = hasAcc ? totalAccountsBalance() : 0;
-  var saldo = hasAcc ? money(avail - mp.left) : f.balanceDone;
-  var saldoEnd = hasAcc ? money(saldo + f.expectedIncome) : money(f.balanceDone + f.expectedIncome - mp.left);
-  var leftParts = [mp.invoices > 0 ? 'faturas ' + fmtMoney(mp.invoices) : '', mp.bills > 0 ? 'contas fixas ' + fmtMoney(mp.bills) : '', mp.scheduled > 0 ? 'agendados ' + fmtMoney(mp.scheduled) : ''].filter(Boolean);
-  var month = tile('Ganhos do mês', t.incomeDone, '', [hasAcc ? 'Disponível nas contas: ' + fmtMoney(avail) : '', f.expectedIncome > 0 ? 'Esperado ainda: + ' + fmtMoney(f.expectedIncome) : ''].filter(Boolean).join('<br>')) +
-    tile('Gastos do mês', t.expenseDone, '', [t.expenseScheduled > 0 ? 'Agendado: + ' + fmtMoney(t.expenseScheduled) : '',
-      t.forOther > 0 ? 'Fora daqui: ' + fmtMoney(t.forOther) + ' pagos por outras pessoas' : ''].filter(Boolean).join(' · ')) +
-    tile('Falta pagar', mp.left, mp.left > 0 ? '' : 'pos', mp.left > 0 ? leftParts.join(' · ') : 'tudo pago neste mês') +
-    tile('Saldo do mês', saldo, saldo < 0 ? 'neg' : 'pos', (hasAcc ? 'Disponível ' + fmtMoney(avail) + ' − falta pagar ' + fmtMoney(mp.left) : 'Ganhos − gastos') +
-      (f.expectedIncome > 0 || (!hasAcc && mp.left > 0) ? '<br>Previsto no fim do mês: ' + fmtMoney(saldoEnd) : ''));
+  var othersOn = sp.others > 0;
+  var month = tile('Ganhos do mês', t.incomeDone, '') +
+    tile('Gastos do mês', sp.total, '', two('Seus', sp.mine) + (othersOn ? two('De outras pessoas', sp.others) : '')) +
+    tile('Falta pagar', sp.left, sp.left > 0 ? '' : 'pos', sp.left > 0 ? (sp.leftOthers > 0.004 ? two('Desse total, seu', sp.leftMine) : '') : 'tudo pago neste mês') +
+    (Math.abs(sp.saldoAll - sp.saldoMine) < 0.005 ? tile('Saldo do mês', sp.saldoMine, sp.saldoMine < 0 ? 'neg' : 'pos') :
+      '<div class="tile"><span class="tile-lbl">Saldo do mês</span>' +
+      '<span class="tile-two tile-two-big"><span>Com a fatura total</span><strong class="tabular ' + (sp.saldoAll < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sp.saldoAll) + '</strong></span>' +
+      '<span class="tile-two tile-two-big"><span>Só com os meus gastos</span><strong class="tabular ' + (sp.saldoMine < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sp.saldoMine) + '</strong></span></div>');
   var now = tile('Guardado nas metas', f.savedInGoals) +
     tile('Dívidas: falta pagar', f.debtRemaining, '', debtsOpen.length ? debtsOpen.length + (debtsOpen.length === 1 ? ' dívida' : ' dívidas') + ' em “Eu devo”<br>valor original ' + fmtMoney(debtOrig) + ' · já pago ' + fmtMoney(debtPaid) : 'nenhuma dívida em aberto') +
     tile('A receber neste mês', recvMonth, '', recvMonth > 0 ? 'Total a receber: ' + fmtMoney(f.toReceive) : (f.toReceive > 0 ? 'Nada vence neste mês<br>Total a receber: ' + fmtMoney(f.toReceive) : 'Ninguém te deve nada'));
@@ -151,18 +160,21 @@ export function upcomingCommitments(){
 // gastos agendados; fatura atrasada de mês anterior também conta, porque continua devida).
 // Transferências entre contas não contam. Linha "Dinheiro" para o que não tem banco.
 export function monthPayments(){
-  var cur = monthBounds(0).key, today = todayKey(), rows = [], parts = {invoices: 0, bills: 0, scheduled: 0};
+  var cur = monthBounds(0).key, today = todayKey(), rows = [], parts = {invoices: 0, bills: 0, scheduled: 0}, mineParts = {invoices: 0, bills: 0, scheduled: 0};
   var bills = pendingBills().filter(function(o){ return o.key === cur; });
-  function scheduled(match){
-    return sumMoney(State.transactions.filter(function(t){ return t.type === 'expense' && !t.reversal && t.date > today && t.date.slice(0, 7) === cur && t.paymentMethod !== 'cartao' && match(t); }), function(t){ return t.amount; });
+  // fn: o que somar de cada gasto agendado (o valor todo ou só a parte que é minha).
+  function scheduled(match, fn){
+    return sumMoney(State.transactions.filter(function(t){ return t.type === 'expense' && !t.reversal && t.date > today && t.date.slice(0, 7) === cur && t.paymentMethod !== 'cartao' && match(t); }), fn || function(t){ return t.amount; });
   }
   bankGroups().forEach(function(g){
-    var first = g.acc || g.cards[0], paid = 0, left = 0;
+    var first = g.acc || g.cards[0], paid = 0, left = 0, leftMine = 0;
     if (g.acc){
       paid += -sumMoney(accountMoves(g.acc).filter(function(m){ return m.amount < 0 && m.kind !== 'Transferência' && m.date.slice(0, 7) === cur; }), function(m){ return m.amount; });
       var sc = scheduled(function(t){ return t.accountId === g.acc.id; });
       var bl = sumMoney(bills.filter(function(o){ return o.b.pay === 'acc:' + g.acc.id; }), function(o){ return o.amount; });
+      var scMine = scheduled(function(t){ return t.accountId === g.acc.id; }, myShare);
       parts.scheduled += sc; parts.bills += bl; left += sc + bl;
+      mineParts.scheduled += scMine; mineParts.bills += bl; leftMine += scMine + bl;
     }
     g.cards.forEach(function(c){
       Cards.invoiceKeys(State.transactions, c).forEach(function(key){
@@ -172,18 +184,26 @@ export function monthPayments(){
         // Pagamentos sem conta escolhida não aparecem no saldo: entram aqui.
         if (thisMonth && pay && !pay.accountId && Cards.invoiceStatus(c, key, today) === 'paga') paid += Number(pay.amount) || 0;
         if (thisMonth) paid += sumMoney(Cards.invoiceAdvances(c, key).filter(function(x){ return !x.accountId; }), function(x){ return x.amount; });
-        if (Cards.invoiceStatus(c, key, today) !== 'paga'){ var il = Cards.invoiceLeft(State.transactions, c, key); parts.invoices += il; left += il; }
+        if (Cards.invoiceStatus(c, key, today) !== 'paga'){
+          var il = Cards.invoiceLeft(State.transactions, c, key); parts.invoices += il; left += il;
+          // A parte minha do que falta: a mesma proporção que a fatura tem de compras minhas.
+          var its = Cards.invoiceItems(State.transactions, c, key).filter(function(t){ return !(t.installment && t.installment.settled); });
+          var mn = sum(its, myShare) + Cards.carryTotal(c, key), ot = sum(its, othersShare), share = mn + ot > 0 ? Math.max(0, Math.min(1, mn / (mn + ot))) : 1;
+          mineParts.invoices += il * share; leftMine += il * share;
+        }
       });
     });
-    if (paid > 0 || left > 0) rows.push({name: first.name, paid: money(paid), left: money(left), go: 'cartoes'});
+    if (paid > 0 || left > 0) rows.push({name: first.name, paid: money(paid), left: money(left), mine: money(leftMine), go: 'cartoes'});
   });
   var cashPaid = sumMoney(State.transactions.filter(function(t){ return t.type === 'expense' && !t.reversal && t.paymentMethod === 'conta' && !t.accountId && t.date <= today && t.date.slice(0, 7) === cur && !t.outsideTotals; }), function(t){ return t.amount; });
   var cashSc = scheduled(function(t){ return !t.accountId; }), cashBills = sumMoney(bills.filter(function(o){ return o.b.pay === 'conta' || !o.b.pay; }), function(o){ return o.amount; });
   parts.scheduled += cashSc; parts.bills += cashBills;
+  var cashScMine = scheduled(function(t){ return !t.accountId; }, myShare);
+  mineParts.scheduled += cashScMine; mineParts.bills += cashBills;
   var cashLeft = cashSc + cashBills;
-  if (cashPaid > 0 || cashLeft > 0) rows.push({name: 'Dinheiro', paid: money(cashPaid), left: money(cashLeft), go: 'lancamentos'});
-  return {rows: rows, paid: sumMoney(rows, function(r){ return r.paid; }), left: sumMoney(rows, function(r){ return r.left; }),
-    invoices: money(parts.invoices), bills: money(parts.bills), scheduled: money(parts.scheduled)};
+  if (cashPaid > 0 || cashLeft > 0) rows.push({name: 'Dinheiro', paid: money(cashPaid), left: money(cashLeft), mine: money(cashScMine + cashBills), go: 'lancamentos'});
+  return {rows: rows, paid: sumMoney(rows, function(r){ return r.paid; }), left: sumMoney(rows, function(r){ return r.left; }), leftMine: sumMoney(rows, function(r){ return r.mine; }),
+    invoices: money(parts.invoices), invoicesMine: money(mineParts.invoices), bills: money(parts.bills), scheduled: money(parts.scheduled)};
 }
 // Dívida com parcela mensal: quantas parcelas no total e quantas já foram pagas (estimado pelo valor).
 function debtParcels(d){
@@ -291,13 +311,20 @@ export async function openParcels(){
 }
 // Linha do topo do Início: a situação do mês numa frase.
 export function monthStatusHtml(){
-  var f = dashboardFigures(), t = f.t;
-  if (!t.incomeDone && !t.expenseDone && !f.expectedIncome && !f.billsPending && !t.expenseScheduled) return 'Comece anotando o que entra e o que sai neste mês: o resumo aparece aqui.';
-  var end = f.balanceEnd, ahead = end !== f.balanceDone;
-  return 'Até hoje entraram <strong class="tabular">' + fmtMoney(t.incomeDone) + '</strong> e saíram <strong class="tabular">' + fmtMoney(t.expenseDone) + '</strong>' +
-    (ahead ? '. Se o resto do mês sair como previsto' + (f.billsPending > 0 ? ' (com ' + fmtMoney(f.billsPending) + ' de contas fixas)' : '') + ', você termina com ' :
-      ': saldo do mês de ') +
-    '<strong class="tabular ' + (end < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(end) + '</strong>' + (end < 0 ? ' — atenção: o mês fecha no vermelho.' : '.');
+  var sp = spendFigures(), f = sp.f, t = f.t;
+  function m(v){ return '<strong class="tabular">' + fmtMoney(v) + '</strong>'; }
+  if (!t.incomeDone && !t.expenseDone && !sp.others && !f.expectedIncome && !f.billsPending && !t.expenseScheduled)
+    return (sp.hasAcc ? 'Você tem ' + m(sp.avail) + ' nas contas. ' : '') + 'Comece anotando o que entra e o que sai neste mês: o resumo aparece aqui.';
+  function sal(v){ return '<strong class="tabular ' + (v < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(v) + '</strong>'; }
+  var out = 'Até hoje entraram ' + m(t.incomeDone) + (sp.hasAcc ? ' e você tem ' + m(sp.avail) + ' nas contas' : '') + '. Saíram ' + m(sp.total) +
+    (sp.others > 0.004 ? ', dos quais ' + m(sp.mine) + ' são realmente seus' : '') + '. ';
+  out += Math.abs(sp.saldoAll - sp.saldoMine) < 0.005 ? 'Saldo do mês: ' + sal(sp.saldoMine) + '.' :
+    'Saldo do mês: ' + sal(sp.saldoAll) + ' com a fatura total e ' + sal(sp.saldoMine) + ' só com os seus gastos.';
+  if (sp.saldoMine < 0) out += ' <span class="neg-text">Atenção: o mês fecha no vermelho.</span>';
+  else if (sp.saldoAll < 0) out += ' Com os gastos de outras pessoas o saldo fica negativo até elas devolverem.';
+  var end = f.balanceEnd;
+  if (end !== f.balanceDone) out += ' Se o resto do mês sair como previsto' + (f.billsPending > 0 ? ' (com ' + fmtMoney(f.billsPending) + ' de contas fixas)' : '') + ', os seus gastos fecham o mês em ' + sal(end) + '.';
+  return out;
 }
 export function plannedTotal(key){
   var plan = Budgets.budgetsFor(State.budgetBase, State.budgetMonths, key);
@@ -337,20 +364,23 @@ export function renderSummary(){
   var status = statusForPct(pct);
   var bar = planned > 0 ? '<div class="progress" role="img" aria-label="' + Math.round(pct * 100) + '% do planejado"><span style="width:' + Math.min(100, pct * 100) + '%; background:' +
     (status === 'critical' ? 'var(--critical)' : status === 'warning' ? 'var(--warning)' : 'var(--good)') + '"></span></div>' : '';
-  // Em destaque o total gasto; embaixo, quanto ainda falta pagar no mês. O + mostra, por banco, o que
-  // já foi pago e o que falta (faturas, contas fixas e gastos agendados).
-  var mp = monthPayments();
-  var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(spent), '',
-    (mp.left > 0 ? 'Falta pagar <strong class="tabular">' + fmtMoney(mp.left) + '</strong> neste mês' : mp.paid > 0 ? 'Tudo pago neste mês por enquanto' : 'Nenhum pagamento pendente') +
-      (planned > 0 ? ' · ' + Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' (passou ' + fmtMoney(spent - planned) + ')' : '') : ''),
+  // Em destaque o total gasto (inclusive o que é de outras pessoas); embaixo, o que é realmente meu e quanto
+  // ainda falta pagar. O + mostra, por banco, o que já foi pago, o que falta e a parte que é minha.
+  var sp = spendFigures(), mp = sp.mp;
+  var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(sp.total), '',
+    '<span class="sum-line">Realmente seus: <strong class="tabular">' + fmtMoney(sp.mine) + '</strong>' + (sp.others > 0.004 ? ' · de outras pessoas ' + fmtMoney(sp.others) : '') +
+      (planned > 0 ? ' · ' + Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' (passou ' + fmtMoney(spent - planned) + ')' : '') : '') + '</span>' +
+    '<span class="sum-line">' + (mp.left > 0 ? 'Falta pagar <strong class="tabular">' + fmtMoney(mp.left) + '</strong> neste mês' + (sp.leftOthers > 0.004 ? ', dos quais ' + fmtMoney(mp.leftMine) + ' são seus' : '') : mp.paid > 0 ? 'Tudo pago neste mês por enquanto' : 'Nenhum pagamento pendente') + '</span>',
     bar,
-    (mp.rows.length ? '<p class="sum-caption">Por banco: pago e o que falta no mês</p>' +
-      '<div class="bank-pay" role="table" aria-label="Pago e o que falta no mês, por banco"><div class="bp-row bp-head" role="row"><span role="columnheader">Banco</span><span role="columnheader">Pago</span><span role="columnheader">Falta</span></div>' +
+    (mp.rows.length ? '<p class="sum-caption">Por banco: o que já foi pago, o que falta e quanto do que falta é seu</p>' +
+      '<div class="bank-pay" role="table" aria-label="Pago, falta e parte sua, por banco"><div class="bp-row bp-head" role="row"><span role="columnheader">Banco</span><span role="columnheader">Pago</span><span role="columnheader">Falta</span><span role="columnheader">Seu</span></div>' +
       mp.rows.map(function(r){
         return '<a class="bp-row" role="row" href="#/' + routeOf(r.go) + '" data-go="' + r.go + '"><span role="cell">' + escapeHtml(r.name) + '</span>' +
-          '<span role="cell" class="tabular">' + fmtMoney(r.paid) + '</span><strong role="cell" class="tabular' + (r.left > 0 ? '' : ' pos-text') + '">' + fmtMoney(r.left) + '</strong></a>';
+          '<span role="cell" class="tabular">' + fmtMoney(r.paid) + '</span><strong role="cell" class="tabular' + (r.left > 0 ? '' : ' pos-text') + '">' + fmtMoney(r.left) + '</strong>' +
+          '<span role="cell" class="tabular">' + fmtMoney(r.mine) + '</span></a>';
       }).join('') +
-      '<div class="bp-row bp-total" role="row"><span role="cell">Total</span><span role="cell" class="tabular">' + fmtMoney(mp.paid) + '</span><strong role="cell" class="tabular">' + fmtMoney(mp.left) + '</strong></div></div>' :
+      '<div class="bp-row bp-total" role="row"><span role="cell">Total</span><span role="cell" class="tabular">' + fmtMoney(mp.paid) + '</span><strong role="cell" class="tabular">' + fmtMoney(mp.left) + '</strong><span role="cell" class="tabular">' + fmtMoney(mp.leftMine) + '</span></div></div>' +
+      '<p class="sum-caption sum-explain">“Seu” é a parte do que falta que é realmente sua; o resto é de outras pessoas, que vão te devolver.</p>' :
       '<p class="sum-caption">Nenhum pagamento neste mês ainda.</p>') +
     goLink('limites', 'Planejar gastos'));
   // 3. Próximos pagamentos: faturas, contas fixas e dívidas (cada um leva para a sua área)
@@ -370,11 +400,12 @@ export function renderSummary(){
 export var CALC_RULES = [
   ['Realizado e agendado', 'Ganhos e gastos do mês contam só o que tem data até hoje. O que tem data mais para frente no mês (uma parcela, um gasto agendado) aparece como “Agendado” e entra na previsão do fim do mês.'],
   ['Esperado', 'Soma as previsões de entrada ainda não recebidas e os ganhos com data futura no mês.'],
+  ['Total × realmente meu', 'Quando você paga uma compra para outra pessoa ou divide uma compra, o dinheiro sai do seu cartão ou conta, mas só a sua parte é gasto seu. O app mostra sempre as duas versões: o total (o que sai de verdade) e o que é realmente seu.'],
   ['Cartão de crédito', 'Cada compra no cartão (ou parcela) conta como gasto no mês em que vence a fatura dela, como no app do banco: compra de 04/10 com fatura vencendo em novembro conta em novembro. No mês da compra ela aparece só como aviso. A compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.'],
   ['Pagar a fatura', 'Não é um gasto novo (as compras já contaram). Se você escolher uma conta ao marcar a fatura como paga, o valor sai do saldo dessa conta.'],
-  ['Falta pagar', 'Tudo o que ainda vai sair neste mês: o que falta das faturas que vencem no mês (já sem o que foi adiantado ou pago), as contas fixas ainda não lançadas e os gastos agendados.'],
-  ['Saldo do mês', 'Com contas cadastradas: o disponível nas contas menos o que ainda falta pagar. O que já foi pago (como uma fatura quitada) já saiu do disponível e não é descontado de novo. Sem contas: ganhos menos gastos. Se houver entradas previstas, aparece também o saldo com elas.'],
-  ['Gastos do mês', 'O número grande é o total gasto no mês. “Falta pagar” soma o que ainda vai sair: o que falta das faturas que vencem no mês, as contas fixas do mês ainda não lançadas e os gastos agendados. No +, o mesmo por banco.'],
+  ['Falta pagar', 'Tudo o que ainda vai sair neste mês, no valor total das faturas (com a parte de outras pessoas): o que falta das faturas que vencem no mês (já sem o que foi adiantado ou pago), as contas fixas ainda não lançadas e os gastos agendados. Embaixo, quanto desse total é realmente seu.'],
+  ['Saldo do mês', 'Com contas cadastradas: o disponível nas contas menos o que ainda falta pagar. O que já foi pago (como uma fatura quitada) já saiu do disponível e não é descontado de novo. São dois saldos: “com a fatura total” desconta tudo o que falta (inclusive a parte de outras pessoas) e “só com os meus gastos” desconta apenas a parte que é sua. Sem contas: ganhos menos gastos.'],
+  ['Gastos do mês', 'O número grande é tudo o que saiu no mês, inclusive o que é de outras pessoas e elas vão te devolver. Embaixo, quanto disso é realmente seu. “Falta pagar” soma o que ainda vai sair (faturas que vencem no mês, contas fixas ainda não lançadas e gastos agendados) e diz quanto é seu. No +, o mesmo por banco: pago, falta e a parte sua.'],
   ['Dívidas: falta pagar', 'Soma das dívidas em Compromissos → Eu devo: valor original menos o que já foi pago. Compras parceladas no cartão não entram aqui: ficam em “Parcelas no cartão”, porque já estão nas próximas faturas.'],
   ['A receber neste mês', 'O que vence neste mês (parcelas e combinados até o fim do mês, inclusive atrasados) em “Me devem”. Embaixo, o total que ainda falta receber.'],
   ['Parcelas', 'Cada parcela é um gasto no mês dela. Os centavos que sobram da divisão ficam na 1ª parcela. “Parcelas em andamento” mostra quantas já foram pagas e quantas faltam, com filtros.'],
@@ -476,22 +507,24 @@ function monthName(offset){ return monthBounds(offset || 0).label.split(' de ')[
 // Parte comum dos dois quadros: total em destaque, uma barra com as duas partes e a legenda com valores.
 // a e b = {cls, label, value}. Os segmentos têm dica por mouse e teclado.
 function splitSummary(totalLabel, total, a, b){
-  function seg(p){ return p.value > 0 ? '<span class="inv-seg ' + p.cls + '" style="width:' + (100 * p.value / total).toFixed(2) + '%" tabindex="0" data-label="' + escapeHtml(p.label) + '" data-value="' + fmtMoney(p.value) + ' (' + pctOf(p.value, total) + '%)"></span>' : ''; }
+  function seg(p){ return p.value > 0 ? '<span class="inv-seg ' + p.cls + '" style="width:' + (100 * p.value / total).toFixed(2) + '%" tabindex="0" data-tip="' + escapeHtml([totalLabel, a.label + ': ' + fmtMoney(a.value) + ' (' + pctOf(a.value, total) + '%)', b.label + ': ' + fmtMoney(b.value) + ' (' + pctOf(b.value, total) + '%)', 'Total: ' + fmtMoney(total)].join('||')) + '"></span>' : ''; }
   function key(p){ return '<span class="split-key"><i class="inv-key ' + p.cls + '" aria-hidden="true"></i><span>' + p.label + '</span><strong class="tabular">' + fmtMoney(p.value) + '</strong><small>' + pctOf(p.value, total) + '%</small></span>'; }
   return '<div class="split-kpi"><span class="kpi-lbl">' + totalLabel + '</span><strong class="tabular">' + fmtMoney(total) + '</strong></div>' +
     '<div class="inv-track thick">' + seg(a) + seg(b) + '</div>' +
     '<div class="split-keys">' + key(a) + key(b) + '</div>';
 }
 // Uma linha por cartão/banco: nome, total e a barra das duas partes (largura relativa à maior).
-function splitRows(rows, max, a, b, meta){
-  function seg(cls, v, label, r){
+// A dica (mouse, teclado ou toque) mostra o detalhe da linha inteira, não só do pedaço tocado.
+function splitRows(rows, max, a, b, meta, tipFn){
+  function tipOf(r){ return escapeHtml(tipFn(r).join('||')); }
+  function seg(cls, v, r){
     if (!(v > 0) || !(max > 0)) return '';
-    return '<span class="inv-seg ' + cls + '" style="width:' + (100 * v / max).toFixed(2) + '%" tabindex="0" data-label="' + escapeHtml(r.name + ' · ' + label) + '" data-value="' + fmtMoney(v) + ' (' + pctOf(v, r.total) + '%)"></span>';
+    return '<span class="inv-seg ' + cls + '" style="width:' + (100 * v / max).toFixed(2) + '%" tabindex="0" data-tip="' + tipOf(r) + '"></span>';
   }
   return '<div class="inv-rows" role="img" aria-label="' + escapeHtml(rows.map(function(r){ return r.name + ': ' + a.label.toLowerCase() + ' ' + fmtMoney(r[a.field]) + ', ' + b.label.toLowerCase() + ' ' + fmtMoney(r[b.field]); }).join('; ')) + '">' +
     rows.map(function(r){
-      return '<div class="inv-row"><div class="inv-row-head"><strong>' + escapeHtml(r.name) + '</strong>' + (meta ? '<span class="tx-meta">' + meta(r) + '</span>' : '') + '<strong class="tabular inv-row-total">' + fmtMoney(r.total) + '</strong></div>' +
-        '<div class="inv-track">' + seg(a.cls, r[a.field], a.label.toLowerCase(), r) + seg(b.cls, r[b.field], b.label.toLowerCase(), r) + '</div></div>';
+      return '<div class="inv-row" data-tip="' + tipOf(r) + '"><div class="inv-row-head"><strong>' + escapeHtml(r.name) + '</strong>' + (meta ? '<span class="tx-meta">' + meta(r) + '</span>' : '') + '<strong class="tabular inv-row-total">' + fmtMoney(r.total) + '</strong></div>' +
+        '<div class="inv-track">' + seg(a.cls, r[a.field], r) + seg(b.cls, r[b.field], r) + '</div></div>';
     }).join('') + '</div>';
 }
 
@@ -520,8 +553,10 @@ export function renderInvoiceSplit(){
   var A = {cls: 'mine', label: 'Minha parte', field: 'mine'}, B = {cls: 'others', label: 'Outras pessoas', field: 'others'};
   var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
   wrap.innerHTML = splitSummary('Total das faturas', tot.total, Object.assign({value: tot.mine}, A), Object.assign({value: tot.others}, B)) +
-    splitRows(rows, max, A, B, function(r){ return 'vence ' + formatDateBr(r.due) + ' · ' + r.status; }) + lateHtml;
-  wireTooltips(wrap, '.inv-seg');
+    splitRows(rows, max, A, B, function(r){ return 'vence ' + formatDateBr(r.due) + ' · ' + r.status; }, function(r){
+      return [r.name + ' · fatura de ' + r.label, 'Vence ' + formatDateBr(r.due) + ' · ' + r.status, 'Minha parte: ' + fmtMoney(r.mine) + ' (' + pctOf(r.mine, r.total) + '%)', 'Outras pessoas: ' + fmtMoney(r.others) + ' (' + pctOf(r.others, r.total) + '%)', 'Total: ' + fmtMoney(r.total)];
+    }) + lateHtml;
+  wireTooltips(wrap, '.inv-seg, .inv-row');
 }
 // Crédito × débito por banco no mês escolhido: o que saiu no cartão (pela data da compra) e da conta
 // (Pix/débito). Conta e cartão do mesmo banco ficam juntos (bankGroups). Dinheiro e vale vão à parte.
@@ -562,8 +597,10 @@ export function renderCreditDebit(){
   }
   var A = {cls: 'credit', label: 'Crédito', field: 'credit'}, B = {cls: 'debit', label: 'Débito/Pix', field: 'debit'};
   var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
-  wrap.innerHTML = splitSummary('Total nos bancos', tot.total, Object.assign({value: tot.credit}, A), Object.assign({value: tot.debit}, B)) + splitRows(rows, max, A, B) + outside;
-  wireTooltips(wrap, '.inv-seg');
+  wrap.innerHTML = splitSummary('Total nos bancos', tot.total, Object.assign({value: tot.credit}, A), Object.assign({value: tot.debit}, B)) + splitRows(rows, max, A, B, null, function(r){
+    return [r.name + ' · ' + monthName(off), 'Crédito: ' + fmtMoney(r.credit) + ' (' + pctOf(r.credit, r.total) + '%)', 'Débito/Pix: ' + fmtMoney(r.debit) + ' (' + pctOf(r.debit, r.total) + '%)', 'Total: ' + fmtMoney(r.total)];
+  }) + outside;
+  wireTooltips(wrap, '.inv-seg, .inv-row');
 }
 /* ---------- Gráficos do Início: mês escolhido (passado, atual ou futuro com previsão) ---------- */
 export var DASH_MIN = -36, DASH_MAX = 12;
@@ -586,8 +623,8 @@ export function monthProjection(key){
     incExtra: incExtra, expExtra: expExtra, bills: bills, future: key > cur, forecast: key > cur || expExtra > 0 || incExtra > 0};
 }
 // Gastos por categoria do mês, com as contas fixas previstas.
-export function projectCats(key){
-  var out = Object.assign({}, expenseCategoryTotals(key));
+export function projectCats(key, all){
+  var out = Object.assign({}, expenseCategoryTotals(key, all));
   monthProjection(key).bills.forEach(function(o){ out[o.b.category] = money((out[o.b.category] || 0) + o.amount); });
   return out;
 }
@@ -613,8 +650,10 @@ export function renderDashMonthViews(){
 export function renderDonut(){
   var wrap = document.getElementById('donutWrap'), m = dashMonth(), key = m.key;
   setToggleLabel('donut');
-  var byCat = projectCats(key), proj = monthProjection(key);
-  var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0}; })
+  var scope = State.donutScope === 'mine' ? 'mine' : 'all';
+  qsa('[data-donut-scope]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-donut-scope') === scope ? 'true' : 'false'); });
+  var allCats = projectCats(key, true), mineCats = projectCats(key, false), byCat = scope === 'all' ? allCats : mineCats, proj = monthProjection(key);
+  var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0, all: allCats[c.id]||0, mine: mineCats[c.id]||0}; })
     .filter(function(e){ return e.value>0; }).sort(function(a, b){ return b.value - a.value; });
   var total = sum(entries, function(e){ return e.value; });
   if (!total){
@@ -622,13 +661,20 @@ export function renderDonut(){
     return;
   }
   if (State.donutView === 'table'){
-    wrap.innerHTML = '<table class="data-table"><thead><tr><th>Categoria</th><th>Valor</th><th>%</th></tr></thead><tbody>' +
-      entries.map(function(e){ return '<tr><td>'+escapeHtml(e.label)+'</td><td class="tabular">'+fmtMoney(e.value)+'</td><td class="tabular">'+Math.round(100*e.value/total)+'%</td></tr>'; }).join('') +
-      '<tr><td><strong>Total</strong></td><td class="tabular"><strong>'+fmtMoney(total)+'</strong></td><td>100%</td></tr></tbody></table>';
+    var anyOthers = entries.some(function(e){ return e.all - e.mine > 0.004; });
+    wrap.innerHTML = '<table class="data-table"><thead><tr><th>Categoria</th><th>' + (scope === 'all' ? 'Total' : 'Seus gastos') + '</th>' + (scope === 'all' && anyOthers ? '<th>Seus</th>' : '') + '<th>%</th></tr></thead><tbody>' +
+      entries.map(function(e){ return '<tr><td>'+escapeHtml(e.label)+'</td><td class="tabular">'+fmtMoney(e.value)+'</td>' + (scope === 'all' && anyOthers ? '<td class="tabular">' + fmtMoney(e.mine) + '</td>' : '') + '<td class="tabular">'+Math.round(100*e.value/total)+'%</td></tr>'; }).join('') +
+      '<tr><td><strong>Total</strong></td><td class="tabular"><strong>'+fmtMoney(total)+'</strong></td>' + (scope === 'all' && anyOthers ? '<td class="tabular"><strong>' + fmtMoney(sum(entries, function(e){ return e.mine; })) + '</strong></td>' : '') + '<td>100%</td></tr></tbody></table>';
     return;
   }
   var style = DONUT_STYLES.indexOf(State.donutStyle) >= 0 ? State.donutStyle : 'rosca';
   qsa('[data-donut-style]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-donut-style') === style ? 'true' : 'false'); });
+  entries.forEach(function(e){
+    var lines = [e.emoji + ' ' + e.label, 'Total: ' + fmtMoney(e.all) + ' (' + Math.round(100 * e.value / total) + '% ' + (scope === 'all' ? 'do total' : 'dos seus gastos') + ')'];
+    if (e.all - e.mine > 0.004) lines.push('Seus: ' + fmtMoney(e.mine), 'De outras pessoas: ' + fmtMoney(money(e.all - e.mine)));
+    if (scope === 'mine') lines[1] = 'Seus: ' + fmtMoney(e.mine) + ' (' + Math.round(100 * e.value / total) + '% dos seus gastos)';
+    e.tip = escapeHtml(lines.join('||'));
+  });
   var figure = style === 'blocos' ? donutBlocks(entries, total, wrap) : donutSvg(entries, total, style, m.label, wrap);
   var rows = '<ol class="cat-rank">' + entries.slice(0, 7).map(function(e){
     var pct = Math.round(100 * e.value / total);
@@ -642,6 +688,11 @@ export function renderDonut(){
 }
 // Três jeitos de ver os gastos por categoria: rosca (com o total no meio), pizza e blocos (tamanho = valor).
 var DONUT_STYLES = ['rosca', 'pizza', 'blocos'];
+export function setDonutScope(scope){
+  State.donutScope = scope === 'mine' ? 'mine' : 'all';
+  setPref('donutScope', State.donutScope);
+  renderDonut();
+}
 export function setDonutStyle(style){
   if (DONUT_STYLES.indexOf(style) < 0) return;
   State.donutStyle = style;
@@ -662,13 +713,13 @@ function donutSvg(entries, total, style, monthLabel, wrap){
     cum += frac;
     return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + resolveVar(e.color, wrap) + '" stroke-width="' + sw + '" stroke-linecap="butt" style="--i:' + i + '" ' +
       'stroke-dasharray="' + dash.toFixed(2) + ' ' + (circumference - dash).toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '" ' +
-      'transform="rotate(-90 ' + cx + ' ' + cy + ')" tabindex="0" data-label="' + escapeHtml(e.label) + '" data-value="' + fmtMoney(e.value) + ' (' + Math.round(100 * frac) + '%)" class="donut-seg' + (pie ? ' pie' : '') + '"></circle>';
+      'transform="rotate(-90 ' + cx + ' ' + cy + ')" tabindex="0" data-tip="' + e.tip + '" class="donut-seg' + (pie ? ' pie' : '') + '"></circle>';
   }).join('');
-  var center = pie ? '' : '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : 'Total') + '</text>' +
+  var center = pie ? '' : '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : (State.donutScope === 'mine' ? 'Seus gastos' : 'Total')) + '</text>' +
     '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text-primary)">' + fmtMoney(total) + '</text>';
   return '<div class="donut-fig"><svg class="donut-svg" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="Gastos por categoria em ' + escapeHtml(monthLabel) + '">' +
     (pie ? '' : '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--gridline)" stroke-width="' + sw + '" opacity=".6"></circle>') + circles + labels + center + '</svg>' +
-    (pie ? '<p class="donut-total">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : 'Total') + ' <strong class="tabular">' + fmtMoney(total) + '</strong></p>' : '') + '</div>';
+    (pie ? '<p class="donut-total">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : (State.donutScope === 'mine' ? 'Seus gastos' : 'Total')) + ' <strong class="tabular">' + fmtMoney(total) + '</strong></p>' : '') + '</div>';
 }
 // Treemap: retângulos com área proporcional ao valor (algoritmo "squarified" numa grade 100 × 62,5).
 function squarify(areas, x, y, w, h){
@@ -704,7 +755,7 @@ function donutBlocks(entries, total, wrap){
   return '<div class="tm" role="img" aria-label="Gastos por categoria, blocos proporcionais ao valor">' + entries.map(function(e, i){
     var q = rects[i], pct = Math.round(100 * e.value / total), big = q.w > 22 && q.h > 22, mid = q.w > 13 && q.h > 13;
     return '<div class="tm-block' + (big ? ' big' : mid ? ' mid' : '') + '" tabindex="0" style="left:' + q.x.toFixed(2) + '%;top:' + (q.y / H * 100).toFixed(2) + '%;width:' + q.w.toFixed(2) + '%;height:' + (q.h / H * 100).toFixed(2) +
-      '%;background:' + resolveVar(e.color, wrap) + '" data-label="' + escapeHtml(e.label) + '" data-value="' + fmtMoney(e.value) + ' (' + pct + '%)">' +
+      '%;background:' + resolveVar(e.color, wrap) + '" data-tip="' + e.tip + '">' +
       '<span class="tm-emoji" aria-hidden="true">' + escapeHtml(e.emoji) + '</span>' + (big ? '<span class="tm-name">' + escapeHtml(e.label) + '</span>' : '') + (mid || big ? '<span class="tm-pct">' + pct + '%</span>' : '') + '</div>';
   }).join('') + '</div>';
 }
@@ -754,7 +805,7 @@ export function renderBarChart(){
     var sub = d.now ? 'hoje' : d.p.forecast ? 'previsão' : "'" + d.year;
     return '<g class="bar-group' + (d.sel ? ' sel' : '') + '" data-off="' + d.off + '" >' +
       '<rect class="bar-hit" x="' + gx + '" y="' + padT + '" width="' + groupW + '" height="' + (plotH + padB - 2) + '" rx="8" fill="' + (d.sel ? selColor : 'transparent') + '" fill-opacity="' + (d.sel ? '.1' : '0') + '"></rect>' +
-      bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'gInc', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Gastos', 'gExp', 'hExp', idx, expColor, d) +
+      bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'gInc', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Seus gastos', 'gExp', 'hExp', idx, expColor, d) +
       '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="' + (n > 6 ? 8 : 10) + '" font-weight="' + (d.sel ? 700 : 500) + '" fill="' + (d.sel ? 'var(--text-primary)' : 'var(--text-secondary)') + '">' + d.label + '</text>' +
       '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">' + sub + '</text></g>';
   }).join('');
@@ -762,10 +813,16 @@ export function renderBarChart(){
     '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '" stroke="var(--baseline)" stroke-width="1"></line>' + groups + '</svg>';
   var legend = '<div class="legend">' +
     '<span class="legend-item"><span class="legend-swatch" style="background:' + incColor + '"></span>Ganhos</span>' +
-    '<span class="legend-item"><span class="legend-swatch" style="background:' + expColor + '"></span>Gastos</span>' +
+    '<span class="legend-item"><span class="legend-swatch" style="background:' + expColor + '"></span>Seus gastos</span>' +
     '<span class="legend-item"><span class="legend-swatch hatch"></span>Previsto (contas fixas e entradas esperadas)</span></div>';
   var sel = data.filter(function(d){ return d.sel; })[0];
-  var cap = sel ? '<p class="chart-note"><strong>' + escapeHtml(sel.full) + '</strong>: ganhos ' + fmtMoney(sel.p.inc) + ' · gastos ' + fmtMoney(sel.p.exp) + ' · saldo <strong class="' + (sel.p.inc - sel.p.exp < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sel.p.inc - sel.p.exp) + '</strong>' + (sel.p.forecast ? ' (previsão)' : '') + '</p>' : '';
+  var cap = '';
+  if (sel){
+    var oth = monthOthers(sel.p.key), tot = money(sel.p.exp + oth), sMine = money(sel.p.inc - sel.p.exp), sAll = money(sel.p.inc - tot);
+    function sv(v){ return '<strong class="' + (v < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(v) + '</strong>'; }
+    cap = '<p class="chart-note"><strong>' + escapeHtml(sel.full) + '</strong>: ganhos ' + fmtMoney(sel.p.inc) + ' · gastos ' + fmtMoney(tot) + (oth > 0.004 ? ' (seus ' + fmtMoney(sel.p.exp) + ')' : '') +
+      ' · saldo ' + sv(oth > 0.004 ? sAll : sMine) + (oth > 0.004 ? ' (só com os seus gastos: ' + sv(sMine) + ')' : '') + (sel.p.forecast ? ' · previsão' : '') + '</p>';
+  }
   // Médias dos meses já vividos da janela (só o que foi registrado, sem previsão).
   var past = data.filter(function(d){ return d.off <= 0 && (d.p.incReg || d.p.expReg); });
   var stats = '';

@@ -314,7 +314,9 @@ details.table-toggle{ overflow-x:auto; }
 .tile.tile-sm .tile-val{ font-size:1.1rem; }
 
 svg text{ fill: var(--text-secondary); font-family: "IBM Plex Sans", sans-serif; }
-.chart-tooltip{ position:absolute; pointer-events:none; background: var(--text-primary); color: var(--bg); font-size:.76rem; padding:6px 9px; border-radius:7px; white-space:nowrap; transform: translate(-50%,-115%); z-index:5; box-shadow: var(--shadow); }
+.chart-tooltip{ position:absolute; pointer-events:none; display:grid; gap:2px; background: var(--text-primary); color: var(--bg); font-size:.8rem; line-height:1.3; padding:8px 11px; border-radius:9px; max-width:min(300px, calc(100vw - 16px)); z-index:60; box-shadow: 0 8px 24px rgba(0,0,0,.28); }
+.chart-tooltip strong{ font-weight:700; }
+.chart-tooltip span{ opacity:.92; }
 .chart-wrap{ position:relative; }
 
 @media (max-width: 860px){
@@ -761,8 +763,8 @@ a.sum-row-link:hover, a.sum-row-link:focus-visible{ background: var(--surface-2)
 .sum-card-wide{ grid-column: 1 / -1; }
 /* Gastos do mês: por banco, o que foi pago e o que falta (tabelinha de 3 colunas). */
 .bank-pay{ display:grid; font-size:.84rem; }
-.bp-row{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; gap:12px; align-items:center; padding:6px 6px; margin-inline:-6px; border-radius:8px; color:inherit; text-decoration:none; }
-.bp-row > :nth-child(n+2){ text-align:right; min-width:84px; }
+.bp-row{ display:grid; grid-template-columns: minmax(0,1fr) auto auto auto; gap:12px; align-items:center; padding:6px 6px; margin-inline:-6px; border-radius:8px; color:inherit; text-decoration:none; }
+.bp-row > :nth-child(n+2){ text-align:right; min-width:76px; }
 .bp-row > :first-child{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 a.bp-row:hover, a.bp-row:focus-visible{ background: var(--surface-2); }
 .bp-head{ font-size:.72rem; font-weight:700; color: var(--text-muted); text-transform:uppercase; letter-spacing:.04em; padding-block:2px; }
@@ -1136,6 +1138,11 @@ i.inv-key{ display:inline-block; width:10px; height:10px; border-radius:3px; mar
 .inv-late .ico{ color: var(--critical); flex:none; }
 .inv-late span{ flex:1 1 220px; }
 
+/* Totais de relatórios (cartão e faturas): três blocos lado a lado */
+.inv-total{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+.inv-total > div{ display:grid; gap:2px; align-content:start; }
+.inv-total strong{ font-size:1.25rem; }
+@media (max-width:620px){ .inv-total{ grid-template-columns: 1fr 1fr; } .inv-total > div:first-child{ grid-column: 1 / -1; } }
 /* Início: quadros do mês lado a lado (faturas e crédito × débito) */
 .inv-key.credit, .inv-seg.credit{ background: var(--cat-7); }
 .inv-key.debit, .inv-seg.debit{ background: var(--cat-3); }
@@ -1570,3 +1577,36 @@ details.research-optin{ padding:0; gap:0; }
 .new-item-form .field :is(input, select):not([type=checkbox]):not([type=radio]), .new-item-form .money-input{ min-height:44px; box-sizing:border-box; }
 .new-item-form .money-input input{ min-height:0; }
 .new-item-form:not(:has(.f-submit-inline)){ align-items:start; }
+
+/* Números do mês: total × realmente meu */
+.tile-two{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:.82rem; color: var(--text-secondary); }
+.tile-two strong{ color: var(--text-primary); font-size:.95rem; }
+.tile-two-big{ font-size:.84rem; margin-top:4px; }
+.tile-two-big strong{ font-size:1.2rem; }
+.tile-two-big strong.neg-text{ color: var(--critical); } .tile-two-big strong.pos-text{ color: var(--good); }
+.sum-line{ display:block; }
+.sum-explain{ margin-top:8px; font-size:.78rem; text-transform:none; letter-spacing:0; font-weight:400; color: var(--text-secondary); }
+.donut-controls{ display:grid; gap:8px; justify-items:center; margin: -4px 0 14px; }
+.donut-controls .donut-style{ margin:0; }
+
+/* Ajuda e sugestões: confirmação de envio */
+.fb-done{ display:grid; justify-items:center; gap:8px; padding:26px 8px 14px; text-align:center; animation: fbIn .25s ease-out both; }
+.fb-done strong{ font-size:1.15rem; }
+.fb-done p{ margin:0; color: var(--text-secondary); }
+.fb-done-ico{ display:grid; place-items:center; width:56px; height:56px; border-radius:50%; background: var(--brand); color:#fff; }
+.fb-done-ico .ico{ width:30px; height:30px; stroke:#fff; }
+@keyframes fbIn{ from{ opacity:0; transform: scale(.94); } to{ opacity:1; transform:none; } }
+
+/* Resumo da lista de lançamentos: em partes que quebram de linha inteiras (sem hifenizar valores) */
+#txSummary{ display:flex; flex-wrap:wrap; gap:2px 14px; text-align:left; hyphens:manual; -webkit-hyphens:manual; }
+#txSummary > span{ white-space:normal; }
+@media (max-width: 620px){
+  /* Lançamentos no celular: nome, etiquetas e valor sem se atropelar */
+  .tx-row{ align-items:flex-start; gap:10px; }
+  .tx-desc{ display:block; }
+  .tx-name{ display:block; overflow-wrap:anywhere; }
+  .tx-tags{ display:flex; margin-top:4px; }
+  .tx-row .tx-tag{ white-space:normal; }
+  .tx-amount{ white-space:nowrap; padding-top:1px; }
+  .tx-row .tx-del{ flex:none; }
+}

@@ -60,7 +60,7 @@ L.run(async ({page}) => {
   L.section('Ano');
   await page.click('[data-txview="year"]'); await L.sleep(150);
   L.ok(await L.text(page, '#txMonthLabel') === cur.slice(0, 4) && await page.$$eval('#txCal [data-cal-month]', c => c.length) === 12, 'ano: 12 meses');
-  L.ok(/Ano de \d{4} · ganhos R\$\s?1\.500,00/.test(await L.text(page, '#txSummary')), 'resumo do ano');
+  L.ok(/Ano de \d{4} ganhos R\$\s?1\.500,00/.test(await L.text(page, '#txSummary')), 'resumo do ano');
   await page.click('[data-cal-month="' + cur + '"]'); await L.sleep(150);
   L.ok(await page.$eval('[data-txview="cal"]', el => el.getAttribute('aria-pressed')) === 'true' && (await L.text(page, '#txMonthLabel')).length > 4, 'tocar no mês abre o calendário dele');
   await L.reload(page); await L.tab(page, 'lancamentos');

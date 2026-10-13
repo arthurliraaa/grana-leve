@@ -283,10 +283,16 @@
               <h3 id="donutTitle">Gastos por categoria</h3>
               <button class="linklike" type="button" data-view-toggle="donut">Ver como tabela</button>
             </div>
+            <div class="donut-controls">
+            <div class="segmented seg-sm donut-style" id="donutScope" role="group" aria-label="O que o gráfico mostra">
+              <button type="button" data-donut-scope="all" aria-pressed="true">Tudo</button>
+              <button type="button" data-donut-scope="mine" aria-pressed="false">Somente meus gastos</button>
+            </div>
             <div class="segmented seg-sm donut-style" id="donutStyle" role="group" aria-label="Estilo do gráfico">
               <button type="button" data-donut-style="rosca" aria-pressed="true">Rosca</button>
               <button type="button" data-donut-style="pizza" aria-pressed="false">Pizza</button>
               <button type="button" data-donut-style="blocos" aria-pressed="false">Blocos</button>
+            </div>
             </div>
             <div class="chart-wrap" id="donutWrap"></div>
           </div>
@@ -770,7 +776,7 @@
   <a class="bn-item" href="#/inicio" data-tab="dashboard"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span>Início</span></a>
   <a class="bn-item" href="#/lancamentos" data-tab="lancamentos"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg><span>Ganhos e gastos</span></a>
   <button class="fab" id="fabAdd" type="button" aria-label="Lançar gasto ou ganho" title="Lançar gasto ou ganho"><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg></button>
-  <a class="bn-item" href="#/planejar" data-tab="limites"><svg class="ico" aria-hidden="true"><use href="#i-pie"/></svg><span>Planejar</span></a>
+  <a class="bn-item" href="#/contas" data-tab="cartoes"><svg class="ico" aria-hidden="true"><use href="#i-card"/></svg><span>Cartões</span></a>
   <button class="bn-item" type="button" id="moreBtn" aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg><span>Mais</span></button>
 </nav>
 

@@ -23,10 +23,10 @@ L.run(async ({page}) => {
   L.ok(/Falta pagar R\$\s?340,00 neste mês/.test(await L.text(page, card2)), 'falta pagar: 200 da fatura (300 − 100 adiantados) + 100 da conta fixa + 40 agendado');
   await page.click('[data-sum-more="2"]'); await L.sleep(120);
   const rows = await page.$$eval('#sumD2 .bp-row', els => els.map(e => [...e.children].map(c => c.textContent.trim()).join(' | ')));
-  L.ok(rows.some(r => /^Inter \| R\$\s?150,00 \| R\$\s?300,00$/.test(r)),
+  L.ok(rows.some(r => /^Inter \| R\$\s?150,00 \| R\$\s?300,00 \| R\$\s?300,00$/.test(r)),
     'Inter: pagou 150 (padaria 50 + 100 adiantados), falta 300 (fatura 200 + Internet 100)');
-  L.ok(rows.some(r => /^Dinheiro \| R\$\s?0,00 \| R\$\s?40,00$/.test(r)), 'Dinheiro: falta o gasto agendado (40)');
-  L.ok(rows.some(r => /^Total \| R\$\s?150,00 \| R\$\s?340,00$/.test(r)), 'linha de total');
+  L.ok(rows.some(r => /^Dinheiro \| R\$\s?0,00 \| R\$\s?40,00 \| R\$\s?40,00$/.test(r)), 'Dinheiro: falta o gasto agendado (40)');
+  L.ok(rows.some(r => /^Total \| R\$\s?150,00 \| R\$\s?340,00 \| R\$\s?340,00$/.test(r)), 'linha de total');
   L.ok(!/Onde mais gastou/.test(await L.text(page, '#sumD2')), 'o detalhe mostra pagamentos por banco, não “onde mais gastou”');
   await page.click('#sumD2 a.bp-row'); await L.sleep(200);
   L.ok(!(await page.$eval('#tab-cartoes', el => el.hidden)), 'tocar no banco abre Contas e cartões');

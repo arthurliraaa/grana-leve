@@ -293,9 +293,10 @@ export function renderTransactionsTab(){
   var expense = sum(expenseTx, myShare);
   var onCard = sum(expenseTx.filter(function(t){ return t.paymentMethod==='cartao'; }), myShare);
   var onVale = sum(expenseTx.filter(function(t){ return t.paymentMethod==='vale'; }), myShare);
-  document.getElementById('txSummary').textContent = (filtering ? 'Filtrando: ' : '') + tx.length + ' lançamento(s) · ganhos ' + fmtMoney(income) + ' · gastos ' + fmtMoney(expense) +
-    (onCard ? ' (no cartão ' + fmtMoney(onCard) + ')' : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '') +
-    (others ? ' · pagos por outras pessoas ' + fmtMoney(others) + ' (fora dos gastos)' : '');
+  // Os gastos aparecem como total (tudo o que saiu) e, se houver, a divisão entre o que é meu e de outras pessoas.
+  var bits = [(filtering ? 'Filtrando: ' : '') + tx.length + ' lançamento(s)', 'ganhos ' + fmtMoney(income),
+    'gastos ' + fmtMoney(expense + others) + (others > 0.004 ? ' (seus ' + fmtMoney(expense) + ' · de outras pessoas ' + fmtMoney(others) + ')' : '') + (onCard ? ' · no cartão ' + fmtMoney(onCard) : '') + (onVale ? ' · no vale ' + fmtMoney(onVale) : '')];
+  document.getElementById('txSummary').innerHTML = bits.map(function(x){ return '<span>' + escapeHtml(x) + '</span>'; }).join(' ');
   var list = document.getElementById('txList');
   if (view === 'cal'){ renderTxCalendar(mb, tx, list); return; }
   if (!tx.length){ list.innerHTML = purchaseNotices(mb.key) + '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
@@ -344,15 +345,18 @@ export function renderTxCalendar(mb, tx, list){
     (d.tx.length ? sortTxView(d.tx).map(txRowHtml).join('') : '<p class="tx-meta">Nenhum lançamento neste dia.</p>') + dayEventsHtml(d.events);
 }
 export function renderTxYear(mb){
-  var year = mb.key.slice(0, 4), months = [], totInc = 0, totExp = 0;
+  var year = mb.key.slice(0, 4), months = [], totInc = 0, totExp = 0, totOth = 0;
   for (var m = 1; m <= 12; m++){
     var key = year + '-' + (m < 10 ? '0' : '') + m, tx = filterTransactions(txForMonth(key));
     var inc = sum(tx.filter(function(t){ return t.type === 'income' && isPersonal(t); }), function(t){ return t.amount; });
     var exp = sum(tx.filter(function(t){ return t.type === 'expense'; }), myShare);
-    totInc += inc; totExp += exp;
+    totInc += inc; totExp += exp; totOth += sum(tx, othersShare);
     months.push({key: key, income: money(inc), expense: money(exp)});
   }
-  document.getElementById('txSummary').textContent = (isFiltering() ? 'Filtrando: ' : '') + 'Ano de ' + year + ' · ganhos ' + fmtMoney(totInc) + ' · gastos ' + fmtMoney(totExp) + ' · saldo ' + fmtMoney(totInc - totExp);
+  var yb = [(isFiltering() ? 'Filtrando: ' : '') + 'Ano de ' + year, 'ganhos ' + fmtMoney(totInc),
+    'gastos ' + fmtMoney(totExp + totOth) + (totOth > 0.004 ? ' (seus ' + fmtMoney(totExp) + ' · de outras pessoas ' + fmtMoney(totOth) + ')' : ''),
+    'saldo ' + fmtMoney(totInc - totExp) + (totOth > 0.004 ? ' (só com os seus gastos)' : '')];
+  document.getElementById('txSummary').innerHTML = yb.map(function(x){ return '<span>' + escapeHtml(x) + '</span>'; }).join(' ');
   document.getElementById('txCal').innerHTML = yearHtml(year, months, monthBounds(0).key);
   document.getElementById('txList').innerHTML = '<p class="tx-meta">Toque num mês para ver o calendário dele.</p>';
 }

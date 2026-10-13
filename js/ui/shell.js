@@ -25,7 +25,7 @@ import {openFeedback} from './feedback.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
-import {openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDonutStyle, toggleDashView} from './home-tab.js';
+import {openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
@@ -219,7 +219,7 @@ export function showTab(name){
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   // Áreas que só aparecem no "Mais" do celular deixam o "Mais" marcado.
-  document.getElementById('moreBtn').classList.toggle('active', ['dashboard','lancamentos','limites'].indexOf(name) < 0);
+  document.getElementById('moreBtn').classList.toggle('active', ['dashboard','lancamentos','cartoes'].indexOf(name) < 0);
   TABS.forEach(function(t){ document.getElementById('tab-' + t).hidden = (t !== name); });
   // Cada troca de área vira uma entrada no histórico (o Voltar do navegador volta à área anterior);
   // ao entrar no app, só corrige o endereço.
@@ -235,7 +235,7 @@ export function showTab(name){
 
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 export async function openMoreMenu(){
-  var items = [['cartoes','wallet','Contas e cartões'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
+  var items = [['limites','pie','Planejar gastos'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
     ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões'], ['perfil','user','Perfil e conta']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
   await openModal({
     title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',
@@ -276,6 +276,7 @@ export function showAuthTab(name){
 export async function enterApp(profileHint){
   setPrefsOwner(k());
   document.getElementById('txSort').value = TX_SORTS[getPrefs().txSort] ? getPrefs().txSort : 'recent';
+  State.donutScope = getPrefs().donutScope === 'mine' ? 'mine' : 'all';
   State.donutStyle = ['rosca', 'pizza', 'blocos'].indexOf(getPrefs().donutStyle) >= 0 ? getPrefs().donutStyle : 'rosca';
   State.txView = ['list', 'cal', 'year'].indexOf(getPrefs().txView) >= 0 ? getPrefs().txView : 'list';
   qsa('[data-txview]').forEach(function(b){ var on = b.getAttribute('data-txview') === State.txView; b.classList.toggle('active', on); b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
@@ -551,6 +552,7 @@ export function wireShell(){
       return;
     }
     if ((el = t.closest('[data-donut-style]'))){ setDonutStyle(el.getAttribute('data-donut-style')); return; }
+    if ((el = t.closest('[data-donut-scope]'))){ setDonutScope(el.getAttribute('data-donut-scope')); return; }
     if ((el = t.closest('[data-view-toggle]'))){
       var which = el.getAttribute('data-view-toggle');
       if (which === 'donut'){ State.donutView = State.donutView === 'chart' ? 'table' : 'chart'; renderDonut(); }

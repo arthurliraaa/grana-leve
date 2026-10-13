@@ -23,8 +23,8 @@ L.run(async ({page}) => {
 
   L.section('Situação do mês numa frase');
   const status = await L.text(page, '#monthStatus');
-  L.ok(/Até hoje entraram R\$\s?3\.000,00 e saíram R\$\s?\d/.test(status), 'diz quanto entrou e quanto saiu até hoje');
-  L.ok(/termina com R\$/.test(status) || /saldo do mês de R\$/.test(status), 'diz com quanto termina o mês');
+  L.ok(/Até hoje entraram R\$\s?3\.000,00.*Saíram R\$\s?\d/.test(status), 'diz quanto entrou e quanto saiu até hoje');
+  L.ok(/Saldo do mês: R\$/.test(status), 'diz o saldo do mês');
 
   L.section('Parcelas: quantas foram e quantas faltam');
   L.ok(await page.evaluate(() => { const p = document.getElementById('parcelsCard'), r = document.getElementById('recentTxList').closest('.card'); return p.nextElementSibling === r; }), 'o quadro fica logo antes de “Últimos lançamentos”');
