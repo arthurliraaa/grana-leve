@@ -31,5 +31,5 @@ L.run(async ({page}) => {
   await L.tab(page, 'dashboard');
   L.ok(await tile('Gastos do mês') === 200 && await tile('Ganhos do mês') === 0, 'depois: o total continua 200 e a devolução não conta como ganho');
   const seus = await page.evaluate(() => [...document.querySelectorAll('#statTiles .tile')].find(x => x.querySelector('.tile-lbl').textContent === 'Gastos do mês').querySelector('.tile-sub').textContent);
-  L.ok(/Seus\s*R\$\s?100,00/.test(seus) && /De outras pessoas\s*R\$\s?100,00/.test(seus), 'o gasto da Maria aparece como dela: seus 100 e de outras pessoas 100');
+  L.ok(/Seus\s*R\$\s?100,00/.test(seus) && /Outras pessoas\s*R\$\s?100,00/.test(seus), 'o gasto da Maria aparece como dela: seus 100 e de outras pessoas 100');
 });

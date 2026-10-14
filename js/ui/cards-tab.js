@@ -159,7 +159,7 @@ export function renderWalletSummary(){
     (showCards ? (cash !== null ? '<span class="ws-op" aria-hidden="true">−</span>' : '') + box('Faturas a pagar', rest, rest > 0 ? 'Desse total, seu: ' + fmtMoney(mp.invoicesMine) : 'nenhuma fatura a pagar neste mês') : '') +
     (cash !== null && showCards ? '<span class="ws-op" aria-hidden="true">=</span>' + (Math.abs(after - afterMine) < 0.005 ? box('Sobra depois de pagar', after, '', after < 0 ? 'neg-text' : '') :
       '<div class="ws-box"><span class="tile-lbl">Sobra depois de pagar</span><span class="tile-sub">' +
-      two('Com a fatura total', after, after < 0 ? 'neg-text' : 'pos-text', true) + two('Só com a minha parte', afterMine, afterMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>') : '') +
+      two('Fatura total', after, after < 0 ? 'neg-text' : 'pos-text', true) + two('Só a minha parte', afterMine, afterMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>') : '') +
     '</div>' +
     (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas que vencem neste mês (o que você já pagou ou adiantou não entra), com tudo o que está nelas, inclusive a parte de outras pessoas.</p>' : '');
 }
