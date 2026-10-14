@@ -34,7 +34,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#txFilterType', 'all');
   await L.tab(page, 'dashboard');
   let g = await tile('Gastos do mês');
-  L.ok(L.moneyOf(g.val) === 100 && /Seus\s*R\$\s?0,00/.test(g.sub) && /De outras pessoas\s*R\$\s?100,00/.test(g.sub), 'painel: o total (100) aparece, com os seus gastos (0) e os de outras pessoas (100) separados');
+  L.ok(L.moneyOf(g.val) === 100 && /Seus\s*R\$\s?0,00/.test(g.sub) && /Outras pessoas\s*R\$\s?100,00/.test(g.sub), 'painel: o total (100) aparece, com os seus gastos (0) e os de outras pessoas (100) separados');
   await L.tab(page, 'cartoes');
   L.ok(await bal() === 900, 'o dinheiro saiu da conta (1000 → 900)');
 
@@ -66,7 +66,7 @@ L.run(async ({page}) => {
   L.ok(/Não vai devolver \(R\$\s?40,00\)/.test(await L.text(page, '#recvGrid')), 'Me devem mostra “não vai devolver”');
   await L.tab(page, 'dashboard');
   const gm = await tile('Gastos do mês');
-  L.ok(L.moneyOf(gm.val) === 100 && /Seus\s*R\$\s?40,00/.test(gm.sub) && /De outras pessoas\s*R\$\s?60,00/.test(gm.sub) && L.moneyOf((await tile('A receber neste mês')).val) === 0, 'painel: total 100 = 40 seus (o que não vai ser devolvido) + 60 que a Maria devolveu; nada a receber');
+  L.ok(L.moneyOf(gm.val) === 100 && /Seus\s*R\$\s?40,00/.test(gm.sub) && /Outras pessoas\s*R\$\s?60,00/.test(gm.sub) && L.moneyOf((await tile('A receber neste mês')).val) === 0, 'painel: total 100 = 40 seus (o que não vai ser devolvido) + 60 que a Maria devolveu; nada a receber');
   await L.tab(page, 'cartoes');
   L.ok(await bal() === 960, 'saldo continua 960');
 

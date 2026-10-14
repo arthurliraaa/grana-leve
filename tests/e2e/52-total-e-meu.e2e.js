@@ -29,13 +29,13 @@ L.run(async ({page}) => {
   L.ok(/Saldo do mês: R\$\s?2\.700,00 com a fatura total e R\$\s?3\.000,00 só com os seus gastos/.test(status), 'dois saldos: com a fatura total (3.100 − 400) e só com os seus gastos (3.100 − 100)');
   const tile = async l => page.evaluate(x => { const t = [...document.querySelectorAll('#statTiles .tile')].find(e => e.querySelector('.tile-lbl').textContent === x); return t ? {text: t.textContent.replace(/\s+/g, ' ').trim(), val: (t.querySelector('.tile-val') || {}).textContent || ''} : null; }, l);
   let g = await tile('Gastos do mês');
-  L.ok(L.moneyOf(g.val) === 900 && /Seus\s*R\$\s?300,00/.test(g.text) && /De outras pessoas\s*R\$\s?600,00/.test(g.text), 'Gastos do mês: total 900, seus 300 e de outras pessoas 600');
+  L.ok(L.moneyOf(g.val) === 900 && /Seus\s*R\$\s?300,00/.test(g.text) && /Outras pessoas\s*R\$\s?600,00/.test(g.text), 'Gastos do mês: total 900, seus 300 e de outras pessoas 600');
   const f = await tile('Falta pagar');
   L.ok(L.moneyOf(f.val) === 400 && /Desse total, seu\s*R\$\s?100,00/.test(f.text), 'Falta pagar: o total da fatura (400) e quanto é seu (100)');
   const s = await tile('Saldo do mês');
-  L.ok(/Com a fatura total\s*R\$\s?2\.700,00/.test(s.text) && /Só com os meus gastos\s*R\$\s?3\.000,00/.test(s.text), 'Saldo do mês: duas opções');
+  L.ok(/Fatura total\s*R\$\s?2\.700,00/.test(s.text) && /Só meus gastos\s*R\$\s?3\.000,00/.test(s.text), 'Saldo do mês: duas opções');
   const g1 = await tile('Ganhos do mês');
-  L.ok(L.moneyOf(g1.val) === 1000 && /^Ganhos do mês\s*R\$\s?1\.000,00$/.test(g1.text), 'Ganhos do mês sem textos auxiliares');
+  L.ok(L.moneyOf(g1.val) === 1000 && /^Ganhos do mês\s*R\$\s?1\.000,00\s*Nas contas hoje\s*R\$\s?3\.100,00$/.test(g1.text), 'Ganhos do mês: o valor e quanto há nas contas hoje');
 
   const gaps = await page.$$eval('#statTiles .tile', els => els.filter(t => t.querySelector('.tile-val')).map(t => t.querySelector('.tile-val').getBoundingClientRect().top - t.querySelector('.tile-lbl').getBoundingClientRect().bottom));
   L.ok(gaps.length >= 3 && gaps.every(g => g < 12), 'em todos os quadros o valor fica logo abaixo do rótulo (sem espaço em branco no meio)');
@@ -76,7 +76,7 @@ L.run(async ({page}) => {
   L.section('Contas e cartões');
   await L.tab(page, 'cartoes');
   const ws = await L.text(page, '#walletSummary');
-  L.ok(/Faturas a pagar\s*R\$\s?400,00\s*Desse total, seu: R\$\s?100,00/.test(ws) && /Sobra depois de pagar\s*Com a fatura total\s*R\$\s?2\.700,00\s*Só com a minha parte\s*R\$\s?3\.000,00/.test(ws), 'faturas a pagar: total 400 e quanto é seu; sobra em duas opções: 2.700 com a fatura total e 3.000 só com a minha parte');
+  L.ok(/Faturas a pagar\s*R\$\s?400,00\s*Desse total, seu: R\$\s?100,00/.test(ws) && /Sobra depois de pagar\s*Fatura total\s*R\$\s?2\.700,00\s*Só a minha parte\s*R\$\s?3\.000,00/.test(ws), 'faturas a pagar: total 400 e quanto é seu; sobra em duas opções: 2.700 com a fatura total e 3.000 só com a minha parte');
 
   L.section('Lista de lançamentos');
   await L.tab(page, 'lancamentos');

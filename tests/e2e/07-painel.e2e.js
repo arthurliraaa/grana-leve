@@ -39,7 +39,7 @@ L.run(async ({page}) => {
   } else {
     L.ok(/fecham o mês em R\$\s?2\.100,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 400 = 2.100');
   }
-  L.ok(!inc.sub && !bal.sub, 'os quadros de ganhos e saldo não trazem textos auxiliares');
+  L.ok(/Esperado ainda\s*R\$\s?(450|400),00/.test(inc.sub) && !bal.sub, 'Ganhos mostra o que ainda se espera (previsões) e o saldo não traz texto auxiliar');
 
   L.section('Faturas a pagar');
   await L.addCard(page, 'Inter', 5000, 3, 10);
