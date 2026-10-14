@@ -153,6 +153,7 @@ export var State = {
   invoiceOffsets: {},
   goalFilter: 'andamento',
   donutView: 'chart',
+  dashSec: 'numeros',  // detalhes do mês: numeros, graficos ou analises
   donutScope: 'all',   // gastos por categoria: 'all' (tudo, inclusive de outras pessoas) ou 'mine' (só os meus)
   donutStyle: 'rosca',   // rosca, pizza ou blocos (lembrado por conta)
   barView: 'chart',

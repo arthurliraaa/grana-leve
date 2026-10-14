@@ -1569,11 +1569,6 @@ details.research-optin{ padding:0; gap:0; }
 .dash-grid .donut-layout{ flex:1; align-content:space-between; }
 .dash-grid .cat-rank{ align-content:space-between; }
 .dash-grid .chart-note{ margin-bottom:0; }
-.bar-stats{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-top:16px; }
-.bar-stat{ display:grid; gap:2px; align-content:start; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background: var(--surface-2); }
-.bar-stat strong{ font-size:1rem; }
-@media (max-width: 480px){ .bar-stat{ padding:8px 9px; } .bar-stat strong{ font-size:.88rem; } .bar-stat .kpi-lbl{ font-size:.66rem; } }
-
 /* Metas: nome mais largo e rótulos alinhados pelo topo */
 @media (min-width: 621px){ #goalForm > .field:first-child{ grid-column: span 2; } }
 /* Campos de formulário na mesma altura (texto, seleção, data e valor), para os rótulos alinharem */
@@ -1674,3 +1669,39 @@ details.research-optin{ padding:0; gap:0; }
 /* Conexões: o que sobra de altura se reparte entre os blocos do cartão */
 .conn-card{ align-content:space-between; }
 .tile > .tile-sub:has(.tr), .ws-box > .tile-sub:has(.tr){ justify-self:stretch; width:100%; }
+
+/* Detalhes do mês em três partes */
+.dash-sec:not([hidden]){ display:grid; gap:22px; min-width:0; }
+.dash-sections{ margin-bottom:-6px; }
+
+/* Botão “i” de explicação ao lado de um rótulo */
+.info-i{ display:inline-grid; place-items:center; width:18px; height:18px; margin-left:4px; padding:0; border-radius:50%; border:1px solid var(--border); background: var(--surface-2); color: var(--text-secondary); font:700 .7rem/1 "IBM Plex Sans", sans-serif; font-style:italic; cursor:pointer; vertical-align:1px; }
+.info-i:hover, .info-i:focus-visible{ color: var(--brand); border-color: var(--brand); }
+@media (max-width: 620px){ .info-i{ width:24px; height:24px; min-width:24px; min-height:24px; } }
+
+/* Início: primeiros passos (conta nova) */
+.first-steps{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius); padding:16px 18px; display:grid; gap:12px; }
+.fs-head{ display:flex; align-items:center; gap:10px; }
+.fs-head h3{ margin:0; font-size:1.02rem; }
+.fs-count{ font-size:.78rem; font-weight:700; color: var(--brand); background: var(--brand-tint); padding:2px 8px; border-radius:999px; }
+.fs-head .linklike{ margin-left:auto; }
+.fs-bar{ display:block; height:6px; border-radius:6px; background: var(--gridline); overflow:hidden; }
+.fs-bar > span{ display:block; height:100%; background: var(--brand); border-radius:6px; }
+.fs-list{ list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+.fs-list li{ display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:center; }
+.fs-dot{ display:grid; place-items:center; width:28px; height:28px; border-radius:50%; border:2px solid var(--border); font-weight:700; font-size:.85rem; color: var(--text-secondary); }
+.fs-list li.done .fs-dot{ background: var(--brand); border-color: var(--brand); color:#fff; }
+.fs-list li.done .fs-dot .ico{ width:16px; height:16px; stroke:#fff; }
+.fs-list li.next .fs-dot{ border-color: var(--brand); color: var(--brand); }
+.fs-txt{ display:grid; gap:1px; min-width:0; }
+.fs-txt small{ color: var(--text-secondary); font-size:.82rem; }
+.fs-list li.done .fs-txt strong{ color: var(--text-secondary); text-decoration: line-through; text-decoration-color: var(--text-muted); }
+@media (max-width: 520px){ .fs-list li{ grid-template-columns:auto minmax(0,1fr); } .fs-list li > .btn{ grid-column: 2; justify-self:start; } }
+
+/* Quadro estreito: rótulo em cima, valor embaixo (não quebra o rótulo em três linhas) */
+.tile, .ws-box{ container-type: inline-size; }
+@container (max-width: 230px){
+  .tr{ grid-template-columns: minmax(0, 1fr); gap:0; }
+  .tr-v{ text-align:left; }
+  .tr + .tr{ margin-top:4px; }
+}

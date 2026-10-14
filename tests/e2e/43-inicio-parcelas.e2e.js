@@ -23,11 +23,11 @@ L.run(async ({page}) => {
 
   L.section('Situação do mês numa frase');
   const status = await L.text(page, '#monthStatus');
-  L.ok(/Até hoje entraram R\$\s?3\.000,00.*Saíram R\$\s?\d/.test(status), 'diz quanto entrou e quanto saiu até hoje');
+  L.ok(/Até hoje entraram R\$\s?3\.000,00 e saíram R\$\s?\d/.test(status), 'diz quanto entrou e quanto saiu até hoje');
   L.ok(/Saldo do mês: R\$/.test(status), 'diz o saldo do mês');
 
   L.section('Parcelas: quantas foram e quantas faltam');
-  L.ok(await page.evaluate(() => { const p = document.getElementById('parcelsCard'), r = document.getElementById('recentTxList').closest('.card'); return p.nextElementSibling === r; }), 'o quadro fica logo antes de “Últimos lançamentos”');
+  L.ok(await page.evaluate(() => document.getElementById('parcelsCard').closest('#dashSec-analises') !== null), 'o quadro fica em “Comparação e parcelas”, nos detalhes do mês');
   const parcels = await page.$$eval('#parcelsCard .parcel-row', rs => rs.map(r => r.textContent.replace(/\s+/g, ' ')));
   const gel = parcels.find(p => /Geladeira/.test(p)), emp = parcels.find(p => /Empréstimo/.test(p)), ing = parcels.find(p => /Ingresso/.test(p));
   L.ok(gel && /4 de 10 pagas · faltam 6 de R\$\s?120,00/.test(gel) && /Cartão Nubank/.test(gel), 'compra no cartão: 4 de 10 pagas, faltam 6');
@@ -37,7 +37,7 @@ L.run(async ({page}) => {
   L.ok(await page.$$eval('#parcelsCard .parcel-row .progress', ps => ps.length === 3), 'cada uma com barra de progresso');
 
   L.section('Janela com filtros');
-  await page.click('#dashDetailsBtn'); await L.sleep(150);
+  await L.dashSection(page, 'analises');
   await page.click('#parcelsCard button.btn[data-parcels-open]'); await L.sleep(200);
   L.ok(await L.modalTitle(page) === 'Parcelas em andamento' && await page.$$eval('#pfList .parcel-row', r => r.length) === 3, 'abre a janela com todas as parcelas');
   const names = async () => page.$$eval('#pfList .parcel-top strong', r => r.map(x => x.textContent));

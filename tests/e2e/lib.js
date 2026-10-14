@@ -54,6 +54,11 @@ export async function signup(page, opts = {}){
 export async function acceptTerms(page){
   await page.$eval('#signupTerms', el => { if (!el.checked) el.click(); });
 }
+// Detalhes do Início: abre a parte pedida (numeros, graficos ou analises).
+export async function dashSection(page, sec){
+  if (await page.$eval('#dashDetails', el => el.hidden)) await page.$eval('#dashDetailsBtn', el => el.click());
+  await page.$eval('#dashSecBtn-' + sec, el => el.click()); await sleep(200);
+}
 export async function reload(page){
   await page.reload({waitUntil: 'domcontentloaded'});
   await page.waitForSelector('#viewApp:not([hidden])');

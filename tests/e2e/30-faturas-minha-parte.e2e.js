@@ -8,7 +8,7 @@ L.run(async ({page}) => {
   let d = await L.db(page);
   const [nu, mp] = d.cards;
   await L.tab(page, 'dashboard');
-  await page.click('#dashDetailsBtn'); await L.sleep(200);
+  await L.dashSection(page, 'graficos');
   L.ok(!(await page.$eval('#invSplitCard', el => el.hidden)), 'com cartões, o quadro aparece');
 
   await L.addTx(page, {amount: 420, pay: 'card:' + nu.id, desc: 'Mercado', category: 'alimentacao'});

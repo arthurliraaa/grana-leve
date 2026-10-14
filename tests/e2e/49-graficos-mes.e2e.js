@@ -16,7 +16,7 @@ L.run(async ({page}) => {
     u.forecasts = [{id: 'f1', description: 'Freela', amount: 600, date: arg.p1, recurring: true, received: {}, createdAt: 1}];`,
     {m0: mk(0), mm1: mk(-1), p1: mk(1)});
   await L.tab(page, 'dashboard');
-  await page.click('#dashDetailsBtn'); await L.sleep(200);
+  await L.dashSection(page, 'graficos');
   const txt = sel => L.text(page, sel);
 
   L.section('Mês atual');
@@ -27,27 +27,27 @@ L.run(async ({page}) => {
   L.ok(await page.$$eval('#donutWrap .donut-seg', e => e.length) >= 2 && await page.$$eval('#barWrap .bar-group', e => e.length) === 6, 'rosca com segmentos e 6 meses de barras');
 
   L.section('Passado');
-  await page.click('#dashPrev'); await L.sleep(150);
+  await page.$eval('#dashPrev', e => e.click()); await L.sleep(150);
   L.ok(/Mês passado/.test(await txt('#dashNavBadge')) && !(await page.$eval('#dashToday', el => el.hidden)), 'mês passado, com botão para voltar');
   L.ok(/R\$\s?250,00/.test(await txt('#donutWrap')) && /janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro/.test(await txt('#dashNavLabel')), 'rosca mostra o mês passado (250)');
-  await page.click('#dashToday'); await L.sleep(150);
+  await page.$eval('#dashToday', e => e.click()); await L.sleep(150);
   L.ok(/Este mês/.test(await txt('#dashNavBadge')), '“Voltar para este mês” funciona');
 
   L.section('Futuro: previsão');
-  await page.click('#dashNext'); await L.sleep(200);
+  await page.$eval('#dashNext', e => e.click()); await L.sleep(200);
   L.ok(/Previsão · próximo mês/.test(await txt('#dashNavBadge')), 'badge diz que é previsão');
   L.ok(/Moradia.*R\$\s?900,00/.test(await txt('#donutWrap')) && /Inclui R\$\s?900,00 de contas fixas previstas/.test(await txt('#donutWrap')), 'a conta fixa (aluguel) entra na previsão do mês');
   L.ok(await page.$('#barWrap .bar-forecast') !== null && /previsão/.test(await txt('#barWrap .chart-note')), 'barras com parte hachurada (prevista)');
   L.ok(/ganhos R\$\s?600,00.*gastos R\$\s?900,00.*saldo.*-R\$\s?300,00|ganhos R\$\s?600,00.*gastos R\$\s?900,00/.test(await txt('#barWrap .chart-note')), 'resumo do mês: ganhos 600 (freela previsto), gastos 900');
   L.ok(/previsão/.test(await txt('#comparisonSummary')), 'comparação marca como previsão');
-  await page.click('#dashNext'); await page.click('#dashNext'); await L.sleep(150);
+  await page.$eval('#dashNext', e => e.click()); await page.$eval('#dashNext', e => e.click()); await L.sleep(150);
   L.ok(/daqui a 3 meses/.test(await txt('#dashNavBadge')), 'dá para ir mais longe (daqui a 3 meses)');
 
   L.section('Barras clicáveis');
-  await page.click('#dashToday'); await L.sleep(150);
+  await page.$eval('#dashToday', e => e.click()); await L.sleep(150);
   await page.$eval('#barWrap .bar-group[data-off="-3"]', g => g.dispatchEvent(new MouseEvent('click', {bubbles: true}))); await L.sleep(150);
   L.ok(/Há 3 meses/.test(await txt('#dashNavBadge')), 'tocar num mês das barras escolhe aquele mês');
-  await page.click('#dashNext'); await page.click('#dashNext'); await page.click('#dashNext'); await L.sleep(100);
+  await page.$eval('#dashNext', e => e.click()); await page.$eval('#dashNext', e => e.click()); await page.$eval('#dashNext', e => e.click()); await L.sleep(100);
   L.ok(await page.$eval('#barWrap .bar-group.sel', g => g.getAttribute('data-off')) === '0', 'o mês escolhido fica marcado nas barras');
 
   L.section('Estilos do gráfico de categorias');
@@ -60,7 +60,7 @@ L.run(async ({page}) => {
   const areas = await page.$$eval('#donutWrap .tm-block', e => e.map(b => b.getBoundingClientRect()).map(r => r.width * r.height));
   L.ok(areas[0] >= areas[areas.length - 1], 'o maior gasto ocupa o maior bloco');
   L.ok(/Moradia/.test(await txt('#donutWrap .cat-rank')), 'o ranking continua abaixo, em qualquer estilo');
-  await L.reload(page); await L.tab(page, 'dashboard'); await page.click('#dashDetailsBtn'); await L.sleep(200);
+  await L.reload(page); await L.tab(page, 'dashboard'); await L.dashSection(page, 'graficos');
   L.ok(await page.$eval('[data-donut-style="blocos"]', el => el.getAttribute('aria-pressed')) === 'true', 'o estilo escolhido é lembrado');
   await style('rosca');
 

@@ -27,6 +27,7 @@ L.run(async ({page}) => {
   L.section('Passo a passo');
   await page.click('[data-tut="next"]'); await L.sleep(250);
   L.ok(/Seu mês de relance/.test(await stepTitle()) && !(await page.$eval('.tut-spot', el => el.hidden)), 'passo 2: destaca os cartões do Início');
+  await L.sleep(400);   // o destaque acompanha a tela enquanto ela termina de montar
   const spot = await page.$eval('.tut-spot', el => { const r = el.getBoundingClientRect(); const t = document.getElementById('summaryCards').getBoundingClientRect(); return r.left <= t.left && r.top <= t.top && r.right >= t.right && r.bottom >= t.bottom; });
   L.ok(spot, 'o destaque cobre os cartões');
   await page.click('[data-tut="next"]'); await L.sleep(250);
