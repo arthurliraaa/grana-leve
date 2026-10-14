@@ -13,6 +13,15 @@ export function resolveVar(cssVarExpr, el){
   if (!m) return cssVarExpr;
   return getComputedStyle(el || document.documentElement).getPropertyValue(m[1]).trim();
 }
+// Cor do texto por cima de uma cor de fundo: branco ou tinta escura, o que tiver mais contraste.
+export function inkOn(color){
+  var hex = /^#([0-9a-f]{6})$/i.exec(String(color).trim()), rgb;
+  if (hex) rgb = [0, 2, 4].map(function(i){ return parseInt(hex[1].slice(i, i + 2), 16); });
+  else { var m = String(color).match(/\d+(\.\d+)?/g); rgb = m ? m.slice(0, 3).map(Number) : [0, 0, 0]; }
+  var lum = rgb.map(function(v){ v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  var L = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2];
+  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.057 ? "#ffffff" : "#141414";   // 0,057 = luminância de #141414 + 0,05
+}
 export function qs(sel, root){ return (root||document).querySelector(sel); }
 export function qsa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
 

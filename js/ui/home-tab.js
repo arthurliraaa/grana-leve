@@ -17,7 +17,7 @@ import {billMonth, pendingBills} from './bills.js';
 
 import {Store} from '../data/store.js';
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, qsa, escapeHtml, icon, optionsHtml, resolveVar, toast} from './dom.js';
+import {inkOn, qs, qsa, escapeHtml, icon, optionsHtml, resolveVar, toast} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {wireTooltips} from './charts.js';
 import {generateMonthlyReport} from './reports.js';
@@ -768,7 +768,7 @@ function donutSvg(entries, total, style, monthLabel, wrap){
     var frac = e.value / total, dash = Math.max(0, frac * circumference - gap), offset = -cum * circumference;
     if (pie && frac >= 0.06){
       var ang = (cum + frac / 2) * 2 * Math.PI - Math.PI / 2;
-      labels += '<text class="pie-pct" x="' + (cx + 74 * Math.cos(ang)).toFixed(1) + '" y="' + (cy + 74 * Math.sin(ang) + 4).toFixed(1) + '" text-anchor="middle">' + Math.round(100 * frac) + '%</text>';
+      labels += '<text class="pie-pct" fill="' + inkOn(resolveVar(e.color, wrap)) + '" x="' + (cx + 74 * Math.cos(ang)).toFixed(1) + '" y="' + (cy + 74 * Math.sin(ang) + 4).toFixed(1) + '" text-anchor="middle">' + Math.round(100 * frac) + '%</text>';
     }
     cum += frac;
     return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + resolveVar(e.color, wrap) + '" stroke-width="' + sw + '" stroke-linecap="butt" style="--i:' + i + '" ' +
@@ -814,7 +814,7 @@ function donutBlocks(entries, total, wrap){
   var rects = squarify(areas, 0, 0, W, H);
   return '<div class="tm" role="img" aria-label="Gastos por categoria, blocos proporcionais ao valor">' + entries.map(function(e, i){
     var q = rects[i], pct = Math.round(100 * e.value / total), big = q.w > 22 && q.h > 22, mid = q.w > 13 && q.h > 13;
-    return '<div class="tm-block' + (big ? ' big' : mid ? ' mid' : '') + '" tabindex="0" style="left:' + q.x.toFixed(2) + '%;top:' + (q.y / H * 100).toFixed(2) + '%;width:' + q.w.toFixed(2) + '%;height:' + (q.h / H * 100).toFixed(2) +
+    return '<div class="tm-block' + (big ? ' big' : mid ? ' mid' : '') + '" tabindex="0" style="color:' + inkOn(resolveVar(e.color, wrap)) + ';left:' + q.x.toFixed(2) + '%;top:' + (q.y / H * 100).toFixed(2) + '%;width:' + q.w.toFixed(2) + '%;height:' + (q.h / H * 100).toFixed(2) +
       '%;background:' + resolveVar(e.color, wrap) + '" data-tip="' + e.tip + '">' +
       '<span class="tm-emoji" aria-hidden="true">' + escapeHtml(e.emoji) + '</span>' + (big ? '<span class="tm-name">' + escapeHtml(e.label) + '</span>' : '') + (mid || big ? '<span class="tm-pct">' + pct + '%</span>' : '') + '</div>';
   }).join('') + '</div>';
@@ -853,34 +853,39 @@ function drawBars(extraH){
     return;
   }
   var max = Math.max(1, Math.max.apply(null, data.map(function(d){ return Math.max(d.p.inc, d.p.exp); })));
-  var W = 340, H = 220 + (extraH || 0), padL = 40, padB = 34, padT = 12, padR = 6;
-  var plotW = W - padL - padR, plotH = H - padT - padB, groupW = plotW / data.length, barW = Math.min(18, groupW / 2.6);
+  var W = 340, H = 220 + (extraH || 0), padL = 40, padB = 34, padT = 16, padR = 6;
+  var plotW = W - padL - padR, plotH = H - padT - padB, groupW = plotW / data.length, barW = Math.min(22, groupW / 2.7);
   var incColor = resolveVar('var(--cat-3)', wrap), expColor = resolveVar('var(--cat-8)', wrap), selColor = resolveVar('var(--brand)', wrap);
   var defs = '<defs>' +
-    '<linearGradient id="gInc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + incColor + '"/><stop offset="1" stop-color="' + incColor + '" stop-opacity=".62"/></linearGradient>' +
-    '<linearGradient id="gExp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + expColor + '"/><stop offset="1" stop-color="' + expColor + '" stop-opacity=".62"/></linearGradient>' +
     '<pattern id="hInc" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="' + incColor + '" opacity=".18"/><rect width="2" height="5" fill="' + incColor + '" opacity=".75"/></pattern>' +
     '<pattern id="hExp" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="' + expColor + '" opacity=".18"/><rect width="2" height="5" fill="' + expColor + '" opacity=".75"/></pattern></defs>';
   var grid = [0, 0.5, 1].map(function(f){
     var y = padT + plotH * (1 - f);
-    return '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="var(--gridline)" stroke-width="1"' + (f ? ' stroke-dasharray="3 4"' : '') + '></line>' +
+    return '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="var(--gridline)" stroke-width="1"></line>' +
       '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="9" fill="var(--text-muted)">' + compactMoney(max * f) + '</text>';
   }).join('');
-  function bar(x, val, extra, label, grad, hatch, idx, color, d){
+  // Coluna com a ponta de cima arredondada (4px) e a base reta, apoiada na linha de base.
+  function colPath(x, y, w, h, roundTop){
+    var r = roundTop ? Math.min(4, h, w / 2) : 0;
+    return 'M' + x + ',' + (y + h) + 'V' + (y + r) + (r ? 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y : '') + 'H' + (x + w - r) + (r ? 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) : '') + 'V' + (y + h) + 'Z';
+  }
+  function bar(x, val, extra, label, hatch, idx, color, d){
     var hTot = (val / max) * plotH, hExtra = (extra / max) * plotH, hReg = Math.max(0, hTot - hExtra), y0 = padT + plotH;
-    var tip = label + ' · ' + d.full + ': ' + fmtMoney(val) + (extra > 0 ? ' (' + fmtMoney(extra) + ' previsto)' : '');
-    var out = '';
-    if (hReg > 0.4) out += '<rect class="bar-seg" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' · ' + d.full) + '" data-value="' + fmtMoney(val) + (extra > 0 ? ' (' + fmtMoney(extra) + ' previsto)' : '') + '" x="' + x + '" y="' + (y0 - hReg) + '" width="' + barW + '" height="' + hReg + '" rx="' + Math.min(4, hReg / 2) + '" fill="url(#' + grad + ')" tabindex="0"><title>' + escapeHtml(tip) + '</title></rect>';
-    if (hExtra > 0.4) out += '<rect class="bar-seg bar-forecast" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' previsto · ' + d.full) + '" data-value="' + fmtMoney(extra) + '" x="' + x + '" y="' + (y0 - hTot) + '" width="' + barW + '" height="' + hExtra + '" rx="3" fill="url(#' + hatch + ')" stroke="' + color + '" stroke-width="1" stroke-dasharray="3 2" tabindex="0"></rect>';
+    var out = '', valTxt = fmtMoney(val) + (extra > 0 ? ' (' + fmtMoney(extra) + ' previsto)' : '');
+    if (hReg > 0.4) out += '<path class="bar-seg" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' · ' + d.full) + '" data-value="' + valTxt + '" d="' + colPath(x, y0 - hReg, barW, hReg, hExtra <= 0.4) + '" fill="' + color + '"></path>';
+    // O previsto fica em cima, com 2px de folga (a cor da superfície separa as partes).
+    if (hExtra > 0.4) out += '<path class="bar-seg bar-forecast" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' previsto · ' + d.full) + '" data-value="' + fmtMoney(extra) + '" d="' + colPath(x, y0 - hTot, barW, Math.max(0.5, hExtra - (hReg > 0.4 ? 2 : 0)), true) + '" fill="url(#' + hatch + ')"></path>';
     if (hTot <= 0.4) out += '<rect x="' + x + '" y="' + (y0 - 1.5) + '" width="' + barW + '" height="1.5" rx="1" fill="' + color + '" opacity=".4"></rect>';
+    // Rótulo só no mês escolhido (o resto fica nos eixos e nas dicas).
+    if (d.sel && val > 0) out += '<text class="bar-val" x="' + (x + barW / 2) + '" y="' + Math.max(padT + 8, y0 - hTot - 4) + '" text-anchor="middle" font-size="8.5" font-weight="600" fill="var(--text-secondary)">' + compactMoney(val) + '</text>';
     return out;
   }
   var groups = data.map(function(d, idx){
-    var gx = padL + idx * groupW, cx = gx + groupW / 2, x1 = cx - barW - 1.5, x2 = cx + 1.5;
+    var gx = padL + idx * groupW, cx = gx + groupW / 2, x1 = cx - barW - 1, x2 = cx + 1;
     var sub = d.now ? 'hoje' : d.p.forecast ? 'previsão' : "'" + d.year;
     return '<g class="bar-group' + (d.sel ? ' sel' : '') + '" data-off="' + d.off + '" >' +
-      '<rect class="bar-hit" x="' + gx + '" y="' + padT + '" width="' + groupW + '" height="' + (plotH + padB - 2) + '" rx="8" fill="' + (d.sel ? selColor : 'transparent') + '" fill-opacity="' + (d.sel ? '.1' : '0') + '"></rect>' +
-      bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'gInc', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Seus gastos', 'gExp', 'hExp', idx, expColor, d) +
+      '<rect class="bar-hit" x="' + gx + '" y="' + padT + '" width="' + groupW + '" height="' + (plotH + padB - 2) + '" rx="8" fill="' + (d.sel ? selColor : 'transparent') + '" fill-opacity="' + (d.sel ? '.08' : '0') + '"></rect>' +
+      bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Seus gastos', 'hExp', idx, expColor, d) +
       '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="' + (n > 6 ? 8 : 10) + '" font-weight="' + (d.sel ? 700 : 500) + '" fill="' + (d.sel ? 'var(--text-primary)' : 'var(--text-secondary)') + '">' + d.label + '</text>' +
       '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">' + sub + '</text></g>';
   }).join('');
