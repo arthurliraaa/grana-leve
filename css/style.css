@@ -1566,10 +1566,11 @@ details.research-optin{ padding:0; gap:0; }
 .dash-grid > .card{ display:flex; flex-direction:column; }
 .dash-grid > .card > .chart-wrap{ flex:1; display:flex; flex-direction:column; }
 .dash-grid .chart-note{ margin-bottom:0; }
-.bar-stats{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-top:auto; padding-top:16px; }
+.bar-stats{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-top:16px; }
+@media (min-width: 861px){ .bar-stats{ margin-top:auto; padding-top:16px; } }
 .bar-stat{ display:grid; gap:2px; align-content:start; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background: var(--surface-2); }
 .bar-stat strong{ font-size:1rem; }
-@media (max-width: 480px){ .bar-stats{ grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px){ .bar-stat{ padding:8px 9px; } .bar-stat strong{ font-size:.88rem; } .bar-stat .kpi-lbl{ font-size:.66rem; } }
 
 /* Metas: nome mais largo e rótulos alinhados pelo topo */
 @media (min-width: 621px){ #goalForm > .field:first-child{ grid-column: span 2; } }
@@ -1579,11 +1580,6 @@ details.research-optin{ padding:0; gap:0; }
 .new-item-form:not(:has(.f-submit-inline)){ align-items:start; }
 
 /* Números do mês: total × realmente meu */
-.tile-two{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:.82rem; color: var(--text-secondary); }
-.tile-two strong{ color: var(--text-primary); font-size:.95rem; }
-.tile-two-big{ font-size:.84rem; margin-top:4px; }
-.tile-two-big strong{ font-size:1.2rem; }
-.tile-two-big strong.neg-text{ color: var(--critical); } .tile-two-big strong.pos-text{ color: var(--good); }
 .sum-line{ display:block; }
 .sum-explain{ margin-top:8px; font-size:.78rem; text-transform:none; letter-spacing:0; font-weight:400; color: var(--text-secondary); }
 .donut-controls{ display:grid; gap:8px; justify-items:center; margin: -4px 0 14px; }
@@ -1648,12 +1644,18 @@ details.research-optin{ padding:0; gap:0; }
   .bp-row{ gap:6px; }
   .bp-row > :nth-child(n+2){ min-width:0; font-size:.78rem; }
 }
-/* “Desse total, seu”: o valor desce para a linha de baixo quando falta espaço */
-.tile-two{ flex-wrap:wrap; }
-.tile-two > span:first-child{ flex:1 1 6.5rem; }
 
 .pop-body{ display:grid; gap:8px; }
 .pop-body .tx-row, .pop-body .list-row{ padding:10px 0; }
 /* Números dos quadros do mês: o valor fica logo abaixo do rótulo em todos, sem espaço em branco no meio */
 .tile{ align-content:start; }
 .stat-tiles .tile{ justify-content:start; }
+
+/* Linhas “rótulo ... valor” dentro dos quadros do mês e de Contas e cartões */
+.tile-sub:has(.tr), .ws-box .tile-sub{ display:grid; gap:5px; }
+.tr{ display:grid; grid-template-columns: minmax(0, 1fr) auto; align-items:baseline; gap:12px; font-size:.82rem; line-height:1.3; color: var(--text-secondary); }
+.tr-v{ color: var(--text-primary); font-size:.92rem; white-space:nowrap; text-align:right; }
+.tr.big{ font-size:.84rem; }
+.tr.big .tr-v{ font-size:1.12rem; }
+.tr-v.neg-text{ color: var(--critical); } .tr-v.pos-text{ color: var(--good); }
+.ws-box{ align-content:start; }
