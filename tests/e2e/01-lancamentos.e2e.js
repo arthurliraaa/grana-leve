@@ -14,7 +14,7 @@ L.run(async ({page}) => {
 
   await L.addTx(page, {amount: 50, category: 'alimentacao', desc: 'Mercado'});
   L.ok(!(await L.modalOpen(page)), 'popup fecha depois de salvar');
-  L.ok(/Gasto de R\$\s?50,00 registrado/.test(await L.allToasts(page)), 'toast confirma o gasto');
+  L.ok(/Gasto de R\$\s?50,00 em .+ registrado/.test(await L.allToasts(page)), 'toast confirma o gasto');
   let d = await L.db(page);
   L.ok(d.transactions.length === 1 && d.transactions[0].amount === 50 && d.transactions[0].paymentMethod === 'conta', 'gasto salvo com valor e pagamento');
 

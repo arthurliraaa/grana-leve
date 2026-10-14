@@ -19,6 +19,9 @@ export async function launch(){
   if (!CHROME) throw new Error('Chrome não encontrado. Defina CHROME_PATH.');
   const browser = await puppeteer.launch({executablePath: CHROME, headless: 'new', args: ['--no-sandbox', '--lang=pt-BR']});
   const page = await browser.newPage();
+  // Avisos com “Desfazer” aceitam toque e podem ficar por cima de botões perto do rodapé: nos testes eles
+  // não interceptam cliques por coordenada (o teste do Desfazer clica no próprio botão).
+  await page.evaluateOnNewDocument(() => { document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '.toast.toast-action{pointer-events:none !important}'; document.head.appendChild(st); }); });
   // O tutorial de primeiro uso fica desligado nos testes (o teste dele liga de volta).
   await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_tutorial')) localStorage.setItem('granaleve_tutorial', 'off'); } catch(e){} });
   await page.setViewport({width: 1280, height: 900});

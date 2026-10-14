@@ -13,7 +13,7 @@ import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceLabel} from '../domain/cards.js';
 import {Store} from '../data/store.js';
 
-import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast, toastAction} from './dom.js';
 import {openModal} from './modal.js';
 import {openQuickEntry} from './chat.js';
 import {paymentLabel} from './home-tab.js';
@@ -126,9 +126,9 @@ export async function openTxModal(t){
       var ex = readInstallExtras(form, 'mIx', n, date, tx.cardId);
       if (n > 1 && ex.start > n) return {error: 'Todas as parcelas dessa compra já venceram. Confira a data da compra.'};
       tx.amount = Tx.purchaseTotal(amount, n, ex.per);
-      await saveTransactions(expandInstallments(tx, n, ex.start));
+      var savedNow = await saveTransactions(expandInstallments(tx, n, ex.start));
       renderAll();
-      toast((mType === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.');
+      savedToast(mType, tx, n, ex.start, savedNow);
       return true;
     }
   });
@@ -423,6 +423,22 @@ export async function manageCategories(){
       });
     }
   });
+}
+
+// Aviso de “registrado” com a categoria (para conferir) e “Desfazer”, que apaga o que acabou de ser salvo.
+export function savedToast(type, tx, n, start, saved, extra){
+  var msg = (type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (start > 1 ? ' (a partir da ' + start + 'ª)' : '') : '') +
+    ' em ' + catLabel(tx.category, type, tx.categoryLabel) + ' registrado.' + (extra || '');
+  toastAction(msg, 'Desfazer', function(){ undoSaved(saved); });
+}
+export async function undoSaved(list){
+  var ids = (list || []).map(function(t){ return t.id; });
+  if (!ids.length) return;
+  try { await Store.removeMany(k(), 'transactions', ids); }
+  catch(e){ toast((e && e.userMessage) || 'Não deu para desfazer agora.'); return; }
+  State.transactions = State.transactions.filter(function(t){ return ids.indexOf(t.id) < 0; });
+  renderAll();
+  toast(ids.length > 1 ? 'Lançamentos desfeitos.' : 'Lançamento desfeito.');
 }
 
 /* ---------- Compras parceladas ---------- */
