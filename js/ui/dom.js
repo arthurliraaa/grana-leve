@@ -34,6 +34,19 @@ export async function saveFile(filename, data, mimeType){
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 }
 
+// Aviso com uma ação (ex.: “Desfazer”). Fica mais tempo na tela e aceita toque.
+export function toastAction(msg, label, fn){
+  var wrap = document.getElementById('toastWrap');
+  var el = document.createElement('div');
+  el.className = 'toast toast-action';
+  var span = document.createElement('span'); span.textContent = msg;
+  var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'toast-btn'; btn.textContent = label;
+  btn.addEventListener('click', function(){ el.remove(); fn(); });
+  el.appendChild(span); el.appendChild(btn);
+  wrap.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 7000);
+  return el;
+}
 export function toast(msg){
   var wrap = document.getElementById('toastWrap');
   var el = document.createElement('div');

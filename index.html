@@ -42,6 +42,7 @@
     <symbol id="i-card" viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></symbol>
     <symbol id="i-handshake" viewBox="0 0 24 24"><path d="M3 11l4-4 5 2 5-2 4 4-7 7-2-2-2 2z"/><path d="M8 13l2 2M11 12l2.5 2.5"/></symbol>
     <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
     <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M11 18h2"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></symbol>
@@ -391,6 +392,7 @@
                 <button class="btn btn-primary btn-sm" type="submit">Adicionar previsão</button>
               </form>
             </section>
+            <button type="button" class="btn btn-primary tx-mobile-open" data-first-tx><svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg>Lançar gasto ou ganho</button>
             <form id="txForm" class="add-tx-form tx-form">
             <div class="type-toggle f-full" id="typeToggle" role="group" aria-label="Tipo de lançamento">
               <button type="button" class="active" data-type="expense" aria-pressed="true">Gasto</button>
@@ -460,10 +462,13 @@
             </div>
             <div class="tx-filters" role="search">
               <input id="txSearch" type="search" maxlength="60" placeholder="Buscar por descrição ou categoria" aria-label="Buscar lançamentos">
-              <select id="txFilterType" aria-label="Filtrar por tipo"><option value="all">Ganhos e gastos</option><option value="income">Só ganhos</option><option value="expense">Só gastos</option><option value="others">Pagos por outras pessoas</option></select>
-              <select id="txFilterCat" aria-label="Filtrar por categoria"><option value="all">Todas as categorias</option></select>
-              <select id="txSort" aria-label="Ordenar a lista"><option value="recent">Mais recentes primeiro</option><option value="added">Ordem de cadastro</option><option value="amount">Maior valor primeiro</option></select>
-              <select id="txFilterPay" aria-label="Filtrar por forma de pagamento"><option value="all">Qualquer pagamento</option><option value="conta">Dinheiro, Pix ou débito</option><option value="cartao">Cartão de crédito</option><option value="vale">Vale</option></select>
+              <button type="button" class="btn btn-ghost btn-sm tx-filter-btn" id="txFilterBtn" aria-expanded="false" aria-controls="txFilterPanel"><svg class="ico" aria-hidden="true"><use href="#i-filter"/></svg>Filtrar<span class="count-pill" id="txFilterCount" hidden></span></button>
+              <div class="tx-filter-panel" id="txFilterPanel" hidden>
+                <select id="txFilterType" aria-label="Filtrar por tipo"><option value="all">Ganhos e gastos</option><option value="income">Só ganhos</option><option value="expense">Só gastos</option><option value="others">Pagos por outras pessoas</option></select>
+                <select id="txFilterCat" aria-label="Filtrar por categoria"><option value="all">Todas as categorias</option></select>
+                <select id="txSort" aria-label="Ordenar a lista"><option value="recent">Mais recentes primeiro</option><option value="added">Ordem de cadastro</option><option value="amount">Maior valor primeiro</option></select>
+                <select id="txFilterPay" aria-label="Filtrar por forma de pagamento"><option value="all">Qualquer pagamento</option><option value="conta">Dinheiro, Pix ou débito</option><option value="cartao">Cartão de crédito</option><option value="vale">Vale</option></select>
+              </div>
             </div>
             <p class="card-sub" id="txSummary"></p>
             <div id="txCal" hidden></div>

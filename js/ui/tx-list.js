@@ -25,7 +25,7 @@ import {paymentLabel, txRowHtml} from './home-tab.js';
 import {renderBudgets} from './planning-tab.js';
 import {renderAll, showTab} from './shell.js';
 import {State, catLabel, categoryNameProblem, categorySelectHtml, wireCategorySuggestion, expandInstallments, expenseCats, forecastOccurrences, incomeCats, installHint, invoiceStatus, k, maxTxMonthOffset, txForMonth, voucherOf} from './state.js';
-import {manageCategories, openTxModal, saveTransactions} from './tx-edit.js';
+import {manageCategories, openTxModal, saveTransactions, savedToast} from './tx-edit.js';
 
 /* ---------- Ganhos e gastos ---------- */
 export function currentTxType(){ return qs('#typeToggle button.active').getAttribute('data-type'); }
@@ -287,6 +287,7 @@ export function renderTransactionsTab(){
   if (view === 'year'){ renderTxYear(mb); return; }
   var tx = filterTransactions(txForMonth(mb.key));
   var filtering = tx.length !== txForMonth(mb.key).length || isFiltering();
+  syncFilterButton();
   var income = sum(tx.filter(function(t){ return t.type==='income' && isPersonal(t); }), function(t){ return t.amount; });
   var expenseTx = tx.filter(function(t){ return t.type==='expense' && isPersonal(t); });
   var others = sum(tx, othersShare);
@@ -363,6 +364,13 @@ export function renderTxYear(mb){
 
 // Busca sem diferenciar acentos e maiúsculas ("almoco" encontra "Almoço").
 export function fold(s){ return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+// “Filtrar”: os filtros ficam recolhidos; o botão mostra quantos estão ligados.
+export function syncFilterButton(){
+  var n = ['txFilterType', 'txFilterCat', 'txFilterPay'].filter(function(id){ return document.getElementById(id).value !== 'all'; }).length;
+  var c = document.getElementById('txFilterCount');
+  c.hidden = !n; c.textContent = n;
+  document.getElementById('txFilterBtn').setAttribute('aria-label', 'Filtrar' + (n ? ' (' + n + (n === 1 ? ' filtro ligado)' : ' filtros ligados)') : ''));
+}
 export function isFiltering(){
   return !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterType').value !== 'all' || document.getElementById('txFilterPay').value !== 'all' ||
     document.getElementById('txFilterCat').value !== 'all';
@@ -550,7 +558,7 @@ export function wireTransactions(){
       document.getElementById('txOtherName').value = '';
       syncTxFormVisibility();
     }
-    await saveTransactions(parts);
+    var savedParts = await saveTransactions(parts);
   document.getElementById('txForOtherField').open = false;
   qs('input[name=txPrior][value=paid]').checked = true;
     resetInstallExtras(document, 'txIx');
@@ -559,7 +567,8 @@ export function wireTransactions(){
     document.getElementById('txInstall').value = '1';
     populateInstallSelect();
     renderAll();
-    toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.' + (shares ? ' Sua parte: ' + fmtMoney(shares.mine) + '; ' + shares.people.length + ' pessoa(s) em “A receber”.' : '') + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
+    if (!shares && !forOther) savedToast(type, tx, n, ex.start, savedParts);
+    else toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.' + (shares ? ' Sua parte: ' + fmtMoney(shares.mine) + '; ' + shares.people.length + ' pessoa(s) em “A receber”.' : '') + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
   });
 
   document.getElementById('exportCsvBtn').addEventListener('click', async function(){

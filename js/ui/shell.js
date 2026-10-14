@@ -572,6 +572,12 @@ export function wireShell(){
       return;
     }
     if (t.closest('[data-explain="devolver"]')){ explainReturn(); return; }
+    if (t.closest('#txFilterBtn')){
+      var fp = document.getElementById('txFilterPanel'), fb = document.getElementById('txFilterBtn');
+      fp.hidden = !fp.hidden; fb.setAttribute('aria-expanded', String(!fp.hidden));
+      if (!fp.hidden) document.getElementById('txFilterType').focus();
+      return;
+    }
     if (t.closest('[data-first-tx]')){ document.getElementById('fabAdd').click(); return; }
     if (t.closest('[data-first-hide]')){ setPref('firstStepsOff', true); renderSummary(); return; }
     if ((el = t.closest('[data-dash-sec]'))){ setDashSection(el.getAttribute('data-dash-sec')); return; }
