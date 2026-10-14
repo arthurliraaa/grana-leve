@@ -101,7 +101,7 @@ export function spendFigures(){
     saldoMine: hasAcc ? money(avail - mp.leftMine) : f.balanceDone};
 }
 // Linha “rótulo ........ valor” dos quadros (big = valor em destaque, para os saldos).
-export function two(label, value, cls, big){ return '<span class="tr' + (big ? ' big' : '') + '"><span class="tr-l">' + label + '</span><strong class="tr-v tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong></span>'; }
+export function two(label, value, cls, big){ return '<span class="tr' + (big ? ' big' : '') + '"><span class="tr-l">' + label + '</span><strong class="tr-v tabular ' + (cls || '') + '">' + (typeof value === 'string' ? value : fmtMoney(value)) + '</strong></span>'; }
 export function renderStatTiles(){
   var sp = spendFigures(), f = sp.f, t = f.t;
   function tile(label, value, cls, sub){
@@ -123,9 +123,14 @@ export function renderStatTiles(){
       '<div class="tile"><span class="tile-lbl">Saldo do mês</span><span class="tile-sub">' +
       two('Fatura total', sp.saldoAll, sp.saldoAll < 0 ? 'neg-text' : 'pos-text', true) +
       two('Só meus gastos', sp.saldoMine, sp.saldoMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>');
-  var now = tile('Guardado nas metas', f.savedInGoals) +
-    tile('Dívidas: falta pagar', f.debtRemaining, '', debtsOpen.length ? debtsOpen.length + (debtsOpen.length === 1 ? ' dívida' : ' dívidas') + ' em “Eu devo”<br>valor original ' + fmtMoney(debtOrig) + ' · já pago ' + fmtMoney(debtPaid) : 'nenhuma dívida em aberto') +
-    tile('A receber neste mês', recvMonth, '', recvMonth > 0 ? 'Total a receber: ' + fmtMoney(f.toReceive) : (f.toReceive > 0 ? 'Nada vence neste mês<br>Total a receber: ' + fmtMoney(f.toReceive) : 'Ninguém te deve nada'));
+  var goalsAlive = State.goals.filter(function(g){ return !g.deletedAt; });
+  var goalsMissing = sumMoney(goalsAlive, function(g){ return Math.max(0, Number(g.targetAmount || 0) - Number(g.currentAmount || 0)); });
+  var owing = State.receivables.filter(function(r){ return !r.forgiven && recvRemaining(r) > 0.004; });
+  var people = {}; owing.forEach(function(r){ people[String(r.person || '').trim().toLowerCase()] = 1; });
+  var nPeople = Object.keys(people).length;
+  var now = tile('Guardado nas metas', f.savedInGoals, '', goalsAlive.length ? two(goalsAlive.length === 1 ? 'Meta' : 'Metas', String(goalsAlive.length)) + two('Falta para completar', goalsMissing) : 'nenhuma meta criada') +
+    tile('Dívidas: falta pagar', f.debtRemaining, '', debtsOpen.length ? two(debtsOpen.length === 1 ? 'Dívida em “Eu devo”' : 'Dívidas em “Eu devo”', String(debtsOpen.length)) + two('Valor original', debtOrig) + two('Já pago', debtPaid) : 'nenhuma dívida em aberto') +
+    tile('A receber neste mês', recvMonth, '', f.toReceive > 0 ? two('Total a receber', f.toReceive) + two(nPeople === 1 ? 'Pessoa' : 'Pessoas', String(nPeople)) : 'Ninguém te deve nada');
   document.getElementById('statTiles').innerHTML =
     '<p class="tiles-group">Neste mês <span>realizado até hoje</span></p><div class="stat-tiles stat-tiles-auto">' + month + '</div>' +
     '<p class="tiles-group">Agora</p><div class="stat-tiles stat-tiles-auto">' + now + '</div>';
@@ -352,7 +357,9 @@ export function renderSummary(){
   var have = hasAcc ? totalAccountsBalance() : f.balanceDone;
   var c1 = sumCard(1, 'wallet', 'Quanto tenho', fmtMoney(have), have < 0 ? 'neg-text' : '',
     hasAcc ? 'Disponível hoje em ' + State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta') : 'Saldo do mês: ganhos menos gastos até hoje',
-    '',
+    // Saldos das primeiras contas, para o cartão ter o mesmo corpo dos vizinhos.
+    hasAcc ? '<div class="sum-rows">' + State.accounts.slice(0, 3).map(function(a){ var b = accountBalance(a); return two(escapeHtml(a.name), b, b < 0 ? 'neg-text' : ''); }).join('') +
+      (State.accounts.length > 3 ? '<span class="tx-meta">+ ' + (State.accounts.length - 3) + ' ' + (State.accounts.length - 3 === 1 ? 'conta' : 'contas') + '</span>' : '') + '</div>' : '',
     (hasAcc ? State.accounts.map(function(a){ var b = accountBalance(a); return detailRow(escapeHtml(a.name), fmtMoney(b), b < 0 ? 'neg-text' : ''); }).join('') : '') +
     detailRow('Ganhos do mês', fmtMoney(t.incomeDone) + (f.expectedIncome > 0 ? ' <small>+ ' + fmtMoney(f.expectedIncome) + ' esperado</small>' : '')) +
     (hasAcc ? detailRow('Saldo do mês', fmtMoney(f.balanceDone), f.balanceDone < 0 ? 'neg-text' : '') : '') +
@@ -390,7 +397,8 @@ export function renderSummary(){
   function when(c){ return c.date ? (c.late ? '<span class="neg-text">venceu ' + formatDateBr(c.date) + '</span>' : 'vence ' + formatDateBr(c.date)) + (c.note ? ' · ' + c.note : '') : c.note; }
   var c3 = next ?
     sumCard(3, 'clock', 'Próximos pagamentos', fmtMoney(next.amount), next.late ? 'neg-text' : '',
-      escapeHtml(next.title) + ' · ' + when(next) + (next.urgency === 'alta' ? ' · ' + URGENCY_MARK.alta + ' urgente' : ''), '',
+      escapeHtml(next.title) + ' · ' + when(next) + (next.urgency === 'alta' ? ' · ' + URGENCY_MARK.alta + ' urgente' : ''),
+      list.length > 1 ? '<div class="sum-rows">' + list.slice(1, 4).map(function(c){ return two(escapeHtml(c.title), c.amount, c.late ? 'neg-text' : ''); }).join('') + (list.length > 4 ? '<span class="tx-meta">+ ' + (list.length - 4) + ' a pagar</span>' : '') + '</div>' : '',
       '<p class="sum-caption">Próximos ' + Math.min(5, list.length) + ' de ' + list.length + '</p>' +
       list.slice(0, 5).map(function(c){ return '<a class="sum-row sum-row-link" href="#/' + routeOf(c.go) + '" data-go="' + c.go + '"><span>' + URGENCY_MARK[c.urgency] + ' ' + escapeHtml(c.title) + ' <small>' + when(c) + '</small></span><strong class="tabular">' + fmtMoney(c.amount) + '</strong></a>'; }).join('')) :
     sumCard(3, 'clock', 'Próximos pagamentos', 'Nada pendente', 'sum-value-text', 'Sem faturas, contas fixas nem dívidas para pagar. 🎉', '',
@@ -687,6 +695,7 @@ export function renderDonut(){
   wrap.innerHTML = '<div class="donut-layout is-' + style + '">' + figure + rows + '</div>' +
     (proj.expExtra > 0 ? '<p class="chart-note">Inclui ' + fmtMoney(proj.expExtra) + ' de contas fixas previstas, ainda não lançadas.</p>' : '');
   wireTooltips(wrap, '.donut-seg, .tm-block');
+  if (wrap.closest('.card').offsetHeight) renderBarChart();
 }
 // Três jeitos de ver os gastos por categoria: rosca (com o total no meio), pizza e blocos (tamanho = valor).
 var DONUT_STYLES = ['rosca', 'pizza', 'blocos'];
@@ -762,7 +771,22 @@ function donutBlocks(entries, total, wrap){
   }).join('') + '</div>';
 }
 
+// O gráfico de barras cresce para o cartão ficar da altura do vizinho (rosca), sem espaço vazio dentro.
 export function renderBarChart(){
+  drawBars(0);
+  var wrap = document.getElementById('barWrap'), card = wrap.closest('.card'), sib = document.getElementById('donutWrap').closest('.card');
+  var svg = wrap.querySelector('.bar-svg');
+  if (!svg || !card.offsetHeight || !sib.offsetHeight) return;
+  card.style.alignSelf = 'start';   // altura natural do cartão, sem o esticar da grade
+  var a = card.getBoundingClientRect(), b = sib.getBoundingClientRect();
+  card.style.alignSelf = '';
+  if (Math.abs(a.top - b.top) > 6 || Math.abs(a.left - b.left) < 40) return;   // uma coluna só (celular)
+  var extra = b.height - a.height;
+  if (extra < 10) return;
+  var scale = svg.getBoundingClientRect().width / 340;
+  drawBars(Math.min(320, extra / scale));
+}
+function drawBars(extraH){
   var wrap = document.getElementById('barWrap');
   setToggleLabel('bar');
   var n = State.barMonths, off = State.dashOffset || 0;
@@ -780,7 +804,7 @@ export function renderBarChart(){
     return;
   }
   var max = Math.max(1, Math.max.apply(null, data.map(function(d){ return Math.max(d.p.inc, d.p.exp); })));
-  var W = 340, H = 220, padL = 40, padB = 34, padT = 12, padR = 6;
+  var W = 340, H = 220 + (extraH || 0), padL = 40, padB = 34, padT = 12, padR = 6;
   var plotW = W - padL - padR, plotH = H - padT - padB, groupW = plotW / data.length, barW = Math.min(18, groupW / 2.6);
   var incColor = resolveVar('var(--cat-3)', wrap), expColor = resolveVar('var(--cat-8)', wrap), selColor = resolveVar('var(--brand)', wrap);
   var defs = '<defs>' +

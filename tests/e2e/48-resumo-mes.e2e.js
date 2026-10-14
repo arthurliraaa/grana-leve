@@ -35,7 +35,7 @@ L.run(async ({page}) => {
   L.section('Agora');
   L.ok(!labels.includes('Disponível nas contas') && !labels.some(l => /^Faturas/.test(l)) && !labels.some(l => /^Parcelas no cartão/.test(l)), 'saem: disponível nas contas, faturas e parcelas do cartão');
   let r = await tile('A receber neste mês');
-  L.ok(L.moneyOf(r.val) === 30 && /Total a receber: R\$\s?130,00/.test(r.sub), 'A receber neste mês: só a parcela do mês (30); o total (130) fica embaixo');
+  L.ok(L.moneyOf(r.val) === 30 && /Total a receber\s*R\$\s?130,00/.test(r.sub), 'A receber neste mês: só a parcela do mês (30); o total (130) fica embaixo');
   // Bia paga a parcela: o valor do mês zera e o total cai.
   await L.tab(page, 'receber');
   await page.click('[data-recv-get="r1"]'); await L.sleep(200);
@@ -45,5 +45,5 @@ L.run(async ({page}) => {
   if (await page.$eval('#dashDetails', el => el.hidden)) await page.click('#dashDetailsBtn');
   r = await tile('A receber neste mês');
   L.ok(L.moneyOf(r.val) === 0, 'depois de receber a parcela do mês, o valor do mês zera');
-  L.ok(/Total a receber: R\$\s?100,00/.test(r.sub) || /Nada vence neste mês\s*Total a receber: R\$\s?100,00/.test(r.sub), 'e o total diminui (130 → 100)');
+  L.ok(/Total a receber\s*R\$\s?100,00/.test(r.sub), 'e o total diminui (130 → 100)');
 });

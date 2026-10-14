@@ -498,6 +498,8 @@ export function wireShell(){
   });
   attachCounters(document);
 
+  var resizeTimer;
+  window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(function(){ if (State.dashDetails && State.activeTab === 'dashboard') renderBarChart(); }, 200); });
   document.addEventListener('click', async function(e){
     var t = e.target;
     // No celular, as listas recolhíveis dos cartões abrem numa janela, mais fácil de ler que dentro do cartão.
@@ -540,6 +542,7 @@ export function wireShell(){
       btn.setAttribute('aria-expanded', String(State.dashDetails));
       btn.querySelector('span').textContent = State.dashDetails ? 'Esconder detalhes do mês' : 'Ver todos os detalhes do mês';
       document.getElementById('dashDetails').hidden = !State.dashDetails;
+      if (State.dashDetails) renderBarChart();
       return;
     }
     if (t.closest('[data-backup-now]')){ exportBackup(); return; }
