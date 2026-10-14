@@ -26,7 +26,7 @@ L.run(async ({page}) => {
   L.section('Neste mês');
   L.ok(labels.slice(0, 4).join('|') === 'Ganhos do mês|Gastos do mês|Falta pagar|Saldo do mês', 'ordem: Ganhos, Gastos, Falta pagar, Saldo');
   let g = await tile('Ganhos do mês');
-  L.ok(L.moneyOf(g.val) === 3000 && /Nas contas hoje\s*R\$\s?4\.950,00/.test(g.sub) && /você tem R\$\s?4\.950,00 nas contas/.test(await L.text(page, '#monthStatus')), 'Ganhos do mês traz o disponível nas contas (2.000 + 3.000 − 50), também no resumo');
+  L.ok(L.moneyOf(g.val) === 3000 && /Nas contas hoje\s*R\$\s?4\.950,00/.test(g.sub) && /Você tem R\$\s?4\.950,00 nas contas/.test(await L.text(page, '#monthStatus')), 'Ganhos do mês traz o disponível nas contas (2.000 + 3.000 − 50), também no resumo');
   let f = await tile('Falta pagar');
   L.ok(L.moneyOf(f.val) === 300, 'Falta pagar = fatura em aberto (300)');
   let sd = await tile('Saldo do mês');

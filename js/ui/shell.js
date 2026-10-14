@@ -26,7 +26,7 @@ import {maybeTutorial, startTutorial} from './tutorial.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
-import {openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
+import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
@@ -285,6 +285,7 @@ export function showAuthTab(name){
 export async function enterApp(profileHint){
   setPrefsOwner(k());
   document.getElementById('txSort').value = TX_SORTS[getPrefs().txSort] ? getPrefs().txSort : 'recent';
+  State.dashSec = DASH_SECTIONS.indexOf(getPrefs().dashSec) >= 0 ? getPrefs().dashSec : 'numeros';
   State.donutScope = getPrefs().donutScope === 'mine' ? 'mine' : 'all';
   State.donutStyle = ['rosca', 'pizza', 'blocos'].indexOf(getPrefs().donutStyle) >= 0 ? getPrefs().donutStyle : 'rosca';
   State.txView = ['list', 'cal', 'year'].indexOf(getPrefs().txView) >= 0 ? getPrefs().txView : 'list';
@@ -322,9 +323,9 @@ export async function enterApp(profileHint){
   // Cobranças compartilhadas: novidades da outra pessoa (pagamentos, confirmações).
   await syncShared();
   if (!(await offerLocalImport())){
-    // Conta nova: primeiro o tutorial; o chat de boas-vindas vem depois (e não vem se a pessoa foi cadastrar o banco).
     var tut = maybeTutorial();
-    if (tut) tut.then(function(how){ if (how !== 'start') maybeWelcome(); }); else maybeWelcome();
+    // No primeiro acesso, só o tutorial: o chat de boas-vindas fica para as próximas entradas.
+    if (!tut) maybeWelcome();
   }
 }
 
@@ -570,6 +571,10 @@ export function wireShell(){
       toast('Lançamento excluído.');
       return;
     }
+    if (t.closest('[data-explain="devolver"]')){ explainReturn(); return; }
+    if (t.closest('[data-first-tx]')){ document.getElementById('fabAdd').click(); return; }
+    if (t.closest('[data-first-hide]')){ setPref('firstStepsOff', true); renderSummary(); return; }
+    if ((el = t.closest('[data-dash-sec]'))){ setDashSection(el.getAttribute('data-dash-sec')); return; }
     if ((el = t.closest('[data-donut-style]'))){ setDonutStyle(el.getAttribute('data-donut-style')); return; }
     if ((el = t.closest('[data-donut-scope]'))){ setDonutScope(el.getAttribute('data-donut-scope')); return; }
     if ((el = t.closest('[data-view-toggle]'))){
@@ -771,6 +776,15 @@ export function wireShell(){
     showTab(a.getAttribute('data-tab'));
   });
   document.getElementById('moreBtn').addEventListener('click', openMoreMenu);
+  // Detalhes do mês: abas com setas.
+  qsa('[data-dash-sec]').forEach(function(b){
+    b.addEventListener('keydown', function(e){
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      e.preventDefault();
+      var i = DASH_SECTIONS.indexOf(b.getAttribute('data-dash-sec'));
+      setDashSection(DASH_SECTIONS[(i + (e.key === 'ArrowRight' ? 1 : DASH_SECTIONS.length - 1)) % DASH_SECTIONS.length], true);
+    });
+  });
   // Partes das áreas (Eu devo / Me devem; Lançamentos / Contas fixas): abas com setas (padrão WAI-ARIA).
   qsa('[data-sub]').forEach(function(b){
     b.addEventListener('click', function(){ showTab(b.getAttribute('data-sub')); });

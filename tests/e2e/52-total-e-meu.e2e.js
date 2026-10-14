@@ -20,20 +20,23 @@ L.run(async ({page}) => {
   `, {today, old: L.dayOffset(-45), card: card.id});
   await L.tab(page, 'dashboard');
   await page.click('#dashDetailsBtn'); await L.sleep(250);
-  const have = L.moneyOf((/você tem (R\$\s?[\d.,]+) nas contas/.exec(await L.text(page, '#monthStatus')) || [])[1]);
+  const have = L.moneyOf((/Você tem (R\$\s?[\d.,]+) nas contas/.exec(await L.text(page, '#monthStatus')) || [])[1]);
   L.ok(have === 3100, 'o resumo diz quanto há nas contas (3.000 + 1.000 − 900)');
 
   L.section('Resumo do mês');
   const status = await L.text(page, '#monthStatus');
-  L.ok(/Saíram R\$\s?900,00, dos quais R\$\s?300,00 são realmente seus/.test(status), 'saíram 900 no total, dos quais 300 são realmente seus');
-  L.ok(/Saldo do mês: R\$\s?2\.700,00 com a fatura total e R\$\s?3\.000,00 só com os seus gastos/.test(status), 'dois saldos: com a fatura total (3.100 − 400) e só com os seus gastos (3.100 − 100)');
-  const tile = async l => page.evaluate(x => { const t = [...document.querySelectorAll('#statTiles .tile')].find(e => e.querySelector('.tile-lbl').textContent === x); return t ? {text: t.textContent.replace(/\s+/g, ' ').trim(), val: (t.querySelector('.tile-val') || {}).textContent || ''} : null; }, l);
+  L.ok(/saíram R\$\s?900,00 \(R\$\s?300,00 seus\)/.test(status), 'saíram 900 no total (300 seus)');
+  L.ok(/Saldo do mês: R\$\s?2\.700,00, ou R\$\s?3\.000,00 se te devolverem/.test(status), 'dois saldos numa frase curta: 3.100 − 400, ou 3.100 − 100 se te devolverem');
+  await page.$eval('#monthStatus [data-explain]', el => el.click()); await L.sleep(200);
+  L.ok(await L.modalTitle(page) === 'Os dois saldos' && /Se te devolverem/.test(await L.text(page, '#modalRoot')), 'o “i” explica os dois saldos');
+  await L.closeModal(page);
+  const tile = async l => page.evaluate(x => { const t = [...document.querySelectorAll('#statTiles .tile')].find(e => e.querySelector('.tile-lbl').firstChild.textContent.trim() === x); return t ? {text: t.textContent.replace(/\s+/g, ' ').trim(), val: (t.querySelector('.tile-val') || {}).textContent || ''} : null; }, l);
   let g = await tile('Gastos do mês');
   L.ok(L.moneyOf(g.val) === 900 && /Seus\s*R\$\s?300,00/.test(g.text) && /Outras pessoas\s*R\$\s?600,00/.test(g.text), 'Gastos do mês: total 900, seus 300 e de outras pessoas 600');
   const f = await tile('Falta pagar');
   L.ok(L.moneyOf(f.val) === 400 && /Desse total, seu\s*R\$\s?100,00/.test(f.text), 'Falta pagar: o total da fatura (400) e quanto é seu (100)');
   const s = await tile('Saldo do mês');
-  L.ok(/Fatura total\s*R\$\s?2\.700,00/.test(s.text) && /Só meus gastos\s*R\$\s?3\.000,00/.test(s.text), 'Saldo do mês: duas opções');
+  L.ok(/Se ninguém devolver\s*R\$\s?2\.700,00/.test(s.text) && /Se te devolverem\s*R\$\s?3\.000,00/.test(s.text), 'Saldo do mês: duas opções');
   const g1 = await tile('Ganhos do mês');
   L.ok(L.moneyOf(g1.val) === 1000 && /^Ganhos do mês\s*R\$\s?1\.000,00\s*Nas contas hoje\s*R\$\s?3\.100,00$/.test(g1.text), 'Ganhos do mês: o valor e quanto há nas contas hoje');
 
@@ -41,14 +44,15 @@ L.run(async ({page}) => {
   L.ok(gaps.length >= 3 && gaps.every(g => g < 12), 'em todos os quadros o valor fica logo abaixo do rótulo (sem espaço em branco no meio)');
 
   L.section('Cartões lado a lado: mesma altura e sem espaço vazio');
+  await L.dashSection(page, 'graficos');
   const geo = await page.evaluate(() => {
     const card = id => document.getElementById(id).closest('.card'), h = e => Math.round(e.getBoundingClientRect().height);
-    const bar = card('barWrap'), stats = bar.querySelector('.bar-stats');
+    const bar = card('barWrap'), stats = bar.querySelector('.chart-note');
     const inv = document.getElementById('invSplitCard'), cd = document.getElementById('creditDebitCard');
     return {donut: h(card('donutWrap')), bar: h(bar), gap: Math.round(bar.getBoundingClientRect().bottom - stats.getBoundingClientRect().bottom), inv: h(inv), cd: h(cd)};
   });
   L.ok(Math.abs(geo.donut - geo.bar) <= 3, 'gráfico de categorias e de barras têm a mesma altura (' + geo.donut + ' × ' + geo.bar + ')');
-  L.ok(geo.gap < 40, 'o cartão de barras termina nas caixas de médias, sem vazio embaixo (' + geo.gap + ' px)');
+  L.ok(geo.gap < 40, 'o cartão de barras termina na frase do mês, sem vazio embaixo (' + geo.gap + ' px)');
   L.ok(Math.abs(geo.inv - geo.cd) <= 3, 'faturas e crédito × débito têm a mesma altura');
 
   L.section('Gastos do mês (cartão do Início)');
@@ -82,12 +86,12 @@ L.run(async ({page}) => {
   await page.mouse.move(5, 5);
 
   L.section('Legenda e frase do gráfico de barras');
-  L.ok(/gastos R\$\s?900,00 \(seus R\$\s?300,00\)/.test(await L.text(page, '#barWrap .chart-note')) && /só com os seus gastos/.test(await L.text(page, '#barWrap .chart-note')), 'frase: gastos 900 (seus 300), saldo e saldo só com os seus gastos');
+  L.ok(/gastos R\$\s?900,00 \(seus R\$\s?300,00\)/.test(await L.text(page, '#barWrap .chart-note')) && /se te devolverem/.test(await L.text(page, '#barWrap .chart-note')), 'frase: gastos 900 (seus 300), saldo e saldo só com os seus gastos');
 
   L.section('Contas e cartões');
   await L.tab(page, 'cartoes');
   const ws = await L.text(page, '#walletSummary');
-  L.ok(/Faturas a pagar\s*R\$\s?400,00\s*Desse total, seu: R\$\s?100,00/.test(ws) && /Sobra depois de pagar\s*Fatura total\s*R\$\s?2\.700,00\s*Só a minha parte\s*R\$\s?3\.000,00/.test(ws), 'faturas a pagar: total 400 e quanto é seu; sobra em duas opções: 2.700 com a fatura total e 3.000 só com a minha parte');
+  L.ok(/Faturas a pagar\s*R\$\s?400,00\s*Desse total, seu: R\$\s?100,00/.test(ws) && /Sobra depois de pagar\s*i?\s*Se ninguém devolver\s*R\$\s?2\.700,00\s*Se te devolverem\s*R\$\s?3\.000,00/.test(ws), 'faturas a pagar: total 400 e quanto é seu; sobra em duas opções: 2.700 com a fatura total e 3.000 só com a minha parte');
 
   L.section('Lista de lançamentos');
   await L.tab(page, 'lancamentos');
@@ -127,7 +131,7 @@ L.run(async ({page}) => {
   L.section('Celular: menus e centralização');
   const centered = async sel => page.$eval(sel, el => { const r = el.getBoundingClientRect(); return Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 3; });
   await L.tab(page, 'lancamentos'); await L.sleep(150);
-  L.ok(await centered('.segmented.seg-wide'), '“Lançamentos | Contas fixas” fica centralizado');
+  L.ok(await centered('#tab-lancamentos .segmented.seg-wide'), '“Lançamentos | Contas fixas” fica centralizado');
   L.ok(await centered('.tx-views'), '“Lista | Calendário | Ano” fica centralizado');
   await L.tab(page, 'cartoes'); await L.sleep(150);
   L.ok(await page.$eval('.ws-box', el => getComputedStyle(el).textAlign) === 'center', 'as caixas do resumo de Contas e cartões têm o texto centralizado');

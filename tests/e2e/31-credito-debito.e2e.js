@@ -20,7 +20,7 @@ L.run(async ({page}) => {
   await L.addTx(page, {amount: 999, pay: 'card:' + nuCard.id, desc: 'Futuro', category: 'compras', date: L.dayOffset(40)});
 
   await L.tab(page, 'dashboard');
-  await page.click('#dashDetailsBtn'); await L.sleep(200);
+  await L.dashSection(page, 'graficos');
   L.ok(!(await page.$eval('#creditDebitCard', el => el.hidden)), 'o quadro aparece já aberto');
   L.ok(/Crédito × débito · /.test(await L.text(page, '#creditDebitTitle')), 'o título diz o mês');
   let txt = await L.text(page, '#creditDebitWrap');

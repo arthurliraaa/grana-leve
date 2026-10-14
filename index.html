@@ -257,11 +257,18 @@
         </div>
         <p class="month-status" id="monthStatus" aria-live="polite"></p>
         <div class="backup-banner" id="backupBanner" role="status" hidden></div>
+        <div class="first-steps" id="firstSteps" hidden></div>
         <div class="summary-grid" id="summaryCards"></div>
         <button type="button" class="details-toggle" id="dashDetailsBtn" aria-expanded="false" aria-controls="dashDetails">
           <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>Ver todos os detalhes do mês</span>
         </button>
         <div id="dashDetails" class="dash-details" hidden>
+        <div class="segmented seg-wide dash-sections" role="tablist" aria-label="Detalhes do mês">
+          <button type="button" role="tab" id="dashSecBtn-numeros" data-dash-sec="numeros" aria-controls="dashSec-numeros" aria-selected="true">Números</button>
+          <button type="button" role="tab" id="dashSecBtn-graficos" data-dash-sec="graficos" aria-controls="dashSec-graficos" aria-selected="false" tabindex="-1">Gráficos</button>
+          <button type="button" role="tab" id="dashSecBtn-analises" data-dash-sec="analises" aria-controls="dashSec-analises" aria-selected="false" tabindex="-1">Comparação</button>
+        </div>
+        <section class="dash-sec" id="dashSec-numeros" role="tabpanel" aria-labelledby="dashSecBtn-numeros">
         <div class="card-head" style="margin-bottom:-4px">
           <h3>Resumo do mês</h3>
           <div class="card-head-tools">
@@ -270,7 +277,13 @@
           </div>
         </div>
         <div class="tiles-wrap" id="statTiles"></div>
+        <div class="card">
+          <div class="card-head"><h3>Últimos lançamentos</h3><button class="linklike" type="button" data-action="go-tab-lancamentos">Ver todos</button></div>
+          <div id="recentTxList"></div>
+        </div>
+        </section>
 
+        <section class="dash-sec" id="dashSec-graficos" role="tabpanel" aria-labelledby="dashSecBtn-graficos" hidden>
         <div class="dash-nav" id="dashNav" role="group" aria-label="Mês dos gráficos">
           <button type="button" class="dash-nav-btn" id="dashPrev" aria-label="Mês anterior"><svg class="ico" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
           <div class="dash-nav-mid"><strong id="dashNavLabel"></strong><span class="dash-badge now" id="dashNavBadge"></span></div>
@@ -331,6 +344,9 @@
           </div>
         </div>
 
+        </section>
+
+        <section class="dash-sec" id="dashSec-analises" role="tabpanel" aria-labelledby="dashSecBtn-analises" hidden>
         <div class="card">
           <div class="card-head"><h3>Comparação com o mês anterior</h3><span class="month-lbl" id="comparisonMonthsLabel"></span></div>
           <div id="comparisonSummary" class="stat-tiles" style="grid-template-columns:repeat(3,1fr); margin-bottom:14px"></div>
@@ -338,11 +354,7 @@
         </div>
 
         <div class="card parcels-card" id="parcelsCard" hidden></div>
-
-        <div class="card">
-          <div class="card-head"><h3>Últimos lançamentos</h3><button class="linklike" type="button" data-action="go-tab-lancamentos">Ver todos</button></div>
-          <div id="recentTxList"></div>
-        </div>
+        </section>
         </div>
       </div>
 

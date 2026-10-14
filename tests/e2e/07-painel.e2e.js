@@ -35,9 +35,9 @@ L.run(async ({page}) => {
   L.ok(L.moneyOf(exp.val) === 300, 'gastos do mês = só o feito até hoje (300)');
   L.ok(L.moneyOf(bal.val) === 1700, 'saldo do mês realizado (1.700)');
   if (later){
-    L.ok(/fecham o mês em R\$\s?2\.030,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 450 − 120 = 2.030');
+    L.ok(/Previsão para o fim do mês: R\$\s?2\.030,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 450 − 120 = 2.030');
   } else {
-    L.ok(/fecham o mês em R\$\s?2\.100,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 400 = 2.100');
+    L.ok(/Previsão para o fim do mês: R\$\s?2\.100,00/.test(await L.text(page, '#monthStatus')), 'previsão do fim do mês no resumo: 1.700 + 400 = 2.100');
   }
   L.ok(/Esperado ainda\s*R\$\s?(450|400),00/.test(inc.sub) && !bal.sub, 'Ganhos mostra o que ainda se espera (previsões) e o saldo não traz texto auxiliar');
 
