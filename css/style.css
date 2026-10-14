@@ -1551,7 +1551,12 @@ details.research-optin{ padding:0; gap:0; }
 .donut-fig{ display:grid; justify-items:center; gap:8px; }
 .donut-total{ margin:0; font-size:.9rem; color: var(--text-secondary); }
 .donut-total strong{ color: var(--text-primary); font-size:1.1rem; margin-left:4px; }
-.donut-seg.pie:hover, .donut-seg.pie:focus-visible{ stroke-width:110; opacity:.85; }
+/* Pizza: borda fina da cor do fundo entre as fatias; a fatia sai para fora ao passar o mouse */
+.pie-slice{ transition: transform .22s cubic-bezier(.2,.8,.3,1), filter .22s ease; outline:none; }
+.pie-slice > path, .pie-slice > circle{ stroke: var(--surface); stroke-width:2; stroke-linejoin:round; }
+.pie-slice:hover, .pie-slice:focus-visible{ transform: translate(var(--dx), var(--dy)); filter: brightness(1.08) drop-shadow(0 3px 6px rgba(0,0,0,.22)); }
+.pie-slice:focus-visible > path{ stroke: var(--text-primary); }
+.pie-svg{ overflow:visible; }
 .pie-pct{ font-size:12px; font-weight:700; pointer-events:none; }
 .tm{ position:relative; width:100%; aspect-ratio: 16 / 10; border-radius:12px; overflow:hidden; background: var(--surface-2); }
 .tm-block{ position:absolute; box-sizing:border-box; border:2px solid var(--surface); border-radius:6px; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-end; gap:1px; padding:6px 8px; overflow:hidden; line-height:1.15; cursor:default; }
