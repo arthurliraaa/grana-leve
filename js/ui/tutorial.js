@@ -15,7 +15,7 @@ function pick(){ for (var i = 0; i < arguments.length; i++){ var el = visible(do
 
 // target: função que devolve o elemento a destacar (ou null: cartão no centro).
 export var TUTORIAL_STEPS = [
-  {title: 'Bem-vindo(a) ao Grana Leve!', text: 'Em menos de um minuto mostramos as partes principais e por onde começar. Você pode seguir passo a passo ou pular quando quiser.', target: function(){ return null; }},
+  {title: 'Bem-vindo(a) ao Grana Leve!', text: 'Em menos de um minuto, o tutorial mostra as partes principais e por onde começar. Você pode seguir passo a passo ou pular quando quiser.', target: function(){ return null; }},
   {title: 'Seu mês de relance', text: 'Aqui ficam quanto você tem, quanto gastou e o que vem para pagar. Toque no + de cada cartão para ver os detalhes, e em “Ver todos os detalhes do mês” para os gráficos.', target: function(){ return isMobile() ? pick('#summaryCards .sum-card') : pick('#summaryCards'); }, tab: 'dashboard'},
   {title: 'Lançar um gasto ou ganho', text: 'O botão + abre o lançamento de qualquer tela. Dá para preencher o formulário ou só escrever do seu jeito, como “gastei 30 no mercado”: o app mostra o que entendeu e você confere antes de salvar.', target: function(){ return pick('#fabAdd'); }},
   {title: 'Para onde ir', text: function(){ return isMobile() ? 'A barra de baixo leva ao Início, a Ganhos e gastos e a Contas e cartões. Planejar gastos, Metas, Compromissos e o resto ficam em “Mais”.' : 'O menu ao lado leva a cada área: Ganhos e gastos, Contas e cartões e, em “Planejar”, os gastos por categoria, as metas e os compromissos.'; },
@@ -24,7 +24,7 @@ export var TUTORIAL_STEPS = [
     target: function(){ return isMobile() ? pick('#bottomnav [data-tab="cartoes"]') : pick('.sidenav [data-tab="cartoes"]'); }},
   {title: 'Planejar e guardar', text: function(){ return isMobile() ? 'Em “Mais” você encontra Planejar gastos (quanto quer gastar por categoria), Metas (para juntar dinheiro) e Compromissos (dívidas e quem te deve).' : 'Em “Planejar gastos” você define quanto quer gastar por categoria; em “Metas”, junta dinheiro para um objetivo; em “Compromissos”, acompanha dívidas e quem te deve.'; },
     target: function(){ return isMobile() ? pick('#moreBtn') : pick('.sidenav [data-tab="limites"]'); }},
-  {title: 'Dúvidas e sugestões', text: function(){ return isMobile() ? 'Precisa de ajuda ou quer sugerir algo? Em “Mais” há o botão “Ajuda e sugestões”, e o tutorial pode ser revisto lá também.' : 'Precisa de ajuda ou quer sugerir algo? Este botão manda a mensagem para a gente. O tutorial pode ser revisto em “Perfil e conta”.'; },
+  {title: 'Dúvidas e sugestões', text: function(){ return isMobile() ? 'Precisa de ajuda ou quer sugerir algo? Em “Mais” há o botão “Ajuda e sugestões”, e o tutorial pode ser revisto lá também.' : 'Precisa de ajuda ou quer sugerir algo? Este botão envia a mensagem para o Grana Leve. O tutorial pode ser revisto em “Perfil e conta”.'; },
     target: function(){ return isMobile() ? pick('#moreBtn') : pick('.help-cta'); }},
   {title: 'Tudo pronto!', text: 'Que tal começar cadastrando o seu banco? Você pode voltar a este tutorial quando quiser.', target: function(){ return null; }, last: true}
 ];

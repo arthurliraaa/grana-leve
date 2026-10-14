@@ -222,14 +222,14 @@ export function cardHtml(c){
     '</div>' +
     '<div class="sec-foot">' +
       (carries.length ? '<div class="carry-list">' + carries.map(function(x){ return carryRowHtml(c, x); }).join('') + '</div>' : '') +
-      (advs.length ? '<details class="budget-details pay-log"><summary>Pagamentos adiantados (' + advs.length + ')</summary>' + advs.map(function(x){
+      (advs.length ? '<details class="budget-details pay-log" data-pop><summary>Pagamentos adiantados (' + advs.length + ')</summary>' + advs.map(function(x){
           return '<div class="list-row"><div class="tx-main"><div class="tx-desc tabular">' + fmtMoney(x.amount) + '</div><div class="tx-meta">' + formatDateBr(x.date) + ' · ' + (x.accountId ? escapeHtml(accountName(x.accountId)) : 'sem conta') + '</div></div>' +
             (status === 'paga' ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-invadv-undo="' + c.id + ':' + key + ':' + escapeHtml(x.id) + '">Desfazer</button>') + '</div>';
         }).join('') + '</details>' : '') +
-      (items.length ? '<details class="budget-details"><summary>Ver as ' + items.length + ' compra(s) desta fatura</summary>' +
+      (items.length ? '<details class="budget-details" data-pop><summary>Compras desta fatura (' + items.length + ')</summary>' +
         '<p class="tx-meta same-tx-note">São as mesmas compras de “Ganhos e gastos”, agrupadas pela fatura em que entraram: não somam de novo.</p>' +
         items.map(txRowHtml).join('') + '</details>' : carries.length ? '' : '<span class="tx-meta">Nenhuma compra nesta fatura.</span>') +
-      (gs.length ? '<details class="budget-details"><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '') +
+      (gs.length ? '<details class="budget-details" data-pop><summary>Compras parceladas (' + gs.length + ')</summary><div class="debt-grid" style="margin-top:8px">' + gs.map(function(g){ return installmentRowHtml(g, false); }).join('') + '</div></details>' : '') +
     '</div></div>';
 }
 

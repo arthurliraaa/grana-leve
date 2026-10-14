@@ -1,10 +1,11 @@
 // Servidor estático mínimo para os testes E2E (sem dependências).
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
-import {extname, join, normalize} from 'node:path';
+import {extname, join, normalize, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
-const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+// E2E_ROOT=dist roda os testes contra a versão publicada (gerada por npm run build).
+const ROOT = process.env.E2E_ROOT ? resolve(process.env.E2E_ROOT) + '/' : fileURLToPath(new URL('../../', import.meta.url));
 const TYPES = {'.html':'text/html; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8',
   '.json':'application/json', '.webmanifest':'application/manifest+json', '.png':'image/png', '.svg':'image/svg+xml'};
 

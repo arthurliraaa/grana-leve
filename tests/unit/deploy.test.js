@@ -13,12 +13,17 @@ test('a política de segurança do Vercel é a mesma do index.html (mais frame-a
   assert.equal(header, meta + "; frame-ancestors 'none'");
 });
 
-test('Vercel publica o site estático sem build e sem cache velho do service worker', () => {
-  assert.equal(vercel.outputDirectory, '.');
+test('Vercel gera o site com npm run build, publica dist/ e guarda os arquivos com hash para sempre', () => {
+  assert.equal(vercel.outputDirectory, 'dist');
+  assert.equal(vercel.buildCommand, 'npm run build');
   const pkg = JSON.parse(readFileSync(ROOT + 'package.json', 'utf8'));
-  assert.equal(pkg.scripts.build, undefined, 'sem script de build: o Vercel publica os arquivos como estão');
+  assert.equal(pkg.scripts.build, 'node tools/build.js');
+  assert.ok(pkg.devDependencies.esbuild, 'esbuild é dependência de desenvolvimento (o Vercel instala antes do build)');
   const sw = vercel.headers.find(h => h.source === '/sw.js');
   assert.equal(sw.headers[0].value, 'no-cache');
-  const ignore = readFileSync(ROOT + '.vercelignore', 'utf8');
-  for (const p of ['node_modules', 'tests', '.github']) assert.ok(ignore.split('\n').includes(p), p + ' fora da publicação');
+  for (const src of ['/js/app-(.*)', '/css/style-(.*)']) assert.match(vercel.headers.find(h => h.source === src).headers[0].value, /immutable/, src + ' com cache longo (o nome muda quando o conteúdo muda)');
+  assert.equal(vercel.headers.find(h => h.source === '/(index.html)?').headers[0].value, 'no-cache', 'o index.html nunca fica velho');
+  const ignore = readFileSync(ROOT + '.vercelignore', 'utf8').split('\n');
+  for (const p of ['node_modules', 'tests', '.github']) assert.ok(ignore.includes(p), p + ' fora da publicação');
+  assert.ok(!ignore.includes('tools') && !ignore.includes('js') && !ignore.includes('css'), 'o que o build precisa não pode ficar de fora');
 });

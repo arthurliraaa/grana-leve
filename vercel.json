@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "outputDirectory": ".",
+  "outputDirectory": "dist",
   "headers": [
     {
       "source": "/(.*)",
@@ -51,13 +51,32 @@
       ]
     },
     {
-      "source": "/js/(.*)",
+      "source": "/js/vendor/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
         }
       ]
+    },
+    {
+      "source": "/js/app-(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/css/style-(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
-  ]
+  ],
+  "buildCommand": "npm run build"
 }

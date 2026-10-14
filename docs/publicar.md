@@ -23,7 +23,7 @@ O GitHub Actions roda os dois a cada push. Só publique com tudo verde.
 1. Crie uma conta em https://vercel.com com o login do GitHub.
 2. Clique em **Add New → Project** e importe o repositório `arthurliraaa/grana-leve`.
 3. Em **Framework Preset**, escolha **Other**. Deixe Build Command e Output Directory como
-   estão: o `vercel.json` já diz que o site é estático e que os arquivos ficam na raiz.
+   estão: o `vercel.json` já manda rodar `npm run build` e publicar a pasta `dist/`.
 4. Clique em **Deploy**. O endereço fica parecido com `grana-leve.vercel.app`.
 
 Depois disso, cada push na `main` publica sozinho, e cada pull request ganha um link de
@@ -35,8 +35,10 @@ prévia para testar antes.
   `frame-ancestors 'none'` (impede que o site seja aberto dentro de outro site), HSTS,
   `nosniff`, `Referrer-Policy` e `Permissions-Policy` sem câmera, microfone nem localização.
 - Desliga o cache do `sw.js` e do `index.html`, para que todos recebam a versão nova logo.
-- O `.vercelignore` deixa de fora os testes, as ferramentas e as configurações de
-  desenvolvimento.
+- O `npm run build` (`tools/build.js`, com esbuild) gera `dist/`: um JavaScript e um CSS minificados
+  com hash no nome (cache de um ano, imutável), `index.html` e `sw.js` apontando para eles.
+- O `.vercelignore` deixa de fora os testes e as configurações de desenvolvimento (`tools/` fica,
+  porque o build roda no Vercel).
 
 Um teste (`tests/unit/deploy.test.js`) confere se a política de segurança do `vercel.json`
 continua igual à do `index.html`.

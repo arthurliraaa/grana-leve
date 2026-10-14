@@ -1651,3 +1651,9 @@ details.research-optin{ padding:0; gap:0; }
 /* “Desse total, seu”: o valor desce para a linha de baixo quando falta espaço */
 .tile-two{ flex-wrap:wrap; }
 .tile-two > span:first-child{ flex:1 1 6.5rem; }
+
+.pop-body{ display:grid; gap:8px; }
+.pop-body .tx-row, .pop-body .list-row{ padding:10px 0; }
+/* Números dos quadros do mês: o valor fica logo abaixo do rótulo em todos, sem espaço em branco no meio */
+.tile{ align-content:start; }
+.stat-tiles .tile{ justify-content:start; }

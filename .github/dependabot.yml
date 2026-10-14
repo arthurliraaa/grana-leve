@@ -1,0 +1,11 @@
+# Abre pull requests semanais com atualizações de dependências e de ações do GitHub.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
