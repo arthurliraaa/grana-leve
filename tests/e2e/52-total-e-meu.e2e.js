@@ -79,6 +79,18 @@ L.run(async ({page}) => {
   await L.tab(page, 'lancamentos');
   L.ok(/gastos R\$\s?900,00 \(seus R\$\s?300,00 · de outras pessoas R\$\s?600,00\)/.test(await L.text(page, '#txSummary')), 'resumo da lista: total, seus e de outras pessoas');
 
+  L.section('Fatura paga em parte: a sua parte continua toda a pagar');
+  const key = await page.evaluate(async (c, d) => { const {invoiceKeyFor} = await import('/js/domain/cards.js'); return invoiceKeyFor(d, c); }, card, L.dayOffset(-45));
+  await L.patchDb(page, `u.cards[0].invoiceAdvances = {[arg.key]: [{id: 'ad1', amount: 350, date: arg.today}]};`, {key, today});
+  await L.tab(page, 'dashboard'); await L.sleep(200);
+  const f2 = await tile('Falta pagar');
+  L.ok(L.moneyOf(f2.val) === 400 - 350 && /Desse total, seu\s*R\$\s?50,00/.test(f2.text), 'pagou 350 de 400: falta 50, e os 50 são seus (a sua parte de 100 limitada ao que falta)');
+  await L.patchDb(page, `u.cards[0].invoiceAdvances = {[arg.key]: [{id: 'ad1', amount: 150, date: arg.today}]};`, {key, today});
+  await L.tab(page, 'dashboard'); await L.sleep(200);
+  const f3 = await tile('Falta pagar');
+  L.ok(L.moneyOf(f3.val) === 250 && /Desse total, seu\s*R\$\s?100,00/.test(f3.text), 'pagou 150 de 400: falta 250, dos quais 100 são seus e 150 de outras pessoas');
+  await L.patchDb(page, `u.cards[0].invoiceAdvances = {};`);
+
   L.section('Celular');
   await page.setViewport({width: 375, height: 800});
   for (const t of ['dashboard', 'lancamentos', 'cartoes']){ await L.tab(page, t); await L.sleep(150); L.ok(await L.noHorizontalScroll(page), t + ' cabe na tela'); }
@@ -89,4 +101,19 @@ L.run(async ({page}) => {
   }));
   L.ok(!overlap, 'no celular o valor não fica por cima do nome nem das etiquetas');
   L.ok(await page.$eval('#txSummary', el => getComputedStyle(el).hyphens) === 'manual', 'o resumo não corta palavras com hífen');
+
+  L.section('Celular: menus e centralização');
+  const centered = async sel => page.$eval(sel, el => { const r = el.getBoundingClientRect(); return Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 3; });
+  await L.tab(page, 'lancamentos'); await L.sleep(150);
+  L.ok(await centered('.segmented.seg-wide'), '“Lançamentos | Contas fixas” fica centralizado');
+  L.ok(await centered('.tx-views'), '“Lista | Calendário | Ano” fica centralizado');
+  await L.tab(page, 'cartoes'); await L.sleep(150);
+  L.ok(await page.$eval('.ws-box', el => getComputedStyle(el).textAlign) === 'center', 'as caixas do resumo de Contas e cartões têm o texto centralizado');
+  await page.$eval('#bankList .card-menu > summary', el => el.click()); await L.sleep(200);
+  const pop = await page.$eval('#bankList .card-menu[open] > .more-pop', el => { const r = el.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, vw: innerWidth, vh: innerHeight}; });
+  L.ok(pop.l >= 0 && pop.r <= pop.vw && pop.t >= 0 && pop.b <= pop.vh, 'o menu ⋯ da conta abre inteiro dentro da tela');
+  await page.$eval('#bankList .card-menu[open] > summary', el => el.click());
+  await page.$eval('#moreBtn', el => el.click()); await L.sleep(250);
+  const items = await page.$$eval('.more-menu .more-item', els => els.map(e => getComputedStyle(e).textAlign + '/' + getComputedStyle(e).alignItems));
+  L.ok(items.length > 6 && items.every(x => x === 'center/center'), 'os itens do “Mais” (inclusive tutorial e ajuda) têm o conteúdo centralizado');
 });
