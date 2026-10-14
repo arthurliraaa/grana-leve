@@ -76,7 +76,7 @@ L.run(async ({page}) => {
   L.section('Contas e cartões');
   await L.tab(page, 'cartoes');
   const ws = await L.text(page, '#walletSummary');
-  L.ok(/Faturas a pagar\s*R\$\s?400,00\s*Desse total, seu: R\$\s?100,00/.test(ws) && /Sobra depois de pagar\s*R\$\s?2\.700,00\s*“/.test(ws), 'faturas a pagar: total 400 e quanto é seu; sobra 2.700 sem comentário');
+  L.ok(/Faturas a pagar\s*R\$\s?400,00\s*Desse total, seu: R\$\s?100,00/.test(ws) && /Sobra depois de pagar\s*Com a fatura total\s*R\$\s?2\.700,00\s*Só com a minha parte\s*R\$\s?3\.000,00/.test(ws), 'faturas a pagar: total 400 e quanto é seu; sobra em duas opções: 2.700 com a fatura total e 3.000 só com a minha parte');
 
   L.section('Lista de lançamentos');
   await L.tab(page, 'lancamentos');

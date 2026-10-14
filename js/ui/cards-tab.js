@@ -17,7 +17,7 @@ import {pdfWriter, pdfReady} from './pdf.js';
 import {wireTooltips} from './charts.js';
 import {isForOther, isPersonal, myShare, othersShare} from '../domain/transactions.js';
 import {payAccountFor, renderBanks} from './accounts-tab.js';
-import {monthPayments, txRowHtml} from './home-tab.js';
+import {monthPayments, two, txRowHtml} from './home-tab.js';
 import {State, accountName, cardUsed, catOptions, expenseCats, installmentGroups, invoiceItems, invoiceStatus, k, totalAccountsBalance} from './state.js';
 import {installmentRowHtml} from './tx-edit.js';
 import {populatePaymentSelect} from './tx-list.js';
@@ -153,11 +153,13 @@ export function renderWalletSummary(){
   var cash = State.accounts.length ? totalAccountsBalance() : null;
   function box(label, value, sub, cls){ return '<div class="ws-box"><span class="tile-lbl">' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>'; }
   // Três caixas que se leem como uma conta: o que há nas contas − o que falta nas faturas do mês = o que sobra.
-  var rest = mp.invoices, after = cash === null ? 0 : money(cash - rest), showCards = State.cards.length > 0;
+  var rest = mp.invoices, after = cash === null ? 0 : money(cash - rest), afterMine = cash === null ? 0 : money(cash - mp.invoicesMine), showCards = State.cards.length > 0;
   el.innerHTML = '<div class="ws-eq">' +
     (cash !== null ? box('Nas contas', cash, State.accounts.length + (State.accounts.length > 1 ? ' contas' : ' conta'), cash < 0 ? 'neg-text' : '') : '') +
     (showCards ? (cash !== null ? '<span class="ws-op" aria-hidden="true">−</span>' : '') + box('Faturas a pagar', rest, rest > 0 ? 'Desse total, seu: ' + fmtMoney(mp.invoicesMine) : 'nenhuma fatura a pagar neste mês') : '') +
-    (cash !== null && showCards ? '<span class="ws-op" aria-hidden="true">=</span>' + box('Sobra depois de pagar', after, '', after < 0 ? 'neg-text' : '') : '') +
+    (cash !== null && showCards ? '<span class="ws-op" aria-hidden="true">=</span>' + (Math.abs(after - afterMine) < 0.005 ? box('Sobra depois de pagar', after, '', after < 0 ? 'neg-text' : '') :
+      '<div class="ws-box"><span class="tile-lbl">Sobra depois de pagar</span><span class="tile-sub">' +
+      two('Com a fatura total', after, after < 0 ? 'neg-text' : 'pos-text', true) + two('Só com a minha parte', afterMine, afterMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>') : '') +
     '</div>' +
     (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas que vencem neste mês (o que você já pagou ou adiantou não entra), com tudo o que está nelas, inclusive a parte de outras pessoas.</p>' : '');
 }

@@ -100,7 +100,8 @@ export function spendFigures(){
     saldoAll: hasAcc ? money(avail - mp.left) : money(f.balanceDone - others),
     saldoMine: hasAcc ? money(avail - mp.leftMine) : f.balanceDone};
 }
-function two(label, value, cls){ return '<span class="tile-two"><span>' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong></span>'; }
+// Linha “rótulo ........ valor” dos quadros (big = valor em destaque, para os saldos).
+export function two(label, value, cls, big){ return '<span class="tr' + (big ? ' big' : '') + '"><span class="tr-l">' + label + '</span><strong class="tr-v tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong></span>'; }
 export function renderStatTiles(){
   var sp = spendFigures(), f = sp.f, t = f.t;
   function tile(label, value, cls, sub){
@@ -119,9 +120,9 @@ export function renderStatTiles(){
     tile('Gastos do mês', sp.total, '', two('Seus', sp.mine) + (othersOn ? two('De outras pessoas', sp.others) : '')) +
     tile('Falta pagar', sp.left, sp.left > 0 ? '' : 'pos', sp.left > 0 ? (sp.leftOthers > 0.004 || sp.others > 0.004 ? two('Desse total, seu', sp.leftMine) : '') : 'tudo pago neste mês') +
     (Math.abs(sp.saldoAll - sp.saldoMine) < 0.005 ? tile('Saldo do mês', sp.saldoMine, sp.saldoMine < 0 ? 'neg' : 'pos') :
-      '<div class="tile"><span class="tile-lbl">Saldo do mês</span>' +
-      '<span class="tile-two tile-two-big"><span>Com a fatura total</span><strong class="tabular ' + (sp.saldoAll < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sp.saldoAll) + '</strong></span>' +
-      '<span class="tile-two tile-two-big"><span>Só com os meus gastos</span><strong class="tabular ' + (sp.saldoMine < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sp.saldoMine) + '</strong></span></div>');
+      '<div class="tile"><span class="tile-lbl">Saldo do mês</span><span class="tile-sub">' +
+      two('Com a fatura total', sp.saldoAll, sp.saldoAll < 0 ? 'neg-text' : 'pos-text', true) +
+      two('Só com os meus gastos', sp.saldoMine, sp.saldoMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>');
   var now = tile('Guardado nas metas', f.savedInGoals) +
     tile('Dívidas: falta pagar', f.debtRemaining, '', debtsOpen.length ? debtsOpen.length + (debtsOpen.length === 1 ? ' dívida' : ' dívidas') + ' em “Eu devo”<br>valor original ' + fmtMoney(debtOrig) + ' · já pago ' + fmtMoney(debtPaid) : 'nenhuma dívida em aberto') +
     tile('A receber neste mês', recvMonth, '', recvMonth > 0 ? 'Total a receber: ' + fmtMoney(f.toReceive) : (f.toReceive > 0 ? 'Nada vence neste mês<br>Total a receber: ' + fmtMoney(f.toReceive) : 'Ninguém te deve nada'));
