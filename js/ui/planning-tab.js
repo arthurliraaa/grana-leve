@@ -50,10 +50,12 @@ export function renderBudgets(){
     spent3[t.category] = (spent3[t.category] || 0) + v;
   });
   monthTx.forEach(function(t){ if (!t.reversal) spentM[t.category] = (spentM[t.category] || 0) + myShare(t); });
-  var cats = expenseCats();
+  var cats = expenseCats(), spent3Any = Object.keys(spent3).length > 0;
   var shown = cats.filter(function(c){ return spent3[c.id] > 0 || spentM[c.id] > 0 || budgetLimit(mb.key, c.id) > 0 || State.budgetNewCats.indexOf(c.id) >= 0; });
   shown.sort(function(a, b){ return (spentM[b.id] || 0) - (spentM[a.id] || 0) || (spent3[b.id] || 0) - (spent3[a.id] || 0); });
-  if (!shown.length) shown = cats;
+  // Sem histórico nenhum: começa com três categorias comuns; as outras ficam recolhidas.
+  if (!shown.length) shown = cats.filter(function(c){ return ['alimentacao', 'transporte', 'moradia'].indexOf(c.id) >= 0; });
+  if (!shown.length) shown = cats.slice(0, 3);
   var hidden = cats.filter(function(c){ return shown.indexOf(c) < 0; });
   // Resumo do mês: planejado × gasto nas categorias com limite, e o que ainda pode gastar.
   var planned = sumMoney(cats, function(c){ return budgetLimit(mb.key, c.id); });
@@ -69,8 +71,13 @@ export function renderBudgets(){
       '<p class="bs-note">' + Math.round(sumPct * 100) + '% do planejado usado' + (overs ? ' · ' + overs + (overs === 1 ? ' categoria passou' : ' categorias passaram') + ' do limite' : '') + '.</p>' :
       '<p class="bs-note">Digite quanto quer gastar em cada categoria para acompanhar o mês.</p>') +
     '</div>';
+  // Atalho: usar a média dos últimos 3 meses nas categorias que ainda não têm limite.
+  var fill = locked ? [] : cats.filter(function(c){ return !(budgetLimit(mb.key, c.id) > 0) && spent3[c.id] > 0; })
+    .map(function(c){ return {id: c.id, amount: Math.ceil(spent3[c.id] / 3 / 10) * 10}; }).filter(function(x){ return x.amount > 0; });
+  if (fill.length) summary = summary.replace(/<\/div>$/, '<button type="button" class="btn btn-ghost btn-sm bs-fill" data-budget-fill>Usar a média dos últimos 3 meses' +
+    (fill.length > 1 ? ' (' + fill.length + ' categorias)' : '') + '</button></div>');
   list.innerHTML = summary + shown.map(budgetRowHtml).join('') +
-    (hidden.length ? '<details class="budget-more"><summary>Sem gastos nos últimos 3 meses (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary><div class="budget-cards">' +
+    (hidden.length ? '<details class="budget-more"><summary>' + (spent3Any ? 'Sem gastos nos últimos 3 meses' : 'Outras categorias') + ' (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary><div class="budget-cards">' +
       hidden.map(budgetRowHtml).join('') + '</div></details>' : '');
   function budgetRowHtml(c){
     var catTx = monthTx.filter(function(t){ return t.category === c.id; }).sort(function(a, b){ return b.date.localeCompare(a.date); });
@@ -100,6 +107,14 @@ export function renderBudgets(){
       '</div>';
   }
 
+  var fillBtn = qs('[data-budget-fill]', list);
+  if (fillBtn) fillBtn.addEventListener('click', async function(){
+    var key = monthBounds(State.budgetMonthOffset).key;
+    if (budgetLocked(key)) return;
+    for (var i = 0; i < fill.length; i++) await setBudget(key, fill[i].id, fill[i].amount);
+    renderBudgets();
+    toast('Limites definidos pela média de 3 meses em ' + fill.length + (fill.length === 1 ? ' categoria' : ' categorias') + '. Ajuste se quiser.');
+  });
   qsa('[data-budget-suggest]', list).forEach(function(btn){
     btn.addEventListener('click', async function(){
       var cat = btn.getAttribute('data-budget-suggest'), key = monthBounds(State.budgetMonthOffset).key;
@@ -206,6 +221,22 @@ export function goalForecastHtml(g){
         'Sem rendimento informado, a conta é só o que falta dividido pelos meses. ') +
       'É uma estimativa: se o ritmo ou a taxa mudarem, a previsão muda junto.</p></details></div>';
 }
+// Uma frase que resume a meta: quanto falta e quando fica pronta (ou quanto guardar por mês).
+function goalHeadline(g){
+  var f = Goals.goalForecast(g, todayKey()), s = f.summary;
+  if (f.done) return '';
+  var missing = Math.max(0, Number(g.targetAmount || 0) - Number(g.currentAmount || 0));
+  var txt = 'Faltam <strong class="tabular">' + fmtMoney(missing) + '</strong>.', cls = '';
+  if (s.pace > 0 && f.finishDate){
+    txt += ' No seu ritmo, fica pronta em <strong>' + shortMonth(f.finishDate) + '</strong>' + (f.needed !== undefined ? (f.onTrack ? ', antes do prazo.' : ', depois do prazo.') : '.');
+    cls = f.needed !== undefined && !f.onTrack ? 'fc-warn' : 'fc-good';
+  } else if (f.needed !== undefined){
+    txt += ' Guarde cerca de <strong class="tabular">' + fmtMoney(f.needed) + ' por mês</strong> para chegar no prazo.';
+  } else if (!(s.pace > 0)){
+    txt += ' Use “Guardar” sempre que separar um dinheiro para ela.';
+  }
+  return '<p class="goal-headline ' + cls + '">' + txt + '</p>';
+}
 function goalCardHtml(g){
   var status = goalStatus(g);
   var pct = g.targetAmount > 0 ? Math.min(1, Number(g.currentAmount||0)/Number(g.targetAmount)) : 0;
@@ -231,6 +262,9 @@ function goalCardHtml(g){
       (status === 'excluidas' ? '' : urgencySelectHtml('goals', g, g.name)) + '</span></div>' +
     '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--brand)"></span></div>' +
     '<div class="goal-figs"><span class="tabular">'+fmtMoney(g.currentAmount||0)+' de '+fmtMoney(g.targetAmount)+'</span><span>'+Math.round(pct*100)+'%</span></div>' +
+    (status === 'andamento' || status === 'naobatidas' ? goalHeadline(g) : '') +
+    (g.note ? '<div class="note">'+escapeHtml(g.note)+'</div>' : '') +
+    (status === 'excluidas' ? '' : '<details class="goal-more"><summary>Detalhes da meta</summary>' +
     (s.earned || g.yieldRate || g.investment ? '<div class="goal-yield">' + icon('trend-up') + '<span>' +
       (g.investment ? '<strong>' + escapeHtml(Inv.investmentLabel(g.investment)) + '</strong>' + (g.investment.type !== 'nenhum' ? ' · cerca de ' + pctText(Number(g.yieldRate) || 0) + '% ao ano' : '') +
         (g.investment.auto && g.rateDate ? ' · taxa do Banco Central de ' + formatDateFull(g.rateDate) : '') + '<br>' : '') +
@@ -241,11 +275,11 @@ function goalCardHtml(g){
       (g.reminderDate ? '<span>Me avise em: '+formatDateFull(g.reminderDate)+'</span>' : '') +
     '</div>' +
     (status === 'andamento' || status === 'naobatidas' ? goalForecastHtml(g) : '') +
-    (g.note ? '<div class="note">'+escapeHtml(g.note)+'</div>' : '') +
     (hasMoves ? '<details class="budget-details pay-log"><summary>Movimentações (' + s.moves.length + ')</summary>' + s.moves.slice().reverse().map(function(m){
       return '<div class="list-row"><div class="tx-main"><div class="tx-desc tabular">' + (m.kind === 'withdraw' ? '− ' : '+ ') + fmtMoney(m.amount) + '</div>' +
         '<div class="tx-meta">' + (m.date ? formatDateBr(m.date) + ' · ' : '') + (m.legacy ? 'já guardado antes' : m.adjust ? 'ajuste na edição' : MOVE_LABEL[m.kind]) + '</div></div></div>';
     }).join('') + '</details>' : '') +
+    '</details>') +
     '<div class="card-actions">' + actions + '</div></div>';
 }
 

@@ -17,7 +17,7 @@ L.run(async ({page}) => {
 
   L.section('Escolher a aplicação');
   L.ok(!(await page.$eval('#goalYield', el => el.closest('[data-inv-part]').hidden)), 'sem tipo, dá para digitar a taxa (como antes)');
-  await L.setVal(page, '#goalInvType', 'cdb'); await L.sleep(300);
+  await page.$eval('#goalInvMore', d => { d.open = true; }); await L.setVal(page, '#goalInvType', 'cdb'); await L.sleep(300);
   L.ok(!(await page.$eval('#goalInvPct', el => el.closest('[data-inv-part]').hidden)) && await page.$eval('#goalYield', el => el.closest('[data-inv-part]').hidden), 'CDB pede o % do CDI (e esconde a taxa digitada)');
   await page.type('#goalInvPct', '110'); await L.sleep(100);
   L.ok(/cerca de 15,57% ao ano \(antes do IR\), com índices do Banco Central de 10\/10\/2026/.test(await L.text(page, '#goalForm [data-inv-preview]')), 'mostra a taxa de hoje: 110% de 14,15% (CDI do Banco Central)');

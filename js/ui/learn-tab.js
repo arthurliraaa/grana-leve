@@ -16,17 +16,18 @@ import {State} from './state.js';
 export function renderLearn(){
   function tipCards(list){
     return '<div class="tips-grid">' + list.map(function(t){
-      return '<div class="tip-card"><span class="tip-tag">'+escapeHtml(t.tag)+'</span><h4>'+escapeHtml(t.title)+'</h4><p>'+escapeHtml(t.text)+'</p></div>';
+      // Só o título à vista; o texto abre ao tocar (a aba fica curta de ler).
+      return '<details class="tip-card"><summary><span class="tip-tag">'+escapeHtml(t.tag)+'</span><h4>'+escapeHtml(t.title)+'</h4></summary><p>'+escapeHtml(t.text)+'</p></details>';
     }).join('') + '</div>';
   }
   // Dicas editadas no painel de administração substituem as padrão.
   var edited = State.content || [];
   function of(kind, fallback){ var l = edited.filter(function(c){ return c.kind === kind; }).map(function(c){ return c.data; }); return edited.length ? l : fallback; }
   document.getElementById('learnWrap').innerHTML =
+    '<section class="learn-section card" id="howTo"><h3>Como usar o Grana Leve</h3>' + howToHtml(true) + '</section>' +
     '<section class="learn-section"><h3>Organizar o dinheiro</h3>' + tipCards(of('tip', TIPS)) + '</section>' +
     '<section class="learn-section"><h3>Fazer o dinheiro render</h3>' + tipCards(of('tip_grow', TIPS_GROW)) +
-      '<p class="disclaimer" style="margin-top:10px">Conteúdo educativo. Não é recomendação de investimento. Valores e taxas são exemplos e mudam com o tempo.</p></section>' +
-    '<section class="learn-section card" id="howTo"><h3>Como usar o Grana Leve</h3>' + howToHtml(true) + '</section>';
+      '<p class="disclaimer" style="margin-top:10px">Conteúdo educativo. Não é recomendação de investimento. Valores e taxas são exemplos e mudam com o tempo.</p></section>';
 }
 
 // Guia "Como usar": primeiros passos numerados, o que tem em cada área e dicas. links: atalhos
@@ -36,10 +37,10 @@ export function howToHtml(links){
       return '<li><strong>' + escapeHtml(h[0]) + '</strong><span>' + escapeHtml(h[1]) + '</span>' +
         (links ? '<a class="sum-link" href="#/' + routeOf(h[2]) + '" data-go="' + h[2] + '">Ir para ' + escapeHtml(TAB_NAMES[h[2]]) + ' →</a>' : '') + '</li>';
     }).join('') + '</ol>' +
-    '<h4 class="howto-h">O que tem em cada área</h4><div class="howto-areas">' + HOW_TO_AREAS.map(function(a){
+    '<details class="howto-more"><summary>O que tem em cada área</summary><div class="howto-areas">' + HOW_TO_AREAS.map(function(a){
       return '<div class="howto-area">' + icon(a[1]) + '<div><strong>' + escapeHtml(a[0]) + '</strong><p>' + escapeHtml(a[2]) + '</p></div></div>';
-    }).join('') + '</div>' +
-    '<h4 class="howto-h">Dicas rápidas</h4><ul class="howto-list">' + HOW_TO_TIPS.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul>';
+    }).join('') + '</div></details>' +
+    '<details class="howto-more"><summary>Dicas rápidas</summary><ul class="howto-list">' + HOW_TO_TIPS.map(function(t){ return '<li>' + escapeHtml(t) + '</li>'; }).join('') + '</ul></details>';
 }
 var TAB_NAMES = {cartoes: 'Contas e cartões', lancamentos: 'Ganhos e gastos', fixas: 'Contas fixas', limites: 'Planejar gastos', dashboard: 'Início'};
 

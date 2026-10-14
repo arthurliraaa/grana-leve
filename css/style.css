@@ -1728,3 +1728,24 @@ details.research-optin{ padding:0; gap:0; }
   .tx-mobile-open{ display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:4px; }
   #txForm{ display:none; }
 }
+.budget-summary .bs-fill{ grid-column:1 / -1; justify-self:start; margin-top:6px; }
+
+/* Metas: uma frase de resumo; o resto em “Detalhes da meta” */
+.goal-headline{ margin:2px 0 0; font-size:.92rem; line-height:1.45; color: var(--text-primary); }
+.goal-headline.fc-warn strong:last-child{ color: var(--warning); }
+.goal-headline.fc-good strong:last-of-type{ color: var(--good); }
+.goal-more > summary, .inv-more > summary{ cursor:pointer; color: var(--brand); font-weight:600; font-size:.88rem; padding:4px 0; }
+.goal-more[open]{ display:grid; gap:10px; }
+.goal-more[open] > summary{ margin-bottom:2px; }
+.inv-more{ border:1px dashed var(--border); border-radius:12px; padding:8px 12px; }
+.inv-more[open]{ padding-bottom:12px; }
+
+/* Aprenda: cartões de dica abrem ao tocar; partes do guia recolhidas */
+details.tip-card{ align-content:start; }
+details.tip-card > summary{ list-style:none; cursor:pointer; display:grid; gap:6px; }
+details.tip-card > summary::-webkit-details-marker{ display:none; }
+details.tip-card > summary h4::after{ content:" +"; color: var(--brand); font-weight:700; }
+details.tip-card[open] > summary h4::after{ content:" −"; }
+.howto-more{ margin-top:14px; }
+.howto-more > summary{ cursor:pointer; font-weight:700; color: var(--text-primary); padding:6px 0; }
+.howto-more[open] > summary{ margin-bottom:8px; }
