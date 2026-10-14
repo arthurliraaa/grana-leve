@@ -11,9 +11,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm test
       - run: npm run test:db
       - run: npm run test:e2e
         env:
+          CHROME_PATH: /usr/bin/google-chrome
+      # A versão publicada (npm run build) também precisa abrir e funcionar: roda alguns testes contra dist/.
+      - run: npm run build
+      - run: node tests/e2e/run.js 01 04 09 30 53
+        env:
+          E2E_ROOT: dist
           CHROME_PATH: /usr/bin/google-chrome

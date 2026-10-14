@@ -1,193 +1,167 @@
-# Grana Leve 💸
+# Grana Leve 🌿
 
-Ferramenta de controle financeiro pessoal para jovens e famílias. Nasceu do projeto
-de Atividade Extensionista (Engenharia de Software), a partir de uma pesquisa com 48
-pessoas sobre hábitos financeiros.
+Aplicativo gratuito de controle financeiro pessoal para jovens e famílias. É um projeto de
+Atividade Extensionista do curso de Engenharia de Software, que parte de uma pesquisa com 48
+pessoas sobre hábitos financeiros. Funciona no celular e no computador, instala como app (PWA)
+e está no ar em **https://grana-leve.vercel.app**.
 
-## Funcionalidades
+A ideia central: anotar gasto não deveria dar trabalho nem ansiedade. Dá para escrever como se
+fala (“gastei 30 no mercado”), ver o mês de relance e saber, sem fazer conta, quanto sobra depois
+de pagar as faturas.
 
-- **Menu fácil de achar**: no computador, menu lateral com ícones em grupos (Início,
-  Ganhos e gastos, Contas e cartões; Planejar: Planejar gastos, Metas, Compromissos;
-  Mais: Aprenda, Conexões). No celular, barra inferior com Início, Ganhos e gastos, o
-  **+** no centro, Cartões e **Mais** (Planejar gastos fica no Mais). Cada área tem endereço próprio (`#/metas`), então
-  o Voltar do navegador funciona.
-- **Início**: a situação do mês numa frase (quanto entrou, quanto saiu e com quanto termina
-  se o previsto se confirmar) e 3 cartões: Quanto tenho, Gastos do mês (com a barra do
-  planejado) e Próximos pagamentos (faturas, contas fixas e dívidas, cada um levando para a
-  sua área). Havendo parcelas, “Parcelas em andamento” mostra quantas foram pagas e quantas
-  faltam. Gráficos, comparação e últimos lançamentos ficam em “Ver todos os detalhes do mês”.
-- **Total × realmente meu**: compras pagas para outras pessoas e a parte delas nas divididas contam
-  no total (é dinheiro que sai), mas só a sua parte é gasto seu. Resumo, quadros do mês, gastos por
-  banco (pago, falta e “seu”), gráficos, lista e “Contas e cartões” mostram sempre as duas versões.
-  O gráfico por categoria alterna entre “Tudo” e “Somente meus gastos”.
-- **Tutorial de primeiro uso**: abre sozinho numa conta nova (pode ser pulado) e pode ser revisto
-  em “Perfil e conta”, no “Mais” do celular e na janela de ajuda.
-- **Ajuda e sugestões**: confirmação visual do envio e intervalo de 60 s entre mensagens.
-- **Categorias com emoji e cor**: todas, inclusive as padrão, podem ganhar nome, emoji
-  (36 sugestões ou qualquer um digitado) e cor em “Personalizar categorias”. As padrão
-  podem voltar ao original. O emoji aparece nas listas, nos campos, no planejamento e nos
-  gráficos.
-- **Perfil e conta** (pelo nome no topo ou pelo “Mais”): trocar nome, e-mail (com
-  confirmação nos dois endereços) e senha (pedindo a atual), tema claro/escuro/automático,
-  pergunta ao entrar, confirmações, pesquisa, sair de todos os aparelhos e excluir a conta.
-- **Previsões de entrada** recolhidas num ícone com contador no card “Novo lançamento”.
-- **Pesquisa acadêmica opcional**: consentimento separado e opcional (em “Seus dados e backup”; 18+), termo completo,
-  perfil opcional (faixa etária e estado) e opção de sair em “Seus dados e backup”. Nesta
-  versão nada é enviado; a coleta começa com o servidor (veja `docs/publicar.md`).
-- **Transições suaves** ao trocar de área e abrir painéis e popups (desligadas para quem
-  pede menos movimento no sistema).
-- **Urgência** (alta, média, baixa) em dívidas, valores a receber e metas: escolhida no
-  cadastro ou direto no card; os mais urgentes aparecem primeiro e o Início destaca a
-  dívida urgente.
+## O que o app faz
 
-- **Botão +**: abre o formulário de gasto/ganho em um popup, de qualquer aba.
-- **Lançamento por mensagem (chat)**: ao entrar (uma vez por dia) o app pergunta se houve
-  gasto ou ganho. Entende frases como “gastei 30 no mercado e 20 no uber” ou “recebi
-  1.500 de salário ontem” com um leitor baseado em regras (não é IA). **Nada é salvo
-  direto**: cada item aparece para conferir e editar (valor, data, categoria, pagamento,
-  parcelas), com destaque no que foi suposto, e só grava ao tocar em “Salvar”.
-  Também abre pelo link “Lance pelo chat” no botão +.
-- **Detalhes do mês** (no Início): realizado × agendado, faturas a pagar, metas, dívidas e
-  a receber; gráficos com opção de tabela e período de 3, 6 ou 12 meses; relatório em PDF.
-- **Valores no jeito brasileiro**: os campos de dinheiro entendem “1.500”, “1.500,00” e
-  “32,50” (o campo numérico do navegador lia “1.500” como 1,5).
-- **Categorias conforme o uso**: as mais usadas aparecem primeiro e a categoria é sugerida
-  pela descrição (pelo histórico ou por palavras conhecidas); telas mostram só as em uso.
-- **Ganhos e gastos**: categorias personalizadas, forma de pagamento
-  (conta, dinheiro, cartão de crédito, vale), compra para outra pessoa vai direto para
-  “A receber”, exportação CSV. Cada lançamento pode ser editado pelo lápis.
-- **Contas bancárias**: saldo de cada conta a partir do valor informado, atualizado pelos
-  ganhos e gastos ligados a ela; transferências entre contas (não contam como ganho nem
-  gasto) e pagamento de fatura escolhendo a conta, inclusive de outro banco.
-- **Cartões**: limite, fechamento e vencimento; fatura montada automaticamente e
-  visualizada em PDF dentro do app (baixar, compartilhar).
-- **Planejar gastos** por categoria, com o planejamento guardado mês a mês: mudar o mês
-  atual não altera os anteriores, que ficam travados. Dá para planejar o próximo mês e
-  criar categorias ali mesmo.
-- **Contas fixas** (em Ganhos e gastos, porque são gastos do mês): luz, água, aluguel, assinaturas; o gasto entra sozinho
-  no dia, com valor ajustável mês a mês.
-- **Metas** com prazo, tipo de aplicação opcional (poupança, caixinha/conta remunerada, CDB e
-  LCI/LCA pelo % do CDI, Tesouro Selic, Tesouro IPCA+ ou taxa fixa), com a taxa atualizada pelo
-  Banco Central (API pública SGS: CDI, Selic e IPCA) se a pessoa quiser, histórico do que foi guardado,
-  rendido e retirado, e previsões: quanto guardar por mês para chegar no prazo e quando a
-  meta termina no ritmo atual (juros compostos), explicadas em frases.
-- **Compromissos**: “Eu devo” (agrupado por quem cobra) e “Me devem” (agrupado por quem
-  deve, com cobrança por mensagem pronta e chave Pix conferida), numa tela só. Nomes podem
-  ser editados e o histórico diz quem pagou cada valor.
-  “A receber” aceita parcelas (informando o total ou o valor de cada parcela) e, para
-  compra feita no seu cartão, pode lançar a compra parcelada na fatura.
-- **Aprenda**: organização, rendimento e o guia “Como usar” (primeiros passos, cada área e
-  dicas).
-- **Compras parceladas** no cartão (até 24x, com seletor − / + que mostra o valor de cada
-  parcela), que aparecem nos cartões e em Dívidas com opção de adiantar pagamento.
-- **Vale-alimentação/refeição** com saldo, e **relatório por cartão** com filtros.
-- **Conexões**: app instalável e Google Agenda disponíveis; WhatsApp e Open Finance com
-  interface pronta.
-- **Backup e restauração** dos dados em arquivo JSON (rodapé → “Backup dos dados”).
-- Aviso na hora quando um gasto chega a 80% ou passa do planejado na categoria.
-- Busca (sem diferenciar acentos) e filtros por tipo e forma de pagamento.
-- **App instalável (PWA)** que funciona sem internet.
-- Modo claro/escuro e layout pensado para celular.
+**Dia a dia**
+- **Lançamento por mensagem**: “gastei 30 no mercado e 20 no uber”, “recebi 1.500 de salário
+  ontem”. Um leitor baseado em regras (não é IA) monta os itens; nada é salvo sem a pessoa conferir
+  e tocar em “Salvar”.
+- **Início**: a situação do mês numa frase e três cartões (Quanto tenho, Gastos do mês, Próximos
+  pagamentos). Em “Ver todos os detalhes do mês”: gráficos por categoria (rosca, pizza ou blocos,
+  com “Tudo” ou “Somente meus gastos”), ganhos × gastos com navegação por mês (inclusive futuro,
+  com previsão), faturas e crédito × débito do mês, comparação com o mês anterior e parcelas em
+  andamento.
+- **Ganhos e gastos**: lista, calendário e visão do ano, busca e filtros, exportação em CSV,
+  compras parceladas (até 24x), contas fixas (luz, aluguel, assinaturas) e previsões de entrada.
+- **Contas e cartões**: saldo por conta, transferências, cartão com limite, fechamento e
+  vencimento, fatura montada sozinha, pagamento parcial ou adiantado, relatório por cartão (em PDF)
+  e vale-alimentação. O resumo se lê como uma conta: *nas contas − faturas a pagar = sobra*.
+- **Planejar gastos**: quanto gastar por categoria em cada mês (meses passados ficam travados) e
+  aviso ao chegar em 80% do limite.
+- **Metas**: prazo, onde o dinheiro está (poupança, CDB, LCI/LCA, Tesouro…), taxa atualizada pelo
+  Banco Central (CDI, Selic e IPCA) e previsões em juros compostos.
+- **Compromissos**: o que você deve e o que te devem, com cobrança por mensagem pronta, Pix e
+  cobrança compartilhada entre duas contas.
+
+**Total × realmente meu.** Quando uma compra é paga para outra pessoa, ou dividida, o dinheiro sai
+do cartão ou da conta, mas só a sua parte é gasto seu. O app mostra sempre as duas versões (resumo,
+cartões do Início, tabela por banco, gráficos, lista e “Contas e cartões”). “Seu” numa fatura é a
+sua parte dela, limitada ao que ainda falta pagar.
+
+**Para quem está começando**: tutorial de primeiro uso (pode ser pulado ou revisto), guia “Como
+usar”, botão “Ajuda e sugestões” e modo claro/escuro. Os dados podem ser exportados em backup e a
+conta pode ser apagada pelo próprio app.
+
+## Como funciona por dentro
+
+- **JavaScript puro (módulos ES), sem framework e sem etapa de build no desenvolvimento.** As regras
+  de dinheiro, datas, faturas e saldos ficam em `js/domain/` (sem tela, testáveis no Node); a
+  interface em `js/ui/`; a persistência em `js/data/`.
+- **Dois modos de armazenamento**: nuvem (Supabase: login, sincronização entre aparelhos) e local
+  (`localStorage`, usado em desenvolvimento e nos testes com `granaleve_backend=local`). A camada
+  `Store` esconde a diferença.
+- **Dinheiro em centavos**, com arredondamento centralizado em `js/domain/money.js`.
+- **Service worker** “rede primeiro”: com internet pega sempre a versão nova; sem internet o app
+  abre com a última cópia. Escrever sem internet ainda não é possível com conta na nuvem (a tela
+  avisa que nada foi salvo).
 
 ## Como rodar
 
-Precisa do Node.js 20 ou mais novo. Na primeira vez, instale as dependências de desenvolvimento:
+Precisa do Node.js 20 ou mais novo.
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:5500, arquivos como estão (sem build)
+npm run build      # gera dist/ (o que vai para o ar)
+npm run preview    # serve dist/ em http://localhost:5501
 ```
 
-Depois abra http://localhost:5500. A extensão **Live Server** do VS Code também funciona.
-O app usa módulos ES, então precisa ser aberto por um servidor (abrir o `index.html`
-direto do disco não funciona).
+O app usa módulos ES; abrir o `index.html` direto do disco não funciona.
 
-## Publicar
-
-O site é publicado no **Vercel**. Com o **Supabase** configurado em `js/config.js`, o app usa
-conta de verdade (login, confirmação por e-mail e recuperação de senha), sincroniza os dados
-entre aparelhos, envia o estudo de quem aceitou o termo e libera o **painel de
-administração** para quem tem o papel admin no banco. O passo a passo está em [`docs/publicar.md`](docs/publicar.md).
-
-## Testes e verificação
+## Testes
 
 ```bash
-npm run lint       # ESLint: variáveis não declaradas, imports sem uso
-npm test           # regras de dinheiro, datas, faturas, saldos e o parser (node:test, ~1 s)
-npm run test:e2e   # o app inteiro no Chrome (puppeteer-core); defina CHROME_PATH se precisar
+npm run lint       # ESLint
+npm test           # regras (dinheiro, datas, faturas, saldos, parser, build): node:test
+npm run test:e2e   # o app inteiro no Chrome (puppeteer-core); use CHROME_PATH se precisar
+npm run test:db    # migrações e regras de acesso do banco, num Postgres local (podman)
 npm run check      # lint + testes de regras
+E2E_ROOT=dist node tests/e2e/run.js 01 04   # testes no navegador contra a versão publicada
 ```
 
-O GitHub Actions roda os três a cada push (`.github/workflows/verificacao.yml`).
+O GitHub Actions roda lint, testes de regras, do banco e do navegador a cada push, mais um teste
+de fumaça contra o `dist/` e a auditoria das dependências (`.github/workflows/verificacao.yml`).
 
 ## Estrutura
 
 ```
-index.html            marcação das telas (apresentação, login, app) e ícones SVG
+index.html            telas (apresentação, login, app) e ícones SVG
 css/style.css         estilos e tema claro/escuro
-js/app.js             ponto de entrada (módulo ES)
-js/domain/            regras puras, sem tela: dinheiro (centavos), datas, lançamentos e
-                      parcelas, cartões e faturas, contas, planejamento, vale, previsões,
-                      a receber e o parser de mensagens (também roda no Node)
-js/data/              persistência (Store local/nuvem), sessão e preferências, senha/login
-js/ui/                tela, um arquivo por área (Início, Ganhos e gastos, Contas e cartões,
-                      Planejar, Compromissos, contas fixas, chat, perfil, painel adm…);
-                      js/ui/app.js só liga os eventos e tem o mapa completo no comentário do topo
-supabase/             migrações do banco, testes das regras de acesso e modelos de e-mail
-tests/unit/           testes das regras (node:test)
-tests/e2e/            testes no navegador, com servidor próprio
-docs/                 regras financeiras e decisões
-sw.js                 service worker (rede primeiro, cópia local sem internet)
-manifest.webmanifest, icons/   dados para instalar como app
+js/app.js             ponto de entrada
+js/domain/            regras puras: dinheiro, datas, lançamentos, parcelas, cartões e faturas,
+                      contas, planejamento, metas, investimentos, a receber, parser…
+js/data/              Store (local/nuvem), Supabase, sessão e preferências, backup e migrações
+js/ui/                uma área por arquivo (Início, Ganhos e gastos, Cartões, Planejar, chat,
+                      perfil, tutorial, painel adm…); shell.js liga a navegação e os eventos
+supabase/             migrações, testes das regras de acesso e modelos de e-mail
+tools/                build (esbuild) e atualização do service worker
+tests/unit/ e2e/      testes das regras e do navegador
+docs/                 regras financeiras e passo a passo de publicação
+materiais-divulgacao/ imagens e vídeo de divulgação (fora do site publicado)
 ```
+
+## Publicação e desempenho
+
+O site é publicado no **Vercel** a cada push na `main`. O `vercel.json` manda rodar `npm run build`
+e publicar `dist/`. O build (`tools/build.js`) junta os mais de 60 módulos em **um** JavaScript e
+**um** CSS minificados, com o hash no nome (cache longo e imutável); o `index.html` nunca fica
+em cache. A tela inicial passou de 75 para 10 requisições. O código-fonte não muda: o que roda no
+desenvolvimento e nos testes é o mesmo, só empacotado. Detalhes e a configuração do Supabase estão
+em [`docs/publicar.md`](docs/publicar.md).
+
+## Segurança e privacidade
+
+O que já está implementado:
+
+- **Banco**: Row Level Security em todas as tabelas (cada pessoa só enxerga o que é dela), funções
+  `SECURITY DEFINER` para o que precisa de privilégio, limite de registros por conta e limite diário
+  de mensagens de ajuda. As regras têm testes (`supabase/tests/rls.test.sql`).
+- **Chaves**: no código vai só a chave pública (`anon`), que sozinha não lê nada. A `service_role` e
+  a chave de e-mail (Brevo) ficam fora do repositório (Vault do Supabase).
+- **Login**: e-mail com confirmação, Google por OAuth com PKCE, links de e-mail que expiram,
+  captcha (Cloudflare Turnstile) no cadastro e na recuperação de senha, regras de senha e recusa de
+  senhas vazadas quando o Supabase as detecta, aviso por e-mail quando a senha ou o e-mail mudam.
+- **Navegador**: Content Security Policy restrita, `frame-ancestors 'none'`, HSTS, `nosniff`,
+  `Referrer-Policy: no-referrer`, `Permissions-Policy` sem câmera, microfone e localização,
+  Subresource Integrity no jsPDF, todo texto digitado escapado e CSV protegido contra injeção de
+  fórmulas.
+- **Privacidade (LGPD)**: termos e política dentro do app, aceite registrado (versão e data), a
+  pesquisa acadêmica é opcional e separada, exportação dos dados e exclusão da conta pelo app.
+- **Processo**: dependências com versão exata, `npm audit` sem vulnerabilidades, verificação
+  automática a cada push.
+
+O que considero importante cuidar (checklist do responsável pelo projeto):
+
+1. **Backup e disponibilidade do banco**: projetos gratuitos do Supabase podem ser pausados por
+   inatividade e não têm backup diário garantido. Confirmar o plano e, se ficar no gratuito, exportar
+   o banco de tempos em tempos.
+2. **Proteção contra senhas vazadas** e **MFA** para a conta de administrador (confirmar no painel
+   do Supabase o que o plano permite). Revisar quem tem o papel de admin (`docs/tornar-admin.sql`).
+3. **E-mail**: o remetente é um Gmail; um domínio próprio com SPF, DKIM e DMARC melhora a entrega e
+   dificulta que alguém se passe pelo Grana Leve.
+4. **Segredos**: nunca colocar chaves no repositório nem em mensagens; se uma chave aparecer em
+   algum lugar, trocá-la na hora (já aconteceu uma vez e foi trocada).
+5. **Atualizações**: o Dependabot (`.github/dependabot.yml`) abre pull requests semanais; revisar e
+   aceitar, rodando os testes.
+6. **Contas de teste e divulgação**: usar contas de demonstração nas imagens e nunca dados reais.
+
+Limitações conhecidas: sem conta na nuvem os dados ficam só no navegador (quem usa o aparelho pode
+vê-los); escrever sem internet ainda não é suportado com conta; Open Finance e WhatsApp estão só
+com a interface pronta.
+
+Para **relatar uma vulnerabilidade**, veja [`SECURITY.md`](SECURITY.md).
 
 ## Acessibilidade
 
-- Contraste de cores dentro do WCAG 2.1 AA (4,5:1) nos temas claro e escuro.
-- Abas com `role="tab"`: setas, Home e End trocam de aba; só a aba ativa entra no Tab.
-- Popups deixam o resto da página inerte (o Tab não sai deles), fecham com Esc e
-  devolvem o foco ao botão que os abriu; erros de formulário são anunciados (`role="alert"`).
-- Link "Pular para o conteúdo", títulos em ordem (h1 › h2 › h3) e ícones com descrição.
-- `tests/e2e/08-acessibilidade.e2e.js` roda o axe-core em todas as abas, popups e na
-  prévia do chat, nos dois temas, e testa o uso só com teclado.
+- Contraste dentro do WCAG 2.1 AA nos dois temas; alvos de toque de 44 px no celular.
+- Abas e menus com `role` correto e teclado (setas, Home, End, Esc); popups deixam o resto da
+  página inerte e devolvem o foco; erros de formulário são anunciados.
+- Gráficos têm tabela equivalente e dicas por mouse, teclado e toque.
+- `tests/e2e/08-acessibilidade.e2e.js` roda o axe-core em todas as telas e popups, nos dois
+  temas.
 
-## Segurança
+## Próximos passos
 
-O que esta versão faz:
-
-- Senha guardada com PBKDF2-SHA256 (210 mil iterações) e sal aleatório por usuário;
-  contas antigas com SHA-256 são migradas automaticamente no login.
-- Limite de 5 tentativas de login seguidas (bloqueio de 60 s) e mensagem de erro genérica.
-- Sessão expira em 30 dias.
-- Content Security Policy, Subresource Integrity no jsPDF e escape de todo texto digitado.
-- CSV protegido contra injeção de fórmulas no Excel.
-
-Onde ficam os dados (e como o app deixa isso claro):
-
-- O cadastro avisa que a conta existe só neste navegador, sem sincronização e sem
-  recuperação de senha, e pede confirmação ("Entendi onde meus dados ficam").
-- O indicador "Só neste navegador", no topo, abre "Seus dados e backup": onde os dados
-  ficam, se o navegador aceitou não apagá-los sozinho (`navigator.storage.persist`) e a
-  data do último backup.
-- O painel lembra de fazer backup quando há dados e nenhum backup nos últimos 30 dias.
-- O backup leva todas as coleções, as preferências e a versão do formato (`schemaVersion`).
-  Ao restaurar, cada registro é validado (`js/domain/validate.js`) e dados antigos são
-  atualizados (`js/data/migrations.js`).
-- Se o app rodar com banco na nuvem e ele falhar, a tela pergunta antes de usar o
-  navegador; o erro nunca vira um perfil vazio em silêncio.
-
-Limitação importante: tudo roda **no navegador** e os dados ficam no `localStorage`.
-Quem tem acesso ao computador consegue ler os dados. Para uso real com várias pessoas,
-o próximo passo é um backend com autenticação (ex.: Supabase ou Firebase).
-
-## Próximos passos: WhatsApp e Open Finance
-
-A interface já está pronta na aba **Conexões**. Falta o lado do servidor:
-
-- **WhatsApp**: um servidor recebe as mensagens pela WhatsApp Business Cloud API (Meta),
-  usa o mesmo `js/parser.js` para entender o texto e grava os lançamentos. No app, eles
-  entram pela função `importTransactions(items, 'whatsapp')`. Exige backend, número
-  verificado e conta na Meta.
-- **Open Finance**: no Brasil, o acesso é feito por instituições autorizadas pelo Banco
-  Central. Na prática, usa-se um agregador (ex.: Pluggy, Belvo), que entrega as transações
-  para o servidor. Elas entram pela mesma `importTransactions(items, 'openfinance')`.
+- Fila de gravação sem internet (hoje a tela só avisa que nada foi salvo).
+- Open Finance (via agregador) e WhatsApp (API da Meta): a interface já está na aba Conexões;
+  falta o servidor.
+- Domínio próprio e e-mail com domínio próprio.

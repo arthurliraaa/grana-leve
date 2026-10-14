@@ -234,6 +234,13 @@ export function showTab(name){
   if (changed) window.scrollTo(0, 0);
 }
 
+// Mostra o conteúdo de um <details> numa janela (celular). Tocar num botão da lista fecha a janela.
+function openDetailsPop(details){
+  var clone = details.cloneNode(true), sum = clone.querySelector('summary');
+  var title = sum.textContent.trim(); sum.remove();
+  openModal({title: title, submitLabel: null, cancelLabel: 'Fechar', body: '<div class="pop-body">' + clone.innerHTML + '</div>',
+    onOpen: function(modal, close){ modal.addEventListener('click', function(e){ if (e.target.closest('button, a[href]') && !e.target.closest('[data-modal-close]')) setTimeout(function(){ close(null); }, 0); }); }});
+}
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 export async function openMoreMenu(){
   var items = [['limites','pie','Planejar gastos'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
@@ -493,6 +500,9 @@ export function wireShell(){
 
   document.addEventListener('click', async function(e){
     var t = e.target;
+    // No celular, as listas recolhíveis dos cartões abrem numa janela, mais fácil de ler que dentro do cartão.
+    var popSum = t.closest('details[data-pop] > summary');
+    if (popSum && window.matchMedia('(max-width: 640px)').matches){ e.preventDefault(); openDetailsPop(popSum.parentElement); return; }
     var el;
     // Menus “Mais” dos cartões: escolher uma ação ou clicar fora fecha.
     qsa('details.card-menu[open]').forEach(function(m){ if (!m.contains(t) || t.closest('.more-pop button')) m.open = false; });

@@ -1,7 +1,6 @@
-# Só o site vai para o Vercel; testes, ferramentas e configuração de desenvolvimento ficam de fora.
+# Só o necessário para gerar o site vai ao Vercel (tools/ fica, porque o build roda lá); testes e configuração de desenvolvimento ficam de fora.
 node_modules
 tests
-tools
 .github
 .vscode
 eslint.config.js

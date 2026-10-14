@@ -37,6 +37,9 @@ L.run(async ({page}) => {
   const g1 = await tile('Ganhos do mês');
   L.ok(L.moneyOf(g1.val) === 1000 && /^Ganhos do mês\s*R\$\s?1\.000,00$/.test(g1.text), 'Ganhos do mês sem textos auxiliares');
 
+  const gaps = await page.$$eval('#statTiles .tile', els => els.filter(t => t.querySelector('.tile-val')).map(t => t.querySelector('.tile-val').getBoundingClientRect().top - t.querySelector('.tile-lbl').getBoundingClientRect().bottom));
+  L.ok(gaps.length >= 3 && gaps.every(g => g < 12), 'em todos os quadros o valor fica logo abaixo do rótulo (sem espaço em branco no meio)');
+
   L.section('Gastos do mês (cartão do Início)');
   const c2 = '#summaryCards .sum-card:nth-child(2)';
   L.ok(L.moneyOf(await L.text(page, c2 + ' .sum-value')) === 900 && /Realmente seus: R\$\s?300,00/.test(await L.text(page, c2)) && /Falta pagar R\$\s?400,00 neste mês, dos quais R\$\s?100,00 são seus/.test(await L.text(page, c2)), 'o cartão traz o total, o que é realmente seu e o que falta pagar');
@@ -101,6 +104,14 @@ L.run(async ({page}) => {
   }));
   L.ok(!overlap, 'no celular o valor não fica por cima do nome nem das etiquetas');
   L.ok(await page.$eval('#txSummary', el => getComputedStyle(el).hyphens) === 'manual', 'o resumo não corta palavras com hífen');
+
+  L.section('Celular: listas do cartão abrem numa janela');
+  await L.patchDb(page, `u.transactions.push({id: 'hoje1', type: 'expense', amount: 20, category: 'lazer', date: arg.today, description: 'Lanche no cartão', createdAt: 9, paymentMethod: 'cartao', cardId: arg.card});`, {today, card: card.id});
+  await L.tab(page, 'cartoes'); await L.sleep(200);
+  await page.$eval('#bankList .credit-card details[data-pop] summary', el => el.click()); await L.sleep(250);
+  L.ok(/Compras desta fatura \(\d+\)/.test(await L.modalTitle(page) || '') && /Lanche no cartão/.test(await L.text(page, '#modalRoot .pop-body')), 'no celular, “Compras desta fatura” abre numa janela com as compras');
+  L.ok(await page.$eval('#bankList .credit-card details[data-pop]', el => !el.open), 'e a lista dentro do cartão continua recolhida');
+  await L.closeModal(page);
 
   L.section('Celular: menus e centralização');
   const centered = async sel => page.$eval(sel, el => { const r = el.getBoundingClientRect(); return Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 3; });
