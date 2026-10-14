@@ -1631,3 +1631,23 @@ details.research-optin{ padding:0; gap:0; }
 .tut-open{ overflow:hidden; }
 @media (prefers-reduced-motion: reduce){ .tut-spot{ transition:none; } }
 @media (max-width: 620px){ .tut-actions{ justify-content:flex-end; } .tut-actions [data-tut="skip"], .tut-actions [data-tut="done"]{ margin-right:auto; } }
+
+/* Celular: menus e centralizações */
+.segmented.seg-wide{ margin-inline:auto; }
+.more-item{ align-items:center; text-align:center; }
+@media (max-width: 860px){
+  .tx-views{ margin-inline:auto; }
+}
+@media (max-width: 640px){
+  .ws-box{ text-align:center; justify-items:center; }
+  /* Menu ⋯ dos cartões e contas: abre como uma folha acima da barra de baixo, sem sair da tela */
+  .card-menu[open] > .more-pop{ position:fixed !important; left:12px !important; right:12px !important; top:auto !important; bottom:calc(88px + env(safe-area-inset-bottom, 0px)); min-width:0; z-index:60; padding:8px; box-shadow: 0 -8px 30px rgba(0,0,0,.28); }
+  .more-pop button{ padding:13px 12px; font-size:.95rem; }
+  /* Tabela por banco: colunas compactas para caber o total */
+  .bank-pay{ font-size:.78rem; }
+  .bp-row{ gap:6px; }
+  .bp-row > :nth-child(n+2){ min-width:0; font-size:.78rem; }
+}
+/* “Desse total, seu”: o valor desce para a linha de baixo quando falta espaço */
+.tile-two{ flex-wrap:wrap; }
+.tile-two > span:first-child{ flex:1 1 6.5rem; }

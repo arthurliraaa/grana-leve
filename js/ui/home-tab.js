@@ -117,7 +117,7 @@ export function renderStatTiles(){
   var othersOn = sp.others > 0;
   var month = tile('Ganhos do mês', t.incomeDone, '') +
     tile('Gastos do mês', sp.total, '', two('Seus', sp.mine) + (othersOn ? two('De outras pessoas', sp.others) : '')) +
-    tile('Falta pagar', sp.left, sp.left > 0 ? '' : 'pos', sp.left > 0 ? (sp.leftOthers > 0.004 ? two('Desse total, seu', sp.leftMine) : '') : 'tudo pago neste mês') +
+    tile('Falta pagar', sp.left, sp.left > 0 ? '' : 'pos', sp.left > 0 ? (sp.leftOthers > 0.004 || sp.others > 0.004 ? two('Desse total, seu', sp.leftMine) : '') : 'tudo pago neste mês') +
     (Math.abs(sp.saldoAll - sp.saldoMine) < 0.005 ? tile('Saldo do mês', sp.saldoMine, sp.saldoMine < 0 ? 'neg' : 'pos') :
       '<div class="tile"><span class="tile-lbl">Saldo do mês</span>' +
       '<span class="tile-two tile-two-big"><span>Com a fatura total</span><strong class="tabular ' + (sp.saldoAll < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(sp.saldoAll) + '</strong></span>' +
@@ -186,10 +186,11 @@ export function monthPayments(){
         if (thisMonth) paid += sumMoney(Cards.invoiceAdvances(c, key).filter(function(x){ return !x.accountId; }), function(x){ return x.amount; });
         if (Cards.invoiceStatus(c, key, today) !== 'paga'){
           var il = Cards.invoiceLeft(State.transactions, c, key); parts.invoices += il; left += il;
-          // A parte minha do que falta: a mesma proporção que a fatura tem de compras minhas.
+          // A parte minha do que falta: a minha parte da fatura continua toda a pagar (o que já foi
+          // pago não a abate), limitada ao que falta. O resto do que falta é de outras pessoas.
           var its = Cards.invoiceItems(State.transactions, c, key).filter(function(t){ return !(t.installment && t.installment.settled); });
-          var mn = sum(its, myShare) + Cards.carryTotal(c, key), ot = sum(its, othersShare), share = mn + ot > 0 ? Math.max(0, Math.min(1, mn / (mn + ot))) : 1;
-          mineParts.invoices += il * share; leftMine += il * share;
+          var mn = Math.max(0, sum(its, myShare) + Cards.carryTotal(c, key)), mineLeft = Math.min(il, mn);
+          mineParts.invoices += mineLeft; leftMine += mineLeft;
         }
       });
     });
@@ -370,7 +371,7 @@ export function renderSummary(){
   var c2 = sumCard(2, 'pie', 'Gastos do mês', fmtMoney(sp.total), '',
     (sp.total > 0 || planned > 0 ? '<span class="sum-line">Realmente seus: <strong class="tabular">' + fmtMoney(sp.mine) + '</strong>' + (sp.others > 0.004 ? ' · de outras pessoas ' + fmtMoney(sp.others) : '') +
       (planned > 0 ? ' · ' + Math.round(pct * 100) + '% de ' + fmtMoney(planned) + ' planejado' + (spent > planned ? ' (passou ' + fmtMoney(spent - planned) + ')' : '') : '') + '</span>' : '') +
-    '<span class="sum-line">' + (mp.left > 0 ? 'Falta pagar <strong class="tabular">' + fmtMoney(mp.left) + '</strong> neste mês' + (sp.leftOthers > 0.004 ? ', dos quais ' + fmtMoney(mp.leftMine) + ' são seus' : '') : mp.paid > 0 ? 'Tudo pago neste mês por enquanto' : 'Nenhum pagamento pendente') + '</span>',
+    '<span class="sum-line">' + (mp.left > 0 ? 'Falta pagar <strong class="tabular">' + fmtMoney(mp.left) + '</strong> neste mês' + (sp.leftOthers > 0.004 || sp.others > 0.004 ? ', dos quais ' + fmtMoney(mp.leftMine) + ' são seus' : '') : mp.paid > 0 ? 'Tudo pago neste mês por enquanto' : 'Nenhum pagamento pendente') + '</span>',
     bar,
     (mp.rows.length ? '<p class="sum-caption">Por banco: o que já foi pago, o que falta e quanto do que falta é seu</p>' +
       '<div class="bank-pay" role="table" aria-label="Pago, falta e parte sua, por banco"><div class="bp-row bp-head" role="row"><span role="columnheader">Banco</span><span role="columnheader">Pago</span><span role="columnheader">Falta</span><span role="columnheader">Seu</span></div>' +
