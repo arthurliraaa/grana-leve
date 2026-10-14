@@ -1563,7 +1563,11 @@ details.research-optin{ padding:0; gap:0; }
 .tm-block:not(.mid):not(.big){ padding:2px; align-items:center; justify-content:center; }
 .tm-block:not(.mid):not(.big) .tm-emoji{ font-size:.8rem; }
 .donut-style{ margin:-4px auto 14px; }
-.dash-grid{ align-items:start; }
+.dash-grid{ align-items:stretch; }
+.dash-grid > .card{ display:flex; flex-direction:column; }
+.dash-grid > .card > .chart-wrap{ flex:1; display:flex; flex-direction:column; }
+.dash-grid .donut-layout{ flex:1; align-content:space-between; }
+.dash-grid .cat-rank{ align-content:space-between; }
 .dash-grid .chart-note{ margin-bottom:0; }
 .bar-stats{ display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:8px; margin-top:16px; }
 .bar-stat{ display:grid; gap:2px; align-content:start; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background: var(--surface-2); }
@@ -1647,7 +1651,6 @@ details.research-optin{ padding:0; gap:0; }
 .pop-body .tx-row, .pop-body .list-row{ padding:10px 0; }
 /* Números dos quadros do mês: o valor fica logo abaixo do rótulo em todos, sem espaço em branco no meio */
 .tile{ align-content:start; }
-.stat-tiles .tile{ justify-content:start; }
 
 /* Linhas “rótulo ... valor” dentro dos quadros do mês e de Contas e cartões */
 .tile-sub:has(.tr), .ws-box .tile-sub{ display:grid; gap:5px; }
@@ -1657,3 +1660,17 @@ details.research-optin{ padding:0; gap:0; }
 .tr.big .tr-v{ font-size:1.12rem; }
 .tr-v.neg-text{ color: var(--critical); } .tr-v.pos-text{ color: var(--good); }
 .ws-box{ align-content:start; }
+.sum-rows{ display:grid; gap:4px; margin-top:8px; }
+.sum-rows .tr-l{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Conexões: duas colunas, com os cartões grandes juntos e os pequenos juntos (alturas parecidas) */
+@media (min-width: 700px){ .conn-grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Faturas e crédito × débito: o par tem a mesma altura e as linhas se distribuem, sem vazio embaixo */
+.dash-pair > .split-card{ display:flex; flex-direction:column; }
+.dash-pair > .split-card > div[id$="Wrap"]{ flex:1; display:flex; flex-direction:column; }
+.dash-pair .inv-rows{ flex:1; align-content:space-evenly; }
+.dash-pair .inv-late, .dash-pair .cd-outside{ margin-top:auto; }
+
+/* Conexões: o que sobra de altura se reparte entre os blocos do cartão */
+.conn-card{ align-content:space-between; }
+.tile > .tile-sub:has(.tr), .ws-box > .tile-sub:has(.tr){ justify-self:stretch; width:100%; }

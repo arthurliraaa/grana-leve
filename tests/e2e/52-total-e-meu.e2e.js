@@ -40,6 +40,17 @@ L.run(async ({page}) => {
   const gaps = await page.$$eval('#statTiles .tile', els => els.filter(t => t.querySelector('.tile-val')).map(t => t.querySelector('.tile-val').getBoundingClientRect().top - t.querySelector('.tile-lbl').getBoundingClientRect().bottom));
   L.ok(gaps.length >= 3 && gaps.every(g => g < 12), 'em todos os quadros o valor fica logo abaixo do rótulo (sem espaço em branco no meio)');
 
+  L.section('Cartões lado a lado: mesma altura e sem espaço vazio');
+  const geo = await page.evaluate(() => {
+    const card = id => document.getElementById(id).closest('.card'), h = e => Math.round(e.getBoundingClientRect().height);
+    const bar = card('barWrap'), stats = bar.querySelector('.bar-stats');
+    const inv = document.getElementById('invSplitCard'), cd = document.getElementById('creditDebitCard');
+    return {donut: h(card('donutWrap')), bar: h(bar), gap: Math.round(bar.getBoundingClientRect().bottom - stats.getBoundingClientRect().bottom), inv: h(inv), cd: h(cd)};
+  });
+  L.ok(Math.abs(geo.donut - geo.bar) <= 3, 'gráfico de categorias e de barras têm a mesma altura (' + geo.donut + ' × ' + geo.bar + ')');
+  L.ok(geo.gap < 40, 'o cartão de barras termina nas caixas de médias, sem vazio embaixo (' + geo.gap + ' px)');
+  L.ok(Math.abs(geo.inv - geo.cd) <= 3, 'faturas e crédito × débito têm a mesma altura');
+
   L.section('Gastos do mês (cartão do Início)');
   const c2 = '#summaryCards .sum-card:nth-child(2)';
   L.ok(L.moneyOf(await L.text(page, c2 + ' .sum-value')) === 900 && /Realmente seus: R\$\s?300,00/.test(await L.text(page, c2)) && /Falta pagar R\$\s?400,00 neste mês, dos quais R\$\s?100,00 são seus/.test(await L.text(page, c2)), 'o cartão traz o total, o que é realmente seu e o que falta pagar');
