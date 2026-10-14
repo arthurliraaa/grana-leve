@@ -760,26 +760,39 @@ export function setDonutStyle(style){
   renderDonut();
 }
 function donutSvg(entries, total, style, monthLabel, wrap){
-  var pie = style === 'pizza', size = 220, cx = size / 2, cy = size / 2;
-  // Rosca: anel fino. Pizza: o mesmo truque, com um traço tão grosso quanto o raio dobrado.
-  var r = pie ? 55 : 82, sw = pie ? 110 : 24, circumference = 2 * Math.PI * r, gap = entries.length > 1 ? (pie ? 2 : 3) : 0;
-  var cum = 0, labels = '';
+  if (style === 'pizza') return pieSvg(entries, total, monthLabel, wrap);
+  var size = 220, cx = size / 2, cy = size / 2;
+  var r = 82, sw = 24, circumference = 2 * Math.PI * r, gap = entries.length > 1 ? 3 : 0;
+  var cum = 0;
   var circles = entries.map(function(e, i){
     var frac = e.value / total, dash = Math.max(0, frac * circumference - gap), offset = -cum * circumference;
-    if (pie && frac >= 0.06){
-      var ang = (cum + frac / 2) * 2 * Math.PI - Math.PI / 2;
-      labels += '<text class="pie-pct" fill="' + inkOn(resolveVar(e.color, wrap)) + '" x="' + (cx + 74 * Math.cos(ang)).toFixed(1) + '" y="' + (cy + 74 * Math.sin(ang) + 4).toFixed(1) + '" text-anchor="middle">' + Math.round(100 * frac) + '%</text>';
-    }
     cum += frac;
     return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + resolveVar(e.color, wrap) + '" stroke-width="' + sw + '" stroke-linecap="butt" style="--i:' + i + '" ' +
       'stroke-dasharray="' + dash.toFixed(2) + ' ' + (circumference - dash).toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '" ' +
-      'transform="rotate(-90 ' + cx + ' ' + cy + ')" tabindex="0" data-tip="' + e.tip + '" class="donut-seg' + (pie ? ' pie' : '') + '"></circle>';
+      'transform="rotate(-90 ' + cx + ' ' + cy + ')" tabindex="0" data-tip="' + e.tip + '" class="donut-seg"></circle>';
   }).join('');
-  var center = pie ? '' : '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="11" fill="var(--text-muted)">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : (State.donutScope === 'mine' ? 'Seus gastos' : 'Total')) + '</text>' +
-    '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text-primary)">' + fmtMoney(total) + '</text>';
+  var center = '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="11" style="fill:var(--text-muted)">' + donutCaption() + '</text>' +
+    '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="17" font-weight="700" style="fill:var(--text-primary)">' + fmtMoney(total) + '</text>';
   return '<div class="donut-fig"><svg class="donut-svg" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="Gastos por categoria em ' + escapeHtml(monthLabel) + '">' +
-    (pie ? '' : '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--gridline)" stroke-width="' + sw + '" opacity=".6"></circle>') + circles + labels + center + '</svg>' +
-    (pie ? '<p class="donut-total">' + ((State.dashOffset || 0) > 0 ? 'Previsto' : (State.donutScope === 'mine' ? 'Seus gastos' : 'Total')) + ' <strong class="tabular">' + fmtMoney(total) + '</strong></p>' : '') + '</div>';
+    '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="var(--gridline)" stroke-width="' + sw + '" opacity=".6"></circle>' + circles + center + '</svg></div>';
+}
+function donutCaption(){ return (State.dashOffset || 0) > 0 ? 'Previsto' : (State.donutScope === 'mine' ? 'Seus gastos' : 'Total'); }
+// Pizza: fatias desenhadas como setores, separadas por um traço fino da cor do fundo (igual da borda
+// ao centro). Ao passar o mouse (ou focar), a fatia sai um pouco para fora.
+function pieSvg(entries, total, monthLabel, wrap){
+  var size = 220, cx = size / 2, cy = size / 2, R = 98, cum = 0;
+  function pt(a, rad){ return (cx + rad * Math.cos(a)).toFixed(2) + ',' + (cy + rad * Math.sin(a)).toFixed(2); }
+  var slices = entries.map(function(e, i){
+    var frac = e.value / total, a0 = cum * 2 * Math.PI - Math.PI / 2, a1 = (cum + frac) * 2 * Math.PI - Math.PI / 2, mid = (a0 + a1) / 2;
+    cum += frac;
+    var color = resolveVar(e.color, wrap);
+    var shape = frac >= 0.9999 ? '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="' + color + '"></circle>' :
+      '<path d="M' + cx + ',' + cy + 'L' + pt(a0, R) + 'A' + R + ',' + R + ' 0 ' + (frac > 0.5 ? 1 : 0) + ' 1 ' + pt(a1, R) + 'Z" fill="' + color + '"></path>';
+    var label = frac >= 0.06 ? '<text class="pie-pct" style="fill:' + inkOn(color) + '" x="' + (cx + R * 0.62 * Math.cos(mid)).toFixed(1) + '" y="' + (cy + R * 0.62 * Math.sin(mid) + 4).toFixed(1) + '" text-anchor="middle">' + Math.round(100 * frac) + '%</text>' : '';
+    return '<g class="donut-seg pie-slice" tabindex="0" data-tip="' + e.tip + '" style="--i:' + i + ';--dx:' + (7 * Math.cos(mid)).toFixed(2) + 'px;--dy:' + (7 * Math.sin(mid)).toFixed(2) + 'px">' + shape + label + '</g>';
+  }).join('');
+  return '<div class="donut-fig"><svg class="donut-svg pie-svg" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="Gastos por categoria em ' + escapeHtml(monthLabel) + '">' + slices + '</svg>' +
+    '<p class="donut-total">' + donutCaption() + ' <strong class="tabular">' + fmtMoney(total) + '</strong></p></div>';
 }
 // Treemap: retângulos com área proporcional ao valor (algoritmo "squarified" numa grade 100 × 62,5).
 function squarify(areas, x, y, w, h){
@@ -862,7 +875,7 @@ function drawBars(extraH){
   var grid = [0, 0.5, 1].map(function(f){
     var y = padT + plotH * (1 - f);
     return '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="var(--gridline)" stroke-width="1"></line>' +
-      '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="9" fill="var(--text-muted)">' + compactMoney(max * f) + '</text>';
+      '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="9" style="fill:var(--text-muted)">' + compactMoney(max * f) + '</text>';
   }).join('');
   // Coluna com a ponta de cima arredondada (4px) e a base reta, apoiada na linha de base.
   function colPath(x, y, w, h, roundTop){
@@ -877,7 +890,7 @@ function drawBars(extraH){
     if (hExtra > 0.4) out += '<path class="bar-seg bar-forecast" style="--i:' + idx + '" data-label="' + escapeHtml(label + ' previsto · ' + d.full) + '" data-value="' + fmtMoney(extra) + '" d="' + colPath(x, y0 - hTot, barW, Math.max(0.5, hExtra - (hReg > 0.4 ? 2 : 0)), true) + '" fill="url(#' + hatch + ')"></path>';
     if (hTot <= 0.4) out += '<rect x="' + x + '" y="' + (y0 - 1.5) + '" width="' + barW + '" height="1.5" rx="1" fill="' + color + '" opacity=".4"></rect>';
     // Rótulo só no mês escolhido (o resto fica nos eixos e nas dicas).
-    if (d.sel && val > 0) out += '<text class="bar-val" x="' + (x + barW / 2) + '" y="' + Math.max(padT + 8, y0 - hTot - 4) + '" text-anchor="middle" font-size="8.5" font-weight="600" fill="var(--text-secondary)">' + compactMoney(val) + '</text>';
+    if (d.sel && val > 0) out += '<text class="bar-val" x="' + (x + barW / 2) + '" y="' + Math.max(padT + 8, y0 - hTot - 4) + '" text-anchor="middle" font-size="8.5" font-weight="600" style="fill:var(--text-secondary)">' + compactMoney(val) + '</text>';
     return out;
   }
   var groups = data.map(function(d, idx){
@@ -886,8 +899,8 @@ function drawBars(extraH){
     return '<g class="bar-group' + (d.sel ? ' sel' : '') + '" data-off="' + d.off + '" >' +
       '<rect class="bar-hit" x="' + gx + '" y="' + padT + '" width="' + groupW + '" height="' + (plotH + padB - 2) + '" rx="8" fill="' + (d.sel ? selColor : 'transparent') + '" fill-opacity="' + (d.sel ? '.08' : '0') + '"></rect>' +
       bar(x1, d.p.inc, d.p.incExtra, 'Ganhos', 'hInc', idx, incColor, d) + bar(x2, d.p.exp, d.p.expExtra, 'Seus gastos', 'hExp', idx, expColor, d) +
-      '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="' + (n > 6 ? 8 : 10) + '" font-weight="' + (d.sel ? 700 : 500) + '" fill="' + (d.sel ? 'var(--text-primary)' : 'var(--text-secondary)') + '">' + d.label + '</text>' +
-      '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" fill="var(--text-muted)">' + sub + '</text></g>';
+      '<text x="' + cx + '" y="' + (H - 18) + '" text-anchor="middle" font-size="' + (n > 6 ? 8 : 10) + '" font-weight="' + (d.sel ? 700 : 500) + '" style="fill:' + (d.sel ? 'var(--text-primary)' : 'var(--text-secondary)') + '">' + d.label + '</text>' +
+      '<text x="' + cx + '" y="' + (H - 6) + '" text-anchor="middle" font-size="7.5" style="fill:var(--text-muted)">' + sub + '</text></g>';
   }).join('');
   var svg = '<svg class="bar-svg" viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Ganhos e gastos por mês. Para trocar de mês, use os botões de mês anterior e próximo.">' + defs + grid +
     '<line x1="' + padL + '" y1="' + (padT + plotH) + '" x2="' + (W - padR) + '" y2="' + (padT + plotH) + '" stroke="var(--baseline)" stroke-width="1"></line>' + groups + '</svg>';

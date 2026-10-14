@@ -54,7 +54,10 @@ L.run(async ({page}) => {
   const style = async name => { await page.$eval('[data-donut-style="' + name + '"]', el => el.click()); await L.sleep(150); };
   L.ok(await page.$eval('[data-donut-style="rosca"]', el => el.getAttribute('aria-pressed')) === 'true', 'rosca é o estilo de partida');
   await style('pizza');
-  L.ok(await page.$$eval('#donutWrap .donut-seg.pie', e => e.length) >= 2 && /\d+%/.test(await txt('#donutWrap .donut-svg')) && /Total\s*R\$/.test(await txt('#donutWrap .donut-total')), 'pizza: fatias cheias com a porcentagem e o total');
+  L.ok(await page.$$eval('#donutWrap .pie-slice', e => e.length) >= 2 && /\d+%/.test(await txt('#donutWrap .donut-svg')) && /Total\s*R\$/.test(await txt('#donutWrap .donut-total')), 'pizza: fatias cheias com a porcentagem e o total');
+  const pop = await page.evaluate(() => { const g = document.querySelector('#donutWrap .pie-slice'); g.focus(); return getComputedStyle(g).transform; });
+  L.ok(pop && pop !== 'none', 'a fatia em foco (ou com o mouse em cima) sai um pouco para fora');
+  L.ok(await page.$eval('#donutWrap .pie-slice path', p => getComputedStyle(p).strokeWidth === '2px'), 'fatias separadas por um traço fino, igual da borda ao centro');
   await style('blocos');
   L.ok(await page.$$eval('#donutWrap .tm-block', e => e.length) >= 2 && await page.$$eval('#donutWrap .tm-block', e => e.every(b => b.tabIndex === 0 && b.dataset.tip)), 'blocos: um retângulo por categoria, com dica por teclado');
   const areas = await page.$$eval('#donutWrap .tm-block', e => e.map(b => b.getBoundingClientRect()).map(r => r.width * r.height));
