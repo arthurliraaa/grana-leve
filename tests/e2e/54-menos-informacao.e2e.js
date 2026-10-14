@@ -59,4 +59,11 @@ L.run(async ({page}) => {
   await L.tab(page, 'lancamentos'); await L.sleep(150);
   L.ok(await page.$eval('#txForm', el => getComputedStyle(el).display) === 'none' && await page.$eval('.tx-mobile-open', el => getComputedStyle(el).display) !== 'none', 'no celular, lança pelo botão (o formulário longo não ocupa a tela)');
   L.ok(await L.noHorizontalScroll(page), 'cabe na tela');
+  const mid = sel => page.$eval(sel, e => { const r = e.getBoundingClientRect(); return Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 3; });
+  L.ok(await mid('#tab-lancamentos .month-switch'), 'o seletor de mês de Ganhos e gastos fica centralizado');
+  await L.tab(page, 'limites'); await L.sleep(150);
+  L.ok(await mid('#tab-limites .month-switch'), 'o de Planejar também');
+  await L.tab(page, 'dashboard'); await L.dashSection(page, 'graficos');
+  const row = await page.$$eval('#dashPrev, #dashNavLabel, #dashNext', els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
+  L.ok(Math.max(...row) - Math.min(...row) <= 4, 'no Início, ‹ mês › ficam numa linha só');
 });

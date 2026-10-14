@@ -1425,8 +1425,8 @@ details.research-optin{ padding:0; gap:0; }
   .donut-layout{ grid-template-columns: minmax(0, 1fr); justify-items:center; }
   .cat-rank{ width:100%; }
   .dash-nav{ position:static; padding:8px; gap:8px; }
-  .dash-nav-mid{ order:0; flex-basis:calc(100% - 100px); }
-  .dash-nav #dashToday{ order:3; flex:1 1 100%; }
+  .dash-nav{ display:grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .dash-nav #dashToday{ grid-column: 1 / -1; }
 }
 @media (prefers-reduced-motion: no-preference){
   .donut-seg{ animation: segIn .6s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); }
@@ -1754,3 +1754,9 @@ details.tip-card[open] > summary h4::after{ content:" −"; }
 .howto-more{ margin-top:14px; }
 .howto-more > summary{ cursor:pointer; font-weight:700; color: var(--text-primary); padding:6px 0; }
 .howto-more[open] > summary{ margin-bottom:8px; }
+
+/* Celular: seletor de mês (Ganhos e gastos, Planejar) centralizado */
+@media (max-width: 620px){
+  .card-head:has(> .month-switch){ flex-direction:column; align-items:center; text-align:center; gap:10px; }
+  .card-head > .month-switch{ justify-content:center; }
+}
