@@ -10,6 +10,7 @@ L.run(async ({page}) => {
   await page.type('#goalName', 'Viagem');
   await page.type('#goalTarget', '5.000');
   await L.setVal(page, '#goalDate', deadline);
+  await page.$eval('#goalInvMore', d => { d.open = true; });
   await page.type('#goalYield', '10');
   await page.click('#goalForm button[type=submit]'); await L.sleep(250);
   let g = (await L.db(page)).goals.find(x => x.name === 'Viagem');

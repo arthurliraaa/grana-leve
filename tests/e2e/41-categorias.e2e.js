@@ -9,7 +9,8 @@ L.run(async ({page}) => {
   L.ok(!(await page.$('#mCategory optgroup')), 'sem lançamentos, não separa “mais usadas”');
   await L.closeModal(page);
   await L.tab(page, 'limites');
-  L.ok(!(await page.$('#budgetList .budget-more')) && (await page.$$('#budgetList [data-budget-cat]')).length >= 9, 'Planejar mostra todas as categorias para começar');
+  const first = await page.$$eval('#budgetList > .budget-row [data-budget-cat]', is => is.map(i => i.getAttribute('data-budget-cat')));
+  L.ok(first.length === 3 && first.includes('alimentacao') && /Outras categorias \(\d+\)/.test(await L.text(page, '#budgetList .budget-more summary')), 'sem histórico, Planejar começa com 3 categorias comuns e recolhe as outras');
 
   L.section('Sugestão pela descrição');
   await page.click('#fabAdd'); await L.sleep(150);

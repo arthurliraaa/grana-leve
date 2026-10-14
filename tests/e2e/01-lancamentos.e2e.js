@@ -163,7 +163,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'aprenda');
   L.ok(await page.$eval('.disclaimer', el => getComputedStyle(el).textAlign) === 'center', 'aviso de conteúdo educativo centralizado');
   L.ok(await page.$eval('.tab-intro', el => getComputedStyle(el).textAlign) === 'justify', 'textos de introdução justificados');
-  L.ok(await page.$eval('.tip-card p', el => getComputedStyle(el).textAlign) === 'justify', 'dicas justificadas');
+  L.ok(await page.$eval('.tip-card p', el => getComputedStyle(el).textAlign) === 'justify', 'dicas justificadas (abrem ao tocar)');
 
   L.section('Celular: sem rolagem lateral');
   await page.setViewport({width: 375, height: 800});
