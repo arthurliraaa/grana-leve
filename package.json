@@ -20,7 +20,7 @@
     "esbuild": "0.28.2",
     "eslint": "9.39.5",
     "globals": "17.13.0",
-    "puppeteer-core": "25.13.0",
+    "puppeteer-core": "25.14.0",
     "serve": "14.2.6"
   },
   "overrides": {
