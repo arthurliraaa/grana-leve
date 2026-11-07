@@ -5,7 +5,15 @@
  */
 var currencyFmt = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
 
-export function toCents(v){ var n = Math.round(Number(v) * 100); return isFinite(n) ? n : 0; }
+// v*100 em binário pode cair logo abaixo do meio centavo (1,005*100 = 100,49999…). Esticar o módulo
+// em 4 ulps antes de arredondar tira esse ruído (rápido: sem toPrecision); o meio centavo vai para
+// longe do zero (1,005 → 1,01; −1,005 → −1,01). Entrada inválida vira 0, e nunca devolve −0.
+export function toCents(v){
+  var x = Number(v);
+  if (!isFinite(x)) return 0;
+  var n = Math.round(Math.abs(x) * 100 * (1 + 4 * Number.EPSILON));
+  return x < 0 && n ? -n : n;
+}
 export function fromCents(c){ return c / 100; }
 // Arredonda para centavos. Valores inválidos viram 0.
 export function money(v){ return fromCents(toCents(v)); }
@@ -15,11 +23,13 @@ export function sumMoney(list, fn){
 export function fmtMoney(v){ return currencyFmt.format(Number(v) || 0); }
 
 // Divide um valor em n partes iguais em centavos; o que sobra da divisão vai na 1ª parte.
-// Ex.: R$ 100,00 em 3x -> [33,34; 33,33; 33,33].
+// Ex.: R$ 100,00 em 3x -> [33,34; 33,33; 33,33]. Valor negativo divide o módulo e aplica o sinal
+// (−10 em 3x -> [−3,34; −3,33; −3,33]).
 export function splitAmount(amount, n){
-  var cents = toCents(amount), base = Math.floor(cents / n), first = cents - base * (n - 1);
+  var cents = toCents(amount), sign = cents < 0 ? -1 : 1, abs = Math.abs(cents);
+  var base = Math.floor(abs / n), first = abs - base * (n - 1);
   var out = [];
-  for (var i = 0; i < n; i++) out.push(fromCents(i === 0 ? first : base));
+  for (var i = 0; i < n; i++){ var c = i === 0 ? first : base; out.push(fromCents(c && sign * c)); }
   return out;
 }
 

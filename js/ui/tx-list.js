@@ -2,7 +2,7 @@
  * Ganhos e gastos: lista, filtros, calendário, seletor de parcelas e divisão de compras.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, monthsBetween, addMonthsIso} from '../domain/dates.js';
+import {todayKey, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, monthsBetween} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
@@ -11,7 +11,7 @@ import * as Tx from '../domain/transactions.js';
 import {MAX_INSTALLMENTS, clampInstall, isForOther, isRefund, isPersonal, myShare, othersShare, splitShares} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceDates} from '../domain/cards.js';
-import {recvInstallInfo, recvNextDue, recvRemaining} from '../domain/receivables.js';
+import {recvNextAmount, recvNextDue, recvRemaining} from '../domain/receivables.js';
 
 import {billMonth} from './bills.js';
 import {monthGridHtml, dayEventsHtml, yearHtml} from './calendar.js';
@@ -125,8 +125,9 @@ export function installSummary(root, p, n, typed, date, cardId){
   if (ex.start > n) return 'Todas as ' + n + ' parcelas dessa compra já venceram: não há nada a lançar. Confira a data da compra.';
   var text = installHint(n, Tx.purchaseTotal(typed, n, ex.per), ex.start);
   if (card && validDateStr(date)){
-    var inv = Cards.invoiceFor(addMonthsIso(date, ex.start - 1), card);
-    text += ' · ' + (n > 1 ? (ex.start > 1 ? 'a ' + ex.start + 'ª parcela' : 'a 1ª parcela') + ' entra' : 'entra') + ' na fatura de ' + inv.label +
+    // Parcela i: fatura da compra + (i−1), como Cards.txInvoiceKey (não pela data da parcela).
+    var ik = Cards.txInvoiceKey({date: date, purchaseDate: date, installment: n > 1 ? {n: ex.start} : null}, card), inv = invoiceDates(ik, card);
+    text += ' · ' + (n > 1 ? (ex.start > 1 ? 'a ' + ex.start + 'ª parcela' : 'a 1ª parcela') + ' entra' : 'entra') + ' na fatura de ' + Cards.invoiceLabel(ik, card) +
       ' (fecha ' + formatDateBr(inv.closing) + ', vence ' + formatDateBr(inv.due) + ')';
   }
   return text;
@@ -254,8 +255,8 @@ export function monthEvents(key){
     });
   });
   State.receivables.forEach(function(r){
-    var left = recvRemaining(r), due = recvNextDue(r), info = recvInstallInfo(r);
-    if (left > 0 && due && due.slice(0, 7) === key) out.push({date: due, kind: 'receber', label: r.person + (r.description ? ' · ' + r.description : ''), amount: info ? Math.min(info.per, left) : left});
+    var left = recvRemaining(r), due = recvNextDue(r);
+    if (left > 0 && due && due.slice(0, 7) === key) out.push({date: due, kind: 'receber', label: r.person + (r.description ? ' · ' + r.description : ''), amount: recvNextAmount(r)});
   });
   var type = document.getElementById('txFilterType').value;
   var other = !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterCat').value !== 'all' || document.getElementById('txFilterPay').value !== 'all';

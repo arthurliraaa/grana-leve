@@ -37,4 +37,21 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('#recvGrid .person-group.all-done', g => /tudo recebido/.test(g.textContent)) && /Tudo recebido\s*R\$\s?\d/.test(await L.text(page, '#recvGrid .person-group.all-done')), 'quem pagou tudo aparece como “tudo recebido”');
   await page.setViewport({width: 375, height: 800});
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
+  await page.setViewport({width: 1280, height: 900});
+
+  L.section('A receber 100 em 3x: a 1ª parcela leva os centavos (B1)');
+  await L.patchDb(page, `u.receivables.push({id: 'rP', person: 'Paulo', description: 'Fone', totalAmount: 100, receivedAmount: 0, installments: 3, installmentAmount: 33.33,
+    dueDate: arg.today, payments: [], createdAt: 5});`, {today: L.dayOffset(0)});
+  await L.tab(page, 'receber'); await L.sleep(150);
+  const fone = () => page.$eval('[data-recv-get="rP"]', el => el.closest('.debt-card').textContent.replace(/\s+/g, ' '));
+  L.ok(/Parcela 1 de 3 · R\$\s?33,34/.test(await fone()), 'o card mostra a 1ª parcela de 33,34');
+  await page.click('[data-recv-get="rP"]'); await L.sleep(150);
+  L.ok(/Valor da parcela \(R\$\s?33,34\)/.test(await L.text(page, '#modalRoot')), 'sugere 33,34 como valor da parcela');
+  await L.submitModal(page); await L.sleep(300);
+  const rp = (await L.db(page)).receivables.find(r => r.id === 'rP');
+  L.ok(rp.receivedAmount === 33.34, 'recebido: 33,34 (' + rp.receivedAmount + ')');
+  L.ok(/Parcela 2 de 3 · R\$\s?33,33/.test(await fone()), 'a 1ª parcela conta como recebida: a próxima é a 2 de 3, de 33,33');
+  await page.click('[data-recv-get="rP"]'); await L.sleep(150);
+  L.ok(/Valor da parcela \(R\$\s?33,33\)/.test(await L.text(page, '#modalRoot')), 'a sugestão seguinte é 33,33');
+  await L.closeModal(page);
 });

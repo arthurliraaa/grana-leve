@@ -93,3 +93,58 @@ test('a receber: quanto cobrar no mês (parcelas vencidas até o fim do mês) e 
   assert.equal(recvDueByMonth({totalAmount: 500, receivedAmount: 100}, '2026-10'), 400, 'sem data: o que falta');
   assert.equal(recvDueByMonth({...r, forgiven: true}, '2026-10'), 0);
 });
+
+test('a receber parcelado: centavos que sobram na 1ª parcela (A2-08)', async () => {
+  const {recvParts, recvDueByMonth, recvInstallInfo, recvRemaining, recvNextAmount} = await import('../../js/domain/receivables.js');
+  assert.deepEqual(recvParts(100, 3), [33.34, 33.33, 33.33]);
+  assert.deepEqual(recvParts(2.26, 2), [1.13, 1.13]);
+  assert.deepEqual(recvParts(100.1, 2), [50.05, 50.05]);
+  assert.deepEqual(recvParts(1150.2, 3), [383.4, 383.4, 383.4]);
+  const r = {totalAmount: 100, receivedAmount: 0, installments: 3, dueDate: '2026-08-10'};
+  assert.equal(recvDueByMonth(r, '2026-11'), 100, 'tudo vencido: cobra os 100, não 99,99');
+  assert.equal(recvDueByMonth(r, '2026-08'), 33.34, 'só a 1ª, com o centavo a mais');
+  assert.equal(recvDueByMonth(r, '2026-09'), 66.67);
+  assert.equal(recvNextAmount(r), 33.34);
+  assert.equal(recvInstallInfo(r).per, 33.33);
+  let after = {...r, receivedAmount: 33.34};
+  assert.deepEqual([recvInstallInfo(after).paid, recvNextAmount(after), recvDueByMonth(after, '2026-11')], [1, 33.33, 66.66]);
+  after = {...r, receivedAmount: 100};
+  assert.deepEqual([recvRemaining(after), recvInstallInfo(after).paid, recvDueByMonth(after, '2026-11')], [0, 3, 0], 'recebidas as 3: nada em aberto');
+  // 3 × 33,33 (o jeito antigo): falta 0,01, e "do mês" cobra esse centavo em vez de zero.
+  after = {...r, receivedAmount: 99.99};
+  assert.deepEqual([recvRemaining(after), recvInstallInfo(after).paid, recvDueByMonth(after, '2026-11')], [0.01, 2, 0.01]);
+  // installmentAmount gravado continua valendo (parcelas 2..n); a 1ª fica com a diferença.
+  const g = {totalAmount: 2.26, receivedAmount: 0, installments: 2, installmentAmount: 1.12, dueDate: '2026-08-10'};
+  assert.equal(recvInstallInfo(g).per, 1.12);
+  assert.equal(recvDueByMonth(g, '2026-08'), 1.14);
+  assert.equal(recvDueByMonth(g, '2026-11'), 2.26);
+  assert.equal(recvDueByMonth({...r, dueDate: undefined}, '2026-11'), 33.34, 'sem data: a próxima parcela');
+});
+
+test('a receber parcelado: registros antigos recebidos com a parcela sem a sobra (B1)', async () => {
+  const {recvDueByMonth, recvInstallInfo, recvRemaining, recvNextAmount} = await import('../../js/domain/receivables.js');
+  const info = x => { const i = recvInstallInfo(x); return [i.paid, i.next, recvNextAmount(x), recvRemaining(x)]; };
+  // 100 em 3x gravado com installmentAmount 33,33; a pessoa pagava 33,33 por vez.
+  const r = {totalAmount: 100, receivedAmount: 0, installments: 3, installmentAmount: 33.33, dueDate: '2026-08-10'};
+  assert.deepEqual(info({...r, receivedAmount: 33.33}), [1, 2, 33.33, 66.67]);
+  assert.equal(recvDueByMonth({...r, receivedAmount: 33.33}, '2026-08'), 0, 'a 1ª não fica atrasada por 1 centavo');
+  assert.equal(recvDueByMonth({...r, receivedAmount: 33.33}, '2026-09'), 33.33);
+  assert.deepEqual(info({...r, receivedAmount: 66.66}), [2, 3, 33.34, 33.34]);
+  assert.deepEqual(info({...r, receivedAmount: 99.99}), [2, 3, 0.01, 0.01], 'falta 0,01 na última');
+  assert.equal(recvDueByMonth({...r, receivedAmount: 99.99}, '2026-10'), 0.01);
+  assert.equal(recvInstallInfo({...r, receivedAmount: 100}).paid, 3);
+  assert.equal(recvNextAmount({...r, receivedAmount: 100}), 0);
+  // Registro novo (com a sobra na 1ª): 33,34 também quita a 1ª, e a próxima é 33,33.
+  assert.deepEqual(info({...r, receivedAmount: 33.34}), [1, 2, 33.33, 66.66]);
+  assert.deepEqual(info({...r, installmentAmount: undefined, receivedAmount: 33.33}), [1, 2, 33.33, 66.67]);
+  // 2,26 em 2x gravado com 1,12 por parcela.
+  const g = {totalAmount: 2.26, receivedAmount: 1.12, installments: 2, installmentAmount: 1.12, dueDate: '2026-08-10'};
+  assert.deepEqual(info(g), [1, 2, 1.14, 1.14]);
+  assert.deepEqual(info({...g, receivedAmount: 1.13}), [1, 2, 1.13, 1.13]);
+  assert.equal(recvInstallInfo({...g, receivedAmount: 1.11}).paid, 0);
+  // "Falta" nunca negativo, nem recebendo a mais.
+  for (let c = 0; c <= 10100; c += 1){
+    const x = {...r, receivedAmount: c / 100};
+    assert.ok(recvNextAmount(x) >= 0 && recvDueByMonth(x, '2026-12') >= 0, String(c));
+  }
+});

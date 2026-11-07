@@ -4,7 +4,7 @@
  */
 import {todayKey, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, addMonthsIso} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney, splitAmount} from '../domain/money.js';
-import {findById, sum} from '../domain/util.js';
+import {findById} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
 import {CUSTOM_COLORS} from '../domain/categories.js';
 import * as Tx from '../domain/transactions.js';
@@ -184,7 +184,10 @@ export async function reverseTx(id){
     var r = {type: 'expense', amount: -money(amount), category: of.category, categoryLabel: catLabel(of.category, 'expense'), date: date,
       description: 'Estorno: ' + label, paymentMethod: of.paymentMethod, accountId: of.accountId || null, cardId: of.cardId || null, voucherId: of.voucherId || null,
       reversal: {of: of.id}, createdAt: Date.now()};
+    // Sem fatura escolhida (parcelas futuras): o crédito cai na fatura da própria parcela (compra + n−1),
+    // não pela data, que no fim do mês pode pular uma fatura.
     if (invKey) r.invoiceKey = invKey;
+    else if (card) r.invoiceKey = Cards.txInvoiceKey(of, card);
     if (of.forOther) r.forOther = of.forOther;
     if (of.split) r.split = of.split;
     return r;
@@ -485,7 +488,7 @@ export async function advanceInstallments(groupId){
   var R = g.future.length;
   var counts = [];
   for (var i=R;i>=1;i--) counts.push({id: String(i), label: i === R ? 'Todas as ' + R + ' restantes' : i + ' parcela(s)'});
-  function totalFor(n){ return sum(g.future.slice(R - n), function(t){ return t.amount; }); }
+  function totalFor(n){ return sumMoney(g.future.slice(R - n), function(t){ return t.amount; }); }
   var r = await openModal({
     title: 'Adiantar pagamento',
     body: '<p>“' + escapeHtml(g.name) + '”: faltam ' + R + ' parcela(s) de ' + fmtMoney(g.perInstallment) + ', total de ' + fmtMoney(g.remaining) + '. As últimas parcelas são as adiantadas.</p>' +
@@ -523,11 +526,14 @@ export async function advanceInstallments(groupId){
   if (!r || !r.n) return;
   var toRemove = g.future.slice(R - r.n);
   var ids = toRemove.map(function(t){ return t.id; });
+  var adv = {type:'expense', amount: r.paid, category: g.category, categoryLabel: catLabel(g.category, 'expense'), date: todayKey(),
+    description: g.name + ' (adiantamento de ' + r.n + ' parcela' + (r.n > 1 ? 's' : '') + ')', paymentMethod:'cartao', cardId: g.cardId,
+    installmentAdvance: {group: g.id, count: r.n, original: r.total, discount: money(r.total - r.paid)}, createdAt: Date.now()};
+  // A2-02: o adiantamento herda de quem é a compra (forOther / split); a conta é do domínio.
+  Object.assign(adv, Tx.advanceFields(g, toRemove.map(function(t){ return t.installment.n; }), r.paid));
   await Store.removeMany(k(), 'transactions', ids);
   State.transactions = State.transactions.filter(function(t){ return ids.indexOf(t.id) < 0; });
-  await saveTransactions([{type:'expense', amount: r.paid, category: g.category, categoryLabel: catLabel(g.category, 'expense'), date: todayKey(),
-    description: g.name + ' (adiantamento de ' + r.n + ' parcela' + (r.n > 1 ? 's' : '') + ')', paymentMethod:'cartao', cardId: g.cardId,
-    installmentAdvance: {group: g.id, count: r.n, original: r.total, discount: money(r.total - r.paid)}, createdAt: Date.now()}]);
+  await saveTransactions([adv]);
   renderAll();
   toast(r.total > r.paid ? 'Adiantamento registrado. Você economizou ' + fmtMoney(r.total - r.paid) + '!' : 'Adiantamento de ' + fmtMoney(r.paid) + ' registrado.');
 }

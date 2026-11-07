@@ -10,7 +10,7 @@ import {isForOther, isRefund, isReversal, reversalsOf, myShare, othersShare} fro
 import * as Cards from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
-import {recvDueByMonth, recvInstallInfo, recvRemaining} from '../domain/receivables.js';
+import {recvDueByMonth, recvInstallInfo, recvNextAmount, recvRemaining} from '../domain/receivables.js';
 
 import {urgencyOf} from '../domain/urgency.js';
 import {billMonth, pendingBills} from './bills.js';
@@ -238,7 +238,7 @@ export function installmentProgress(){
   State.receivables.forEach(function(r){
     var info = recvInstallInfo(r), left = recvRemaining(r);
     if (!info || !(left > 0) || r.forgiven) return;
-    out.push({kind: 'receber', title: r.description || r.person, where: r.person + ' te paga', total: info.n, done: info.paid, left: info.n - info.paid, leftAmount: left, per: info.per, go: 'receber',
+    out.push({kind: 'receber', title: r.description || r.person, where: r.person + ' te paga', total: info.n, done: info.paid, left: info.n - info.paid, leftAmount: left, per: recvNextAmount(r), go: 'receber',
       people: [r.person]});
   });
   return out.sort(function(a, b){ return (a.kind === 'receber') - (b.kind === 'receber') || a.left - b.left; });

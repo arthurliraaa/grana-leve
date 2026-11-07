@@ -5,7 +5,10 @@
  * - Como nos bancos, a compra feita no dia do fechamento (ou depois) já vai para a fatura seguinte.
  *   Em mês mais curto, o fechamento cai no último dia (fecha 31 → fecha 30/09, 28/02).
  * - O vencimento cai no mesmo mês do fechamento se o dia de vencimento for maior; senão, no mês seguinte.
- * - A compra conta como gasto na data da compra. Pagar a fatura não é um gasto novo: só desconta da conta escolhida.
+ * - A compra no cartão conta como gasto no mês em que vence a fatura dela (competência; ver monthOf em
+ *   transactions.js). Pagar a fatura não é um gasto novo: só desconta da conta escolhida.
+ * - Parcelada: a 1ª parcela fica na fatura da data da compra (seguindo o fechamento) e a parcela n
+ *   na fatura da compra + (n−1), sem pular nem repetir fatura (txInvoiceKey).
  * - Fatura paga em parte: o que faltou vai para a fatura seguinte ou é parcelado nas seguintes
  *   (partialPayment/carryIns). Só os juros contam como gasto novo.
  */
@@ -49,8 +52,16 @@ export function firstDueInstallment(date, n, card, today){
   return n + 1;
 }
 export function isCardExpense(t, card){ return t.type === 'expense' && t.paymentMethod === 'cartao' && t.cardId === card.id; }
-// Fatura do lançamento: pela data ou, num estorno, a fatura escolhida (invoiceKey).
-export function txInvoiceKey(t, card){ return t.invoiceKey || invoiceKeyFor(t.date, card); }
+// Fatura do lançamento: num estorno, a fatura escolhida (invoiceKey); numa parcela com a data da
+// compra (purchaseDate), a fatura da compra + (n−1); nos demais, pela data. A data da parcela
+// (compra + n−1 meses, limitada ao último dia do mês) não serve para isso: no fim do mês ela pode
+// cair no dia do fechamento e pular uma fatura (compra 30/03, fecha 31 → 30/04 já é a fatura de maio).
+export function txInvoiceKey(t, card){
+  if (t.invoiceKey) return t.invoiceKey;
+  if (t.purchaseDate && t.installment && Number(t.installment.n) >= 1)
+    return shiftMonthKey(invoiceKeyFor(t.purchaseDate, card), Number(t.installment.n) - 1);
+  return invoiceKeyFor(t.date, card);
+}
 export function invoiceItems(list, card, key){
   return list.filter(function(t){ return isCardExpense(t, card) && txInvoiceKey(t, card) === key; })
     .sort(function(a,b){ return a.date.localeCompare(b.date); });

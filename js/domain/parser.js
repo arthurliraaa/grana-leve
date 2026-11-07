@@ -56,20 +56,25 @@ export function parseAmount(text){
   return {value: Math.round(value * 100) / 100, index: m.index, length: m[0].length};
 }
 
+// Data da frase: {date: 'AAAA-MM-DD', guessed}. guessed = a data foi suposta e a revisão deve
+// chamar atenção para ela.
+// "dia N" é o dia N deste mês ou, se ainda não chegou, do mês passado. Se esse mês não tem o dia
+// ("dia 31" em 05/03: fevereiro não tem 31), vale o último mês antes dele que tem (31/01), marcado
+// como suposto.
 function parseDate(text, today){
   var d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  if (/\banteontem\b/.test(text)){ d.setDate(d.getDate() - 2); return dateKey(d); }
-  if (/\bontem\b/.test(text)){ d.setDate(d.getDate() - 1); return dateKey(d); }
+  if (/\banteontem\b/.test(text)){ d.setDate(d.getDate() - 2); return {date: dateKey(d), guessed: false}; }
+  if (/\bontem\b/.test(text)){ d.setDate(d.getDate() - 1); return {date: dateKey(d), guessed: false}; }
   var m = /\bdia (\d{1,2})\b/.exec(text);
   if (m){
     var day = Number(m[1]);
     if (day >= 1 && day <= 31){
-      var c = new Date(d.getFullYear(), d.getMonth(), day);
-      if (c > d) c = new Date(d.getFullYear(), d.getMonth() - 1, day);
-      return dateKey(c);
+      var back = day > d.getDate() ? 1 : 0, guessed = false;
+      while (day > new Date(d.getFullYear(), d.getMonth() - back + 1, 0).getDate()){ back++; guessed = true; }
+      return {date: dateKey(new Date(d.getFullYear(), d.getMonth() - back, day)), guessed: guessed};
     }
   }
-  return dateKey(d);
+  return {date: dateKey(d), guessed: false};
 }
 
 // "em 3x" (valor total) ou "3x de 100" (valor de cada parcela). Retorna o texto sem esse trecho.
@@ -175,12 +180,13 @@ export function parse(input, opts){
     if (type === 'expense') lastPayment = payment;
     var hasOwnDate = /\b(hoje|ontem|anteontem|dia \d{1,2})\b/.test(chunk);
     var anyDate = hasOwnDate || /\b(hoje|ontem|anteontem|dia \d{1,2})\b/.test(text);
+    var date = hasOwnDate ? parseDate(chunk, today) : globalDate;
     items.push({
       type: type,
       amount: amount.value,
       category: cat ? cat.id : (type === 'income' ? 'outros_receita' : 'outros'),
       description: describe(chunk, amount) || (cat ? cat.word.charAt(0).toUpperCase() + cat.word.slice(1) : ''),
-      date: hasOwnDate ? parseDate(chunk, today) : globalDate,
+      date: date.date,
       paymentMethod: payment,
       installments: inst && type === 'expense' ? inst.count : 1,
       // O que veio de palavras da frase (true) e o que foi suposto (false), para a revisão destacar.
@@ -188,7 +194,7 @@ export function parse(input, opts){
         type: isIncome || isExpense || inherited,
         category: !!cat,
         payment: type === 'income' || !!findPayment(payText),
-        date: anyDate
+        date: anyDate && !date.guessed
       }
     });
   });

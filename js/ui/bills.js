@@ -199,6 +199,41 @@ async function payBill(id, key){
   toast(b.name + ' lançada: ' + fmtMoney(a.amount) + '.' + (a.keep ? ' O novo valor vale para os próximos meses.' : ''));
 }
 
+// Gasto de conta fixa excluído à mão em "Ganhos e gastos" (A2-06): vale como "Desfazer". O mês fica
+// pulado e não é lançado de novo sozinho. Chamar ANTES de tirar os lançamentos (se a gravação falhar no
+// meio, o pior caso é o mês pulado com o gasto ainda lá). Devolve os nomes das contas.
+// O mês só é pulado se estiver ligado a um destes lançamentos (ou a nenhum que ainda exista fora deles).
+function billsToSkip(txs){
+  if (!ctx) return [];
+  var gone = {}, out = [];
+  txs.forEach(function(t){ gone[t.id] = true; });
+  txs.forEach(function(t){
+    var b = t.billId && t.billKey ? findById(bills(), t.billId) : null;
+    if (!b) return;
+    var p = (b.paid || {})[t.billKey];
+    if (p && p.skipped) return;   // já está pulado
+    if (p && p.txId && !gone[p.txId] && findById(ctx.state().transactions, p.txId)) return;   // o mês está ligado a outro lançamento
+    if (out.some(function(x){ return x.b.id === b.id && x.key === t.billKey; })) return;
+    out.push({b: b, key: t.billKey});
+  });
+  return out;
+}
+export async function skipBillsOf(txs){
+  var list = billsToSkip(txs), names = [];
+  for (var i = 0; i < list.length; i++){
+    var b = list[i].b, paid = Object.assign({}, b.paid);
+    paid[list[i].key] = {skipped: true, date: todayKey()};
+    await Store.update(ctx.k(), 'bills', b.id, {paid: paid});
+    b.paid = paid;
+    names.push(b.name);
+  }
+  return names;
+}
+// Só os nomes das contas fixas que skipBillsOf de fato pularia (para a mensagem antes de excluir).
+export function billNamesOf(txs){
+  return billsToSkip(txs).map(function(x){ return x.b.name; });
+}
+
 async function undoBill(id, key){
   var b = findById(bills(), id), p = (b.paid || {})[key];
   if (!p) return;

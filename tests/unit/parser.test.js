@@ -61,3 +61,24 @@ test('item sem verbo herda o tipo da frase e não fica marcado; frase sem verbo 
   assert.equal(r.items[1].recognized.type, true);
   assert.equal(parse('45 na lojinha', {today}).items[0].recognized.type, false);
 });
+
+test('"dia 31"/"dia 30" quando o mês passado não tem esse dia: último mês que tem, como suposto (A2-11)', () => {
+  const mar5 = new Date(2026, 2, 5), may10 = new Date(2026, 4, 10);
+  let it = parse('gastei 50 dia 31', {today: mar5}).items[0];
+  assert.equal(it.date, '2026-01-31');
+  assert.equal(it.recognized.date, false, 'a revisão chama atenção para a data');
+  it = parse('gastei 50 dia 30', {today: mar5}).items[0];
+  assert.deepEqual([it.date, it.recognized.date], ['2026-01-30', false]);
+  it = parse('gastei 50 dia 31', {today: may10}).items[0];
+  assert.deepEqual([it.date, it.recognized.date], ['2026-03-31', false]);
+  // Casos normais continuam reconhecidos.
+  it = parse('gastei 50 dia 30', {today: new Date(2026, 1, 28)}).items[0];
+  assert.deepEqual([it.date, it.recognized.date], ['2026-01-30', true], 'em 28/02, dia 30 é janeiro (mês passado tem o dia)');
+  it = parse('gastei 50 dia 31', {today: new Date(2026, 2, 31)}).items[0];
+  assert.deepEqual([it.date, it.recognized.date], ['2026-03-31', true]);
+  it = parse('gastei 50 dia 5', {today: mar5}).items[0];
+  assert.deepEqual([it.date, it.recognized.date], ['2026-03-05', true]);
+  // Data dita só uma vez na frase vale para os outros itens, também como suposta.
+  const two = parse('gastei 30 no mercado e 20 no uber dia 31', {today: mar5}).items;
+  assert.deepEqual(two.map(i => [i.date, i.recognized.date]), [['2026-01-31', false], ['2026-01-31', false]]);
+});

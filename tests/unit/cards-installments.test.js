@@ -231,3 +231,32 @@ test('fatura paga em parte: o resto vai para a próxima (rotativo) ou é parcela
   assert.equal(partialPayment(tot, '2026-10'), null);
   assert.equal(carryTotal(tot, '2026-11'), 0);
 });
+
+test('parcela n na fatura da compra + (n−1), mesmo no fim do mês (A2-01)', async () => {
+  const {txInvoiceKey, invoiceTotal, firstDueInstallment, invoiceDates} = await import('../../js/domain/cards.js');
+  const {expandPurchase, expandInstallments} = await import('../../js/domain/transactions.js');
+  const base = {type: 'expense', paymentMethod: 'cartao', cardId: 'c', category: 'x', createdAt: 1};
+  // Fecha 31, vence 7: compra 30/03 em 3x → as datas são 30/03, 30/04, 30/05, mas as faturas são 03, 04, 05.
+  let c = {id: 'c', closingDay: 31, dueDay: 7};
+  let parts = expandPurchase({...base, amount: 300, date: '2026-03-30'}, 3, 'g', 'Compra', 1);
+  assert.deepEqual(parts.map(t => txInvoiceKey(t, c)), ['2026-03', '2026-04', '2026-05']);
+  assert.deepEqual(['2026-03', '2026-04', '2026-05'].map(k => invoiceTotal(parts, c, k)), [100, 100, 100], 'uma parcela por fatura');
+  // firstDueInstallment segue as mesmas faturas: hoje 10/05, a fatura 04 (vence 07/05) já venceu.
+  const first = firstDueInstallment('2026-03-30', 3, c, '2026-05-10');
+  assert.equal(first, 3);
+  assert.ok(invoiceDates(txInvoiceKey(parts[first - 1], c), c).due >= '2026-05-10', 'a 1ª a pagar está numa fatura que ainda não venceu');
+  assert.ok(invoiceDates(txInvoiceKey(parts[first - 2], c), c).due < '2026-05-10');
+  // Fecha 30: compra 28/01/2027 → 01, 02, 03 (fevereiro não fica sem parcela).
+  c = {id: 'c', closingDay: 30, dueDay: 10};
+  parts = expandPurchase({...base, amount: 300, date: '2027-01-28'}, 3, 'g', 'Compra', 1);
+  assert.deepEqual(parts.map(t => txInvoiceKey(t, c)), ['2027-01', '2027-02', '2027-03']);
+  // A 1ª segue o fechamento: compra no dia do fechamento já vai para a fatura seguinte.
+  parts = expandPurchase({...base, amount: 300, date: '2027-01-30'}, 3, 'g', 'Compra', 1);
+  assert.deepEqual(parts.map(t => txInvoiceKey(t, c)), ['2027-02', '2027-03', '2027-04']);
+  // Parcela sem purchaseDate (cadastro antigo com "parcela atual") continua pela data.
+  const old = expandInstallments({...base, amount: 300, date: '2026-03-30'}, 3, 'g', 'Compra', 2);
+  c = {id: 'c', closingDay: 31, dueDay: 7};
+  assert.deepEqual(old.map(t => txInvoiceKey(t, c)), ['2026-03', '2026-05']);
+  // Estorno com fatura escolhida continua usando a escolhida.
+  assert.equal(txInvoiceKey({...parts[1], invoiceKey: '2027-09'}, c), '2027-09');
+});

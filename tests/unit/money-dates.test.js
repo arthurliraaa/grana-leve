@@ -53,3 +53,33 @@ test('contas com meses', () => {
   assert.equal(monthBounds(0, new Date(2026, 9, 8)).label, 'outubro de 2026');
   assert.equal(formatDateFull('2026-10-08'), '08/10/2026');
 });
+
+test('money sem erro de meio centavo do ponto flutuante (A2-10)', () => {
+  assert.equal(money(1.005), 1.01);
+  assert.equal(money(2.675), 2.68);
+  assert.equal(money(-1.005), -1.01);
+  assert.equal(money(16.665), 16.67);
+  assert.equal(money(1.115), 1.12);
+  assert.equal(money(1.0049), 1);
+  assert.equal(money(0.1 + 0.2), 0.3);
+  assert.equal(toCents(-0.004), 0);
+  assert.ok(Object.is(money(-0.001), 0), 'sem −0');
+  assert.ok(Object.is(toCents(-0.004), 0), 'toCents sem −0');
+});
+
+test('toCents com entrada não numérica (S4)', () => {
+  assert.equal(toCents('10.5'), 1050);
+  assert.equal(toCents('abc'), 0);
+  assert.equal(toCents(''), 0);
+  assert.equal(toCents(null), 0);
+  assert.equal(toCents(undefined), 0);
+  assert.equal(toCents('10,5'), 0);
+  assert.equal(toCents(-30000.015), -3000002);
+  assert.equal(toCents(29999.99), 2999999);
+});
+
+test('splitAmount com valor negativo: o resto também vai na 1ª (A2-21)', () => {
+  assert.deepEqual(splitAmount(-10, 3), [-3.34, -3.33, -3.33]);
+  assert.equal(sumMoney(splitAmount(-99.99, 7)), -99.99);
+  assert.deepEqual(splitAmount(0.01, 3), [0.01, 0, 0]);
+});

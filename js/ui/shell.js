@@ -4,13 +4,13 @@
  */
 import {whatsappNumber} from '../domain/contact.js';
 import {todayKey} from '../domain/dates.js';
-import {money, fmtMoney} from '../domain/money.js';
+import {money, fmtMoney, sumMoney} from '../domain/money.js';
 import {findById} from '../domain/util.js';
-import {isReversal} from '../domain/transactions.js';
+import {isReversal, linkedToDelete} from '../domain/transactions.js';
 
 import {renderAdmin} from './admin.js';
 import {renderProfile} from './profile.js';
-import {renderBills, fillBillForm, resetBillsView, runAutoBills} from './bills.js';
+import {renderBills, fillBillForm, resetBillsView, runAutoBills, skipBillsOf, billNamesOf} from './bills.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup} from '../data/backup.js';
 import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../data/session.js';
@@ -35,6 +35,24 @@ import {generateInvoicePdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions} from './state.js';
 import {advanceInstallments, openTxModal} from './tx-edit.js';
 import {TX_SORTS, populateCategorySelect, populateInstallSelect, populatePaymentSelect, renderTransactionsTab, syncTxFormVisibility} from './tx-list.js';
+
+/* ============ Excluir lançamento com itens ligados ============ */
+
+// Frase do que vai junto, para a janela de confirmação. Vazia se não há nada ligado.
+function linkedMessage(l){
+  var parts = [], adv = l.advances || [];
+  var got = l.refunds.filter(function(t){ return !t.writeOff; }), off = l.refunds.filter(function(t){ return t.writeOff; });
+  if (adv.length) parts.push((adv.length === 1 ? 'o adiantamento de parcelas' : 'os ' + adv.length + ' adiantamentos de parcelas') + ' (' + fmtMoney(sumMoney(adv, function(t){ return t.amount; })) + ')');
+  if (l.reversals.length) parts.push((l.reversals.length === 1 ? 'o estorno ligado' : 'os ' + l.reversals.length + ' estornos ligados') + ' (' + fmtMoney(-sumMoney(l.reversals, function(t){ return t.amount; })) + ')');
+  if (l.receivables.length) parts.push('o valor a receber de ' + l.receivables.map(function(r){ return r.person; }).join(', ') + ' em “Me devem”');
+  if (got.length) parts.push(got.length === 1 ? 'o recebimento já registrado' : 'os ' + got.length + ' recebimentos já registrados');
+  if (off.length) parts.push(off.length === 1 ? 'o registro de “não devolvido” ligado' : 'os ' + off.length + ' registros de “não devolvido” ligados');
+  if (!parts.length) return '';
+  var last = parts.pop();
+  var shared = l.receivables.filter(function(r){ return r.sharedWith || r.sharedId; }).map(function(r){ return String(r.person || '').split(' ')[0]; });
+  return ' Também apaga ' + (parts.length ? parts.join(', ') + ' e ' : '') + last + '.' +
+    (shared.length ? ' A cobrança compartilhada também deixa de existir para ' + shared.join(', ') + '.' : '');
+}
 
 /* ============ Rendering ============ */
 
@@ -558,17 +576,45 @@ export function wireShell(){
       var tx = findById(State.transactions, id);
       if (!tx) return;
       var ok, ids = [id];
+      if (tx.installment) ids = State.transactions.filter(function(x){ return x.installment && x.installment.group === tx.installment.group; }).map(function(x){ return x.id; });
+      var parcelCount = ids.length;
+      // O que vai junto (A2-03, A4): adiantamentos da compra, estornos ligados, "A receber" que só existe
+      // por causa desta compra e as devoluções já registradas nele. Conta fixa lançada por este gasto fica pulada no mês (A2-06).
+      var linked = linkedToDelete(State.transactions, State.receivables, ids);
+      var billNote = billNamesOf(State.transactions.filter(function(x){ return ids.indexOf(x.id) >= 0 || linked.extraTxIds.indexOf(x.id) >= 0; })).map(function(n){ return ' A conta fixa “' + n + '” fica como não lançada neste mês.'; }).join('');
+      var extra = linkedMessage(linked);
       if (tx.installment){
-        ids = State.transactions.filter(function(x){ return x.installment && x.installment.group === tx.installment.group; }).map(function(x){ return x.id; });
-        ok = await confirmAction({title:'Excluir compra parcelada?', message:'“' + tx.installment.baseDescription + '” foi parcelada em ' + tx.installment.total + 'x. Excluir apaga as ' + ids.length + ' parcelas desta compra.'});
+        ok = await confirmAction({title: extra ? 'Excluir a compra e o que está ligado a ela?' : 'Excluir compra parcelada?', confirmLabel: extra ? 'Excluir tudo' : undefined,
+          message:'“' + tx.installment.baseDescription + '” foi parcelada em ' + tx.installment.total + 'x. Excluir apaga ' + (parcelCount === 1 ? 'a parcela' : 'as ' + parcelCount + ' parcelas') + ' desta compra.' + extra + billNote});
+      } else if (extra){
+        ok = await confirmAction({title:'Excluir a compra e o que está ligado a ela?', confirmLabel: 'Excluir tudo',
+          message:'Excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '.' + extra + billNote});
       } else {
-        ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?', skipKey:'deleteTx'});
+        // Com conta fixa envolvida a pergunta sempre aparece (sem "Não perguntar novamente").
+        ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?' + billNote, skipKey: billNote ? undefined : 'deleteTx'});
       }
       if (!ok) return;
-      await Store.removeMany(k(), 'transactions', ids);
-      State.transactions = State.transactions.filter(function(x){ return ids.indexOf(x.id) < 0; });
+      var allIds = ids.concat(linked.extraTxIds);
+      var removedTx = State.transactions.filter(function(x){ return allIds.indexOf(x.id) >= 0; });
+      try {
+        // A3: pula a conta fixa antes de apagar; se algo falhar no meio, o pior caso é o mês pulado com o gasto ainda lá.
+        await skipBillsOf(removedTx);
+        await Store.removeMany(k(), 'transactions', allIds);
+        State.transactions = State.transactions.filter(function(x){ return allIds.indexOf(x.id) < 0; });
+        for (var ri = 0; ri < linked.receivables.length; ri++){
+          var lr = linked.receivables[ri];
+          await Store.remove(k(), 'receivables', lr.id);
+          State.receivables = State.receivables.filter(function(x){ return x.id !== lr.id; });
+          if (lr.sharedId) leaveShared(lr.sharedId);
+        }
+      } catch(err){
+        try { await loadAllData(); } catch(e2){ /* fica com o que está na tela */ }
+        renderAll();
+        toast('Não deu para excluir tudo. Confira e tente de novo.');
+        return;
+      }
       renderAll();
-      toast('Lançamento excluído.');
+      toast(extra ? 'Compra e itens ligados excluídos.' : 'Lançamento excluído.');
       return;
     }
     if (t.closest('[data-explain="devolver"]')){ explainReturn(); return; }

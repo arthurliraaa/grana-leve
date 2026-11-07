@@ -10,7 +10,7 @@ import {findById, uid} from '../domain/util.js';
 import {clampInstall} from '../domain/transactions.js';
 
 import {invoiceKeyFor, invoiceDates} from '../domain/cards.js';
-import {recvInstallInfo, recvNextDue, recvRemaining, recvDefaultRefund, recvDueByMonth, recvDueCount} from '../domain/receivables.js';
+import {recvInstallInfo, recvNextAmount, recvNextDue, recvRemaining, recvDefaultRefund, recvDueByMonth, recvDueCount} from '../domain/receivables.js';
 
 import {DEFAULT_URGENCY, urgencyOf, byUrgency} from '../domain/urgency.js';
 import {Store} from '../data/store.js';
@@ -451,7 +451,7 @@ export function recvCardHtml(r){
     '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--good)"></span></div>' +
     '<div class="debt-figs"><span class="tabular">Total: '+fmtMoney(r.totalAmount||0)+'</span><span class="tabular">Recebido: '+fmtMoney(r.receivedAmount||0)+'</span><span class="tabular">Falta: '+fmtMoney(remaining)+'</span></div>' +
     (info ? '<span class="tx-meta">' + (done ? info.n + ' parcelas de ' + fmtMoney(info.per) + ', todas recebidas' :
-        'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(info.per) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
+        'Parcela ' + info.next + ' de ' + info.n + ' · ' + fmtMoney(recvNextAmount(r)) + (due ? ' · vence ' + formatDateFull(due) : '') + lateHtml) + '</span>' :
       (r.dueDate ? '<span class="tx-meta">Combinado para ' + formatDateFull(r.dueDate) + lateHtml + '</span>' : '')) +
     paymentLogHtml(r.payments, 'recv', r.id, r.person) +
     '<div class="card-actions recv-actions">' +
@@ -519,7 +519,7 @@ export async function receiveReceivable(id){
   var r = findById(State.receivables, id);
   var remaining = recvRemaining(r);
   var info = recvInstallInfo(r);
-  var suggested = info ? money(Math.min(info.next === info.n ? remaining : info.per, remaining)) : remaining;
+  var suggested = info ? recvNextAmount(r) : remaining;   // a 1ª parcela leva os centavos que sobram
   var refundDefault = recvDefaultRefund(r);
   // Duas perguntas separadas: para onde foi o dinheiro e se ele conta como ganho.
   var a = await openModal({
@@ -623,7 +623,7 @@ export async function chargePerson(key){
 }
 export function chargeItem(r){
   var remaining = recvRemaining(r), info = recvInstallInfo(r), due = recvNextDue(r);
-  return {what: info ? 'parcela ' + info.next + ' de ' + info.n + ', de ' + fmtMoney(Math.min(info.per, remaining)) : fmtMoney(remaining),
+  return {what: info ? 'parcela ' + info.next + ' de ' + info.n + ', de ' + fmtMoney(recvNextAmount(r)) : fmtMoney(remaining),
     due: due ? (info ? 'combinada' : 'combinado') + ' para ' + formatDateFull(due) : ''};
 }
 // "Do mês": as parcelas que vencem até o fim do mês (inclusive atrasadas) ou, se nenhuma vence neste
@@ -632,7 +632,7 @@ export function chargeItem(r){
 function monthCharge(r, key){
   var v = recvDueByMonth(r, key), info = recvInstallInfo(r), left = recvRemaining(r);
   if (v > 0 || !info || !(left > 0)) return {amount: v, count: recvDueCount(r, key)};
-  return {amount: money(Math.min(left, info.per * (info.paid + 1) - Number(r.receivedAmount || 0))), count: 1, next: true};
+  return {amount: recvNextAmount(r), count: 1, next: true};
 }
 // Texto de uma pendência na cobrança (do mês ou o total em aberto).
 function chargeLine(r, what, key){
