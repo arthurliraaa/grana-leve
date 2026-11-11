@@ -21,7 +21,7 @@
     "eslint": "9.39.5",
     "globals": "17.13.0",
     "puppeteer-core": "25.13.0",
-    "serve": "14.2.6"
+    "serve": "14.2.7"
   },
   "overrides": {
     "compression": "1.8.2"
