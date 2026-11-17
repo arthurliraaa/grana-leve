@@ -23,7 +23,7 @@ L.run(async ({page}) => {
 
   L.section('Situação do mês numa frase');
   const status = await L.text(page, '#monthStatus');
-  L.ok(/Até hoje entraram R\$\s?3\.000,00 e saíram R\$\s?\d/.test(status), 'diz quanto entrou e quanto saiu até hoje');
+  L.ok(/Neste mês entraram R\$\s?3\.000,00 e saíram R\$\s?\d/.test(status), 'diz quanto entrou e quanto saiu neste mês');
   L.ok(/Saldo do mês: R\$/.test(status), 'diz o saldo do mês');
 
   L.section('Parcelas: quantas foram e quantas faltam');

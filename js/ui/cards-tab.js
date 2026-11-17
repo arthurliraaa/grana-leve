@@ -17,7 +17,7 @@ import {pdfWriter, pdfReady} from './pdf.js';
 import {wireTooltips} from './charts.js';
 import {isForOther, isPersonal, myShare, othersShare} from '../domain/transactions.js';
 import {payAccountFor, renderBanks} from './accounts-tab.js';
-import {monthPayments, two, txRowHtml} from './home-tab.js';
+import {monthPayments, nextMonthInvoices, two, txRowHtml} from './home-tab.js';
 import {State, accountName, cardUsed, catOptions, expenseCats, installmentGroups, invoiceItems, invoiceStatus, k, totalAccountsBalance} from './state.js';
 import {installmentRowHtml} from './tx-edit.js';
 import {populatePaymentSelect} from './tx-list.js';
@@ -149,7 +149,7 @@ export var INVOICE_PILL = {aberta:'good', fechada:'warning', vencida:'critical',
 export function renderWalletSummary(){
   var el = document.getElementById('walletSummary');
   if (!State.accounts.length && !State.cards.length){ el.innerHTML = ''; return; }
-  var mp = monthPayments();
+  var mp = monthPayments(), next = nextMonthInvoices();
   var cash = State.accounts.length ? totalAccountsBalance() : null;
   function box(label, value, sub, cls){ return '<div class="ws-box"><span class="tile-lbl">' + label + '</span><strong class="tabular ' + (cls || '') + '">' + fmtMoney(value) + '</strong>' + (sub ? '<span class="tile-sub">' + sub + '</span>' : '') + '</div>'; }
   // Três caixas que se leem como uma conta: o que há nas contas − o que falta nas faturas do mês = o que sobra.
@@ -161,6 +161,11 @@ export function renderWalletSummary(){
       '<div class="ws-box"><span class="tile-lbl">Sobra depois de pagar <button type="button" class="info-i" data-explain="devolver" aria-label="O que significam os dois valores?">i</button></span><span class="tile-sub">' +
       two('Se ninguém devolver', after, after < 0 ? 'neg-text' : 'pos-text', true) + two('Se te devolverem', afterMine, afterMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>') : '') +
     '</div>' +
+    (showCards && next.total > 0 ? '<div class="ws-next"><span class="ws-next-title">Mês que vem · faturas de ' + monthLabelOf(next.key) + '</span>' +
+      '<span class="ws-next-line">Já tem <strong class="tabular">' + fmtMoney(next.total) + '</strong> a pagar' + (next.mine < next.total - 0.004 ? ', dos quais <strong class="tabular">' + fmtMoney(next.mine) + '</strong> são seus' : '') + '</span>' +
+      (cash !== null ? '<span class="ws-next-line">Se pagar tudo isso com o que sobra hoje: <strong class="tabular ' + (after - next.total < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(money(after - next.total)) + '</strong>' +
+        (Math.abs(after - afterMine) >= 0.005 || next.mine < next.total - 0.004 ? ' (ou <strong class="tabular ' + (afterMine - next.mine < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(money(afterMine - next.mine)) + '</strong> se te devolverem)' : '') + '</span>' : '') +
+      '</div>' : '') +
     (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas que vencem neste mês (o que você já pagou ou adiantou não entra), com tudo o que está nelas, inclusive a parte de outras pessoas.</p>' : '');
 }
 // Cartões aparecem dentro do bloco do banco (renderBanks, em accounts-tab.js).

@@ -26,7 +26,7 @@ L.run(async ({page}) => {
   L.section('Resumo do mês');
   const status = await L.text(page, '#monthStatus');
   L.ok(/saíram R\$\s?900,00 \(R\$\s?300,00 seus\)/.test(status), 'saíram 900 no total (300 seus)');
-  L.ok(/Saldo do mês: R\$\s?2\.700,00, ou R\$\s?3\.000,00 se te devolverem/.test(status), 'dois saldos numa frase curta: 3.100 − 400, ou 3.100 − 100 se te devolverem');
+  L.ok(/sobram R\$\s?2\.700,00, ou R\$\s?3\.000,00 se te devolverem/.test(status), 'dois saldos numa frase curta: 3.100 − 400, ou 3.100 − 100 se te devolverem');
   await page.$eval('#monthStatus [data-explain]', el => el.click()); await L.sleep(200);
   L.ok(await L.modalTitle(page) === 'Os dois saldos' && /Se te devolverem/.test(await L.text(page, '#modalRoot')), 'o “i” explica os dois saldos');
   await L.closeModal(page);

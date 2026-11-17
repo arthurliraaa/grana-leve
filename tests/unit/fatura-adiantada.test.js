@@ -32,3 +32,28 @@ test('o adiantado sai do saldo da conta escolhida, só depois da data', () => {
   assert.equal(accountBalance(a, data, '2026-10-07', t => t.description), 1600);
   assert.equal(accountBalance(a, data, '2026-10-12', t => t.description), 1550);
 });
+
+test('fatura paga ainda aberta: compra nova depois do pagamento volta a faltar (e só ela)', async () => {
+  const {invoiceStatus, invoiceExtraAfterPaid} = await import('../../js/domain/cards.js');
+  const l = [buy('a', '2026-10-05', 120)];
+  const c = {id: 'c1', name: 'Nubank', closingDay: 20, dueDay: 28, limit: 5000, paidInvoices: ['2026-10'], invoicePaidDue: {'2026-10': {due: 120, at: 1000}}};
+  const today = '2026-10-10';
+  assert.equal(invoiceStatus(c, '2026-10', today, l), 'paga', 'sem compra nova, continua paga');
+  assert.equal(invoiceLeft(l, c, '2026-10'), 0);
+  l.push(buy('b', '2026-10-12', 80));
+  assert.equal(invoiceExtraAfterPaid(l, c, '2026-10'), 80);
+  assert.equal(invoiceStatus(c, '2026-10', '2026-10-13', l), 'aberta', 'volta a ter algo a pagar');
+  assert.equal(invoiceLeft(l, c, '2026-10'), 80);
+  assert.equal(cardUsed(l, c, '2026-10-13'), 80, 'só a compra nova ocupa o limite');
+  const s = invoicesSummary(l, [c], '2026-10-13');
+  assert.equal(s.openLeft, 80); assert.equal(s.openPaid, 120); assert.equal(s.openTotal, 200);
+  c.invoiceAdvances = {'2026-10': [{id: 'z', date: '2026-10-14', amount: 80, accountId: 'a1', createdAt: 2000}]};
+  assert.equal(invoiceLeft(l, c, '2026-10'), 0, 'pagou o que chegou');
+  assert.equal(invoiceStatus(c, '2026-10', '2026-10-14', l), 'paga');
+});
+
+test('fatura paga antes do registro do total (sem invoicePaidDue) continua paga', () => {
+  const l = [buy('a', '2026-10-05', 120), buy('b', '2026-10-12', 80)];
+  const c = {id: 'c1', name: 'Nubank', closingDay: 20, dueDay: 28, limit: 5000, paidInvoices: ['2026-10']};
+  assert.equal(invoiceLeft(l, c, '2026-10'), 200 - 0, 'sem registro, o cálculo antigo vale');
+});

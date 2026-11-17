@@ -102,8 +102,25 @@ export function invoiceTotal(list, card, key){ return sumMoney([sumMoney(invoice
 // liberam limite; a fatura só fica "paga" quando a pessoa paga o que falta.
 export function invoiceAdvances(card, key){ return ((card.invoiceAdvances || {})[key] || []).slice(); }
 export function invoiceAdvanced(card, key){ return sumMoney(invoiceAdvances(card, key), function(a){ return a.amount; }); }
+// Fatura marcada como paga: guarda o total que ela tinha na hora (invoicePaidDue[key] = {due, at}). Se entrar
+// compra nova depois (a fatura ainda estava aberta), o que passou do total é o que volta a faltar,
+// abatido do que for pago depois disso (adiantamentos feitos a partir de `at`). Faturas pagas antes
+// desse registro continuam como estavam.
+export function invoicePaidSnapshot(card, key){
+  var p = (card.invoicePaidDue || {})[key];
+  return (card.paidInvoices || []).indexOf(key) >= 0 && p && isFinite(Number(p.due)) ? p : null;
+}
+export function invoiceExtraAfterPaid(list, card, key){
+  var p = invoicePaidSnapshot(card, key);
+  if (!p) return 0;
+  var later = sumMoney(invoiceAdvances(card, key).filter(function(a){ return Number(a.createdAt) >= Number(p.at); }), function(a){ return a.amount; });
+  return money(Math.max(0, invoiceDueTotal(list, card, key) - Number(p.due) - later));
+}
 // O que ainda falta pagar da fatura (nunca negativo).
-export function invoiceLeft(list, card, key){ return money(Math.max(0, invoiceDueTotal(list, card, key) - invoiceAdvanced(card, key))); }
+export function invoiceLeft(list, card, key){
+  if (invoicePaidSnapshot(card, key)) return invoiceExtraAfterPaid(list, card, key);
+  return money(Math.max(0, invoiceDueTotal(list, card, key) - invoiceAdvanced(card, key)));
+}
 // Faturas que têm algo: compras ou saldo vindo de faturas anteriores.
 export function invoiceKeys(list, card){
   var keys = {};
@@ -116,9 +133,12 @@ export function invoiceKeys(list, card){
   });
   return Object.keys(keys).sort();
 }
-export function invoiceStatus(card, key, today){
-  if ((card.paidInvoices || []).indexOf(key) >= 0) return 'paga';
+// `list` (opcional): com os lançamentos, uma fatura que já fechou e foi toda paga por adiantamentos
+// (nada mais a pagar) conta como paga; se chegar compra nova antes de fechar, volta a ter o que pagar.
+export function invoiceStatus(card, key, today, list){
+  if ((card.paidInvoices || []).indexOf(key) >= 0 && !(list && invoiceExtraAfterPaid(list, card, key) > 0.004)) return 'paga';
   var d = invoiceDates(key, card);
+  if (list && today >= d.closing && invoiceAdvanced(card, key) > 0 && invoiceDueTotal(list, card, key) > 0 && invoiceLeft(list, card, key) <= 0.004) return 'paga';
   if (today > d.due) return 'vencida';
   if (today >= d.closing) return 'fechada'; // no dia do fechamento ela já não recebe compras
   return 'aberta';
@@ -126,7 +146,7 @@ export function invoiceStatus(card, key, today){
 // Limite usado = o que falta pagar das faturas ainda não pagas (inclui parcelas futuras, que já
 // ocupam o limite; o que foi adiantado libera limite).
 export function cardUsed(list, card, today){
-  return sumMoney(invoiceKeys(list, card).filter(function(key){ return invoiceStatus(card, key, today) !== 'paga'; }), function(key){
+  return sumMoney(invoiceKeys(list, card).filter(function(key){ return invoiceStatus(card, key, today, list) !== 'paga'; }), function(key){
     return invoiceLeft(list, card, key);
   });
 }
@@ -137,10 +157,10 @@ export function invoicesSummary(list, cards, today){
   var toPay = [], open = [];
   cards.forEach(function(card){
     invoiceKeys(list, card).forEach(function(key){
-      var status = invoiceStatus(card, key, today);
+      var status = invoiceStatus(card, key, today, list);
       var total = invoiceDueTotal(list, card, key);
       if (!(total > 0) || status === 'paga') return;
-      var paid = invoiceAdvanced(card, key);
+      var paid = invoicePaidSnapshot(card, key) ? money(Math.max(0, total - invoiceLeft(list, card, key))) : invoiceAdvanced(card, key);
       var item = {card: card, key: key, total: total, paid: paid, left: money(Math.max(0, total - paid)), due: invoiceDates(key, card).due, status: status};
       if (status === 'fechada' || status === 'vencida') toPay.push(item);
       else if (key === invoiceKeyFor(today, card)) open.push(item);

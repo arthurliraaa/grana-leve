@@ -98,7 +98,11 @@ export function spendFigures(){
   return {f: f, mp: mp, hasAcc: hasAcc, avail: avail, income: t.incomeDone, mine: mine, others: others, total: total,
     left: mp.left, leftMine: mp.leftMine, leftOthers: money(mp.left - mp.leftMine),
     saldoAll: hasAcc ? money(avail - mp.left) : money(f.balanceDone - others),
-    saldoMine: hasAcc ? money(avail - mp.leftMine) : f.balanceDone};
+    saldoMine: hasAcc ? money(avail - mp.leftMine) : f.balanceDone,
+    // Previsão do fim do mês: com contas, o que sobra depois de pagar mais o que ainda vai entrar (se tudo
+    // já foi pago, é o que há nas contas); sem contas, a conta antiga (ganhos − gastos do mês).
+    endAll: hasAcc ? money(avail - mp.left + f.expectedIncome) : f.balanceEnd,
+    endMine: hasAcc ? money(avail - mp.leftMine + f.expectedIncome) : f.balanceEnd};
 }
 // Linha “rótulo ........ valor” dos quadros (big = valor em destaque, para os saldos).
 export function two(label, value, cls, big){ return '<span class="tr' + (big ? ' big' : '') + '"><span class="tr-l">' + label + '</span><strong class="tr-v tabular ' + (cls || '') + '">' + (typeof value === 'string' ? value : fmtMoney(value)) + '</strong></span>'; }
@@ -143,8 +147,15 @@ export function upcomingCommitments(){
   var inv = Cards.invoicesSummary(State.transactions, State.cards, today);
   inv.toPay.concat(inv.open).forEach(function(i){
     if (!(i.left > 0)) return;
+    // A fatura vem inteira (com a parte de outras pessoas); a nota diz quanto dela é sua.
+    var its = Cards.invoiceItems(State.transactions, i.card, i.key).filter(function(t){ return !(t.installment && t.installment.settled); });
+    var mine = money(Math.min(i.left, Math.max(0, sum(its, myShare) + Cards.carryTotal(i.card, i.key))));
+    var notes = [];
+    if (i.status === 'aberta') notes.push('fatura aberta');
+    if (i.paid > 0) notes.push('falta, de ' + fmtMoney(i.total));
+    if (mine < i.left - 0.004) notes.push('seu: ' + fmtMoney(mine));
     out.push({title: 'Fatura ' + i.card.name, amount: i.left, date: i.due, late: i.status === 'vencida' || i.due < today,
-      urgency: i.status === 'vencida' ? 'alta' : 'media', note: (i.status === 'aberta' ? 'fatura aberta' : '') + (i.paid > 0 ? (i.status === 'aberta' ? ' · ' : '') + 'falta, de ' + fmtMoney(i.total) : ''), go: 'cartoes'});
+      urgency: i.status === 'vencida' ? 'alta' : 'media', note: notes.join(' · '), go: 'cartoes'});
   });
   pendingBills().forEach(function(o){
     out.push({title: o.b.name, amount: o.amount, date: o.date, late: o.status === 'atrasada', urgency: o.status === 'atrasada' ? 'alta' : o.status === 'logo' ? 'media' : 'baixa',
@@ -188,9 +199,9 @@ export function monthPayments(){
         if (dueMonth > cur) return;   // fatura de mês que ainda não chegou
         var thisMonth = dueMonth === cur, pay = (c.invoicePayments || {})[key];
         // Pagamentos sem conta escolhida não aparecem no saldo: entram aqui.
-        if (thisMonth && pay && !pay.accountId && Cards.invoiceStatus(c, key, today) === 'paga') paid += Number(pay.amount) || 0;
+        if (thisMonth && pay && !pay.accountId && Cards.invoiceStatus(c, key, today, State.transactions) === 'paga') paid += Number(pay.amount) || 0;
         if (thisMonth) paid += sumMoney(Cards.invoiceAdvances(c, key).filter(function(x){ return !x.accountId; }), function(x){ return x.amount; });
-        if (Cards.invoiceStatus(c, key, today) !== 'paga'){
+        if (Cards.invoiceStatus(c, key, today, State.transactions) !== 'paga'){
           var il = Cards.invoiceLeft(State.transactions, c, key); parts.invoices += il; left += il;
           // A parte minha do que falta: a minha parte da fatura continua toda a pagar (o que já foi
           // pago não a abate), limitada ao que falta. O resto do que falta é de outras pessoas.
@@ -211,6 +222,22 @@ export function monthPayments(){
   if (cashPaid > 0 || cashLeft > 0) rows.push({name: 'Dinheiro', paid: money(cashPaid), left: money(cashLeft), mine: money(cashScMine + cashBills), go: 'lancamentos'});
   return {rows: rows, paid: sumMoney(rows, function(r){ return r.paid; }), left: sumMoney(rows, function(r){ return r.left; }), leftMine: sumMoney(rows, function(r){ return r.mine; }),
     invoices: money(parts.invoices), invoicesMine: money(mineParts.invoices), bills: money(parts.bills), scheduled: money(parts.scheduled)};
+}
+// Faturas que vencem no mês seguinte (o que falta pagar delas) e a parte que é minha. Para ver, em
+// "Contas e cartões", como o mês que vem começa.
+export function nextMonthInvoices(){
+  var next = shiftMonthKey(monthBounds(0).key, 1), all = 0, mine = 0, list = [];
+  State.cards.forEach(function(c){
+    Cards.invoiceKeys(State.transactions, c).forEach(function(key){
+      if (Cards.invoiceDates(key, c).due.slice(0, 7) !== next) return;
+      var il = Cards.invoiceLeft(State.transactions, c, key);
+      if (!(il > 0)) return;
+      var its = Cards.invoiceItems(State.transactions, c, key).filter(function(t){ return !(t.installment && t.installment.settled); });
+      var mn = Math.min(il, Math.max(0, sum(its, myShare) + Cards.carryTotal(c, key)));
+      all += il; mine += mn; list.push({card: c, key: key, left: il, mine: money(mn)});
+    });
+  });
+  return {key: next, total: money(all), mine: money(mine), list: list};
 }
 // Dívida com parcela mensal: quantas parcelas no total e quantas já foram pagas (estimado pelo valor).
 function debtParcels(d){
@@ -326,14 +353,14 @@ export function monthStatusHtml(){
   // Frase curta: o que entrou e saiu, quanto há nas contas e o saldo. O segundo saldo só aparece
   // quando há gasto de outras pessoas (“se te devolverem”).
   var two2 = Math.abs(sp.saldoAll - sp.saldoMine) >= 0.005;
-  var out = 'Até hoje entraram ' + m(t.incomeDone) + ' e saíram ' + m(sp.total) + (sp.others > 0.004 ? ' (' + m(sp.mine) + ' seus)' : '') + '. ' +
-    (sp.hasAcc ? 'Você tem ' + m(sp.avail) + ' nas contas. ' : '') +
-    'Saldo do mês: ' + sal(sp.saldoAll) + (two2 ? ', ou ' + sal(sp.saldoMine) + ' se te devolverem' : '') + '.' +
+  var out = 'Neste mês entraram ' + m(t.incomeDone) + ' e saíram ' + m(sp.total) + (sp.others > 0.004 ? ' (' + m(sp.mine) + ' seus)' : '') + '. ' +
+    (sp.hasAcc ? 'Você tem ' + m(sp.avail) + ' nas contas' + (sp.left > 0.004 ? ' e ainda faltam ' + m(sp.left) + ' para pagar, então sobram ' : ' e não falta pagar nada, então sobram ') : 'Saldo do mês: ') +
+    sal(sp.saldoAll) + (two2 ? ', ou ' + sal(sp.saldoMine) + ' se te devolverem' : '') + '.' +
     (two2 ? ' <button type="button" class="info-i" data-explain="devolver" aria-label="O que é “se te devolverem”?">i</button>' : '');
   if (sp.saldoMine < 0) out += ' <span class="neg-text">Atenção: o mês fecha no vermelho.</span>';
   else if (sp.saldoAll < 0) out += ' Fica negativo até te devolverem.';
-  var end = f.balanceEnd;
-  if (end !== f.balanceDone) out += ' Previsão para o fim do mês: ' + sal(end) + '.';
+  if (!sp.hasAcc && f.balanceEnd !== f.balanceDone) out += ' Previsão para o fim do mês: ' + sal(f.balanceEnd) + '.';
+  else if (sp.hasAcc && Math.abs(sp.endAll - sp.saldoAll) >= 0.005) out += ' Com o que ainda vai entrar (' + m(f.expectedIncome) + '), termina o mês com ' + sal(sp.endAll) + '.';
   return out;
 }
 export function plannedTotal(key){
@@ -376,7 +403,7 @@ export function renderFirstSteps(){
 }
 export function renderSummary(){
   renderFirstSteps();
-  var f = dashboardFigures(), t = f.t, cur = monthBounds(0).key;
+  var f = dashboardFigures(), t = f.t, cur = monthBounds(0).key, sp0 = spendFigures();
   // 1. Quanto tenho
   var hasAcc = State.accounts.length > 0;
   var have = hasAcc ? totalAccountsBalance() : f.balanceDone;
@@ -387,8 +414,8 @@ export function renderSummary(){
       (State.accounts.length > 3 ? '<span class="tx-meta">+ ' + (State.accounts.length - 3) + ' ' + (State.accounts.length - 3 === 1 ? 'conta' : 'contas') + '</span>' : '') + '</div>' : '',
     (hasAcc ? State.accounts.map(function(a){ var b = accountBalance(a); return detailRow(escapeHtml(a.name), fmtMoney(b), b < 0 ? 'neg-text' : ''); }).join('') : '') +
     detailRow('Ganhos do mês', fmtMoney(t.incomeDone) + (f.expectedIncome > 0 ? ' <small>+ ' + fmtMoney(f.expectedIncome) + ' esperado</small>' : '')) +
-    (hasAcc ? detailRow('Saldo do mês', fmtMoney(f.balanceDone), f.balanceDone < 0 ? 'neg-text' : '') : '') +
-    (f.balanceEnd !== f.balanceDone ? detailRow('Previsto no fim do mês', fmtMoney(f.balanceEnd), f.balanceEnd < 0 ? 'neg-text' : '') : '') +
+    (hasAcc ? detailRow('Ganhos − gastos do mês', fmtMoney(f.balanceDone), f.balanceDone < 0 ? 'neg-text' : '') + detailRow('Sobra depois de pagar o que falta', fmtMoney(sp0.saldoAll), sp0.saldoAll < 0 ? 'neg-text' : '') : '') +
+    (hasAcc ? (Math.abs(sp0.endAll - sp0.saldoAll) >= 0.005 ? detailRow('Previsto no fim do mês', fmtMoney(sp0.endAll), sp0.endAll < 0 ? 'neg-text' : '') : '') : (f.balanceEnd !== f.balanceDone ? detailRow('Previsto no fim do mês', fmtMoney(f.balanceEnd), f.balanceEnd < 0 ? 'neg-text' : '') : '')) +
     detailRow('Guardado nas metas', fmtMoney(f.savedInGoals)) +
     detailRow('Me devem', fmtMoney(f.toReceive)) +
     goLink(hasAcc ? 'cartoes' : 'lancamentos', hasAcc ? 'Ver contas' : 'Ver ganhos e gastos'));
@@ -425,6 +452,7 @@ export function renderSummary(){
       escapeHtml(next.title) + ' · ' + when(next) + (next.urgency === 'alta' ? ' · ' + URGENCY_MARK.alta + ' urgente' : ''),
       list.length > 1 ? '<div class="sum-rows">' + list.slice(1, 4).map(function(c){ return two(escapeHtml(c.title), c.amount, c.late ? 'neg-text' : ''); }).join('') + (list.length > 4 ? '<span class="tx-meta">+ ' + (list.length - 4) + ' a pagar</span>' : '') + '</div>' : '',
       '<p class="sum-caption">Próximos ' + Math.min(5, list.length) + ' de ' + list.length + '</p>' +
+      '<p class="sum-caption sum-explain">Faturas aparecem com o valor que falta pagar, inclusive a parte de outras pessoas (a nota “seu” diz quanto é realmente seu). Entram também as contas fixas que ainda vão cair e as dívidas.</p>' +
       list.slice(0, 5).map(function(c){ return '<a class="sum-row sum-row-link" href="#/' + routeOf(c.go) + '" data-go="' + c.go + '"><span>' + URGENCY_MARK[c.urgency] + ' ' + escapeHtml(c.title) + ' <small>' + when(c) + '</small></span><strong class="tabular">' + fmtMoney(c.amount) + '</strong></a>'; }).join('')) :
     sumCard(3, 'clock', 'Próximos pagamentos', 'Nada pendente', 'sum-value-text', 'Sem faturas, contas fixas nem dívidas para pagar. 🎉', '',
       '<p class="sum-caption">Cadastre cartões em “Contas e cartões”, contas de todo mês em “Ganhos e gastos → Contas fixas” e dívidas em “Compromissos” para ver aqui o que vem pela frente.</p>' + goLink('fixas', 'Ver contas fixas'));
@@ -543,14 +571,14 @@ export function invoiceSplitData(offset){
     // Saldo de fatura anterior paga em parte é dívida sua.
     var mine = money(sum(items, myShare) + Cards.carryTotal(c, key)), others = money(sum(items, othersShare));
     if (!(mine + others)) return;
-    rows.push({card: c, key: key, label: Cards.invoiceLabel(key, c), due: Cards.invoiceDates(key, c).due, status: Cards.invoiceStatus(c, key, today),
+    rows.push({card: c, key: key, label: Cards.invoiceLabel(key, c), due: Cards.invoiceDates(key, c).due, status: Cards.invoiceStatus(c, key, today, State.transactions),
       mine: mine, others: others, total: money(mine + others)});
   });
   var late = [];
   State.cards.forEach(function(c){
     Cards.invoiceKeys(State.transactions, c).forEach(function(kk){
       var v = Cards.invoiceDueTotal(State.transactions, c, kk);
-      if (v > 0 && Cards.invoiceStatus(c, kk, today) === 'vencida') late.push(v);
+      if (v > 0 && Cards.invoiceStatus(c, kk, today, State.transactions) === 'vencida') late.push(v);
     });
   });
   return {rows: rows, late: {count: late.length, total: money(sum(late, function(v){ return v; }))}};
@@ -972,7 +1000,7 @@ export function invoiceTagHtml(t){
   else if (key > cur){ st = 'futura'; cls = ''; }
   else if (key === cur){ st = 'atual'; cls = 'brand'; }
   else {
-    var status = Cards.invoiceStatus(c, key, todayKey());
+    var status = Cards.invoiceStatus(c, key, todayKey(), State.transactions);
     st = status === 'paga' ? (Cards.partialPayment(c, key) ? 'paga em parte' : 'paga') : status === 'vencida' ? 'vencida' : 'fechada, a pagar';
     cls = status === 'paga' ? 'good' : status === 'vencida' ? 'bad' : 'warn';
   }

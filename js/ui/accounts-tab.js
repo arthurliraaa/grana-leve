@@ -216,7 +216,8 @@ async function addInvoiceAdvance(card, key, choice){
   await Store.update(k(), 'cards', card.id, {invoiceAdvances: adv});
   card.invoiceAdvances = adv;
   renderAll();
-  toast('Pagamento de ' + fmtMoney(choice.paidNow) + ' registrado. Falta ' + fmtMoney(choice.rest) + ' da fatura de ' + invoiceLabel(key, card) + '.');
+  toast(choice.rest > 0 ? 'Pagamento de ' + fmtMoney(choice.paidNow) + ' registrado. Falta ' + fmtMoney(choice.rest) + ' da fatura de ' + invoiceLabel(key, card) + '.' :
+    'Pagamento de ' + fmtMoney(choice.paidNow) + ' registrado. A fatura de ' + invoiceLabel(key, card) + ' ainda recebe compras: o que passar daqui para a frente entra como novo valor a pagar.');
 }
 // Desfaz um pagamento adiantado (ref = "idDoCartão:AAAA-MM:idDoPagamento").
 export async function undoInvoiceAdvance(ref){
@@ -238,7 +239,10 @@ export async function toggleInvoicePaid(cardId, key){
   var paid = (card.paidInvoices || []).slice();
   var pays = Object.assign({}, card.invoicePayments || {});
   var idx = paid.indexOf(key), label = invoiceLabel(key, card), fees = [], removeIds = [];
-  if (idx >= 0){
+  // Fatura já paga em que chegaram compras novas: o botão cobra só o que chegou (não desfaz o pagamento).
+  var reopened = idx >= 0 && Cards.invoiceExtraAfterPaid(State.transactions, card, key) > 0.004;
+  var paidDue = Object.assign({}, card.invoicePaidDue || {});
+  if (idx >= 0 && !reopened){
     var prev = pays[key] || {};
     if (prev.mode){
       var ok = await openModal({
@@ -250,18 +254,21 @@ export async function toggleInvoicePaid(cardId, key){
       if (!ok) return;
       removeIds = (prev.feeTxIds || []).filter(function(id){ return findById(State.transactions, id); });
     }
-    paid.splice(idx, 1); delete pays[key];
+    paid.splice(idx, 1); delete pays[key]; delete paidDue[key];
   } else {
     // O que falta pagar (sem o que já foi adiantado); full é o valor da fatura.
     var full = Cards.invoiceDueTotal(State.transactions, card, key), advanced = Cards.invoiceAdvanced(card, key);
     var total = Cards.invoiceLeft(State.transactions, card, key);
+    var stillOpen = Cards.invoiceStatus(card, key, todayKey()) === 'aberta';
     var accOpts = State.accounts.map(function(a){ return {id: a.id, label: a.name + ' (saldo ' + fmtMoney(accountBalance(a)) + ')'}; }).concat([{id:'', label:'Não descontar de nenhuma conta'}]);
     var choice = await openModal({
       title: 'Pagar fatura',
       body: '<p>Fatura de ' + label + ' do ' + escapeHtml(card.name) + ': ' + (advanced > 0 ?
           'falta <strong class="tabular">' + fmtMoney(total) + '</strong> (total ' + fmtMoney(full) + ', já pago ' + fmtMoney(advanced) + ').' :
           '<strong class="tabular">' + fmtMoney(total) + '</strong>.') + '</p>' +
-        '<fieldset class="option-cards pay-modes"><legend class="sr-only">Como você pagou?</legend>' + PAY_MODES.map(function(m, i){
+        (reopened ? '<p class="field-hint">Esta fatura já tinha sido paga, mas chegaram compras novas. Aqui você paga só o que chegou.</p>' :
+          stillOpen ? '<p class="field-hint">Esta fatura ainda recebe compras: se você passar algo no cartão depois, o valor novo volta a aparecer para pagar.</p>' : '') +
+        '<fieldset class="option-cards pay-modes"><legend class="sr-only">Como você pagou?</legend>' + PAY_MODES.filter(function(m){ return !reopened || m.id === 'total' || m.id === 'adiantado'; }).map(function(m, i){
           return '<label class="option-card"><input type="radio" name="mode" value="' + m.id + '"' + (i ? '' : ' checked') + '>' +
             '<span><strong>' + m.title + '</strong><small>' + m.hint + '</small></span></label>';
         }).join('') + '</fieldset>' +
@@ -336,6 +343,7 @@ export async function toggleInvoicePaid(cardId, key){
     });
     if (!choice) return;
     if (choice.mode === 'adiantado'){ await addInvoiceAdvance(card, key, choice); return; }
+    if (choice.mode === 'total' && reopened){ await addInvoiceAdvance(card, key, Object.assign({}, choice, {paidNow: total, rest: 0})); return; }
     var rec = {accountId: choice.accountId, amount: choice.paidNow, date: choice.date, createdAt: Date.now()};
     if (choice.mode !== 'total'){
       Object.assign(rec, {mode: choice.mode, total: total, rest: choice.rest});
@@ -344,6 +352,7 @@ export async function toggleInvoicePaid(cardId, key){
     }
     if (choice.accountId || choice.mode !== 'total') pays[key] = rec;
     paid.push(key);
+    paidDue[key] = {due: full, at: Date.now()};
   }
   if (fees.length){
     var saved = await Store.addMany(k(), 'transactions', fees);
@@ -354,8 +363,8 @@ export async function toggleInvoicePaid(cardId, key){
     await Store.removeMany(k(), 'transactions', removeIds);
     State.transactions = State.transactions.filter(function(t){ return removeIds.indexOf(t.id) < 0; });
   }
-  await Store.update(k(), 'cards', card.id, {paidInvoices: paid, invoicePayments: pays});
-  card.paidInvoices = paid; card.invoicePayments = pays;
+  await Store.update(k(), 'cards', card.id, {paidInvoices: paid, invoicePayments: pays, invoicePaidDue: paidDue});
+  card.paidInvoices = paid; card.invoicePayments = pays; card.invoicePaidDue = paidDue;
   if (fees.length || removeIds.length) renderAll();
   else { renderCards(); renderAccounts(); renderStatTiles(); renderWalletSummary(); }
   var p = pays[key];

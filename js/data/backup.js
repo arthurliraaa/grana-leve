@@ -47,6 +47,7 @@ var NESTED = {
   cards: function(c){
     roundEach(c.invoicePayments, function(p){ roundKeys(p, ['amount', 'total', 'rest', 'parcel']); });
     roundEach(c.invoiceAdvances, function(list){ roundList(list, ['amount']); });
+    roundEach(c.invoicePaidDue, function(p){ roundKeys(p, ['due']); });
   },
   forecasts: function(f){ roundValues(f.received); },
   bills: function(b){

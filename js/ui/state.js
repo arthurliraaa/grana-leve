@@ -112,7 +112,7 @@ export function expandInstallments(tx, n, start){ return Tx.expandPurchase(tx, n
 export function installHint(n, amount, start){ return Tx.installHint(n, amount, fmtMoney, start); }
 export function installmentGroups(){ return Tx.installmentGroups(State.transactions, State.cards, todayKey()); }
 export function invoiceItems(card, key){ return Cards.invoiceItems(State.transactions, card, key); }
-export function invoiceStatus(card, key){ return Cards.invoiceStatus(card, key, todayKey()); }
+export function invoiceStatus(card, key){ return Cards.invoiceStatus(card, key, todayKey(), State.transactions); }
 export function cardUsed(card){ return Cards.cardUsed(State.transactions, card, todayKey()); }
 export function forecastOccurrences(key){ return Fc.forecastOccurrences(State.forecasts, key); }
 export function voucherOf(t){ return Vouchers.voucherOf(t, State.vouchers); }

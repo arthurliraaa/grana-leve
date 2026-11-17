@@ -30,7 +30,7 @@ L.run(async ({page}) => {
   let f = await tile('Falta pagar');
   L.ok(L.moneyOf(f.val) === 300, 'Falta pagar = fatura em aberto (300)');
   let sd = await tile('Saldo do mês');
-  L.ok(L.moneyOf(sd.val) === 4650 && /Saldo do mês: R\$\s?4\.650,00/.test(await L.text(page, '#monthStatus')), 'Saldo = disponível − o que falta pagar (a fatura que já saiu não é descontada de novo)');
+  L.ok(L.moneyOf(sd.val) === 4650 && /sobram R\$\s?4\.650,00/.test(await L.text(page, '#monthStatus')), 'Saldo = disponível − o que falta pagar (a fatura que já saiu não é descontada de novo)');
 
   L.section('Agora');
   L.ok(!labels.includes('Disponível nas contas') && !labels.some(l => /^Faturas/.test(l)) && !labels.some(l => /^Parcelas no cartão/.test(l)), 'saem: disponível nas contas, faturas e parcelas do cartão');

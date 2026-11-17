@@ -63,6 +63,14 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
     informados no rotativo, ou no parcelamento N × parcela − o que faltou, divididos nas mesmas
     faturas, como gastos no cartão ("Juros do …", categoria Outros).
   - Desfazer o pagamento tira o saldo das faturas seguintes e apaga os juros lançados.
+- **Fatura paga que ainda recebe compras**: ao marcar como paga, o app guarda o total que ela tinha
+  (`invoicePaidDue[key] = {due, at}`). Se entrar compra nova depois (a fatura ainda estava aberta), a
+  fatura volta a ter o que pagar: só o que passou desse total, abatido do que for pago depois. Faturas
+  pagas antes desse registro continuam como estavam.
+- **Início — fim do mês**: com contas cadastradas, a previsão é *nas contas − o que falta pagar + o que
+  ainda vai entrar* (se tudo está pago, é o que há nas contas). “Ganhos − gastos do mês” aparece à parte.
+- **Contas e cartões — mês que vem**: mostra as faturas que vencem no mês seguinte (e a parte sua) e
+  quanto sobra se forem pagas com o que sobra hoje.
 - **Relatório do cartão** tem o filtro **De quem**: tudo, só a minha parte ou só de outras pessoas
   (pago por alguém que vai devolver + a parte dos outros nas divididas, as mesmas regras de
   `myShare`/`othersShare`). Em "tudo", cada fatura aparece dividida nas duas partes, e há a
