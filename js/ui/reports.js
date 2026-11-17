@@ -69,7 +69,7 @@ export function generateMonthlyReport(){
   var goals = State.goals.filter(function(g){ return !g.deletedAt; });
   w.section('Metas de economia');
   if (!goals.length) w.text('Nenhuma meta cadastrada.');
-  else { w.header(['Meta', 'Guardado', 'Objetivo', 'Progresso'], [180,110,110,80]); goals.forEach(function(g){ var p = g.targetAmount>0 ? Math.min(1, Number(g.currentAmount||0)/Number(g.targetAmount)) : 0; w.row([g.name, fmtMoney(g.currentAmount||0), fmtMoney(g.targetAmount), Math.round(p*100)+'%'], [180,110,110,80]); }); }
+  else { w.header(['Meta', 'Guardado', 'Objetivo', 'Progresso'], [180,110,110,80]); goals.forEach(function(g){ var p = g.targetAmount>0 ? Math.min(1, Number(g.currentAmount||0)/Number(g.targetAmount)) : 0; w.row([g.name, fmtMoney(g.currentAmount||0), g.targetAmount>0 ? fmtMoney(g.targetAmount) : 'Sem alvo', g.targetAmount>0 ? Math.round(p*100)+'%' : '—'], [180,110,110,80]); }); }
   w.space(12);
 
   w.section('Dívidas');

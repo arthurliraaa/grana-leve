@@ -145,6 +145,7 @@ export var GOAL_FILTERS = [
 ];
 export function goalStatus(g){
   if (g.deletedAt) return 'excluidas';
+  if (!Goals.hasTarget(g)) return 'andamento';
   if (Number(g.currentAmount||0) >= Number(g.targetAmount||0)) return 'concluidas';
   if (g.targetDate && g.targetDate < todayKey()) return 'naobatidas';
   return 'andamento';
@@ -196,6 +197,11 @@ function shortMonth(dateKey){ var l = monthLabelOf(dateKey.slice(0, 7)); return 
 export function goalForecastHtml(g){
   var today = todayKey(), f = Goals.goalForecast(g, today), s = f.summary, parts = [];
   if (f.done) return '';
+  if (f.openEnded){
+    if (f.atDeadline !== undefined && s.pace > 0) parts.push('<p>Guardando no ritmo de <span class="tabular">' + fmtMoney(s.pace) + '/mês</span>, até ' + formatDateFull(g.targetDate) + ' você terá cerca de <strong class="tabular">' + fmtMoney(f.atDeadline) + '</strong>.</p>');
+    else if (!(s.pace > 0)) parts.push('<p class="tx-meta">Registre o que guardar pelo botão “Guardar”: com as datas, calculamos o seu ritmo.</p>');
+    return parts.length ? '<div class="goal-forecast">' + parts.join('') + '</div>' : '';
+  }
   if (f.needed !== undefined){
     parts.push('<p><strong>Para chegar até ' + formatDateFull(g.targetDate) + '</strong> (' + monthsText(f.deadlineMonths) + '), guarde cerca de <strong class="tabular">' + fmtMoney(f.needed) + ' por mês</strong>' +
       (f.yieldUntilDeadline > 0 ? '. O rendimento ajuda com uns ' + fmtMoney(f.yieldUntilDeadline) + '.' : '.') + '</p>');
@@ -225,6 +231,12 @@ export function goalForecastHtml(g){
 function goalHeadline(g){
   var f = Goals.goalForecast(g, todayKey()), s = f.summary;
   if (f.done) return '';
+  if (f.openEnded){
+    var o = 'Sem valor alvo: <strong class="tabular">' + fmtMoney(s.current) + '</strong> juntados até agora.';
+    if (s.pace > 0) o += ' No seu ritmo, cerca de <strong class="tabular">' + fmtMoney(s.pace) + ' por mês</strong>.';
+    else o += ' Use “Guardar” sempre que separar um dinheiro.';
+    return '<p class="goal-headline">' + o + '</p>';
+  }
   var missing = Math.max(0, Number(g.targetAmount || 0) - Number(g.currentAmount || 0));
   var txt = 'Faltam <strong class="tabular">' + fmtMoney(missing) + '</strong>.', cls = '';
   if (s.pace > 0 && f.finishDate){
@@ -239,6 +251,7 @@ function goalHeadline(g){
 }
 function goalCardHtml(g){
   var status = goalStatus(g);
+  var open = !Goals.hasTarget(g);
   var pct = g.targetAmount > 0 ? Math.min(1, Number(g.currentAmount||0)/Number(g.targetAmount)) : 0;
   var remindDate = g.reminderDate || g.targetDate;
   var s = Goals.goalSummary(g, todayKey());
@@ -260,8 +273,9 @@ function goalCardHtml(g){
   return '<div class="goal-card">' +
     '<div class="budget-top"><h4>'+escapeHtml(g.name)+'</h4><span class="card-tags">' + (status === 'naobatidas' ? '<span class="status-pill critical">prazo vencido</span>' : '') +
       (status === 'excluidas' ? '' : urgencySelectHtml('goals', g, g.name)) + '</span></div>' +
-    '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--brand)"></span></div>' +
-    '<div class="goal-figs"><span class="tabular">'+fmtMoney(g.currentAmount||0)+' de '+fmtMoney(g.targetAmount)+'</span><span>'+Math.round(pct*100)+'%</span></div>' +
+    (open ? '<div class="goal-figs"><span class="tabular">'+fmtMoney(g.currentAmount||0)+' guardados</span><span>sem valor alvo</span></div>' :
+      '<div class="progress"><span style="width:'+(pct*100)+'%; background:var(--brand)"></span></div>' +
+      '<div class="goal-figs"><span class="tabular">'+fmtMoney(g.currentAmount||0)+' de '+fmtMoney(g.targetAmount)+'</span><span>'+Math.round(pct*100)+'%</span></div>') +
     (status === 'andamento' || status === 'naobatidas' ? goalHeadline(g) : '') +
     (g.note ? '<div class="note">'+escapeHtml(g.note)+'</div>' : '') +
     (status === 'excluidas' ? '' : '<details class="goal-more"><summary>Detalhes da meta</summary>' +
@@ -366,9 +380,17 @@ export async function refreshGoalRates(){
   renderGoals();
 }
 
+// Caixa "Sem valor alvo": esconde o campo do valor alvo.
+function wireNoTarget(box, field){
+  if (!box || !field) return;
+  var sync = function(){ field.hidden = box.checked; };
+  box.addEventListener('change', sync); sync();
+}
+
 export function goalFormBody(g){
   return '<div class="field"><label for="egName">Nome da meta</label><input id="egName" name="name" type="text" maxlength="50" value="' + escapeHtml(g.name) + '"></div>' +
-    '<div class="field"><label for="egTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="egTarget" name="target" type="text" data-money autocomplete="off" inputmode="decimal" value="' + g.targetAmount + '"></span></div>' +
+    '<label class="check"><input type="checkbox" id="egNoTarget" name="noTarget"' + (Goals.hasTarget(g) ? '' : ' checked') + '> Sem valor alvo (só ir juntando o que der)</label>' +
+    '<div class="field" id="egTargetField"' + (Goals.hasTarget(g) ? '' : ' hidden') + '><label for="egTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="egTarget" name="target" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (Goals.hasTarget(g) ? g.targetAmount : '') + '"></span></div>' +
     '<div class="field"><label for="egCurrent">Já guardado</label><span class="money-input"><span>R$</span><input id="egCurrent" name="current" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (g.currentAmount||0) + '"></span>' +
       '<span class="field-hint">Para registrar o que guardou ou rendeu, prefira “Guardar” e “Registrar rendimento”: com as datas, a previsão fica certa.</span></div>' +
     investmentFieldsHtml('eg', g) +
@@ -382,16 +404,17 @@ export async function editGoal(id){
   var g = findById(State.goals, id);
   await openModal({
     title: 'Editar meta', body: goalFormBody(g),
-    onOpen: function(modal){ wireInvestment(modal, 'eg'); },
+    onOpen: function(modal){ wireInvestment(modal, 'eg'); wireNoTarget(modal.querySelector('#egNoTarget'), modal.querySelector('#egTargetField')); },
     onSubmit: async function(form){
       var inv = readInvestment(form, 'eg');
       if (inv.error) return inv;
+      var noTarget = form.noTarget.checked;
       var v = {
-        name: form.name.value.trim(), targetAmount: money(form.target.value), currentAmount: Math.max(0, money(form.current.value)),
+        name: form.name.value.trim(), targetAmount: noTarget ? 0 : money(form.target.value), currentAmount: Math.max(0, money(form.current.value)),
         targetDate: form.date.value || null, reminderDate: form.reminder.value || null, note: form.note.value.trim(), urgency: form.urgency.value,
         yieldRate: inv.yieldRate, investment: inv.investment, rateDate: inv.rateDate || null
       };
-      if (!v.name || !(v.targetAmount > 0)) return {error:'Informe o nome e um valor alvo maior que zero.'};
+      if (!v.name || (!noTarget && !(v.targetAmount > 0))) return {error:'Informe o nome e um valor alvo maior que zero, ou marque “Sem valor alvo”.'};
       if (!validDateStr(v.targetDate) || !validDateStr(v.reminderDate)) return {error:'Use datas entre os anos de 1900 e 3000.'};
       // Mudou o “Já guardado” na mão: fica no histórico como ajuste (fora do cálculo do ritmo).
       var diff = money(v.currentAmount - Number(g.currentAmount || 0));
@@ -449,14 +472,16 @@ export function wirePlanning(){
 
   document.getElementById('goalInvWrap').innerHTML = investmentFieldsHtml('goal', {});
   wireInvestment(document.getElementById('goalForm'), 'goal');
+  wireNoTarget(document.getElementById('goalNoTarget'), document.getElementById('goalTargetField'));
   document.getElementById('goalForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var name = document.getElementById('goalName').value.trim();
-    var target = money(document.getElementById('goalTarget').value);
+    var noTarget = document.getElementById('goalNoTarget').checked;
+    var target = noTarget ? 0 : money(document.getElementById('goalTarget').value);
     var date = document.getElementById('goalDate').value;
     var reminder = document.getElementById('goalReminder').value;
     var note = document.getElementById('goalNote').value.trim();
-    if (!name || !(target > 0)){ toast('Informe nome e valor alvo da meta.'); return; }
+    if (!name || (!noTarget && !(target > 0))){ toast('Informe o nome e o valor alvo da meta, ou marque “Sem valor alvo”.'); return; }
     if (!validDateStr(date) || !validDateStr(reminder)){ toast('Use datas entre os anos de 1900 e 3000.'); return; }
     var inv = readInvestment(e.target, 'goal');
     if (inv.error){ toast(inv.error); return; }
@@ -465,6 +490,7 @@ export function wirePlanning(){
     var saved = await Store.add(k(), 'goals', goal);
     State.goals.push(saved);
     e.target.reset();
+    document.getElementById('goalTargetField').hidden = false;
     qs('#goalInvType').dispatchEvent(new Event('change', {bubbles: true}));
     State.goalFilter = 'andamento';
     renderGoals(); renderDashboard();

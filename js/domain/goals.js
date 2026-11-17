@@ -14,6 +14,9 @@
 import {money, sumMoney, toCents, fromCents} from './money.js';
 import {monthsBetween} from './dates.js';
 
+// Meta "só juntar": sem valor alvo (targetAmount 0). Nunca fica concluída nem tem "quanto falta".
+export function hasTarget(g){ return Number(g && g.targetAmount) > 0; }
+
 export function monthlyRate(yearPct){
   var a = Number(yearPct) / 100;
   return a > 0 ? Math.pow(1 + a, 1 / 12) - 1 : 0;
@@ -88,6 +91,16 @@ export function dateAfterMonths(today, n){
 // quanto terá no prazo. Valores arredondados para centavos; months com uma casa.
 export function goalForecast(g, today){
   var s = goalSummary(g, today), T = Number(g.targetAmount) || 0, C = s.current, r = monthlyRate(g.yieldRate);
+  if (!hasTarget(g)){
+    // Sem alvo: só o ritmo e, havendo prazo, quanto terá nele guardando no mesmo ritmo.
+    var open = {summary: s, target: 0, left: 0, rate: r, done: false, openEnded: true};
+    if (g.targetDate && g.targetDate > today){
+      var nm = monthsUntil(today, g.targetDate);
+      open.deadlineMonths = Math.round(nm * 10) / 10;
+      open.atDeadline = money(futureValue(C, s.pace, r, nm));
+    }
+    return open;
+  }
   var out = {summary: s, target: T, left: money(Math.max(0, T - C)), rate: r, done: C >= T};
   if (out.done) return out;
   if (g.targetDate && g.targetDate > today){

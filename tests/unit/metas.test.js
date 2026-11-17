@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {monthlyRate, futureValue, monthlyNeeded, monthsToTarget, goalSummary, goalForecast, goalMoves, monthsUntil, dateAfterMonths, simulate} from '../../js/domain/goals.js';
+import {hasTarget, monthlyRate, futureValue, monthlyNeeded, monthsToTarget, goalSummary, goalForecast, goalMoves, monthsUntil, dateAfterMonths, simulate} from '../../js/domain/goals.js';
 
 const close = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, (msg || '') + ` (${a} vs ${b})`);
 
@@ -79,4 +79,20 @@ test('datas: meses até o prazo e data daqui a n meses', () => {
   assert.equal(monthsUntil('2026-10-11', '2026-01-01'), 0, 'prazo passado: 0');
   assert.equal(dateAfterMonths('2026-10-11', 3), '2027-01-11');
   assert.equal(dateAfterMonths('2026-10-11', 1.5), '2026-11-26');
+});
+
+test('meta sem valor alvo: nunca conclui, não tem "falta", mostra ritmo e saldo no prazo', () => {
+  const open = {targetAmount: 0, currentAmount: 600, targetDate: '2027-10-11', yieldRate: 0, createdAt: new Date(2026, 5, 1).getTime(),
+    moves: [{id: 'a', date: '2026-09-15', amount: 300, kind: 'deposit'}, {id: 'b', date: '2026-10-05', amount: 300, kind: 'deposit'}]};
+  assert.equal(hasTarget(open), false);
+  assert.equal(hasTarget({targetAmount: 10}), true);
+  const f = goalForecast(open, '2026-10-11');
+  assert.equal(f.openEnded, true);
+  assert.equal(f.done, false);
+  assert.equal(f.left, 0);
+  assert.equal(f.needed, undefined, 'sem alvo não há "quanto guardar por mês"');
+  assert.ok(f.summary.pace > 0, 'tem ritmo');
+  assert.ok(f.atDeadline > 600, 'projeta o saldo no prazo');
+  const semPrazo = goalForecast({...open, targetDate: null}, '2026-10-11');
+  assert.equal(semPrazo.atDeadline, undefined);
 });

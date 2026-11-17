@@ -124,7 +124,7 @@ export function renderStatTiles(){
       two('Se ninguém devolver', sp.saldoAll, sp.saldoAll < 0 ? 'neg-text' : 'pos-text', true) +
       two('Se te devolverem', sp.saldoMine, sp.saldoMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>');
   var goalsAlive = State.goals.filter(function(g){ return !g.deletedAt; });
-  var goalsMissing = sumMoney(goalsAlive, function(g){ return Math.max(0, Number(g.targetAmount || 0) - Number(g.currentAmount || 0)); });
+  var goalsMissing = sumMoney(goalsAlive.filter(function(g){ return Number(g.targetAmount) > 0; }), function(g){ return Math.max(0, Number(g.targetAmount || 0) - Number(g.currentAmount || 0)); });
   var owing = State.receivables.filter(function(r){ return !r.forgiven && recvRemaining(r) > 0.004; });
   var people = {}; owing.forEach(function(r){ people[String(r.person || '').trim().toLowerCase()] = 1; });
   var nPeople = Object.keys(people).length;

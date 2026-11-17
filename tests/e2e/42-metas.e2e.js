@@ -64,6 +64,24 @@ L.run(async ({page}) => {
   const cardOf = async name => page.$$eval('#goalGrid .goal-card', (cs, n) => (cs.find(c => c.querySelector('h4').textContent === n) || {}).textContent || '', name);
   L.ok(/você chega lá por volta de [a-zç]{3}\/\d{4} \(em 5 meses\)/.test((await cardOf('Reserva')).replace(/\s+/g, ' ')), 'sem prazo: diz quando chega no ritmo atual (R$ 200/mês → mais 5 meses)');
   L.ok(/Registre o que guardar/.test(await cardOf('Antiga')), 'meta antiga, sem datas: pede para usar “Guardar”');
+
+  L.section('Meta sem valor alvo (só juntar)');
+  await page.setViewport({width: 1280, height: 900});
+  await L.tab(page, 'metas');
+  await page.type('#goalName', 'Sobras');
+  await page.click('#goalNoTarget'); await L.sleep(100);
+  L.ok(await page.$eval('#goalTargetField', e => e.hidden), 'marcar “Sem valor alvo” esconde o campo do valor');
+  await page.click('#goalForm button[type=submit]'); await L.sleep(250);
+  const open = (await L.db(page)).goals.find(x => x.name === 'Sobras');
+  L.ok(open && open.targetAmount === 0, 'meta criada sem valor alvo');
+  L.ok(/sem valor alvo/.test((await cardOf('Sobras')).toLowerCase()), 'o cartão diz que não tem valor alvo');
+  const idx = await page.$$eval('#goalGrid .goal-card', cs => cs.findIndex(c => c.querySelector('h4').textContent === 'Sobras'));
+  const sel = `#goalGrid .goal-card:nth-child(${idx + 1})`;
+  await page.type(sel + ' [data-goal-deposit] input[name=amount]', '80');
+  await page.click(sel + ' [data-goal-deposit] button'); await L.sleep(250);
+  const t = await cardOf('Sobras');
+  L.ok(/R\$\s?80,00 guardados/.test(t) && !/concluída/.test(t), 'guardar não conclui a meta e mostra o total juntado');
+  L.ok(!(await L.db(page)).goals.find(x => x.name === 'Sobras').deleted, 'continua em andamento');
   await page.setViewport({width: 360, height: 760}); await L.sleep(150);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
   await page.setViewport({width: 1280, height: 900});

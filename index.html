@@ -577,12 +577,13 @@
       <!-- Metas -->
       <div id="tab-metas" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-target"/></svg>Metas</h2>
-        <p class="tab-intro">Junte dinheiro para um objetivo (uma viagem, a reserva de emergência) e acompanhe quanto falta.</p>
+        <p class="tab-intro">Junte dinheiro para um objetivo (uma viagem, a reserva de emergência) e acompanhe quanto falta, ou crie uma meta sem valor alvo para só ir juntando.</p>
         <div class="card">
           <div class="card-head"><h3>Nova meta</h3></div>
           <form id="goalForm" class="new-item-form">
             <div class="field"><label for="goalName">Nome da meta</label><input id="goalName" type="text" maxlength="50" required placeholder="Ex: viagem, reserva de emergência"></div>
-            <div class="field"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
+            <label class="check f-full"><input type="checkbox" id="goalNoTarget"> Sem valor alvo (só ir juntando o que der)</label>
+            <div class="field" id="goalTargetField"><label for="goalTarget">Valor alvo</label><span class="money-input"><span>R$</span><input id="goalTarget" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>
             <div class="field"><label for="goalDate">Prazo</label><input id="goalDate" type="date" min="1900-01-01" max="3000-12-31"></div>
             <details class="f-full inv-more" id="goalInvMore"><summary>Onde o dinheiro fica e quanto rende <span class="opt">(opcional)</span></summary><div id="goalInvWrap"></div></details>
             <div class="field"><label for="goalReminder">Me avise em</label><input id="goalReminder" type="date" min="1900-01-01" max="3000-12-31"></div>

@@ -801,7 +801,7 @@ export function wireShell(){
     if (!(amount > 0)){ toast('Informe um valor para guardar.'); return; }
     await goalMove(g.id, 'deposit', amount);
     renderStatTiles();
-    toast(g.currentAmount >= g.targetAmount ? 'Meta “' + g.name + '” concluída! Parabéns!' : 'Você guardou mais ' + fmtMoney(amount) + ' na meta “' + g.name + '”.');
+    toast(g.targetAmount > 0 && g.currentAmount >= g.targetAmount ? 'Meta “' + g.name + '” concluída! Parabéns!' : 'Você guardou mais ' + fmtMoney(amount) + ' na meta “' + g.name + '”.');
   });
 
   document.getElementById('brandHome').addEventListener('click', function(){
