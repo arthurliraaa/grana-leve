@@ -158,5 +158,6 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 //   Hora extra só em clt e servidor.
 ```
 A tela (`js/ui/salary-calc.js`) abre de “Previstas”, do simulador (ganho) e do formulário de ganho, e guarda o jeito de
-trabalhar e os descontos nas preferências (`workProfile`). “Usar o líquido fixo” preenche `fixedNet`; “Usar o líquido
+trabalhar, o salário bruto, os descontos e os ganhos nas preferências (`workProfile`, gravado a cada alteração, mesmo se
+a calculadora for só fechada), para já virem preenchidos no mês seguinte (menos os dias de uso do vale-transporte). “Usar o líquido fixo” preenche `fixedNet`; “Usar o líquido
 deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em Previstas).

@@ -40,6 +40,7 @@ function rowHtml(kind, d){
     '<span class="money-input sc-d-val"><input class="sc-d-value" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Valor" value="' + (d.value === '' || d.value === undefined ? '' : String(d.value).replace('.', ',')) + '">' +
     '<select class="sc-d-mode" aria-label="Em reais, porcentagem ou pelo benefício"><option value="fixed"' + (d.mode === 'fixed' || !d.mode ? ' selected' : '') + '>R$</option><option value="pct"' + (d.mode === 'pct' ? ' selected' : '') + '>%</option>' + (bonus ? '' : '<option value="benefit"' + (d.mode === 'benefit' ? ' selected' : '') + '>pelo benefício</option>') + '</select></span>' +
     (bonus ? '' : benefitPanelHtml(d)) +
+    '<p class="sc-d-eq" aria-live="polite"></p>' +
     '<div class="sc-d-foot"><label class="check sc-d-varies"><input class="sc-d-var" type="checkbox"' + ((d.varies || meta.varies) ? ' checked' : '') + '> Varia todo mês</label>' +
     (bonus ? '<label class="check sc-d-taxl"><input class="sc-d-tax" type="checkbox"' + (taxable ? ' checked' : '') + '> Paga imposto</label>' : '') +
     '<button type="button" class="linklike sc-d-del" aria-label="Remover">Remover</button></div></div>';
@@ -63,7 +64,7 @@ function bodyHtml(){
       '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão em dinheiro pagam; a bonificação recebida em vales ou cartão benefício não tem desconto. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></fieldset>' +
     '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
-      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição, escolha “pelo benefício”: você informa o que recebeu no mês (passagem por dia × dias de uso, ou o valor do vale) e o desconto sai calculado. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo.</p></fieldset>' +
+      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição, escolha “pelo benefício”: você informa o que recebeu no mês (passagem por dia × dias de uso, ou o valor do vale) e o desconto sai calculado. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo. Tudo o que você informar fica guardado e já vem preenchido nos próximos meses: é só ajustar o que mudou.</p></fieldset>' +
     '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
       '<div class="sc-grid"><div class="field"><label for="scH50">Horas a 50% (dias úteis)</label><input id="scH50" name="h50" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
       '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
@@ -86,6 +87,10 @@ function readRows(form, kind){
 }
 // Mostra/esconde o que depende do tipo e do modo da linha (o modo “pelo benefício” só existe para vale-transporte e vale-refeição).
 function applyRow(row, gross){
+  // Quanto o valor informado representa do salário (em %) ou em reais, para entender o desconto ou o ganho do mês.
+  var mode0 = qs('.sc-d-mode', row).value, v0 = num(qs('.sc-d-value', row).value), eq = qs('.sc-d-eq', row);
+  if (mode0 === 'benefit' || !(v0 > 0) || !(gross > 0)) eq.textContent = '';
+  else eq.textContent = mode0 === 'pct' ? 'Equivale a ' + fmtMoney(gross * v0 / 100) + ' neste salário.' : 'Equivale a ' + String(Math.round(v0 / gross * 10000) / 100).replace('.', ',') + '% do salário.';
   if (row.getAttribute('data-kind') !== 'disc') return;
   var type = qs('.sc-d-type', row).value, meta = metaOf('disc', type), mode = qs('.sc-d-mode', row), opt = qs('option[value=benefit]', mode);
   opt.hidden = opt.disabled = !meta.benefit;
@@ -124,12 +129,20 @@ function resultHtml(r, regime){
     (regime === 'clt' || regime === 'servidor' ? ' O FGTS é depositado pela empresa e não sai do seu salário.' : '') + '</p>';
 }
 
+// O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela
+// só fechar a calculadora. Os dias de uso do vale-transporte não ficam: mudam todo mês.
+function saveProfile(o){
+  setPref('workProfile', {regime: o.regime, gross: Number(o.gross) || 0, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct,
+    discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses});
+}
+
 // Abre a calculadora. Devolve {net, kind: 'fixed'|'month', regime} ou null se a pessoa fechar.
 export async function openSalaryCalculator(){
   var r = await openModal({
     title: 'Calcular o salário líquido', wide: true, submitLabel: 'Usar o líquido fixo (todo mês)', cancelLabel: 'Fechar', body: '<div class="sc-body">' + bodyHtml() + '</div>',
     onOpen: function(modal, close){
-      var form = qs('form', modal) || modal;
+      var form = qs('form', modal) || modal, saved = profile();
+      if (saved.gross > 0) qs('#scGross', modal).value = saved.gross;
       function sync(){
         var o = readOpts(form);
         qsa('[data-for]', modal).forEach(function(el){ el.hidden = el.getAttribute('data-for').split(',').indexOf(o.regime) < 0; });
@@ -140,6 +153,7 @@ export async function openSalaryCalculator(){
         qs('#scResult', modal).innerHTML = resultHtml(res, o.regime);
         qs('[data-use=month]', modal).hidden = !res.hasVariable;
         form._res = res; form._opts = o;
+        saveProfile(o);
       }
       modal.addEventListener('input', sync);
       modal.addEventListener('change', function(e){
@@ -169,7 +183,7 @@ export async function openSalaryCalculator(){
   });
   if (!r || r === true) return null;
   var o = r.opts;
-  setPref('workProfile', {regime: o.regime, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct, discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses});
+  saveProfile(o);
   return {net: r.net, kind: r.kind, regime: o.regime};
 }
 

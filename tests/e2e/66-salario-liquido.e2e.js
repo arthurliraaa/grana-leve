@@ -21,6 +21,11 @@ L.run(async ({page}) => {
   await page.type('.sc-d-value', '3'); await L.sleep(250);
   r = await net();
   L.ok(/Vale-transporte \(3%\)\s*− R\$\s?90,00/.test(r) && /Líquido estimado\s*R\$\s?2\.661,40/.test(r), 'vale-transporte em % (3%, não os 6% fixos): desconta R$ 90,00 e o líquido é 2.661,40');
+  L.ok(/Equivale a R\$\s?90,00 neste salário/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(1) .sc-d-eq')), 'em % mostra quanto dá em reais (3% de R$ 3.000 = R$ 90,00)');
+  await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(1) .sc-d-mode', 'fixed'); await L.sleep(200);
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(1) .sc-d-value', e => { e.value = '60'; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(200);
+  L.ok(/Equivale a 2% do salário/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(1) .sc-d-eq')), 'em reais mostra quanto dá em % do salário (R$ 60 de R$ 3.000 = 2%)');
+  await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(1) .sc-d-mode', 'pct'); await page.$eval('#scDiscList .sc-disc-row:nth-child(1) .sc-d-value', e => { e.value = '3'; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(200);
   await page.$eval('[data-add-disc]', e => e.click()); await L.sleep(200);
   await page.$eval('.sc-disc-row:nth-child(2) .sc-d-type', e => { e.value = 'adiantamento'; e.dispatchEvent(new Event('change', {bubbles: true})); });
   await page.type('.sc-disc-row:nth-child(2) .sc-d-value', '200'); await L.sleep(250);
@@ -90,6 +95,7 @@ L.run(async ({page}) => {
   L.section('Lembra do jeito de trabalhar');
   await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
   L.ok(await page.$eval('#scRegime', e => e.value) === 'clt' && await page.$eval('#scDiscList .sc-d-value', e => e.value) === '3', 'o jeito de trabalhar e os descontos ficam salvos para a próxima vez');
+  L.ok(/^3\.?000/.test(await page.$eval('#scGross', e => e.value)), 'o salário bruto também já vem preenchido');
   await L.closeModal(page);
 
   L.section('Simulador e formulário de ganho');
