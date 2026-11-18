@@ -477,7 +477,8 @@ export function goalFormBody(g){
     '<div class="field"><label for="egCurrent">Já guardado</label><span class="money-input"><span>R$</span><input id="egCurrent" name="current" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (g.currentAmount||0) + '"></span>' +
       '<span class="field-hint">Para registrar o que guardou ou rendeu, prefira “Guardar” e “Registrar rendimento”: com as datas, a previsão fica certa.</span></div>' +
     investmentFieldsHtml('eg', g) +
-    '<div class="field"><label for="egDate">Prazo</label><input id="egDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.targetDate||'') + '"></div>' +
+    '<label class="check"><input type="checkbox" id="egNoDate" name="noDate"' + (g.targetDate ? '' : ' checked') + '> Sem prazo (sem data para chegar)</label>' +
+    '<div class="field" id="egDateField"' + (g.targetDate ? '' : ' hidden') + '><label for="egDate">Prazo</label><input id="egDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.targetDate||'') + '"></div>' +
     '<div class="field"><label for="egReminder">Me avise em</label><input id="egReminder" name="reminder" type="date" min="1900-01-01" max="3000-12-31" value="' + (g.reminderDate||'') + '"></div>' +
     '<div class="field"><label for="egUrgency">Urgência</label><select id="egUrgency" name="urgency">' + optionsHtml(urgencyOptions(), urgencyOf(g)) + '</select></div>' +
     '<div class="field"><label for="egNote">Observação</label><textarea id="egNote" name="note" rows="3" maxlength="300">' + escapeHtml(g.note||'') + '</textarea></div>';
@@ -487,14 +488,14 @@ export async function editGoal(id){
   var g = findById(State.goals, id);
   await openModal({
     title: 'Editar meta', body: goalFormBody(g),
-    onOpen: function(modal){ wireInvestment(modal, 'eg'); wireNoTarget(modal.querySelector('#egNoTarget'), modal.querySelector('#egTargetField')); },
+    onOpen: function(modal){ wireInvestment(modal, 'eg'); wireNoTarget(modal.querySelector('#egNoTarget'), modal.querySelector('#egTargetField')); wireNoTarget(modal.querySelector('#egNoDate'), modal.querySelector('#egDateField')); },
     onSubmit: async function(form){
       var inv = readInvestment(form, 'eg');
       if (inv.error) return inv;
       var noTarget = form.noTarget.checked;
       var v = {
         name: form.name.value.trim(), targetAmount: noTarget ? 0 : money(form.target.value), currentAmount: Math.max(0, money(form.current.value)),
-        targetDate: form.date.value || null, reminderDate: form.reminder.value || null, note: form.note.value.trim(), urgency: form.urgency.value,
+        targetDate: form.noDate.checked ? null : (form.date.value || null), reminderDate: form.reminder.value || null, note: form.note.value.trim(), urgency: form.urgency.value,
         yieldRate: inv.yieldRate, investment: inv.investment, rateDate: inv.rateDate || null
       };
       if (!v.name || (!noTarget && !(v.targetAmount > 0))) return {error:'Informe o nome e um valor alvo maior que zero, ou marque “Sem valor alvo”.'};
@@ -591,12 +592,13 @@ export function wirePlanning(){
   document.getElementById('goalInvWrap').innerHTML = investmentFieldsHtml('goal', {});
   wireInvestment(document.getElementById('goalForm'), 'goal');
   wireNoTarget(document.getElementById('goalNoTarget'), document.getElementById('goalTargetField'));
+  wireNoTarget(document.getElementById('goalNoDate'), document.getElementById('goalDateField'));
   document.getElementById('goalForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var name = document.getElementById('goalName').value.trim();
     var noTarget = document.getElementById('goalNoTarget').checked;
     var target = noTarget ? 0 : money(document.getElementById('goalTarget').value);
-    var date = document.getElementById('goalDate').value;
+    var date = document.getElementById('goalNoDate').checked ? '' : document.getElementById('goalDate').value;
     var reminder = document.getElementById('goalReminder').value;
     var note = document.getElementById('goalNote').value.trim();
     if (!name || (!noTarget && !(target > 0))){ toast('Informe o nome e o valor alvo da meta, ou marque “Sem valor alvo”.'); return; }
@@ -608,7 +610,7 @@ export function wirePlanning(){
     var saved = await Store.add(k(), 'goals', goal);
     State.goals.push(saved);
     e.target.reset();
-    document.getElementById('goalTargetField').hidden = false;
+    document.getElementById('goalTargetField').hidden = false; document.getElementById('goalDateField').hidden = false;
     qs('#goalInvType').dispatchEvent(new Event('change', {bubbles: true}));
     State.goalFilter = 'andamento';
     renderGoals(); renderDashboard();

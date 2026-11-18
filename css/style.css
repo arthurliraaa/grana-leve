@@ -1972,3 +1972,13 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sheet-act:hover, .sheet-act:active{ background: var(--surface-2); }
 .sheet-act .ico{ width:20px; height:20px; flex:none; }
 .sheet-act.danger{ color: var(--critical); }
+
+/* Nova meta: os dois “sem …” lado a lado */
+.goal-checks{ display:flex; flex-wrap:wrap; gap:8px 22px; }
+.new-item-form .field[hidden]{ display:none; }
+
+.sim-table th, .sim-table td{ white-space:nowrap; }
+.sim-sal{ margin:2px 0; }
+/* Nova meta: campos em pares que ocupam a largura toda */
+#goalForm .field{ grid-column: span 2; }
+#goalForm .f-full, #goalForm .f-submit, #goalForm .inv-more{ grid-column: 1 / -1; }

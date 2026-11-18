@@ -14,10 +14,10 @@ L.run(async ({page}) => {
 
   L.section('Compra à vista');
   await open();
-  L.ok(/Simular uma compra ou gasto/.test(await L.modalTitle(page)), 'o botão “Simular compra” fica em Ganhos e gastos');
+  L.ok(/Simular gasto ou ganho/.test(await L.modalTitle(page)), 'o botão “Simular compra” fica em Ganhos e gastos');
   await page.type('#simName', 'Geladeira'); await page.type('#simAmount', '400');
   await L.setVal(page, '#simPay', 'acc:' + (await L.db(page)).accounts[0].id); await L.sleep(250);
-  L.ok(/Cabe nas contas/.test(await result()) && /Sem a simulação/.test(await result()), 'R$ 400 com R$ 1.000 nas contas: cabe, com a tabela por mês');
+  L.ok(/Cabe nas contas/.test(await result()) && /Esta simulação/.test(await result()) && /Saldo com ela/.test(await result()), 'R$ 400 com R$ 1.000 nas contas: cabe, com a tabela por mês');
   await page.$eval('#simAmount', e => { e.value = ''; }); await page.type('#simAmount', '5.000'); await L.sleep(250);
   L.ok(/no vermelho/.test(await result()), 'R$ 5.000 deixa o saldo no vermelho');
   await page.$eval('#simAmount', e => { e.value = ''; }); await page.type('#simAmount', '300'); await L.sleep(200);
@@ -31,7 +31,7 @@ L.run(async ({page}) => {
   await L.setVal(page, '#simPay', 'card:' + d.cards[0].id); await L.sleep(200);
   await page.$eval('#simN', e => { e.value = '3'; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(300);
   const r2 = await result();
-  L.ok(/Entra na fatura de/.test(r2) && /3x de cerca de R\$\s?400,00/.test(r2) && /Limite do cartão/.test(r2), 'mostra a fatura onde entra, as parcelas e o limite do cartão');
+  L.ok(/Compra em .* fecha dia 28 e vence dia 5/.test(r2) && /entra na fatura de/.test(r2) && /3 parcelas de cerca de R\$\s?400,00, uma por fatura/.test(r2) && /Limite do cartão/.test(r2), 'mostra a fatura onde entra, as parcelas e o limite do cartão');
   await L.submitModal(page); await L.sleep(500);
   d = await L.db(page);
   L.ok(d.transactions.filter(t => /Notebook/.test(t.description || '') || (t.installment && /Notebook/.test(t.installment.baseDescription || ''))).length === 3, 'registrar cria as 3 parcelas nas faturas');

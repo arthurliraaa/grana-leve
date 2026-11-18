@@ -14,7 +14,7 @@ export function projectCash(cash, months, adds, inflowNow){
     base = money(base + (m.inc || 0) - (m.out || 0));
     var extra = Number((adds || {})[i]) || 0;
     sim = money(sim + (m.inc || 0) - (m.out || 0) - extra);
-    rows.push({key: m.key, label: m.label, out: money(m.out || 0), added: money(extra), base: base, sim: sim, diff: money(sim - base)});
+    rows.push({key: m.key, label: m.label, out: money(m.out || 0), inc: money(m.inc || 0), added: money(extra), base: base, sim: sim, diff: money(sim - base)});
   });
   return rows;
 }

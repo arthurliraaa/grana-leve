@@ -8,12 +8,12 @@ import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cards from '../domain/cards.js';
 import * as Tx from '../domain/transactions.js';
-import {myShare} from '../domain/transactions.js';
+import {myShare, isPersonal} from '../domain/transactions.js';
 import {projectCash, firstRedMonth, splitInstallments, goalUseImpact} from '../domain/simulate.js';
 import {Store} from '../data/store.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
 import {openModal} from './modal.js';
-import {State, k, catLabel, catOptions, expenseCats, incomeCats, expenseCategoryTotals, budgetLimit, cardUsed, expandInstallments, forecastOccurrences, totalAccountsBalance} from './state.js';
+import {State, k, catLabel, catOptions, expenseCats, incomeCats, txForMonth, expenseCategoryTotals, budgetLimit, cardUsed, expandInstallments, forecastOccurrences, totalAccountsBalance} from './state.js';
 import {billMonth} from './bills.js';
 import {dashboardFigures, monthPayments} from './home-tab.js';
 import {applyPayment, paymentOptions} from './tx-list.js';
@@ -38,15 +38,30 @@ function invoicesMineDue(key){
   });
   return money(tot);
 }
-// Já assumido para cada mês (do atual em diante): o que sai e o que está previsto entrar.
-function baselineMonths(n){
+// Salário que a pessoa costuma receber: média dos últimos 3 meses em que ele entrou (precisa de pelo menos 2).
+function salaryAverage(){
+  var cur = monthBounds(0).key, vals = [];
+  for (var i = 1; i <= 3; i++){
+    var v = sumMoney(txForMonth(shiftMonthKey(cur, -i)).filter(function(t){ return t.type === 'income' && isPersonal(t) && !t.refund && t.category === 'salario'; }), function(t){ return Number(t.amount) || 0; });
+    if (v > 0) vals.push(v);
+  }
+  return vals.length >= 2 ? money(sum(vals, function(v){ return v; }) / vals.length) : 0;
+}
+// Já assumido para cada mês (do atual em diante): o que sai e o que está previsto entrar. Com useSalary, entra também o
+// salário de costume nos meses em que ainda não há salário previsto nem recebido.
+function baselineMonths(n, useSalary){
+  var salary = useSalary ? salaryAverage() : 0, curKey = monthBounds(0).key;
   var cur = monthBounds(0).key, rows = [], mp = monthPayments(), f = dashboardFigures();
   var debtMonthly = sumMoney(State.debts, function(d){ var left = Math.max(0, Number(d.totalAmount || 0) - Number(d.paidAmount || 0)); return left > 0 && Number(d.monthlyPayment) > 0 ? Math.min(Number(d.monthlyPayment), left) : 0; });
   for (var i = 0; i < n; i++){
     var key = shiftMonthKey(cur, i);
     var out = i === 0 ? mp.leftMine : money(invoicesMineDue(key) + sumMoney(billMonth(key).filter(function(o){ return !o.paid && !o.skipped; }), function(o){ return o.amount; }) + debtMonthly);
-    var inc = i === 0 ? f.expectedIncome : sumMoney(forecastOccurrences(key).filter(function(o){ return o.received === undefined; }), function(o){ return o.f.amount; });
-    rows.push({key: key, label: monthLabelOf(key).split(' de ')[0] + (i === 0 ? ' (este mês)' : ''), out: out, inc: inc});
+    var pending = forecastOccurrences(key).filter(function(o){ return o.received === undefined; });
+    var inc = i === 0 ? f.expectedIncome : sumMoney(pending, function(o){ return o.f.amount; });
+    var hasSalary = pending.some(function(o){ return o.f.category === 'salario'; }) || (i === 0 && txForMonth(curKey).some(function(t){ return t.type === 'income' && t.category === 'salario' && isPersonal(t); }));
+    var sal = salary > 0 && !hasSalary ? salary : 0;
+    inc = money(inc + sal);
+    rows.push({key: key, label: monthLabelOf(key).split(' de ')[0] + (i === 0 ? ' (este mês)' : ''), out: out, inc: inc, sal: sal});
   }
   return rows;
 }
@@ -91,6 +106,7 @@ function formHtml(){
         '<label class="check"><input type="radio" name="gmode" value="so"> Só tirar da meta (sem lançar gasto)</label></fieldset>' +
     '</div>' +
     '<div class="sim-hz"><span>Olhar os próximos</span>' + HORIZONS.map(function(h){ return '<label class="chip-radio"><input type="radio" name="hz" value="' + h + '"' + (h === 6 ? ' checked' : '') + '><span>' + h + ' meses</span></label>'; }).join('') + '</div>' +
+    (salaryAverage() > 0 ? '<label class="check sim-sal"><input type="checkbox" name="usesal" checked> Considerar o meu salário nos próximos meses (cerca de ' + fmtMoney(salaryAverage()) + ' por mês, a média dos últimos meses)</label>' : '') +
     '<div id="simResult" class="sim-result" aria-live="polite"></div>';
 }
 
@@ -99,7 +115,7 @@ function readForm(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
   var kind = (qs('input[name=kind]:checked', form) || {}).value || 'compra';
   var hz = Number((qs('input[name=hz]:checked', form) || {}).value) || 6;
-  var s = {kind: kind, hz: hz, name: v('name').trim(), cat: v('cat'), notes: [], warns: [], adds: {}, inflowNow: 0, error: ''};
+  var s = {kind: kind, hz: hz, usesal: !!(form.elements.usesal && form.elements.usesal.checked), name: v('name').trim(), cat: v('cat'), notes: [], warns: [], adds: {}, inflowNow: 0, error: ''};
   if (kind === 'compra'){
     s.amount = money(v('amount')); s.pay = v('pay'); s.date = v('date') || todayKey();
     s.isCard = s.pay.indexOf('card:') === 0; s.isGoal = s.pay.indexOf('goal:') === 0;
@@ -131,7 +147,11 @@ function compute(s){
         var due = Cards.invoiceDates(shiftMonthKey(key0, i), card).due.slice(0, 7), off = monthsFromNow(due);
         if (off >= 0 && off < s.hz) adds[off] = money((adds[off] || 0) + p);
       });
-      notes.push('Entra na fatura de ' + Cards.invoiceLabel(key0, card) + ' do ' + escapeHtml(card.name) + ' (vence ' + formatDateBr(first.due) + ')' + (s.n > 1 ? ', em ' + s.n + 'x de cerca de ' + fmtMoney(parts[1] || parts[0]) : '') + '.');
+      notes.push('Compra em ' + formatDateBr(s.date) + ': o ' + escapeHtml(card.name) + ' fecha dia ' + card.closingDay + ' e vence dia ' + card.dueDay + ', então a ' + (s.n > 1 ? '1ª parcela' : 'compra') + ' entra na fatura de ' + Cards.invoiceLabel(key0, card) + ' (fecha ' + formatDateBr(first.closing) + ', vence ' + formatDateBr(first.due) + ').');
+      if (s.n > 1){
+        var lastD = Cards.invoiceDates(shiftMonthKey(key0, s.n - 1), card);
+        notes.push(s.n + ' parcelas de cerca de ' + fmtMoney(parts[1] || parts[0]) + ', uma por fatura: da fatura de ' + Cards.invoiceLabel(key0, card) + ' (vence ' + formatDateBr(first.due) + ') até a de ' + Cards.invoiceLabel(shiftMonthKey(key0, s.n - 1), card) + ' (vence ' + formatDateBr(lastD.due) + '). Cada parcela pesa no mês em que a fatura vence.');
+      }
       var limit = Number(card.limit) || 0, used = cardUsed(card);
       if (limit > 0){
         var pct = Math.round(100 * (used + s.amount) / limit);
@@ -182,7 +202,9 @@ function compute(s){
     }
   }
   var cash = State.accounts.length ? totalAccountsBalance() : 0;
-  s.rows = projectCash(cash, baselineMonths(s.hz), adds, s.inflowNow);
+  var base = baselineMonths(s.hz, s.usesal);
+  s.rows = projectCash(cash, base, adds, s.inflowNow);
+  if (s.usesal && base.some(function(b){ return b.sal > 0; })) notes.push('Considerei o seu salário de cerca de ' + fmtMoney(salaryAverage()) + ' por mês (média dos últimos meses) nos meses em que ele ainda não está lançado nem previsto. Desmarque a opção acima para ver sem ele.');
   s.cash = cash;
   return s;
 }
@@ -197,15 +219,17 @@ function resultHtml(s){
   var noAcc = !State.accounts.length ? '<p class="tx-meta">Sem contas cadastradas, o saldo parte de R$ 0,00. Cadastre suas contas em “Contas e cartões” para um resultado mais real.</p>' : '';
   return '<div class="sim-verdict ' + verdict[0] + '"><strong>' + verdict[1] + '</strong></div>' +
     (s.warns.length ? '<ul class="sim-warns">' + s.warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul>' : '') +
-    (s.isGoal ? '' : '<div class="table-scroll"><table class="data-table"><thead><tr><th>Mês</th><th>Sem a simulação</th><th>Com a simulação</th><th>Diferença</th></tr></thead><tbody>' + s.rows.map(function(r){
-      return '<tr><td>' + escapeHtml(r.label) + '</td><td class="tabular">' + fmtMoney(r.base) + '</td><td class="tabular ' + (r.sim < 0 ? 'neg-text' : '') + '"><strong>' + fmtMoney(r.sim) + '</strong></td><td class="tabular ' + (r.diff < 0 ? 'neg-text' : 'pos-text') + '">' + (r.diff > 0 ? '+ ' : r.diff < 0 ? '− ' : '') + fmtMoney(Math.abs(r.diff)) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-    '<p class="tx-meta">Saldo no fim de cada mês, partindo do que há nas contas hoje (' + fmtMoney(s.cash) + '), com as faturas suas, contas fixas, parcelas de dívidas e ganhos previstos já assumidos.</p>') +
+    (s.isGoal ? '' : '<div class="table-scroll"><table class="data-table sim-table"><thead><tr><th>Mês</th><th>Já assumido</th><th>Esta simulação</th><th>Ganhos</th><th>Saldo sem ela</th><th>Saldo com ela</th></tr></thead><tbody>' + s.rows.map(function(r){
+      var simTxt = r.added > 0 ? '− ' + fmtMoney(r.added) : r.added < 0 ? '+ ' + fmtMoney(-r.added) : '—';
+      return '<tr><td>' + escapeHtml(r.label) + '</td><td class="tabular">' + fmtMoney(r.out) + '</td><td class="tabular ' + (r.added > 0 ? 'neg-text' : r.added < 0 ? 'pos-text' : '') + '">' + simTxt + '</td><td class="tabular">' + fmtMoney(r.inc) + '</td>' +
+        '<td class="tabular ' + (r.base < 0 ? 'neg-text' : '') + '">' + fmtMoney(r.base) + '</td><td class="tabular ' + (r.sim < 0 ? 'neg-text' : '') + '"><strong>' + fmtMoney(r.sim) + '</strong></td></tr>'; }).join('') + '</tbody></table></div>' +
+    '<p class="tx-meta">Mês a mês: o que já está assumido para sair (faturas suas que vencem no mês, contas fixas e parcelas de dívidas), o que esta simulação coloca em cada mês, e os ganhos considerados. O saldo parte do que há nas contas hoje (' + fmtMoney(s.cash) + ') e o que sobra de um mês segue para o outro.</p>') +
     '<ul class="sim-notes">' + s.notes.map(function(n){ return '<li>' + n + '</li>'; }).join('') + '</ul>' + noAcc;
 }
 
 export async function openSimulator(){
   var r = await openModal({
-    title: 'Simular uma compra ou gasto', wide: true, submitLabel: 'Registrar de verdade', cancelLabel: 'Fechar',
+    title: 'Simular gasto ou ganho', wide: true, submitLabel: 'Registrar de verdade', cancelLabel: 'Fechar',
     body: '<p class="field-hint">Veja como ficariam as suas contas antes de decidir. Nada é salvo enquanto você simula.</p>' + formHtml(),
     onOpen: function(modal){
       var form = qs('form', modal) || modal;

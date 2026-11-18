@@ -90,6 +90,16 @@ L.run(async ({page}) => {
   const t = await cardOf('Sobras');
   L.ok(/R\$\s?80,00 guardados/.test(t) && !/concluída/.test(t), 'guardar não conclui a meta e mostra o total juntado');
   L.ok(!(await L.db(page)).goals.find(x => x.name === 'Sobras').deleted, 'continua em andamento');
+  L.section('Meta sem prazo');
+  await page.setViewport({width: 1280, height: 900});
+  await L.tab(page, 'metas');
+  await page.type('#goalName', 'Reserva livre'); await page.type('#goalTarget', '300');
+  await page.click('#goalNoDate'); await L.sleep(100);
+  L.ok(await page.$eval('#goalDateField', e => e.hidden), 'marcar “Sem prazo” esconde o campo da data');
+  await page.click('#goalForm button[type=submit]'); await L.sleep(300);
+  const sp = (await L.db(page)).goals.find(x => x.name === 'Reserva livre');
+  L.ok(sp && !sp.targetDate, 'a meta é criada sem prazo');
+  L.ok(!(await page.$eval('#goalDateField', e => e.hidden)), 'e o formulário volta ao normal para a próxima meta');
   await page.setViewport({width: 360, height: 760}); await L.sleep(150);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
   await page.setViewport({width: 1280, height: 900});
