@@ -1793,3 +1793,30 @@ details.purchase-notes > summary::-webkit-details-marker{ display:none; }
 details.purchase-notes > summary::before{ content:'▸'; color: var(--text-secondary); }
 details.purchase-notes[open] > summary::before{ content:'▾'; }
 details.purchase-notes[open] > summary{ margin-bottom:6px; }
+
+/* Alertas do planejamento (qualquer tela) */
+.budget-alerts{ display:grid; gap:6px; margin:0 0 12px; }
+.ba-item{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; padding:10px 14px; border-radius: var(--radius); border:1px solid var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+.ba-item.over{ border-color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, var(--surface)); }
+.ba-txt{ display:flex; align-items:center; gap:8px; }
+.ba-act{ display:flex; gap:12px; align-items:center; font-size:.9rem; }
+/* Planejar gastos: aviso de primeira vez e gráfico de evolução */
+.budget-intro{ display:flex; gap:12px; padding:12px 14px; margin:12px 0; border:1px solid var(--border); border-left:4px solid var(--brand); border-radius: var(--radius); background: var(--surface); }
+.budget-intro p{ margin:4px 0 8px; font-size:.92rem; color: var(--text-secondary); }
+.budget-chart{ margin:12px 0; padding:12px 14px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.bch-head{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+.bch-head h4{ margin:0; }
+.bch-svg{ width:100%; height:auto; display:block; margin-top:6px; }
+.bch-line{ fill:none; stroke: var(--brand); stroke-width:2.5; stroke-linejoin:round; stroke-linecap:round; }
+.bch-line.over{ stroke: var(--critical); }
+.bch-dot{ fill: var(--brand); } .bch-dot.over{ fill: var(--critical); }
+.bch-ideal{ stroke: var(--text-muted); stroke-width:1.5; stroke-dasharray:5 4; }
+.bch-limit{ stroke: var(--critical); stroke-width:1; opacity:.55; }
+.bch-proj{ stroke: var(--brand); stroke-width:2; stroke-dasharray:2 4; opacity:.8; }
+.bch-lbl{ font-size:11px; fill: var(--text-muted); }
+.bch-legend{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:.82rem; color: var(--text-secondary); }
+.bch-legend i{ display:inline-block; width:18px; height:0; border-top:2.5px solid var(--brand); margin-right:6px; vertical-align:middle; }
+.bch-legend .lg-ideal{ border-top:2px dashed var(--text-muted); } .bch-legend .lg-limit{ border-top:2px solid color-mix(in srgb, var(--critical) 55%, transparent); } .bch-legend .lg-proj{ border-top:2px dotted var(--brand); }
+.bch-msg{ margin:8px 0 0; font-size:.95rem; line-height:1.45; }
+
+.recv-bulk{ margin:0 0 10px; }

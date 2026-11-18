@@ -10,7 +10,8 @@ import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import {isPersonal, myShare} from '../domain/transactions.js';
 
-import {statusForPct} from '../domain/budgets.js';
+import {statusForPct, monthBurn} from '../domain/budgets.js';
+import {getPrefs, setPref} from '../data/session.js';
 import {urgencyOf, byUrgency} from '../domain/urgency.js';
 
 import {Store} from '../data/store.js';
@@ -24,6 +25,53 @@ import {createCategory, populateCategorySelect} from './tx-list.js';
 
 /* ---------- Planejar gastos (aba "limites") ---------- */
 export var statusLabel = {good:'sob controle', warning:'quase no limite', critical:'estourou'};
+
+// Aviso de primeira vez na aba: como funcionam os alertas do planejamento (some quando a pessoa fecha).
+function budgetIntroHtml(){
+  if (getPrefs().budgetIntroSeen) return '';
+  return '<div class="budget-intro" role="note">' + icon('gauge') + '<div><strong>Como o planejamento avisa você</strong>' +
+    '<p>Defina quanto quer gastar em cada categoria. Quando uma categoria chegar a <strong>90%</strong> do limite, ou passar dele, aparece um aviso no topo, em qualquer tela. ' +
+    'Aqui embaixo você acompanha a evolução do mês: se o gasto está acima ou abaixo do ritmo ideal.</p>' +
+    '<button type="button" class="btn btn-ghost btn-sm" data-budget-intro-ok>Entendi</button></div></div>';
+}
+// Gráfico da evolução do gasto no mês: acumulado dia a dia × ritmo ideal do limite, com a projeção do fim do mês.
+function budgetChartHtml(mb, monthTx, cats){
+  var withLimit = cats.filter(function(c){ return budgetLimit(mb.key, c.id) > 0; });
+  if (!withLimit.length) return '';
+  var sel = State.budgetChartCat && withLimit.some(function(c){ return c.id === State.budgetChartCat; }) ? State.budgetChartCat : 'all';
+  var picked = sel === 'all' ? withLimit : withLimit.filter(function(c){ return c.id === sel; });
+  var ids = picked.map(function(c){ return c.id; });
+  var limit = sumMoney(picked, function(c){ return budgetLimit(mb.key, c.id); });
+  var items = monthTx.filter(function(t){ return !t.reversal && ids.indexOf(t.category) >= 0 && myShare(t) > 0; }).map(function(t){ return {date: t.date, amount: myShare(t)}; });
+  var b = monthBurn(items, mb.key, todayKey(), limit);
+  var W = 600, H = 210, L = 46, R = 14, T = 12, B = 28, pw = W - L - R, ph = H - T - B;
+  var top = Math.max(limit, b.spent, b.upto && b.upto < b.days ? b.projected : 0) * 1.08 || 1;
+  function x(d){ return (L + pw * (d - 1) / Math.max(1, b.days - 1)).toFixed(1); }
+  function y(v){ return (T + ph - ph * Math.min(v, top) / top).toFixed(1); }
+  var over = b.spent > limit;
+  var cum = b.cum.map(function(v, i){ return x(i + 1) + ',' + y(v); }).join(' ');
+  var idealLine = '<line class="bch-ideal" x1="' + x(1) + '" y1="' + y(b.ideal[0] || 0) + '" x2="' + x(b.days) + '" y2="' + y(limit) + '"></line>';
+  var proj = b.upto && b.upto < b.days && b.spent > 0 ? '<line class="bch-proj" x1="' + x(b.upto) + '" y1="' + y(b.spent) + '" x2="' + x(b.days) + '" y2="' + y(b.projected) + '"></line>' : '';
+  var ticks = [1, Math.round(b.days / 3), Math.round(2 * b.days / 3), b.days].filter(function(d, i, a){ return a.indexOf(d) === i; });
+  var svg = '<svg class="bch-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Evolução do gasto no mês comparada ao limite">' +
+    '<line class="bch-limit" x1="' + L + '" y1="' + y(limit) + '" x2="' + (W - R) + '" y2="' + y(limit) + '"></line>' +
+    '<text class="bch-lbl" x="' + (L - 6) + '" y="' + (Number(y(limit)) + 4) + '" text-anchor="end">' + fmtMoney(limit) + '</text>' +
+    '<text class="bch-lbl" x="' + (L - 6) + '" y="' + (T + ph + 4) + '" text-anchor="end">0</text>' +
+    idealLine + proj + (b.cum.length > 1 ? '<polyline class="bch-line ' + (over ? 'over' : '') + '" points="' + cum + '"></polyline>' : '') +
+    (b.cum.length ? '<circle class="bch-dot ' + (over ? 'over' : '') + '" cx="' + x(b.upto) + '" cy="' + y(b.spent) + '" r="4"></circle>' : '') +
+    ticks.map(function(d){ return '<text class="bch-lbl" x="' + x(d) + '" y="' + (H - 8) + '" text-anchor="middle">dia ' + d + '</text>'; }).join('') + '</svg>';
+  var cur = b.upto > 0 && b.upto < b.days, pctNow = limit > 0 ? Math.round(100 * b.spent / limit) : 0;
+  var msg = !b.upto ? 'O mês ainda não começou.' :
+    (b.ahead > 0.004 ? '<strong class="neg-text">' + fmtMoney(b.ahead) + ' acima</strong> do ritmo ideal' : '<strong class="pos-text">' + fmtMoney(Math.abs(b.ahead)) + ' abaixo</strong> do ritmo ideal') +
+    ' (' + pctNow + '% do planejado usado' + (cur ? ' no dia ' + b.upto + ' de ' + b.days : '') + ').' +
+    (cur && b.spent > 0 ? ' Mantendo esse ritmo, o mês termina em <strong class="tabular ' + (b.projected > limit ? 'neg-text' : '') + '">' + fmtMoney(b.projected) + '</strong> (' + Math.round(100 * b.projected / limit) + '% do planejado).' : '') +
+    (b.scheduled > 0 ? ' Ainda há ' + fmtMoney(b.scheduled) + ' agendados para os próximos dias.' : '');
+  return '<div class="budget-chart card-lite"><div class="bch-head"><h4>Evolução do mês</h4>' +
+    '<select id="budgetChartCat" aria-label="Categoria do gráfico"><option value="all"' + (sel === 'all' ? ' selected' : '') + '>Todas as categorias planejadas</option>' +
+    withLimit.map(function(c){ return '<option value="' + escapeHtml(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + escapeHtml(c.label) + '</option>'; }).join('') + '</select></div>' +
+    svg + '<div class="bch-legend"><span><i class="lg-line"></i>Gasto acumulado</span><span><i class="lg-ideal"></i>Ritmo ideal</span><span><i class="lg-limit"></i>Limite</span>' + (proj ? '<span><i class="lg-proj"></i>Projeção</span>' : '') + '</div>' +
+    '<p class="bch-msg">' + msg + '</p></div>';
+}
 
 export function renderBudgets(){
   var mb = monthBounds(State.budgetMonthOffset);
@@ -76,7 +124,7 @@ export function renderBudgets(){
     .map(function(c){ return {id: c.id, amount: Math.ceil(spent3[c.id] / 3 / 10) * 10}; }).filter(function(x){ return x.amount > 0; });
   if (fill.length) summary = summary.replace(/<\/div>$/, '<button type="button" class="btn btn-ghost btn-sm bs-fill" data-budget-fill>Usar a média dos últimos 3 meses' +
     (fill.length > 1 ? ' (' + fill.length + ' categorias)' : '') + '</button></div>');
-  list.innerHTML = summary + shown.map(budgetRowHtml).join('') +
+  list.innerHTML = summary + budgetIntroHtml() + budgetChartHtml(mb, monthTx, cats) + shown.map(budgetRowHtml).join('') +
     (hidden.length ? '<details class="budget-more"><summary>' + (spent3Any ? 'Sem gastos nos últimos 3 meses' : 'Outras categorias') + ' (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary><div class="budget-cards">' +
       hidden.map(budgetRowHtml).join('') + '</div></details>' : '');
   function budgetRowHtml(c){
@@ -107,6 +155,10 @@ export function renderBudgets(){
       '</div>';
   }
 
+  var chartSel = qs('#budgetChartCat', list);
+  if (chartSel) chartSel.addEventListener('change', function(){ State.budgetChartCat = chartSel.value; renderBudgets(); });
+  var introOk = qs('[data-budget-intro-ok]', list);
+  if (introOk) introOk.addEventListener('click', function(){ setPref('budgetIntroSeen', true); renderBudgets(); });
   var fillBtn = qs('[data-budget-fill]', list);
   if (fillBtn) fillBtn.addEventListener('click', async function(){
     var key = monthBounds(State.budgetMonthOffset).key;

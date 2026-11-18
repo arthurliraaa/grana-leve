@@ -62,9 +62,9 @@ L.run(async ({page}) => {
   await page.click('#budgetNext'); await L.sleep(100);
 
   L.section('Aviso de planejamento usa o valor do mês');
-  await L.addTx(page, {amount: 600, category: 'alimentacao'});
+  await L.addTx(page, {amount: 640, category: 'alimentacao'});
   const toasts = await L.allToasts(page);
-  L.ok(/86% do planejado para Alimentação/.test(toasts), 'aviso de 86% com o limite de 700');
+  L.ok(/Perto do limite: você já usou 91% do planejado para Alimentação/.test(toasts), 'aviso de 91% (perto do limite) com o limite de 700');
 
   L.section('Nova categoria pelo Planejar gastos');
   await L.tab(page, 'limites');

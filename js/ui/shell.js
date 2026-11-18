@@ -18,14 +18,14 @@ import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../da
 import {captchaEnabled, getCaptchaToken, mountCaptcha} from './captcha.js';
 import {qs, qsa, escapeHtml, icon, saveFile, toast} from './dom.js';
 import {openModal, confirmAction, attachCounters} from './modal.js';
-import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid, undoInvoiceAdvance} from './accounts-tab.js';
+import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid, undoBalanceAdjust, undoInvoiceAdvance} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
 import {openFeedback} from './feedback.js';
 import {maybeTutorial, startTutorial} from './tutorial.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
-import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
+import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveAll, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
@@ -33,7 +33,7 @@ import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkPro
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf, generateAllInvoicesPdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions} from './state.js';
-import {advanceInstallments, openTxModal} from './tx-edit.js';
+import {advanceInstallments, openTxModal, renderBudgetAlerts} from './tx-edit.js';
 import {TX_SORTS, populateCategorySelect, populateInstallSelect, populatePaymentSelect, renderTransactionsTab, syncTxFormVisibility} from './tx-list.js';
 
 /* ============ Excluir lançamento com itens ligados ============ */
@@ -178,6 +178,7 @@ export function renderAll(){
   renderCards();
   renderVouchers();
   renderBudgets();
+  renderBudgetAlerts();
   renderGoals();
   renderDebts();
   renderReceivables();
@@ -658,6 +659,7 @@ export function wireShell(){
     if ((el = t.closest('[data-invadv-undo]'))){ undoInvoiceAdvance(el.getAttribute('data-invadv-undo')); return; }
     // Contas bancárias
     if ((el = t.closest('[data-acc-transfer]'))){ openTransfer(el.getAttribute('data-acc-transfer')); return; }
+    if ((el = t.closest('[data-adjust-undo]'))){ undoBalanceAdjust(el.getAttribute('data-adjust-undo')); return; }
     if ((el = t.closest('[data-acc-edit]'))){ editAccount(el.getAttribute('data-acc-edit')); return; }
     if ((el = t.closest('[data-acc-del]'))){
       var ac = findById(State.accounts, el.getAttribute('data-acc-del'));
@@ -764,6 +766,7 @@ export function wireShell(){
       return;
     }
     if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
+    if ((el = t.closest('[data-recv-get-all]'))){ receiveAll(el.getAttribute('data-recv-get-all')); return; }
     if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return; }
     if ((el = t.closest('[data-jump]'))){ document.getElementById(el.getAttribute('data-jump')).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); return; }
     if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return; }

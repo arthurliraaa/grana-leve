@@ -133,6 +133,14 @@ L.run(async ({page}) => {
   await page.type('#eaBalance', '2000');
   await L.submitModal(page);
   L.ok(await bal('Nubank PF') === 2000, 'saldo ajustado para 2000 e nome trocado');
+  d = await L.db(page);
+  const adj = d.accounts.find(a => a.id === nu.id);
+  L.ok(adj.adjustments && adj.adjustments.length === 1 && adj.adjustments[0].amount === 1100 && adj.initialBalance !== 2000, 'a diferença (1.100) fica como ajuste de saldo, sem apagar o histórico');
+  await L.tab(page, 'cartoes');
+  const blockTxt = await L.text(page, '#bankList');
+  await page.$$eval('#bankList details.budget-details', ds => ds.forEach(x => { x.open = true; }));
+  L.ok(/Ajuste de saldo/.test(await L.text(page, '#bankList')) && /\+ R\$\s?1\.100,00/.test(await L.text(page, '#bankList')), 'o ajuste aparece nas movimentações como “Ajuste de saldo”');
+  L.ok(!/Entrou no mês\s*R\$\s?1\.100,00/.test(blockTxt), 'o ajuste não conta como “Entrou no mês”');
   await L.addTx(page, {amount: 50, desc: 'Padaria'});
   await L.tab(page, 'cartoes');
   L.ok(await bal('Nubank PF') === 1950, 'gasto pelo popup (1ª conta por padrão) desconta depois do ajuste');

@@ -16,7 +16,7 @@ import {DEFAULT_URGENCY, urgencyOf, byUrgency} from '../domain/urgency.js';
 import {Store} from '../data/store.js';
 
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, qsa, escapeHtml, optionsHtml, labelOf, icon, toast} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, labelOf, icon, toast, toastAction} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {DEBT_KINDS, RECV_KINDS} from './constants.js';
 import {paymentLabel, renderDashboard} from './home-tab.js';
@@ -192,11 +192,11 @@ export function paymentLogHtml(list, kind, ownerId, who){
         (p.undone || (kind === 'debt' && p.fromShared) ? '' : '<button class="btn btn-ghost btn-sm" type="button" data-pay-undo="' + kind + ':' + escapeHtml(ownerId) + ':' + escapeHtml(p.id) + '">Desfazer</button>') + '</div>';
     }).join('') + '</details>';
 }
-export async function undoPayment(ref){
+export async function undoPayment(ref, silent){
   var parts = ref.split(':'), kind = parts[0], owner = findById(kind === 'debt' ? State.debts : State.receivables, parts[1]);
   var p = owner && (owner.payments || []).filter(function(x){ return x.id === parts[2]; })[0];
   if (!p || p.undone) return;
-  if (!(await confirmAction({title: 'Desfazer este ' + (kind === 'debt' ? 'pagamento' : 'recebimento') + '?', danger: false, confirmLabel: 'Desfazer',
+  if (!silent && !(await confirmAction({title: 'Desfazer este ' + (kind === 'debt' ? 'pagamento' : 'recebimento') + '?', danger: false, confirmLabel: 'Desfazer',
     message: fmtMoney(p.amount) + ' de ' + formatDateBr(p.date) + ' volta a ' + (kind === 'debt' ? 'faltar na dívida' : 'faltar receber') + (p.txId ? ', e o lançamento ligado a ele sai de “Ganhos e gastos”' : '') + '. O registro fica no histórico, marcado como desfeito. Depois, registre de novo com os dados certos.'}))) return;
   if (p.txId && findById(State.transactions, p.txId)){
     await Store.remove(k(), 'transactions', p.txId);
@@ -208,8 +208,7 @@ export async function undoPayment(ref){
   else patch.receivedAmount = money(Math.max(0, Number(owner.receivedAmount || 0) - p.amount));
   await Store.update(k(), kind === 'debt' ? 'debts' : 'receivables', owner.id, patch);
   Object.assign(owner, patch);
-  renderAll();
-  toast((kind === 'debt' ? 'Pagamento' : 'Recebimento') + ' desfeito.');
+  if (!silent){ renderAll(); toast((kind === 'debt' ? 'Pagamento' : 'Recebimento') + ' desfeito.'); }
   // Cobrança compartilhada: avisa o outro lado.
   if (kind === 'debt') await notifyDebtUndo(owner, p);
   else await notifyReceipt(owner, p.amount, true);
@@ -361,16 +360,19 @@ export function renderReceivables(){
     if (!groups[key]){ groups[key] = {name: String(r.person || '').trim(), list: []}; order.push(key); }
     groups[key].list.push(r);
   });
-  grid.innerHTML = order.map(function(key){
+  var openAll = State.receivables.filter(function(r){ return !r.forgiven && recvRemaining(r) > 0.004; });
+  var bulk = openAll.length > 1 ? '<div class="recv-bulk"><button class="btn btn-primary btn-sm" type="button" data-recv-get-all="">Registrar todos os recebimentos (' + openAll.length + ')</button></div>' : '';
+  grid.innerHTML = bulk + order.map(function(key){
     var g = groups[key], open = g.list.filter(function(r){ return recvRemaining(r) > 0; });
     var left = sumMoney(open, recvRemaining);
     var late = open.filter(function(r){ var d = recvNextDue(r); return d && d < todayKey(); }).length;
     var meta = g.list.length + ' registro(s)' + (open.length ? ' · ' + open.length + ' em aberto' : ' · tudo recebido') + (late ? ' · <strong class="neg-text">' + late + ' atrasado(s)</strong>' : '');
     return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="' + escapeHtml(g.name) + ' te deve">' +
       personHead(g.name, meta, open.length ? escapeHtml(g.name) + ' te deve' : 'Tudo recebido', open.length ? left : sumMoney(g.list, function(r){ return r.totalAmount; }),
-        open.length > 1 ? '<button class="btn btn-ghost btn-sm" type="button" data-recv-charge-all="' + escapeHtml(key) + '">' + icon('chat') + 'Cobrar tudo</button>' : '') +
+        open.length > 1 ? '<button class="btn btn-primary btn-sm" type="button" data-recv-get-all="' + escapeHtml(key) + '">Registrar tudo</button><button class="btn btn-ghost btn-sm" type="button" data-recv-charge-all="' + escapeHtml(key) + '">' + icon('chat') + 'Cobrar tudo</button>' : '') +
       '<div class="debt-grid person-items">' + g.list.map(recvCardHtml).join('') + '</div></section>';
   }).join('');
+  if (State.receivables.some(function(r){ return !r.forgiven && recvBehind(r); })) setTimeout(autoSyncReceivables, 0);
 }
 
 // Parcelas da compra ligada a este "A receber" (paga pela pessoa ou a parte dela numa dividida) e quantas
@@ -398,6 +400,7 @@ export function recvBehind(r){
   var h = recvHistory(r);
   if (!h || !h.passed || r.forgiven) return null;
   if ((r.syncedParcels || 0) >= h.passed) return null;
+  if (r.priorSettled && h.passed <= Number(r.priorSettled.count || 0)) return null;   // a pessoa já escolheu (ex.: “ainda me deve”)
   if (Number(r.receivedAmount || 0) + 0.005 >= h.passedAmount) return null;
   return h;
 }
@@ -504,8 +507,8 @@ export async function linkReceivable(id){
   await Store.update(k(), 'receivables', r.id, patch); Object.assign(r, patch);
   renderAll();
   toast('Ligado: o gasto agora é “pago por ' + r.person + '”' + (a.refund && olds.length ? ' e os recebimentos antigos viraram devolução.' : '.'));
-  // Compra antiga: já pergunta sobre as parcelas que passaram pelas faturas.
-  if (recvBehind(r)) await syncReceivable(r.id);
+  // Compra antiga: as parcelas que já passaram pelas faturas são registradas sozinhas (com “Desfazer”).
+  if (recvBehind(r)) await autoSyncReceivables();
 }
 
 // "Cartão Inter · parcela 2 de 3 · fatura de novembro de 2026" (compra feita no seu cartão).
@@ -571,6 +574,76 @@ export async function receiveReceivable(id){
   toast('Recebimento de ' + fmtMoney(a.amount) + ' registrado' + (a.asIncome ? ' como ganho.' : ' como devolução.'));
   notifyReceipt(r, a.amount, false);
 }
+// Registrar vários recebimentos de uma vez: de uma pessoa (key) ou de todas (key vazia). Cada um entra pelo valor que
+// vence agora (a próxima parcela, ou o que falta), contado como devolução ou ganho conforme o tipo; um aviso permite desfazer tudo.
+export async function receiveAll(key){
+  var open = State.receivables.filter(function(r){ return !r.forgiven && recvRemaining(r) > 0.004 && (!key || fold(String(r.person || '').trim()) === key); });
+  if (!open.length){ toast('Nada em aberto para registrar.'); return; }
+  function amountOf(r){ var info = recvInstallInfo(r); return money(Math.min(recvRemaining(r), info ? recvNextAmount(r) : recvRemaining(r))); }
+  var total = sumMoney(open, amountOf);
+  var who = key ? String(open[0].person || '').trim() : open.length + ' registros';
+  var a = await openModal({
+    title: key ? 'Registrar tudo de ' + who : 'Registrar todos os recebimentos',
+    body: '<p>Vai registrar <strong class="tabular">' + fmtMoney(total) + '</strong> em ' + open.length + (open.length === 1 ? ' recebimento' : ' recebimentos') + ':</p>' +
+      '<ul class="link-tips">' + open.map(function(r){ return '<li>' + escapeHtml(r.person) + ' · ' + escapeHtml(r.description || labelOf(RECV_KINDS, r.kind)) + ': <strong class="tabular">' + fmtMoney(amountOf(r)) + '</strong></li>'; }).join('') + '</ul>' +
+      (State.accounts.length ? accountSelectHtml('rcvAllAcc', 'acc', 'Para onde foi o dinheiro?') : '') +
+      '<p class="field-hint">Cada um conta como devolução (dinheiro seu voltando) ou ganho, como já estava definido. Dá para desfazer logo depois.</p>',
+    submitLabel: 'Registrar tudo',
+    onSubmit: function(form){ return {accountId: form.acc ? (form.acc.value || null) : null}; }
+  });
+  if (!a) return;
+  var done = [];
+  for (var i = 0; i < open.length; i++){
+    var r = open[i], amount = amountOf(r), before = (r.payments || []).length;
+    await recordReceipt(r, {amount: amount, date: todayKey(), accountId: a.accountId, asIncome: !recvDefaultRefund(r)});
+    done.push({id: r.id, payId: r.payments[before].id, amount: amount, r: r});
+  }
+  renderAll();
+  toastAction(fmtMoney(sumMoney(done, function(d){ return d.amount; })) + ' registrados em ' + done.length + (done.length === 1 ? ' recebimento.' : ' recebimentos.'), 'Desfazer', async function(){
+    for (var j = 0; j < done.length; j++) await undoPayment('recv:' + done[j].id + ':' + done[j].payId, true);
+    renderAll();
+    toast('Recebimentos desfeitos.');
+  });
+  done.forEach(function(d){ notifyReceipt(d.r, d.amount, false); });
+}
+
+// Automático: parcelas da compra que já passaram pelas faturas viram recebidas, sem perguntar (antes era preciso
+// tocar em “Atualizar pelas faturas”). Um aviso com “Desfazer” aparece; desfeito, o alerta não volta sozinho.
+var autoSyncing = false;
+export async function autoSyncReceivables(){
+  if (autoSyncing) return;
+  autoSyncing = true;
+  try {
+    var done = [];
+    for (var i = 0; i < State.receivables.length; i++){
+      var r = State.receivables[i], h = (!r.forgiven && recvRemaining(r) > 0.004) ? recvBehind(r) : null;
+      if (!h) continue;
+      var delta = money(h.passedAmount - Number(r.receivedAmount || 0));
+      var patch = {syncedParcels: h.passed, priorSettled: {count: h.passed, amount: h.passedAmount, paid: delta > 0}}, payId = null;
+      if (delta > 0){
+        payId = uid();
+        patch.receivedAmount = money(Math.min(Number(r.totalAmount), Number(r.receivedAmount || 0) + delta));
+        patch.payments = (r.payments || []).concat([{id: payId, date: todayKey(), amount: delta, accountId: null, asIncome: false, txId: null, fromInvoices: true, auto: true}]);
+      }
+      await Store.update(k(), 'receivables', r.id, patch);
+      Object.assign(r, patch);
+      if (payId) done.push({r: r, payId: payId, delta: delta});
+    }
+    if (!done.length) return;
+    renderAll();
+    var names = done.map(function(d){ return String(d.r.person || '').trim(); }).filter(function(n, idx, a){ return a.indexOf(n) === idx; }).join(', ');
+    toastAction('Pelas faturas já pagas, registramos ' + fmtMoney(sumMoney(done, function(d){ return d.delta; })) + ' como devolvido por ' + names + '.', 'Desfazer', async function(){
+      for (var j = 0; j < done.length; j++){
+        await undoPayment('recv:' + done[j].r.id + ':' + done[j].payId, true);
+        await Store.update(k(), 'receivables', done[j].r.id, {priorSettled: Object.assign({}, done[j].r.priorSettled, {paid: false})});
+        done[j].r.priorSettled = Object.assign({}, done[j].r.priorSettled, {paid: false});
+      }
+      renderAll();
+      toast('Registro automático desfeito.');
+    });
+  } finally { autoSyncing = false; }
+}
+
 // Grava um recebimento: lançamento (ganho, ou devolução que entrou numa conta) e histórico.
 // extra: campos a mais no registro do histórico (ex.: o aviso de pagamento confirmado).
 export async function recordReceipt(r, a){

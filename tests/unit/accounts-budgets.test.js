@@ -148,3 +148,37 @@ test('a receber parcelado: registros antigos recebidos com a parcela sem a sobra
     assert.ok(recvNextAmount(x) >= 0 && recvDueByMonth(x, '2026-12') >= 0, String(c));
   }
 });
+
+test('alertas do planejamento: 90% é "perto", acima de 100% é "passou", sem limite não alerta', async () => {
+  const {budgetAlerts} = await import('../../js/domain/budgets.js');
+  const a = budgetAlerts({alimentacao: 900, lazer: 1000.01, transporte: 100, outros: 500}, {alimentacao: 1000, lazer: 1000, transporte: 1000});
+  assert.deepEqual(a.map(x => [x.cat, x.level]), [['lazer', 'over'], ['alimentacao', 'near']]);
+  assert.deepEqual(budgetAlerts({alimentacao: 899}, {alimentacao: 1000}), []);
+  assert.deepEqual(budgetAlerts({alimentacao: 1000}, {alimentacao: 1000}).map(x => x.level), ['near'], 'exatamente 100% ainda é "perto"');
+});
+
+test('evolução do mês: acumulado até hoje, ritmo ideal e projeção', async () => {
+  const {monthBurn} = await import('../../js/domain/budgets.js');
+  const items = [{date: '2026-11-02', amount: 100}, {date: '2026-11-05', amount: 200}, {date: '2026-11-25', amount: 50}, {date: '2026-10-28', amount: 40}];
+  const b = monthBurn(items, '2026-11', '2026-11-10', 600);
+  assert.equal(b.days, 30); assert.equal(b.upto, 10);
+  assert.equal(b.cum.length, 10);
+  assert.equal(b.spent, 340, '100 + 200 + 40 que veio de fatura anterior (dia 1)');
+  assert.equal(b.scheduled, 50, 'o de 25/11 ainda é agendado');
+  assert.equal(b.ideal[29], 600);
+  assert.equal(b.ahead, 140, '340 − 600×10/30');
+  assert.equal(b.projected, 1020, '340 / 10 × 30');
+  const past = monthBurn(items, '2026-11', '2026-12-05', 600);
+  assert.equal(past.upto, 30); assert.equal(past.spent, 390); assert.equal(past.scheduled, 0);
+  assert.equal(monthBurn(items, '2026-11', '2026-10-20', 600).upto, 0, 'mês futuro: nada gasto ainda');
+});
+
+test('ajuste de saldo entra no saldo e nas movimentações sem virar ganho nem gasto', () => {
+  const a = {id: 'a1', name: 'Nubank', initialBalance: 900, baseDate: '2026-10-01', baseAt: 1,
+    adjustments: [{id: 'j1', date: '2026-10-05', createdAt: 10, amount: 1100}, {id: 'j2', date: '2026-10-06', createdAt: 11, amount: -0.12}, {id: 'j3', date: '2026-12-01', createdAt: 12, amount: 500}]};
+  const data = {transactions: [{id: 't', type: 'expense', amount: 50, paymentMethod: 'conta', accountId: 'a1', date: '2026-10-07', createdAt: 20}], transfers: [], cards: [], accounts: [a]};
+  assert.equal(accountBalance(a, data, '2026-10-10', t => 'x'), 1949.88, '900 + 1.100 − 0,12 − 50 (o de dezembro ainda não vale)');
+  const moves = accountMoves(a, data, '2026-10-10', t => 'x');
+  assert.deepEqual(moves.filter(m => m.kind === 'Ajuste de saldo').map(m => m.amount), [-0.12, 1100]);
+  assert.equal(moves.filter(m => m.kind === 'Ganho').length, 0);
+});

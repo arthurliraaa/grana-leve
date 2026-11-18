@@ -3,6 +3,8 @@
  * O saldo parte do valor informado no cadastro (ou no último ajuste) e soma só o que aconteceu
  * depois dele: ganhos e gastos ligados à conta, transferências e faturas pagas com ela.
  * Lançamentos com data futura só entram quando a data chega.
+ * Ajuste de saldo (adjustments: [{id, date, createdAt, amount, note?}]): corrige a diferença entre o app e o
+ * banco sem apagar o histórico. Entra no saldo, mas não é ganho nem gasto (kind 'Ajuste de saldo').
  */
 import {invoiceLabel} from './cards.js';
 import {money, sumMoney} from './money.js';
@@ -22,6 +24,9 @@ export function accountMoves(a, data, today, txLabel){
     if (t.accountId !== a.id) return;
     if (t.type === 'income') add(t.date, t.createdAt, Number(t.amount), txLabel(t), 'Ganho');
     else if (t.type === 'expense' && t.paymentMethod === 'conta') add(t.date, t.createdAt, -Number(t.amount), txLabel(t), t.reversal ? 'Estorno' : 'Gasto');
+  });
+  (a.adjustments || []).forEach(function(x){
+    add(x.date, x.createdAt, Number(x.amount), x.note || 'Ajuste de saldo', 'Ajuste de saldo', {adjustId: x.id});
   });
   data.transfers.forEach(function(x){
     var note = x.description ? ' · ' + x.description : '';

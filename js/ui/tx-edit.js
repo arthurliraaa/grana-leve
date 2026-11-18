@@ -12,6 +12,8 @@ import {clampInstall, isPersonal, reversalsOf, myShare} from '../domain/transact
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceLabel} from '../domain/cards.js';
 import {Store} from '../data/store.js';
+import {NEAR_LIMIT, budgetAlerts} from '../domain/budgets.js';
+import {getPrefs, setPref} from '../data/session.js';
 
 import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast, toastAction} from './dom.js';
 import {openModal} from './modal.js';
@@ -454,7 +456,8 @@ export async function saveTransactions(list){
   return saved;
 }
 
-// Avisa na hora quando um gasto do mês atual faz a categoria chegar a 80% ou passar do planejado.
+// Avisa na hora quando um gasto do mês atual faz a categoria chegar perto do limite (90%) ou passar do planejado.
+// O aviso aparece como mensagem e fica também na faixa de alertas, visível em qualquer tela.
 export function checkBudgetAlerts(newTx){
   var cur = monthBounds(0).key, added = {};
   newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && Tx.monthOf(t) === cur) added[t.category] = (added[t.category]||0) + myShare(t); });
@@ -466,10 +469,41 @@ export function checkBudgetAlerts(newTx){
     var name = catLabel(cat, 'expense');
     if (after > limit && before <= limit){
       toast('Atenção: você passou ' + fmtMoney(after - limit) + ' do planejado para ' + name + ' neste mês.');
-    } else if (after >= 0.8 * limit && before < 0.8 * limit){
-      toast('Você já usou ' + Math.round(100 * after / limit) + '% do planejado para ' + name + '. Restam ' + fmtMoney(limit - after) + '.');
+    } else if (after >= NEAR_LIMIT * limit && before < NEAR_LIMIT * limit && after <= limit){
+      toast('Perto do limite: você já usou ' + Math.round(100 * after / limit) + '% do planejado para ' + name + '. Restam ' + fmtMoney(limit - after) + '.');
     }
   });
+  renderBudgetAlerts();
+}
+// Faixa de alertas do planejamento (qualquer tela): categorias do mês a partir de 90% do limite ou acima dele.
+// “Dispensar” esconde o aviso daquela categoria neste mês; ele volta se passar do limite.
+var alertsWired = false;
+export function renderBudgetAlerts(){
+  var el = document.getElementById('budgetAlerts');
+  if (!el) return;
+  var cur = monthBounds(0).key, seen = (getPrefs().budgetAlertSeen || {})[cur] || {};
+  var plan = {};
+  expenseCats().forEach(function(c){ var l = budgetLimit(cur, c.id); if (l > 0) plan[c.id] = l; });
+  var alerts = State.session ? budgetAlerts(expenseCategoryTotals(cur), plan).filter(function(x){ return seen[x.cat] !== x.level; }) : [];
+  el.hidden = !alerts.length;
+  if (!alertsWired){
+    alertsWired = true;
+    el.addEventListener('click', function(e){
+      var b = e.target.closest('[data-budget-dismiss]');
+      if (!b) return;
+      var parts = b.getAttribute('data-budget-dismiss').split(':'), prefs = getPrefs().budgetAlertSeen || {}, key = monthBounds(0).key;
+      prefs[key] = Object.assign({}, prefs[key] || {}); prefs[key][parts[0]] = parts[1];
+      setPref('budgetAlertSeen', prefs);
+      renderBudgetAlerts();
+    });
+  }
+  el.innerHTML = alerts.map(function(x){
+    var name = escapeHtml(catLabel(x.cat, 'expense'));
+    return '<div class="ba-item ' + x.level + '"><span class="ba-txt">' + icon('gauge') + (x.level === 'over' ?
+        '<strong>' + name + '</strong> passou ' + fmtMoney(x.spent - x.limit) + ' do planejado (' + Math.round(x.pct * 100) + '%).' :
+        '<strong>' + name + '</strong> está em ' + Math.round(x.pct * 100) + '% do planejado. Restam ' + fmtMoney(x.limit - x.spent) + '.') + '</span>' +
+      '<span class="ba-act"><a href="#/limites" data-go="limites">Ver planejamento</a><button type="button" class="linklike" data-budget-dismiss="' + x.cat + ':' + x.level + '">Dispensar</button></span></div>';
+  }).join('');
 }
 export function installmentRowHtml(g, withCard){
   var pct = g.total > 0 ? g.done / g.total : 0;

@@ -87,6 +87,17 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
 - **Ganhos e gastos**: o aviso “Compras deste mês que entram em faturas seguintes” abre e fecha (a
   escolha fica salva).
 
+- **Planejar gastos — avisos**: uma categoria a partir de **90%** do limite (“perto do limite”) ou acima
+  de 100% gera uma mensagem na hora e uma faixa de alertas no topo, em qualquer tela. “Dispensar” esconde o
+  aviso da categoria no mês; ele volta se passar do limite. A aba traz um aviso de primeira vez e o gráfico
+  “Evolução do mês” (gasto acumulado × ritmo ideal do limite, com a projeção do fim do mês).
+- **Ajuste de saldo da conta**: corrigir o saldo de uma conta não apaga o histórico nem conta como ganho ou
+  gasto: a diferença vira um lançamento “Ajuste de saldo” (`adjustments` da conta), que pode ser desfeito.
+- **Me devem — registro automático**: parcelas de compras ligadas que já passaram pelas faturas são
+  registradas como devolvidas sozinhas (sem perguntar), com aviso e “Desfazer”; depois de desfeito, o alerta
+  não volta. Há também “Registrar tudo” por pessoa e “Registrar todos os recebimentos” (valor que vence
+  agora de cada um), com “Desfazer”.
+
 ## Compras parceladas
 
 - Só compras no cartão são parceladas (até 24x). Cada parcela é um lançamento, uma por

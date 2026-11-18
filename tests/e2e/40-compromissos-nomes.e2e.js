@@ -7,7 +7,7 @@ L.run(async ({page}) => {
     u.debts = [{id: 'd1', name: 'Empréstimo da tia', kind: 'pessoa', creditor: 'Tia Rosa', totalAmount: 1200, paidAmount: 300, monthlyPayment: 150, urgency: 'alta', createdAt: 1,
         payments: [{id: 'q1', date: '2026-09-05', amount: 300, n: 2, accountId: null, asExpense: true}]},
       {id: 'd2', name: 'Cartão atrasado', kind: 'banco', creditor: '', totalAmount: 900, paidAmount: 0, monthlyPayment: 0, urgency: 'media', createdAt: 2}];
-    u.receivables = [{id: 'r1', person: 'Bia', kind: 'outro', description: 'Ingresso', totalAmount: 180, receivedAmount: 60, urgency: 'media', createdAt: 1,
+    u.receivables = [{id: 'r1', person: 'Bia', kind: 'outro', description: 'Ingresso', totalAmount: 180, receivedAmount: 60, syncedParcels: 1, urgency: 'media', createdAt: 1,
         payments: [{id: 'p1', date: '2026-09-10', amount: 60, accountId: null, asIncome: false}]},
       {id: 'r2', person: 'Bia', kind: 'outro', description: 'Uber', totalAmount: 35, receivedAmount: 0, urgency: 'media', createdAt: 2}];
     u.transactions = (u.transactions || []).concat([{id: 'tx1', type: 'expense', amount: 180, category: 'lazer', date: '2026-09-01', description: 'Ingresso', paymentMethod: null,

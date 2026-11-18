@@ -28,6 +28,7 @@ export function moveRowHtml(m){
     '<span class="tx-cat-dot" style="background:' + (pos ? 'var(--good)' : 'var(--text-muted)') + '"></span>' +
     '<div class="tx-main"><div class="tx-desc">' + escapeHtml(m.label) + '</div><div class="tx-meta">' + m.kind + ' · ' + formatDateBr(m.date) + '</div></div>' +
     '<span class="tx-amount tabular ' + (pos ? 'income' : 'expense') + '">' + (pos ? '+ ' : '- ') + fmtMoney(Math.abs(m.amount)) + '</span>' +
+    (m.adjustId ? '<button class="tx-del" type="button" data-adjust-undo="' + escapeHtml(m.accId + ':' + m.adjustId) + '" aria-label="Desfazer ajuste de saldo" title="Desfazer ajuste">' + icon('trash') + '</button>' : '') +
     (m.transferId ? '<button class="tx-del" type="button" data-transfer-del="' + escapeHtml(m.transferId) + '" aria-label="Excluir transferência" title="Excluir transferência">' + icon('trash') + '</button>' : '') +
     '</div>';
 }
@@ -56,8 +57,8 @@ export function bankGroups(){
 // Seção da conta dentro do bloco do banco: saldo, entradas e saídas do mês numa linha; ações no cabeçalho
 // da seção; movimentações recolhidas.
 export function accountHtml(a){
-  var cur = monthBounds(0).key, bal = accountBalance(a), moves = accountMoves(a);
-  var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur; });
+  var cur = monthBounds(0).key, bal = accountBalance(a), moves = accountMoves(a).map(function(m){ return Object.assign({accId: a.id}, m); });
+  var month = moves.filter(function(m){ return monthKeyOf(m.date) === cur && m.kind !== 'Ajuste de saldo'; });
   var inM = sum(month.filter(function(m){ return m.amount > 0; }), function(m){ return m.amount; });
   var outM = -sum(month.filter(function(m){ return m.amount < 0; }), function(m){ return m.amount; });
   return '<div class="bank-sec account-card" aria-label="Conta ' + escapeHtml(a.name) + '">' +
@@ -142,21 +143,46 @@ export async function editAccount(id){
     title: 'Editar conta',
     body: '<div class="field"><label for="eaName">Nome da conta</label><input id="eaName" name="name" type="text" maxlength="40" value="' + escapeHtml(a.name) + '"></div>' +
       '<div class="field"><label for="eaBalance">Saldo hoje</label><span class="money-input"><span>R$</span><input id="eaBalance" name="balance" type="text" data-money autocomplete="off" inputmode="decimal" value="' + current + '"></span>' +
-      '<span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do banco. O app passa a contar a partir de agora.</span></div>' +
+      '<span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do banco. A diferença vira um <strong>ajuste de saldo</strong> no histórico: não conta como ganho nem como gasto e não apaga nada.</span>' +
+      '<p class="field-hint adj-preview" id="eaAdjust" aria-live="polite"></p></div>' +
       '<fieldset class="brand-fieldset"><legend><span id="eaPreview"></span>Cor e ícone</legend>' + pickerHtml('eaP', a) + '</fieldset>',
-    onOpen: function(modal){ wirePicker(modal, 'eaP', qs('#eaName', modal), qs('#eaPreview', modal)); },
+    onOpen: function(modal){
+      wirePicker(modal, 'eaP', qs('#eaName', modal), qs('#eaPreview', modal));
+      var inp = qs('#eaBalance', modal), out = qs('#eaAdjust', modal);
+      function showAdj(){
+        var diff = inp.value === '' ? 0 : money(money(inp.value) - current);
+        out.textContent = diff ? 'Saldo no app: ' + fmtMoney(current) + ' → novo saldo ' + fmtMoney(money(inp.value)) + '. Ajuste de ' + (diff > 0 ? '+ ' : '− ') + fmtMoney(Math.abs(diff)) + '.' : '';
+      }
+      inp.addEventListener('input', showAdj); showAdj();
+    },
     onSubmit: async function(form){
       var name = form.name.value.trim();
       if (!name) return {error:'Dê um nome para a conta.'};
       var patch = Object.assign({name: name}, readPicker(form, 'eaP'));
       var bal = money(form.balance.value);
-      if (form.balance.value !== '' && bal !== current){ patch.initialBalance = bal; patch.baseDate = todayKey(); patch.baseAt = Date.now(); }
+      // A diferença vira um ajuste de saldo (não conta como ganho nem gasto e o histórico fica).
+      if (form.balance.value !== '' && bal !== current){
+        patch.adjustments = (a.adjustments || []).concat([{id: uid(), date: todayKey(), createdAt: Date.now(), amount: money(bal - current), note: 'Ajuste de saldo'}]);
+      }
       await Store.update(k(), 'accounts', id, patch);
       Object.assign(a, patch);
       renderAll();
-      toast('Conta atualizada.');
+      toast(patch.adjustments ? 'Conta atualizada. Ajuste de saldo de ' + fmtMoney(patch.adjustments[patch.adjustments.length - 1].amount) + ' registrado.' : 'Conta atualizada.');
     }
   });
+}
+// Desfaz um ajuste de saldo (ref = "idDaConta:idDoAjuste").
+export async function undoBalanceAdjust(ref){
+  var parts = ref.split(':'), a = findById(State.accounts, parts[0]);
+  if (!a) return;
+  var item = (a.adjustments || []).filter(function(x){ return x.id === parts[1]; })[0];
+  if (!item) return;
+  if (!(await confirmAction({title: 'Desfazer este ajuste de saldo?', danger: false, confirmLabel: 'Desfazer', message: 'O ajuste de ' + fmtMoney(item.amount) + ' sai e o saldo da conta ' + a.name + ' volta ao valor de antes.'}))) return;
+  var list = (a.adjustments || []).filter(function(x){ return x.id !== item.id; });
+  await Store.update(k(), 'accounts', a.id, {adjustments: list});
+  a.adjustments = list;
+  renderAll();
+  toast('Ajuste desfeito.');
 }
 
 export async function openTransfer(fromId){

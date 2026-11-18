@@ -186,7 +186,7 @@ export function monthPayments(){
   bankGroups().forEach(function(g){
     var first = g.acc || g.cards[0], paid = 0, left = 0, leftMine = 0;
     if (g.acc){
-      paid += -sumMoney(accountMoves(g.acc).filter(function(m){ return m.amount < 0 && m.kind !== 'Transferência' && m.date.slice(0, 7) === cur; }), function(m){ return m.amount; });
+      paid += -sumMoney(accountMoves(g.acc).filter(function(m){ return m.amount < 0 && m.kind !== 'Transferência' && m.kind !== 'Ajuste de saldo' && m.date.slice(0, 7) === cur; }), function(m){ return m.amount; });
       var sc = scheduled(function(t){ return t.accountId === g.acc.id; });
       var bl = sumMoney(bills.filter(function(o){ return o.b.pay === 'acc:' + g.acc.id; }), function(o){ return o.amount; });
       var scMine = scheduled(function(t){ return t.accountId === g.acc.id; }, myShare);
