@@ -141,9 +141,12 @@ hourlyRate(salary, weeklyHours) -> reais        // divisor = horas semanais × 5
 overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, {workDays, restDays}) -> {hourly, pay50, pay100, dsr, total}
 //   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ dias de trabalho) × dias de repouso (padrão 25 e 5)
 DISCOUNT_TYPES                                  // vt, saude, odonto, refeicao, pensao, consignado, sindical, adiantamento (varia), outro
+BONUS_TYPES                                     // homeoffice, ajuda, alimentacao, transporte (não tributam); bonificacao, comissao, plr (variam); gratificacao, outro
 discountAmount({mode: 'pct'|'fixed', value}, base) -> reais
 netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps, meiKind, inssKind,
-           simplesRate, otherPct})   // discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}]
+           simplesRate, otherPct, bonuses})   // discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}]
+//   bonuses (ganhos além do salário): [{type, label?, mode, value, varies?, taxable?}]; taxable soma à base do INSS e do
+//   imposto (padrão por tipo: bonificação, comissão, gratificação, PLR pagam; auxílios e ajuda de custo não), senão só ao líquido
   -> {lines: [{id, label, amount, kind: 'base'|'plus'|'minus'}], gross, extras, total, discounts, net, fixedNet, hasVariable, rate}
 //   regime: clt | servidor | mei | autonomo | pj | estagio | outro. Só o salário e os descontos que NÃO variam são fixos:
 //   horas extras (e o repouso delas) e descontos com varies:true entram só em net (o mês); fixedNet é o que se registra

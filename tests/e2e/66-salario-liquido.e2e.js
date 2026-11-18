@@ -30,6 +30,19 @@ L.run(async ({page}) => {
   await page.$eval('.sc-disc-row:nth-child(2) .sc-d-del', e => e.click()); await L.sleep(250);
   L.ok(!/Adiantamento/.test(await net()), 'dá para remover um desconto');
 
+  L.section('Ganhos além do salário');
+  await page.$eval('[data-add-bonus]', e => e.click()); await L.sleep(200);
+  await page.type('#scBonusList .sc-d-value', '150'); await L.sleep(250);
+  r = await net();
+  L.ok(/Auxílio home office · não tributa\s*\+ R\$\s?150,00/.test(r) && /Líquido estimado\s*R\$\s?2\.811,40/.test(r), 'auxílio home office soma ao líquido sem pagar imposto (2.661,40 + 150)');
+  await page.$eval('[data-add-bonus]', e => e.click()); await L.sleep(200);
+  await page.$eval('#scBonusList .sc-disc-row:nth-child(2) .sc-d-type', e => { e.value = 'bonificacao'; e.dispatchEvent(new Event('change', {bubbles: true})); });
+  await page.type('#scBonusList .sc-disc-row:nth-child(2) .sc-d-value', '1000'); await L.sleep(250);
+  r = await net();
+  L.ok(await page.$eval('#scBonusList .sc-disc-row:nth-child(2) .sc-d-var', e => e.checked) && await page.$eval('#scBonusList .sc-disc-row:nth-child(2) .sc-d-tax', e => e.checked), 'bonificação vem como “varia todo mês” e “paga imposto”');
+  L.ok(/Líquido fixo \(todo mês\)[\s\S]*R\$\s?2\.811,40/.test(r) && /Líquido deste mês\s*R\$\s?3\.691,40/.test(r), 'a bonificação entra só no líquido do mês (3.691,40); o fixo continua 2.811,40');
+  await page.$eval('#scBonusList .sc-disc-row:nth-child(2) .sc-d-del', e => e.click()); await L.sleep(250);
+
   L.section('Horas extras e repouso');
   await page.type('#scH50', '10'); await page.type('#scH100', '4'); await L.sleep(250);
   r = await net();
@@ -38,7 +51,7 @@ L.run(async ({page}) => {
   await page.type('#scWork', '20'); await page.type('#scRest', '10'); await L.sleep(250);
   const dsr20 = (await net()).match(/Descanso semanal[^\d]*R\$\s?([\d.,]+)/)[1];
   L.ok(dsr25 !== dsr20, 'o repouso muda com os dias de trabalho e de descanso informados (' + dsr25 + ' → ' + dsr20 + ')');
-  L.ok(/Líquido deste mês/.test(r) && /Líquido fixo \(todo mês\)[\s\S]*R\$\s?2\.661,40/.test(r) && !(await page.$eval('[data-use=month]', e => e.hidden)), 'as horas extras não entram no fixo (2.661,40); oferece usar o líquido do mês só uma vez');
+  L.ok(/Líquido deste mês/.test(r) && /Líquido fixo \(todo mês\)[\s\S]*R\$\s?2\.811,40/.test(r) && !(await page.$eval('[data-use=month]', e => e.hidden)), 'as horas extras não entram no fixo (2.811,40); oferece usar o líquido do mês só uma vez');
   await page.$eval('#scWork', e => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); });
   await page.$eval('#scRest', e => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); });
   await page.$eval('#scH50', e => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); });
@@ -53,11 +66,11 @@ L.run(async ({page}) => {
 
   L.section('Usar o líquido');
   await page.$eval('#modalRoot form', f => f.requestSubmit ? f.requestSubmit() : f.dispatchEvent(new Event('submit', {cancelable: true}))); await L.sleep(400);
-  L.ok(Number(await page.$eval('#fcAmount', e => e.value)) === 2661.4, '“Usar o líquido fixo” preenche o valor de Previstas (2.661,40, com o vale-transporte de 3%)');
+  L.ok(Number(await page.$eval('#fcAmount', e => e.value)) === 2811.4, '“Usar o líquido fixo” preenche o valor de Previstas (2.811,40: vale-transporte de 3% e auxílio home office)');
 
   L.section('Lembra do jeito de trabalhar');
   await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
-  L.ok(await page.$eval('#scRegime', e => e.value) === 'clt' && await page.$eval('.sc-d-value', e => e.value) === '3', 'o jeito de trabalhar e os descontos ficam salvos para a próxima vez');
+  L.ok(await page.$eval('#scRegime', e => e.value) === 'clt' && await page.$eval('#scDiscList .sc-d-value', e => e.value) === '3', 'o jeito de trabalhar e os descontos ficam salvos para a próxima vez');
   await L.closeModal(page);
 
   L.section('Simulador e formulário de ganho');

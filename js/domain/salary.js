@@ -90,13 +90,31 @@ export function discountAmount(d, base){
   return money(d.mode === 'pct' ? base * v / 100 : v);
 }
 
+// Ganhos extras do contracheque (além do salário). taxable: entra na base do INSS e do imposto de renda (bonificação,
+// comissão, gratificação); os indenizatórios (ajuda de custo, auxílio home office, auxílio-alimentação) só somam ao
+// líquido. varies: costuma mudar de um mês para o outro.
+export var BONUS_TYPES = [
+  {id: 'homeoffice', label: 'Auxílio home office', taxable: false, hint: 'ajuda para internet, energia e estrutura em casa'},
+  {id: 'ajuda', label: 'Ajuda de custo', taxable: false},
+  {id: 'alimentacao', label: 'Auxílio-alimentação ou refeição', taxable: false},
+  {id: 'transporte', label: 'Auxílio-transporte ou combustível', taxable: false},
+  {id: 'bonificacao', label: 'Bonificação', taxable: true, varies: true},
+  {id: 'comissao', label: 'Comissão', taxable: true, varies: true},
+  {id: 'gratificacao', label: 'Gratificação', taxable: true},
+  {id: 'plr', label: 'Participação nos lucros (PLR)', taxable: true, varies: true},
+  {id: 'outro', label: 'Outro ganho', taxable: true}
+];
+export function bonusAmount(b, base){ return discountAmount(b, base); }
+
 // Líquido estimado. opts: {regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps,
-// meiKind, inssKind, simplesRate, otherPct}. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}].
+// meiKind, inssKind, simplesRate, otherPct, bonuses}. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}];
+// bonuses: [{type, label?, mode, value, varies?, taxable?}] (ganhos extras: ver BONUS_TYPES).
 // Só o salário (e os descontos que não variam) é fixo: horas extras e descontos “que variam” entram só no líquido
 // DESTE MÊS (net); o líquido para registrar todo mês é fixedNet.
 export function netSalary(opts, tables){
   var full = runNet(opts, tables, true);
-  var hasVariable = full.extras > 0 || (opts.discounts || []).some(function(d){ return d.varies && discountAmount(d, full.gross) > 0; });
+  var hasVariable = full.extras > 0 || (opts.discounts || []).some(function(d){ return d.varies && discountAmount(d, full.gross) > 0; }) ||
+    (opts.bonuses || []).some(function(b){ return b.varies && bonusAmount(b, full.gross) > 0; });
   full.fixedNet = hasVariable ? runNet(opts, tables, false).net : full.net;
   full.hasVariable = hasVariable;
   return full;
@@ -106,11 +124,21 @@ function runNet(opts, tables, withVariable){
   var lines = [], ot = {pay50: 0, pay100: 0, dsr: 0, total: 0};
   var canOvertime = regime === 'clt' || regime === 'servidor';
   if (canOvertime && withVariable) ot = overtimePay(gross, opts.weeklyHours, opts.h50, opts.h100, opts.dsr !== false, T, {workDays: opts.workDays, restDays: opts.restDays});
-  var total = money(gross + ot.total), disc = 0;
+  // Ganhos extras: os que variam só entram no mês. Os tributáveis somam à base do INSS e do imposto; os demais só ao líquido.
+  var bonusLines = [], taxableBonus = 0, freeBonus = 0;
+  (opts.bonuses || []).filter(function(b){ return withVariable || !b.varies; }).forEach(function(b){
+    var meta = BONUS_TYPES.filter(function(t){ return t.id === b.type; })[0] || {}, v = bonusAmount(b, gross);
+    if (!(v > 0)) return;
+    var taxable = b.taxable === undefined ? meta.taxable !== false : !!b.taxable;
+    bonusLines.push({id: 'b:' + (b.type || 'outro'), label: (b.label || meta.label || 'Ganho extra') + (b.mode === 'pct' ? ' (' + (Number(b.value) || 0) + '%)' : '') + (b.varies ? ' · varia' : '') + (taxable ? '' : ' · não tributa'), amount: v, kind: 'plus'});
+    if (taxable) taxableBonus += v; else freeBonus += v;
+  });
+  var total = money(gross + ot.total + taxableBonus), disc = 0;
   lines.push({id: 'gross', label: 'Salário bruto', amount: gross, kind: 'base'});
   if (ot.pay50) lines.push({id: 'ot50', label: 'Horas extras 50% (' + Number(opts.h50) + ' h)', amount: ot.pay50, kind: 'plus'});
   if (ot.pay100) lines.push({id: 'ot100', label: 'Horas extras 100% (' + Number(opts.h100) + ' h)', amount: ot.pay100, kind: 'plus'});
   if (ot.dsr) lines.push({id: 'dsr', label: 'Descanso semanal (DSR) sobre as horas extras', amount: ot.dsr, kind: 'plus'});
+  bonusLines.forEach(function(l){ lines.push(l); });
   function minus(id, label, v){ v = money(v); if (v > 0){ lines.push({id: id, label: label, amount: v, kind: 'minus'}); disc += v; } return v; }
   // Descontos escolhidos (os que variam só entram no líquido do mês). Pensão alimentícia também abate no imposto.
   var chosen = (opts.discounts || []).filter(function(d){ return withVariable || !d.varies; });
@@ -138,8 +166,8 @@ function runNet(opts, tables, withVariable){
     var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === d.type; })[0] || {};
     minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
   });
-  var net = money(total - disc);
-  return {lines: lines, gross: gross, extras: ot.total, total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
+  var net = money(total + freeBonus - disc);
+  return {lines: lines, gross: gross, extras: ot.total, bonuses: money(taxableBonus + freeBonus), total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
 }
 
 export var REGIMES = [

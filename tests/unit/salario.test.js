@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, DISCOUNT_TYPES, TABLES} from '../../js/domain/salary.js';
+import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
 
 test('INSS do empregado: progressivo por faixa e limitado ao teto', () => {
   assert.equal(inssEmployee(1621), 121.58, '7,5% sobre o salário mínimo');
@@ -77,4 +77,20 @@ test('repouso das horas extras: usa os dias de trabalho e de descanso informados
   assert.equal(overtimePay(2200, 44, 10, 4, true, undefined, {workDays: 26, restDays: 0}).dsr, 0, 'sem dias de repouso não há reflexo');
   const e = netSalary({regime: 'clt', gross: 3000, h50: 10, h100: 4, workDays: 26, restDays: 4});
   assert.equal(e.lines.filter(l => l.id === 'dsr').length, 1);
+});
+
+test('ganhos além do salário: auxílio e ajuda de custo não pagam imposto; bonificação e comissão pagam', () => {
+  assert.ok(BONUS_TYPES.some(t => t.id === 'homeoffice' && t.taxable === false) && BONUS_TYPES.some(t => t.id === 'bonificacao' && t.varies));
+  const ho = netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150}]});
+  assert.equal(ho.net, 2901.4, 'auxílio home office soma inteiro ao líquido (INSS e imposto continuam os do salário)');
+  assert.equal(ho.fixedNet, 2901.4);
+  assert.equal(ho.hasVariable, false, 'o auxílio é fixo, entra no líquido fixo');
+  const grat = netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'gratificacao', mode: 'fixed', value: 1000}]});
+  assert.equal(grat.net, 3631.4, 'gratificação entra na base do INSS: 1.000 − 120 de INSS a mais');
+  const mes = netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150}, {type: 'bonificacao', mode: 'fixed', value: 1000, varies: true}]});
+  assert.equal(mes.hasVariable, true);
+  assert.equal(mes.net, 3781.4);
+  assert.equal(mes.fixedNet, 2901.4, 'a bonificação (varia) só entra no líquido do mês');
+  assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'pct', value: 10}]}).net, 3051.4, 'também em % do salário');
+  assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150, taxable: true}]}).net, 2901.4 - 18, 'dá para marcar que paga imposto (INSS de 12% sobre os 150)');
 });
