@@ -96,3 +96,21 @@ test('meta sem valor alvo: nunca conclui, não tem "falta", mostra ritmo e saldo
   const semPrazo = goalForecast({...open, targetDate: null}, '2026-10-11');
   assert.equal(semPrazo.atDeadline, undefined);
 });
+
+test('simulador: saldo por mês sem e com a compra, mês no vermelho e parcelas', async () => {
+  const {projectCash, firstRedMonth, splitInstallments, goalUseImpact} = await import('../../js/domain/simulate.js');
+  const months = [{key: '2026-11', label: 'nov', out: 200, inc: 0}, {key: '2026-12', label: 'dez', out: 300, inc: 100}, {key: '2027-01', label: 'jan', out: 300, inc: 100}];
+  const rows = projectCash(1000, months, {0: 100, 1: 100, 2: 100}, 0);
+  assert.deepEqual(rows.map(r => r.base), [800, 600, 400]);
+  assert.deepEqual(rows.map(r => r.sim), [700, 400, 100]);
+  assert.deepEqual(rows.map(r => r.diff), [-100, -200, -300]);
+  assert.equal(firstRedMonth(rows), null);
+  const red = projectCash(1000, months, {0: 900}, 0);
+  assert.equal(firstRedMonth(red).label, 'nov', 'compra de 900 já deixa novembro no vermelho (-100)');
+  assert.equal(projectCash(0, [months[0]], {}, 500)[0].sim, 300, 'dinheiro que entra já (empréstimo) soma');
+  assert.deepEqual(splitInstallments(100, 3), [33.34, 33.33, 33.33]);
+  const g = {targetAmount: 5000, currentAmount: 2000, targetDate: '2027-06-01', createdAt: 1, moves: [{id: 'a', date: '2026-10-05', amount: 2000, kind: 'deposit'}]};
+  const imp = goalUseImpact(g, 800, '2026-11-10');
+  assert.equal(imp.after, 1200); assert.equal(imp.pctBefore, 40); assert.equal(imp.pctAfter, 24); assert.equal(imp.shortfall, 0);
+  assert.equal(goalUseImpact(g, 2500, '2026-11-10').shortfall, 500, 'mais do que tem guardado');
+});

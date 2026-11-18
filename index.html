@@ -457,7 +457,7 @@
                 <strong id="txMonthLabel">—</strong>
                 <button type="button" id="nextMonth" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
               </div>
-              <button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button>
+              <span class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-sim-open id="simulateBtn">Simular compra</button><button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button></span>
             </div>
             <div class="segmented tx-views" role="group" aria-label="Como ver os lançamentos">
               <button type="button" data-txview="list" aria-pressed="true" class="active">Lista</button>
@@ -669,6 +669,7 @@
       <div id="tab-conselhos" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-bulb"/></svg>Conselhos</h2>
         <p class="tab-intro">Ideias para gastar com mais calma e guardar mais, feitas a partir dos seus próprios lançamentos. Ficam só no seu aparelho e não são recomendação de investimento.</p>
+        <p><button type="button" class="btn btn-primary btn-sm" data-sim-open>Simular uma compra ou gasto</button></p>
         <div id="adviceList" class="stack"></div>
         <p><button type="button" class="linklike" id="adviceRestore" hidden>Mostrar de novo os conselhos dispensados</button></p>
       </div>

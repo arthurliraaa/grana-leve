@@ -1929,3 +1929,19 @@ details.purchase-notes[open] > summary{ margin-bottom:6px; }
 .advice-card, .advice-minis{ min-width:0; }
 .advice-mini{ min-width:0; max-width:100%; box-sizing:border-box; }
 .advice-grid{ grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }
+.tip-box.warn{ border-color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+
+/* Simulador */
+.sim-kinds, .sim-hz{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.sim-hz > span{ font-size:.9rem; color: var(--text-secondary); }
+.sim-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px 12px; }
+.sim-grid .field[hidden]{ display:none; }
+@media (max-width: 620px){ .sim-grid{ grid-template-columns: minmax(0,1fr); } }
+.sim-goal{ display:grid; gap:10px; padding:10px 12px; border:1px dashed var(--border); border-radius: var(--radius); }
+.sim-result{ display:grid; gap:10px; margin-top:4px; }
+.sim-verdict{ padding:10px 14px; border-radius: var(--radius); border:1px solid var(--border); }
+.sim-verdict.good{ border-color: var(--good); background: color-mix(in srgb, var(--good) 12%, var(--surface)); }
+.sim-verdict.warn{ border-color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); }
+.sim-verdict.bad{ border-color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, var(--surface)); }
+.sim-warns, .sim-notes{ margin:0; padding-left:20px; display:grid; gap:4px; font-size:.92rem; }
+.sim-warns li{ color: var(--critical); }

@@ -4,6 +4,7 @@
  */
 import {toDateKey, todayKey, parseDate, formatDateBr, formatDateFull, validDateStr, monthBounds, monthLabelOf} from '../domain/dates.js';
 import * as Goals from '../domain/goals.js';
+import {goalUseImpact} from '../domain/simulate.js';
 import * as Inv from '../domain/investments.js';
 import {cachedIndexes, fetchIndexes} from '../data/rates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
@@ -258,6 +259,8 @@ export function renderGoals(){
 }
 
 var MOVE_LABEL = {deposit: 'Guardado', yield: 'Rendimento', withdraw: 'Retirada'};
+// Retirada para outra coisa fica marcada no histórico, para lembrar de repor.
+function moveLabel(m){ return m.kind === 'withdraw' && m.purpose === 'outro' ? 'Retirada para outra coisa (fora do objetivo)' : MOVE_LABEL[m.kind]; }
 // Percentual digitado ("10,5" ou "10.5"): número, ou null se vazio/ inválido.
 export function parsePercent(v){
   var s = String(v == null ? '' : v).trim().replace('%', '').replace(',', '.');
@@ -371,7 +374,7 @@ function goalCardHtml(g){
     (status === 'andamento' || status === 'naobatidas' ? goalForecastHtml(g) : '') +
     (hasMoves ? '<details class="budget-details pay-log"><summary>Movimentações (' + s.moves.length + ')</summary>' + s.moves.slice().reverse().map(function(m){
       return '<div class="list-row"><div class="tx-main"><div class="tx-desc tabular">' + (m.kind === 'withdraw' ? '− ' : '+ ') + fmtMoney(m.amount) + '</div>' +
-        '<div class="tx-meta">' + (m.date ? formatDateBr(m.date) + ' · ' : '') + (m.legacy ? 'já guardado antes' : m.adjust ? 'ajuste na edição' : MOVE_LABEL[m.kind]) + '</div></div></div>';
+        '<div class="tx-meta">' + (m.date ? formatDateBr(m.date) + ' · ' : '') + (m.legacy ? 'já guardado antes' : m.adjust ? 'ajuste na edição' : moveLabel(m)) + '</div></div></div>';
     }).join('') + '</details>' : '') +
     '</details>') +
     '<div class="card-actions">' + actions + '</div></div>';
@@ -508,27 +511,62 @@ export async function editGoal(id){
 }
 
 // Guardar, registrar rendimento ou retirar: muda o saldo da meta e entra no histórico com a data.
-export async function goalMove(id, kind, amount){
+export async function goalMove(id, kind, amount, extra){
   var g = findById(State.goals, id);
   var cur = Number(g.currentAmount || 0);
   if (kind === 'withdraw' && amount > cur + 0.001){ toast('Você só pode retirar até ' + fmtMoney(cur) + '.'); return false; }
   var newAmount = money(kind === 'withdraw' ? cur - amount : cur + amount);
-  var moves = Goals.goalMoves(g).concat([{id: uid(), date: todayKey(), amount: money(amount), kind: kind}]);
+  var moves = Goals.goalMoves(g).concat([Object.assign({id: uid(), date: todayKey(), amount: money(amount), kind: kind}, extra || {})]);
   await Store.update(k(), 'goals', g.id, {currentAmount: newAmount, moves: moves});
   g.currentAmount = newAmount; g.moves = moves;
   renderGoals(); renderDashboard();
   return true;
 }
+// Aviso de cuidado ao usar o dinheiro guardado numa meta para outra coisa: quanto ela cai e quanto leva para repor.
+export function offGoalWarningHtml(g, amount){
+  var imp = goalUseImpact(g, amount, todayKey());
+  return '<strong>Cuidado:</strong> você está usando ' + fmtMoney(amount) + ' do que guardou para “' + escapeHtml(g.name) + '” em outra coisa. ' +
+    (imp.shortfall > 0 ? 'Isso é mais do que há guardado (' + fmtMoney(imp.current) + '). ' :
+      'A meta fica com ' + fmtMoney(imp.after) + (imp.hasTarget ? ' (de ' + imp.pctBefore + '% para ' + imp.pctAfter + '% do alvo)' : '') + '. ') +
+    (imp.monthsToRefill ? 'No seu ritmo (' + fmtMoney(imp.pace) + ' por mês), repor leva cerca de ' + imp.monthsToRefill + (imp.monthsToRefill === 1 ? ' mês' : ' meses') + '. ' : 'Planeje como vai repor. ') +
+    (imp.targetDate ? 'O prazo da meta (' + formatDateFull(imp.targetDate) + ') pode ficar apertado.' : '');
+}
 async function askGoalMove(id, kind){
   var g = findById(State.goals, id);
   var yieldKind = kind === 'yield';
-  var r = await askAmount({title: yieldKind ? 'Registrar rendimento' : 'Retirar dinheiro da meta', max: yieldKind ? 0 : Number(g.currentAmount || 0),
-    message: yieldKind ? 'Quanto “' + g.name + '” rendeu? Veja no extrato do banco ou da corretora quanto o dinheiro guardado rendeu desde a última vez.' :
-      'Quanto você tirou de “' + g.name + '”? Hoje ela tem ' + fmtMoney(g.currentAmount || 0) + '.',
-    label: yieldKind ? 'Valor do rendimento' : 'Valor retirado', submitLabel: yieldKind ? 'Registrar' : 'Retirar'});
-  if (!r) return;
-  var v = r.amount;
-  if (await goalMove(id, kind, v)) toast(yieldKind ? 'Rendimento de ' + fmtMoney(v) + ' registrado em “' + g.name + '”.' : fmtMoney(v) + ' retirados de “' + g.name + '”.');
+  if (yieldKind){
+    var r = await askAmount({title: 'Registrar rendimento', max: 0,
+      message: 'Quanto “' + g.name + '” rendeu? Veja no extrato do banco ou da corretora quanto o dinheiro guardado rendeu desde a última vez.', label: 'Valor do rendimento', submitLabel: 'Registrar'});
+    if (!r) return;
+    if (await goalMove(id, kind, r.amount)) toast('Rendimento de ' + fmtMoney(r.amount) + ' registrado em “' + g.name + '”.');
+    return;
+  }
+  // Retirada: diz para que foi. Para o objetivo da meta não tem aviso; para outra coisa, mostra o cuidado.
+  var a = await openModal({
+    title: 'Retirar dinheiro da meta', submitLabel: 'Retirar',
+    body: '<p>Quanto você tirou de “' + escapeHtml(g.name) + '”? Hoje ela tem ' + fmtMoney(g.currentAmount || 0) + '.</p>' +
+      '<div class="field"><label for="gwAmount">Valor retirado</label><span class="money-input"><span>R$</span><input id="gwAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
+      '<fieldset class="radio-group"><legend>Para que foi?</legend>' +
+        '<label class="check"><input type="radio" name="purpose" value="meta" checked> Para o objetivo da meta (por exemplo, pagar a viagem)</label>' +
+        '<label class="check"><input type="radio" name="purpose" value="outro"> Para outra coisa (fora do objetivo)</label></fieldset>' +
+      '<p class="tip-box warn" id="gwWarn" aria-live="polite" hidden></p>',
+    onOpen: function(modal){
+      function sync(){
+        var other = qs('input[name=purpose]:checked', modal).value === 'outro', v = money(qs('#gwAmount', modal).value), w = qs('#gwWarn', modal);
+        w.hidden = !(other && v > 0);
+        if (!w.hidden) w.innerHTML = offGoalWarningHtml(g, v);
+      }
+      modal.addEventListener('input', sync); modal.addEventListener('change', sync);
+    },
+    onSubmit: function(form){
+      var v = money(form.amount.value);
+      if (!(v > 0)) return {error: 'Informe um valor maior que zero.'};
+      if (v > Number(g.currentAmount || 0) + 0.001) return {error: 'O valor não pode passar de ' + fmtMoney(g.currentAmount || 0) + '.'};
+      return {amount: v, purpose: form.purpose.value};
+    }
+  });
+  if (!a) return;
+  if (await goalMove(id, kind, a.amount, a.purpose === 'outro' ? {purpose: 'outro'} : null)) toast(fmtMoney(a.amount) + ' retirados de “' + g.name + '”' + (a.purpose === 'outro' ? ', para outra coisa. Lembre de repor.' : '.'));
 }
 
 // Eventos de Planejar gastos e Metas.

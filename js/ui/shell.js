@@ -29,6 +29,7 @@ import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, for
 import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {renderAdvice, wireAdvice} from './advice-tab.js';
+import {wireSimulator} from './simulator.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -511,6 +512,7 @@ export async function boot(){
 // Eventos gerais: cliques e formulários compartilhados entre as abas, navegação e conexão.
 export function wireShell(){
   wireAdvice();
+  wireSimulator();
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();
   document.addEventListener('keydown', function(e){

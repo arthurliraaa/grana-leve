@@ -33,15 +33,23 @@ L.run(async ({page}) => {
   txt = await L.text(page, card);
   L.ok(/Rendeu R\$\s?25,00 \(5% sobre o que você guardou\) · taxa de 10% ao ano/.test(txt), 'rendimento aparece com o percentual sobre o guardado');
   await L.menuAction(page, card + ' [data-goal-withdraw]'); await L.sleep(150);
-  await page.type('#askAmount', '1.000');
+  await page.type('#gwAmount', '1.000');
   await L.submitModal(page); await L.sleep(150);
   L.ok(/não pode passar de R\$\s?525,00/.test(await L.modalError(page)), 'não deixa retirar mais do que tem');
-  await page.$eval('#askAmount', el => { el.value = ''; }); await page.type('#askAmount', '100');
+  await page.$eval('#gwAmount', el => { el.value = ''; }); await page.type('#gwAmount', '100');
   await L.submitModal(page); await L.sleep(250);
   g = (await L.db(page)).goals.find(x => x.name === 'Viagem');
   L.ok(g.currentAmount === 425 && g.moves.map(m => m.kind).join(',') === 'deposit,yield,withdraw', 'saldo 425 e as três movimentações com data');
+  await L.menuAction(page, card + ' [data-goal-withdraw]'); await L.sleep(150);
+  await page.type('#gwAmount', '25');
+  await page.click('input[name=purpose][value=outro]'); await L.sleep(150);
+  L.ok(/Cuidado.*usando R\$\s?25,00 do que guardou para “Viagem” em outra coisa/.test(await L.text(page, '#gwWarn')), 'retirar para outra coisa mostra o aviso de cuidado');
+  await L.submitModal(page); await L.sleep(250);
+  g = (await L.db(page)).goals.find(x => x.name === 'Viagem');
+  L.ok(g.currentAmount === 400 && g.moves[g.moves.length - 1].purpose === 'outro', 'a retirada fica marcada como “para outra coisa”');
   await page.$eval(card + ' details.pay-log', d => { d.open = true; });
-  L.ok(/Movimentações \(3\)/.test(await L.text(page, card)) && /Retirada/.test(await L.text(page, card + ' .pay-log')), 'histórico de movimentações no cartão');
+  L.ok(/fora do objetivo/.test(await L.text(page, card + ' .pay-log')), 'e o histórico mostra que foi fora do objetivo');
+  L.ok(/Movimentações \(4\)/.test(await L.text(page, card)) && /Retirada/.test(await L.text(page, card + ' .pay-log')), 'histórico de movimentações no cartão');
   await page.$eval(card + ' .goal-forecast details', d => { d.open = true; });
   L.ok(/juros compostos/.test(await L.text(page, card + ' .goal-forecast')), '“Como calculamos” explica a conta');
 
