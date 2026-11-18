@@ -50,4 +50,23 @@ L.run(async ({page}) => {
     await L.closeModal(page);
   }
   L.ok(/Padaria/.test(bt) && /Mercado/.test(bt) && /Da conta/.test(bt) && /cartão de crédito/.test(bt), 'cada banco abre o que foi gasto nele, no crédito e no débito/Pix');
+
+  L.section('Totais e comparação clicáveis, sem dica ao tocar');
+  if (!(await page.$('#invSplitWrap .split-total'))){ await page.$eval('#dashNext', e => e.click()); await L.sleep(250); }
+  await page.$eval('#invSplitWrap .inv-seg', el => el.dispatchEvent(new TouchEvent('touchstart', {bubbles: true}))).catch(() => {});
+  await L.sleep(150);
+  L.ok(!(await page.$('#invSplitWrap .chart-tooltip')), 'tocar numa fatura não abre a caixinha de dica (só o popup)');
+  await page.$eval('#invSplitWrap .split-total', e => e.click()); await L.sleep(250);
+  L.ok(/Faturas que vencem/.test(await L.modalTitle(page)) && /Mercado/.test(await L.text(page, '#modalRoot')) && /Baixar PDF/.test(await L.text(page, '#modalRoot')), 'clicar no total das faturas abre todas as faturas, com o PDF');
+  await L.closeModal(page);
+  await page.$eval('#dashToday', e => e.click()).catch(() => {}); await L.sleep(250);
+  await page.$eval('#creditDebitWrap .split-total', e => e.click()); await L.sleep(250);
+  L.ok(/Total nos bancos/.test(await L.modalTitle(page)) && /Padaria/.test(await L.text(page, '#modalRoot')), 'clicar no total nos bancos abre todos os bancos');
+  await L.closeModal(page);
+  await page.$eval('#comparisonSummary [data-open-detail="cmp:exp"]', e => e.click()); await L.sleep(250);
+  L.ok(/Gastos/.test(await L.modalTitle(page)) && /Mercado|Padaria/.test(await L.text(page, '#modalRoot')), 'clicar em Gastos na comparação mostra o que foi gasto nos dois meses');
+  await L.closeModal(page);
+  await page.$eval('#comparisonList [data-open-detail^="cmpcat:"]', e => e.click()); await L.sleep(250);
+  L.ok(/×/.test(await L.modalTitle(page)), 'clicar numa categoria da comparação abre as compras dela nos dois meses');
+  await L.closeModal(page);
 });

@@ -14,7 +14,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'cartoes');
   const sum = await L.text(page, '#walletSummary');
   L.ok(/Nas contas\s*R\$\s?1\.500,00/.test(sum), 'resumo: dinheiro nas contas');
-  L.ok(/Faturas a pagar\s*R\$\s?200,00/.test(sum) && /Sobra depois de pagar\s*R\$\s?1\.300,00$/.test(sum.replace(/PDF das faturas do mês.*$/, '').replace(/“Faturas a pagar”.*$/, '').trim()), 'resumo: faturas a pagar e quanto sobra, sem comentário embaixo da sobra');
+  L.ok(/Faturas a pagar\s*R\$\s?200,00/.test(sum) && /Sobra depois de pagar\s*R\$\s?1\.300,00$/.test(sum.replace(/PDF das faturas do mês\s*PDF do mês que vem/, '').replace(/“Faturas a pagar”.*$/, '').trim().trim()), 'resumo: faturas a pagar e quanto sobra, sem comentário embaixo da sobra');
   L.ok(/paga com Nubank/i.test(await L.text(page, '#bankList')), 'cartão Nubank sugere pagar com a conta Nubank (mesmo banco)');
 
   L.section('Pagar a fatura');

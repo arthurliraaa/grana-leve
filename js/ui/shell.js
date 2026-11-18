@@ -28,6 +28,7 @@ import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveAll, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
 import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
+import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -184,12 +185,13 @@ export function renderAll(){
   fillBillForm(); renderBills();
   renderLearn();
   renderConnections();
+  renderAdvice();
 }
 
 /* ============ Tabs / navigation ============ */
 // Áreas do app e o endereço de cada uma (#/metas). O endereço permite usar o botão Voltar do navegador.
-export var TABS = ['dashboard','lancamentos','cartoes','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
-export var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
+export var TABS = ['dashboard','lancamentos','cartoes','conselhos','limites','metas','compromissos','aprenda','conexoes','perfil','admin'];
+export var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'contas', conselhos:'conselhos', limites:'planejar', metas:'metas', compromissos:'compromissos', aprenda:'aprenda', conexoes:'conexoes', perfil:'perfil', admin:'admin'};
 // Partes (subabas) de uma área: Compromissos = Eu devo | Me devem; Ganhos e gastos = Lançamentos |
 // Contas fixas (contas de todo mês são gastos do mês, não compromissos). slug é o pedaço do
 // endereço (#/compromissos/me-devem); vazio = a parte padrão.
@@ -261,7 +263,7 @@ function openDetailsPop(details){
 }
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 export async function openMoreMenu(){
-  var items = [['limites','pie','Planejar gastos'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
+  var items = [['conselhos','bolt','Conselhos'], ['limites','pie','Planejar gastos'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
     ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões'], ['perfil','user','Perfil e conta']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
   await openModal({
     title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',
@@ -508,6 +510,7 @@ export async function boot(){
 
 // Eventos gerais: cliques e formulários compartilhados entre as abas, navegação e conexão.
 export function wireShell(){
+  wireAdvice();
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();
   document.addEventListener('keydown', function(e){

@@ -1850,3 +1850,37 @@ details.purchase-notes[open] > summary{ margin-bottom:6px; }
 .bch-chips .chip{ padding:5px 12px; border-radius:999px; border:1px solid var(--border); background: transparent; color: var(--text-secondary); font:inherit; font-size:.86rem; cursor:pointer; }
 .bch-chips .chip:hover{ border-color: var(--brand); color: var(--text-primary); }
 .bch-chips .chip.on{ background: var(--brand); border-color: var(--brand); color:#fff; font-weight:600; }
+
+/* Conselhos */
+.advice-card{ margin-top:16px; }
+.advice-item{ display:flex; gap:12px; padding:12px 14px; margin-top:10px; border:1px solid var(--border); border-left:4px solid var(--brand); border-radius: var(--radius); background: var(--surface); }
+.advice-item.warn{ border-left-color: var(--warning); }
+.advice-item.good{ border-left-color: var(--good); }
+.advice-item > .ico{ flex:none; margin-top:2px; color: var(--text-secondary); }
+.ai-body h4{ margin:0 0 4px; font-size:1rem; }
+.ai-body p{ margin:0 0 8px; font-size:.94rem; line-height:1.5; color: var(--text-secondary); }
+.ai-act{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+
+/* Folha de baixo no celular: alça para arrastar e fechar */
+.sheet-grip{ display:none; }
+@media (max-width: 620px){
+  .sheet-grip{ display:block; width:42px; height:5px; border-radius:999px; background: var(--border); margin:8px auto 0; flex:none; }
+  .modal{ touch-action: pan-y; }
+}
+/* PDF pronto: ações grandes e à vista */
+.pdf-ready{ margin:0; font-weight:600; }
+.pdf-actions-top{ display:flex; flex-wrap:wrap; gap:10px; }
+.pdf-actions-top .btn-pdf{ flex:1 1 150px; justify-content:center; }
+/* Datas no celular: não passam da caixa */
+.field input[type=date]{ display:block; box-sizing:border-box; max-width:100%; min-width:0; min-height:44px; -webkit-appearance:none; appearance:none; text-align:left; }
+.field input[type=date]::-webkit-date-and-time-value{ text-align:left; min-width:0; }
+.field input[type=date]::-webkit-datetime-edit{ padding:0; }
+/* Botão da média de 3 meses não sai da caixa */
+.budget-summary .bs-fill{ max-width:100%; white-space:normal; text-align:left; height:auto; line-height:1.3; padding-top:8px; padding-bottom:8px; }
+
+/* Totais e comparação clicáveis */
+.split-total.clickable, .tile.clickable, .cmp-row.clickable{ cursor:pointer; border-radius:12px; }
+.split-total.clickable:hover, .split-total.clickable:focus-visible, .tile.clickable:hover, .tile.clickable:focus-visible, .cmp-row.clickable:hover, .cmp-row.clickable:focus-visible{ background: color-mix(in srgb, var(--brand) 8%, transparent); outline:none; }
+.split-more{ display:block; margin-top:6px; font-size:.8rem; color: var(--text-secondary); }
+.detail-sec{ margin-top:14px; }
+.detail-sec h3{ margin:0 0 4px; font-size:1.02rem; }

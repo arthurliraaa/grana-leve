@@ -14,6 +14,7 @@ export function openModal(opts){
     root.innerHTML =
       '<div class="modal-backdrop" data-modal-close></div>' +
       '<div class="modal' + (opts.wide ? ' modal-wide' : '') + '" role="dialog" aria-modal="true" aria-labelledby="modalTitle">' +
+        '<div class="sheet-grip" aria-hidden="true"></div>' +
         '<div class="modal-head"><h3 id="modalTitle">' + escapeHtml(opts.title) + '</h3>' +
         '<button type="button" class="modal-x" data-modal-close aria-label="Fechar">×</button></div>' +
         '<form class="modal-body" novalidate>' + (opts.body || '') +
@@ -45,6 +46,9 @@ export function openModal(opts){
     function requestClose(){ if (opts.beforeClose && opts.beforeClose() === false) return; close(null); }
     function onKey(e){ if (e.key === 'Escape') requestClose(); }
     document.addEventListener('keydown', onKey);
+    // No celular a janela é uma folha que sobe de baixo: arrastar para baixo fecha (como o Fechar).
+    var sheet = root.querySelector('.modal');
+    if (window.matchMedia && window.matchMedia('(max-width: 620px)').matches) enableSwipeClose(sheet, root.querySelector('.modal-backdrop'), requestClose, function(){ return done; });
     qsa('[data-modal-close]', root).forEach(function(el){ el.addEventListener('click', requestClose); });
     form.addEventListener('submit', async function(e){
       e.preventDefault();
@@ -65,6 +69,45 @@ export function openModal(opts){
     var first = opts.danger ? form.querySelector('.modal-actions [data-modal-close]') : form.querySelector('input:not([type=checkbox]), select, textarea, button[type=submit]');
     if (first) first.focus();
   });
+}
+
+// Arrastar a folha para baixo (pelo topo, ou pelo conteúdo quando ele já está no começo) fecha a janela; soltar antes
+// de 110 px (ou sem impulso) devolve a folha ao lugar. Se a janela impedir o fechamento, ela também volta.
+function enableSwipeClose(sheet, backdrop, requestClose, isDone){
+  var scroller = sheet.querySelector('form.modal-body'), startY = null, startT = 0, dy = 0, dragging = false;
+  function reset(){
+    sheet.style.transition = 'transform .2s ease'; sheet.style.transform = '';
+    if (backdrop) backdrop.style.opacity = '';
+  }
+  sheet.addEventListener('touchstart', function(e){
+    var fromTop = !!e.target.closest('.modal-head, .sheet-grip'), atTop = !scroller || scroller.scrollTop <= 0;
+    if (!(fromTop || atTop) || e.touches.length !== 1){ startY = null; return; }
+    startY = e.touches[0].clientY; startT = Date.now(); dy = 0; dragging = false;
+  }, {passive: true});
+  sheet.addEventListener('touchmove', function(e){
+    if (startY === null) return;
+    dy = e.touches[0].clientY - startY;
+    if (!dragging){
+      if (dy > 8 && (!scroller || scroller.scrollTop <= 0)){ dragging = true; sheet.style.animation = 'none'; sheet.style.transition = 'none'; }
+      else if (dy < -8){ startY = null; return; }
+      else return;
+    }
+    if (e.cancelable) e.preventDefault();
+    var d = Math.max(0, dy);
+    sheet.style.transform = 'translateY(' + d + 'px)';
+    if (backdrop) backdrop.style.opacity = String(Math.max(0, 1 - d / 400));
+  }, {passive: false});
+  function end(){
+    if (startY === null || !dragging){ startY = null; return; }
+    var fast = dy / Math.max(1, Date.now() - startT) > 0.5;
+    startY = null; dragging = false;
+    if (dy > 110 || (fast && dy > 40)){
+      sheet.style.transition = 'transform .18s ease'; sheet.style.transform = 'translateY(100%)';
+      setTimeout(function(){ requestClose(); if (!isDone()) reset(); }, 160);
+    } else reset();
+  }
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', function(){ if (dragging){ startY = null; dragging = false; reset(); } });
 }
 
 // Confirmação antes de excluir. Com skipKey, oferece “Não perguntar novamente”.

@@ -54,15 +54,18 @@ export async function showPdf(doc, filename, title){
   var url = URL.createObjectURL(blob);
   var file = null, canShare = false;
   try{ file = new File([blob], filename, {type:'application/pdf'}); canShare = !!(navigator.canShare && navigator.canShare({files:[file]})); } catch(e){}
+  // No celular o navegador não mostra PDF dentro da página (fica em branco): aqui as ações vêm primeiro,
+  // grandes, e a pré-visualização só aparece onde funciona.
+  var small = !!(window.matchMedia && window.matchMedia('(max-width: 620px)').matches) || navigator.pdfViewerEnabled === false;
   await openModal({
     title: title, wide: true, submitLabel: null, cancelLabel: 'Fechar',
-    body: '<iframe class="pdf-frame" src="' + url + '" title="' + escapeHtml(title) + '"></iframe>' +
-      '<p class="field-hint">Se a pré-visualização não aparecer (comum no celular), use os botões abaixo.</p>' +
-      '<div class="pdf-actions">' +
-        '<button type="button" class="btn btn-primary btn-sm" data-pdf="download">Baixar PDF</button>' +
-        (canShare ? '<button type="button" class="btn btn-ghost btn-sm" data-pdf="share">Compartilhar</button>' : '') +
-        '<button type="button" class="btn btn-ghost btn-sm" data-pdf="open">Abrir em nova aba</button>' +
-      '</div>',
+    body: '<p class="pdf-ready">' + (small ? 'Seu PDF está pronto. Escolha o que fazer:' : 'Seu PDF está pronto.') + '</p>' +
+      '<div class="pdf-actions pdf-actions-top">' +
+        '<button type="button" class="btn btn-primary btn-pdf" data-pdf="open">Abrir PDF</button>' +
+        '<button type="button" class="btn btn-primary btn-pdf" data-pdf="download">Baixar PDF</button>' +
+        (canShare ? '<button type="button" class="btn btn-ghost btn-pdf" data-pdf="share">Compartilhar</button>' : '') +
+      '</div>' +
+      (small ? '' : '<iframe class="pdf-frame" src="' + url + '" title="' + escapeHtml(title) + '"></iframe><p class="field-hint">Se a pré-visualização não aparecer, use os botões acima.</p>'),
     onOpen: function(root){
       root.addEventListener('click', function(e){
         var b = e.target.closest('[data-pdf]');

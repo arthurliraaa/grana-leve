@@ -6,7 +6,7 @@ import {bankGroups} from './accounts-tab.js';
 import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
-import {isForOther, isRefund, isReversal, reversalsOf, myShare, othersShare, whoLabel, categoryExpenses} from '../domain/transactions.js';
+import {isForOther, isPersonal, isRefund, isReversal, reversalsOf, myShare, othersShare, whoLabel, categoryExpenses} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
@@ -20,9 +20,9 @@ import {getPrefs, setPref} from '../data/session.js';
 import {inkOn, qs, qsa, escapeHtml, icon, optionsHtml, resolveVar, toast} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {wireTooltips} from './charts.js';
-import {generateMonthlyReport, generateInvoicePdf, invoicePdfButtonsHtml} from './reports.js';
+import {generateMonthlyReport, generateInvoicePdf, generateAllInvoicesPdf, invoicePdfButtonsHtml} from './reports.js';
 import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab} from './shell.js';
-import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthOthers, monthTotals, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
+import {State, txForMonth, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthOthers, monthTotals, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
 import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
 
 /* ---------- Previsões de entrada ---------- */
@@ -504,9 +504,9 @@ export function renderComparison(){
   var curP = monthProjection(cur.key), prevP = monthProjection(prev.key);
   var curCats = projectCats(cur.key), prevCats = projectCats(prev.key), fc = curP.forecast ? ' <small>previsão</small>' : '';
   document.getElementById('comparisonSummary').innerHTML =
-    '<div class="tile tile-sm"><span class="tile-lbl">Ganhos' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.inc)+'</span>'+deltaBadge(curP.inc, prevP.inc, false)+'</div>' +
-    '<div class="tile tile-sm"><span class="tile-lbl">Gastos' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.exp)+'</span>'+deltaBadge(curP.exp, prevP.exp, true)+'</div>' +
-    '<div class="tile tile-sm"><span class="tile-lbl">Saldo' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.inc - curP.exp)+'</span>'+deltaBadge(curP.inc - curP.exp, prevP.inc - prevP.exp, false)+'</div>';
+    '<div class="tile tile-sm clickable" role="button" tabindex="0" data-open-detail="cmp:inc"><span class="tile-lbl">Ganhos' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.inc)+'</span>'+deltaBadge(curP.inc, prevP.inc, false)+'</div>' +
+    '<div class="tile tile-sm clickable" role="button" tabindex="0" data-open-detail="cmp:exp"><span class="tile-lbl">Gastos' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.exp)+'</span>'+deltaBadge(curP.exp, prevP.exp, true)+'</div>' +
+    '<div class="tile tile-sm clickable" role="button" tabindex="0" data-open-detail="cmp:saldo"><span class="tile-lbl">Saldo' + fc + '</span><span class="tile-val tabular">'+fmtMoney(curP.inc - curP.exp)+'</span>'+deltaBadge(curP.inc - curP.exp, prevP.inc - prevP.exp, false)+'</div>';
   var list = document.getElementById('comparisonList');
   var cats = expenseCats().map(function(c){
     return {id:c.id, label:c.label, color:c.color, cur: curCats[c.id]||0, prev: prevCats[c.id]||0};
@@ -518,7 +518,7 @@ export function renderComparison(){
   var top = Math.max(1, Math.max.apply(null, cats.map(function(c){ return Math.max(c.cur, c.prev); })));
   list.innerHTML = '<div class="cmp-row cmp-head"><span>Categoria</span><span class="tabular">'+cur.label.slice(0,3)+'</span><span class="tabular">'+prev.label.slice(0,3)+'</span><span>Variação</span></div>' +
     cats.map(function(c){
-      return '<div class="cmp-row"><span class="cmp-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label) +
+      return '<div class="cmp-row clickable" role="button" tabindex="0" data-open-detail="cmpcat:' + c.id + '"><span class="cmp-cat">' + catBadge(c.id, 'expense') + escapeHtml(c.label) +
         '<span class="cmp-bars" aria-hidden="true"><span class="cmp-bar cur" style="width:' + (100 * c.cur / top) + '%"></span><span class="cmp-bar prev" style="width:' + (100 * c.prev / top) + '%"></span></span></span>' +
         '<span class="tabular">'+fmtMoney(c.cur)+'</span><span class="tabular">'+fmtMoney(c.prev)+'</span>' + deltaBadge(c.cur, c.prev, true) + '</div>';
     }).join('');
@@ -603,12 +603,13 @@ function monthName(offset){ return monthBounds(offset || 0).label.split(' de ')[
 
 // Parte comum dos dois quadros: total em destaque, uma barra com as duas partes e a legenda com valores.
 // a e b = {cls, label, value}. Os segmentos têm dica por mouse e teclado.
-function splitSummary(totalLabel, total, a, b){
+function splitSummary(totalLabel, total, a, b, openId){
   function seg(p){ return p.value > 0 ? '<span class="inv-seg ' + p.cls + '" style="width:' + (100 * p.value / total).toFixed(2) + '%" tabindex="0" data-tip="' + escapeHtml([totalLabel, a.label + ': ' + fmtMoney(a.value) + ' (' + pctOf(a.value, total) + '%)', b.label + ': ' + fmtMoney(b.value) + ' (' + pctOf(b.value, total) + '%)', 'Total: ' + fmtMoney(total)].join('||')) + '"></span>' : ''; }
   function key(p){ return '<span class="split-key"><i class="inv-key ' + p.cls + '" aria-hidden="true"></i><span>' + p.label + '</span><strong class="tabular">' + fmtMoney(p.value) + '</strong><small>' + pctOf(p.value, total) + '%</small></span>'; }
-  return '<div class="split-kpi"><span class="kpi-lbl">' + totalLabel + '</span><strong class="tabular">' + fmtMoney(total) + '</strong></div>' +
+  var inner = '<div class="split-kpi"><span class="kpi-lbl">' + totalLabel + '</span><strong class="tabular">' + fmtMoney(total) + '</strong></div>' +
     '<div class="inv-track thick">' + seg(a) + seg(b) + '</div>' +
     '<div class="split-keys">' + key(a) + key(b) + '</div>';
+  return openId ? '<div class=\"split-total clickable\" role=\"button\" tabindex=\"0\" data-open-detail=\"' + openId + '\" aria-label=\"Ver todos os itens: ' + totalLabel + '\">' + inner + '<span class=\"split-more\">Toque para ver tudo</span></div>' : inner;
 }
 // Uma linha por cartão/banco: nome, total e a barra das duas partes (largura relativa à maior).
 // A dica (mouse, teclado ou toque) mostra o detalhe da linha inteira, não só do pedaço tocado.
@@ -649,7 +650,7 @@ export function renderInvoiceSplit(){
   }
   var A = {cls: 'mine', label: 'Minha parte', field: 'mine'}, B = {cls: 'others', label: 'Outras pessoas', field: 'others'};
   var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
-  wrap.innerHTML = splitSummary('Total das faturas', tot.total, Object.assign({value: tot.mine}, A), Object.assign({value: tot.others}, B)) +
+  wrap.innerHTML = splitSummary('Total das faturas', tot.total, Object.assign({value: tot.mine}, A), Object.assign({value: tot.others}, B), 'inv-all') +
     splitRows(rows, max, A, B, function(r){ return 'vence ' + formatDateBr(r.due) + ' · ' + r.status; }, function(r){
       return [r.name + ' · fatura de ' + r.label, 'Vence ' + formatDateBr(r.due) + ' · ' + r.status, 'Minha parte: ' + fmtMoney(r.mine) + ' (' + pctOf(r.mine, r.total) + '%)', 'Outras pessoas: ' + fmtMoney(r.others) + ' (' + pctOf(r.others, r.total) + '%)', 'Total: ' + fmtMoney(r.total)];
     }, function(r){ return 'inv:' + r.card.id + ':' + r.key; }) + lateHtml + '<p class="chart-note">Toque num cartão para ver as compras da fatura.</p>';
@@ -679,9 +680,8 @@ export async function openInvoiceDetail(cardId, key){
   });
   if (r && r.pdf) generateInvoicePdf(cardId, key);
 }
-export async function openBankDetail(index, off){
-  var d = creditDebitData(off || 0), row = d.rows[index];
-  if (!row) return;
+// Crédito e débito/Pix de um banco no mês (mesma regra do gráfico), em duas listas com subtotal.
+function bankPartsHtml(row, off){
   var key = monthBounds(off || 0).key, today = todayKey(), upToToday = !off;
   var tx = State.transactions.filter(function(t){ return t.type === 'expense' && monthKeyOf(t.date) === key && (!upToToday || t.date <= today); }).sort(function(a, b){ return a.date.localeCompare(b.date); });
   var credit = tx.filter(function(t){ return t.paymentMethod === 'cartao' && row.cardIds.indexOf(t.cardId) >= 0; });
@@ -689,11 +689,89 @@ export async function openBankDetail(index, off){
   function part(title, list){
     return list.length ? '<h4>' + title + ' · <span class="tabular">' + fmtMoney(money(sum(list, function(t){ return Number(t.amount); }))) + '</span></h4>' + detailRowsHtml(list, function(t){ return Number(t.amount); }) : '';
   }
+  return part('No cartão de crédito (pela data da compra)', credit) + part('Da conta (Pix ou débito)', debit);
+}
+export async function openBankDetail(index, off){
+  var d = creditDebitData(off || 0), row = d.rows[index];
+  if (!row) return;
   await openModal({
     title: row.name + ' · ' + monthName(off), wide: true, submitLabel: null, cancelLabel: 'Fechar',
     body: '<p class="card-sub">Total <strong class="tabular">' + fmtMoney(row.total) + '</strong> · crédito ' + fmtMoney(row.credit) + ' · débito/Pix ' + fmtMoney(row.debit) + '. Inclui o que outras pessoas vão te devolver.</p>' +
-      (part('No cartão de crédito (pela data da compra)', credit) + part('Da conta (Pix ou débito)', debit) || '<p class="empty-state">Nada neste período.</p>')
+      (bankPartsHtml(row, off) || '<p class="empty-state">Nada neste período.</p>')
   });
+}
+// Total nos bancos: todos os bancos, cada um com o que saiu no crédito e no débito/Pix.
+export async function openAllBanksDetail(off){
+  var d = creditDebitData(off || 0), rows = d.rows.filter(function(r){ return r.total > 0; });
+  var tot = money(sum(rows, function(r){ return r.total; }));
+  await openModal({
+    title: 'Total nos bancos · ' + monthName(off), wide: true, submitLabel: null, cancelLabel: 'Fechar',
+    body: '<p class="card-sub">Total <strong class="tabular">' + fmtMoney(tot) + '</strong> em ' + rows.length + (rows.length === 1 ? ' banco' : ' bancos') + '. Inclui o que outras pessoas vão te devolver.</p>' +
+      (rows.map(function(r){
+        return '<section class="detail-sec"><h3>' + escapeHtml(r.name) + ' · <span class="tabular">' + fmtMoney(r.total) + '</span></h3>' + bankPartsHtml(r, off) + '</section>';
+      }).join('') || '<p class="empty-state">Nada neste período.</p>')
+  });
+}
+// Total das faturas: todas as faturas do mês, cartão por cartão.
+export async function openAllInvoicesDetail(off){
+  var d = invoiceSplitData(off || 0);
+  var mine = money(sum(d.rows, function(r){ return r.mine; })), others = money(sum(d.rows, function(r){ return r.others; }));
+  var r = await openModal({
+    title: 'Faturas que vencem em ' + monthName(off), wide: true, submitLabel: 'Baixar PDF de todas as faturas', cancelLabel: 'Fechar',
+    body: '<p class="card-sub">Total <strong class="tabular">' + fmtMoney(money(mine + others)) + '</strong> · minha parte <strong class="tabular">' + fmtMoney(mine) + '</strong> · de outras pessoas <strong class="tabular">' + fmtMoney(others) + '</strong></p>' +
+      (d.rows.map(function(x){
+        var items = Cards.invoiceItems(State.transactions, x.card, x.key);
+        return '<section class="detail-sec"><h3>' + escapeHtml(x.card.name) + ' · fatura de ' + escapeHtml(x.label) + ' · <span class="tabular">' + fmtMoney(x.total) + '</span></h3>' +
+          '<p class="tx-meta">Vence ' + formatDateBr(x.due) + ' · ' + x.status + ' · minha parte ' + fmtMoney(x.mine) + ' · de outras pessoas ' + fmtMoney(x.others) + '</p>' +
+          (items.length ? detailRowsHtml(items, function(t){ return Number(t.amount); }) : '') + '</section>';
+      }).join('') || '<p class="empty-state">Nenhuma fatura vence neste mês.</p>'),
+    onSubmit: function(){ return {pdf: true}; }
+  });
+  if (r && r.pdf) generateAllInvoicesPdf(off || 0);
+}
+// Comparação com o mês anterior: uma categoria (as compras dos dois meses) ou o total de ganhos/gastos/saldo.
+function simpleRowsHtml(list, amountFn){
+  return '<div class="table-scroll"><table class="data-table"><thead><tr><th>Data</th><th>Descrição</th><th>Valor</th></tr></thead><tbody>' + list.map(function(t){
+    return '<tr><td>' + formatDateBr(t.date) + '</td><td>' + escapeHtml(t.description || catLabel(t.category, t.type)) + '</td><td class="tabular">' + fmtMoney(amountFn(t)) + '</td></tr>';
+  }).join('') + '</tbody></table></div>';
+}
+function monthItems(key, type, catId){
+  return txForMonth(key).filter(function(t){ return t.type === type && isPersonal(t) && !t.reversal && !t.refund && (!catId || t.category === catId) && (type === 'income' || myShare(t) > 0); })
+    .sort(function(a, b){ return a.date.localeCompare(b.date); });
+}
+export async function openCompareDetail(kind, catId){
+  var off = State.dashOffset || 0, cur = monthBounds(off), prev = monthBounds(off - 1);
+  var keys = [{m: cur, p: monthProjection(cur.key)}, {m: prev, p: monthProjection(prev.key)}];
+  var title, body = '';
+  function sec(m, html, total){ return '<section class="detail-sec"><h3>' + escapeHtml(m.label) + ' · <span class="tabular">' + fmtMoney(total) + '</span></h3>' + html + '</section>'; }
+  if (kind === 'cmpcat'){
+    var cat = expenseCats().filter(function(c){ return c.id === catId; })[0] || {label: catId};
+    title = cat.label + ' · ' + cur.label.split(' de ')[0] + ' × ' + prev.label.split(' de ')[0];
+    keys.forEach(function(k){
+      var items = monthItems(k.m.key, 'expense', catId), bills = k.p.bills.filter(function(o){ return o.b.category === catId; });
+      var total = money(sum(items, myShare) + sum(bills, function(o){ return o.amount; }));
+      var rows = items.map(function(t){ return {date: t.date, description: (t.description || cat.label) + (t.installment ? ' ' + t.installment.n + '/' + t.installment.total : ''), amt: myShare(t)}; })
+        .concat(bills.map(function(o){ return {date: o.date, description: o.b.name + ' (conta fixa prevista)', amt: o.amount}; }));
+      body += sec(k.m, rows.length ? simpleRowsHtml(rows, function(r){ return r.amt; }) : '<p class="empty-state">Nada nesta categoria.</p>', total);
+    });
+  } else if (kind === 'exp' || kind === 'inc'){
+    var type = kind === 'exp' ? 'expense' : 'income';
+    title = (kind === 'exp' ? 'Gastos' : 'Ganhos') + ' · ' + cur.label.split(' de ')[0] + ' × ' + prev.label.split(' de ')[0];
+    keys.forEach(function(k){
+      var items = monthItems(k.m.key, type), total = kind === 'exp' ? k.p.exp : k.p.inc;
+      var rows = items.map(function(t){ return {date: t.date, description: (t.description || catLabel(t.category, t.type)) + (t.installment ? ' ' + t.installment.n + '/' + t.installment.total : ''), amt: type === 'expense' ? myShare(t) : Number(t.amount)}; });
+      if (kind === 'exp') rows = rows.concat(k.p.bills.map(function(o){ return {date: o.date, description: o.b.name + ' (conta fixa prevista)', amt: o.amount}; }));
+      body += sec(k.m, rows.length ? simpleRowsHtml(rows, function(r){ return r.amt; }) : '<p class="empty-state">Nada neste mês.</p>', total);
+    });
+  } else {
+    title = 'Saldo · ' + cur.label.split(' de ')[0] + ' × ' + prev.label.split(' de ')[0];
+    body = '<div class="table-scroll"><table class="data-table"><thead><tr><th></th><th>' + escapeHtml(cur.label) + '</th><th>' + escapeHtml(prev.label) + '</th></tr></thead><tbody>' +
+      '<tr><td>Ganhos</td><td class="tabular">' + fmtMoney(keys[0].p.inc) + '</td><td class="tabular">' + fmtMoney(keys[1].p.inc) + '</td></tr>' +
+      '<tr><td>Gastos</td><td class="tabular">' + fmtMoney(keys[0].p.exp) + '</td><td class="tabular">' + fmtMoney(keys[1].p.exp) + '</td></tr>' +
+      '<tr><td><strong>Saldo</strong></td><td class="tabular"><strong>' + fmtMoney(money(keys[0].p.inc - keys[0].p.exp)) + '</strong></td><td class="tabular"><strong>' + fmtMoney(money(keys[1].p.inc - keys[1].p.exp)) + '</strong></td></tr></tbody></table></div>' +
+      '<p class="tx-meta">Saldo = ganhos − gastos do mês (a sua parte). Em meses futuros, é uma previsão.</p>';
+  }
+  await openModal({title: title, wide: true, submitLabel: null, cancelLabel: 'Fechar', body: body});
 }
 // Crédito × débito por banco no mês escolhido: o que saiu no cartão (pela data da compra) e da conta
 // (Pix/débito). Conta e cartão do mesmo banco ficam juntos (bankGroups). Dinheiro e vale vão à parte.
@@ -734,7 +812,7 @@ export function renderCreditDebit(){
   }
   var A = {cls: 'credit', label: 'Crédito', field: 'credit'}, B = {cls: 'debit', label: 'Débito/Pix', field: 'debit'};
   var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
-  wrap.innerHTML = splitSummary('Total nos bancos', tot.total, Object.assign({value: tot.credit}, A), Object.assign({value: tot.debit}, B)) + splitRows(rows, max, A, B, null, function(r){
+  wrap.innerHTML = splitSummary('Total nos bancos', tot.total, Object.assign({value: tot.credit}, A), Object.assign({value: tot.debit}, B), 'bank-all') + splitRows(rows, max, A, B, null, function(r){
     return [r.name + ' · ' + monthName(off), 'Crédito: ' + fmtMoney(r.credit) + ' (' + pctOf(r.credit, r.total) + '%)', 'Débito/Pix: ' + fmtMoney(r.debit) + ' (' + pctOf(r.debit, r.total) + '%)', 'Total: ' + fmtMoney(r.total)];
   }, function(r){ return 'bank:' + d.rows.indexOf(r); }) + outside + '<p class="chart-note">Toque num banco para ver o que foi gasto.</p>';
   wireTooltips(wrap, '.inv-seg, .inv-row');
@@ -1133,8 +1211,12 @@ export function wireHome(){
     var parts = el.getAttribute('data-open-detail').split(':');
     if (parts[0] === 'inv') openInvoiceDetail(parts[1], parts.slice(2).join(':'));
     else if (parts[0] === 'bank') openBankDetail(Number(parts[1]), State.dashOffset || 0);
+    else if (el.getAttribute('data-open-detail') === 'inv-all') openAllInvoicesDetail(State.dashOffset || 0);
+    else if (el.getAttribute('data-open-detail') === 'bank-all') openAllBanksDetail(State.dashOffset || 0);
+    else if (parts[0] === 'cmp') openCompareDetail(parts[1]);
+    else if (parts[0] === 'cmpcat') openCompareDetail('cmpcat', parts[1]);
   }
-  ['invSplitWrap', 'creditDebitWrap'].forEach(function(id){
+  ['invSplitWrap', 'creditDebitWrap', 'comparisonSummary', 'comparisonList'].forEach(function(id){
     var el = document.getElementById(id);
     el.addEventListener('click', function(e){ var t = e.target.closest('[data-open-detail]'); if (t) openDetail(t); });
     el.addEventListener('keydown', function(e){ var t = e.target.closest('[data-open-detail]'); if (t && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); openDetail(t); } });

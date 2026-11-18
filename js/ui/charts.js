@@ -29,6 +29,11 @@ export function wireTooltips(wrap, selector){
     seg.addEventListener('mouseenter', function(e){ show(seg, e.clientX, e.clientY); });
     seg.addEventListener('mousemove', function(e){ if (tip) place(tip, e.clientX, e.clientY, seg); else show(seg, e.clientX, e.clientY); });
     seg.addEventListener('mouseleave', hide);
+    // Elemento que abre um detalhe ao tocar/clicar (data-open-detail) não precisa de dica no toque nem no foco:
+    // o popup já mostra tudo. No computador a dica continua ao passar o mouse.
+    var opens = !!seg.closest('[data-open-detail]');
+    seg.addEventListener('click', hide);
+    if (opens) return;
     seg.addEventListener('focus', function(){ show(seg, null, null); });
     seg.addEventListener('blur', hide);
     // Toque: mostra por alguns segundos (no celular não existe "passar o mouse").

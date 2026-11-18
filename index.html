@@ -235,6 +235,7 @@
           <a class="nav-item" href="#/lancamentos" data-tab="lancamentos"><svg class="ico" aria-hidden="true"><use href="#i-list"/></svg><span>Ganhos e gastos</span></a>
           <a class="nav-item" href="#/contas" data-tab="cartoes"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg><span>Contas e cartões</span></a>
           <p class="nav-group">Planejar</p>
+          <a class="nav-item" href="#/conselhos" data-tab="conselhos"><svg class="ico" aria-hidden="true"><use href="#i-bolt"/></svg><span>Conselhos</span></a>
           <a class="nav-item" href="#/planejar" data-tab="limites"><svg class="ico" aria-hidden="true"><use href="#i-pie"/></svg><span>Planejar gastos</span></a>
           <a class="nav-item" href="#/metas" data-tab="metas"><svg class="ico" aria-hidden="true"><use href="#i-target"/></svg><span>Metas</span></a>
           <a class="nav-item" href="#/compromissos" data-tab="compromissos"><svg class="ico" aria-hidden="true"><use href="#i-handshake"/></svg><span>Compromissos</span></a>
@@ -261,6 +262,7 @@
         <div class="first-steps" id="firstSteps" hidden></div>
         <div class="summary-grid" id="summaryCards"></div>
         <div class="inv-pdf-bar" id="invPdfBar" hidden></div>
+        <div class="card advice-card" id="adviceCard" hidden></div>
         <button type="button" class="details-toggle" id="dashDetailsBtn" aria-expanded="false" aria-controls="dashDetails">
           <svg class="ico" aria-hidden="true"><use href="#i-plus"/></svg><span>Ver todos os detalhes do mês</span>
         </button>
@@ -662,6 +664,14 @@
       </div>
 
       <!-- Aprenda -->
+      <!-- Conselhos -->
+      <div id="tab-conselhos" class="tab-panel" tabindex="-1" hidden>
+        <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-bolt"/></svg>Conselhos</h2>
+        <p class="tab-intro">Ideias para gastar com mais calma e guardar mais, feitas a partir dos seus próprios lançamentos. Ficam só no seu aparelho e não são recomendação de investimento.</p>
+        <div id="adviceList" class="stack"></div>
+        <p><button type="button" class="linklike" id="adviceRestore" hidden>Mostrar de novo os conselhos dispensados</button></p>
+      </div>
+
       <div id="tab-aprenda" class="tab-panel" tabindex="-1" hidden>
         <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>Aprenda</h2>
         <p class="tab-intro">Conteúdos curtos para organizar o dinheiro, fazer ele render e tirar o melhor do Grana Leve.</p>
