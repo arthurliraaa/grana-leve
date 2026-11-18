@@ -32,6 +32,11 @@ L.run(async ({page}) => {
   await page.$eval('#simN', e => { e.value = '3'; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(300);
   const r2 = await result();
   L.ok(/Compra em .* fecha dia 28 e vence dia 5/.test(r2) && /entra na fatura de/.test(r2) && /3 parcelas de cerca de R\$\s?400,00, uma por fatura/.test(r2) && /Limite do cartão/.test(r2), 'mostra a fatura onde entra, as parcelas e o limite do cartão');
+  L.ok(/Limite do cartão · Inter/.test(r2) && /Disponível agora\s*R\$\s?3\.000,00/.test(r2) && /Disponível depois\s*R\$\s?1\.800,00/.test(r2), 'mostra o limite do cartão: disponível agora (3.000) e depois da compra (1.800)');
+  await page.$eval('#simAmount', e => { e.value = ''; }); await page.type('#simAmount', '5.000'); await L.sleep(300);
+  const rOver = await result();
+  L.ok(/Não cabe no limite do cartão: faltam R\$\s?2\.000,00/.test(rOver) && /não cabe: faltam/.test(rOver), 'compra maior que o limite disponível: avisa que não cabe e quanto falta (2.000)');
+  await page.$eval('#simAmount', e => { e.value = ''; }); await page.type('#simAmount', '1.200'); await L.sleep(300);
   await page.click('#simSubmit'); await L.sleep(500);
   d = await L.db(page);
   L.ok(d.transactions.filter(t => /Notebook/.test(t.description || '') || (t.installment && /Notebook/.test(t.installment.baseDescription || ''))).length === 3, 'registrar cria as 3 parcelas nas faturas');

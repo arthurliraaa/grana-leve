@@ -2027,3 +2027,18 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
   .sim-table-wrap{ display:none; }
   .sim-months{ display:grid; }
 }
+
+/* Simulador: limite do cartão antes e depois da compra */
+.sim-limit{ padding:12px 14px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); display:grid; gap:8px; }
+.sim-limit.warn{ border-color: var(--warning); }
+.sim-limit.bad{ border-color: var(--critical); }
+.sl-head{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:2px 12px; }
+.sl-head span{ font-size:.9rem; color: var(--text-secondary); }
+.sim-limit.bad .sl-head span{ color: var(--critical); font-weight:600; }
+.sl-bar{ display:flex; height:12px; border-radius:999px; background: var(--gridline); overflow:hidden; }
+.sl-bar .used{ background: var(--text-muted); }
+.sl-bar .new{ background: var(--brand); }
+.sim-limit.bad .sl-bar .new{ background: var(--critical); }
+.sl-grid{ display:grid; grid-template-columns: 1fr auto; gap:3px 14px; font-size:.9rem; }
+.sl-grid span{ color: var(--text-secondary); }
+.sl-grid b{ text-align:right; font-weight:600; }

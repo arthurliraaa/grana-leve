@@ -155,9 +155,12 @@ function compute(s){
       }
       var limit = Number(card.limit) || 0, used = cardUsed(card);
       if (limit > 0){
-        var pct = Math.round(100 * (used + s.amount) / limit);
-        notes.push('Limite do cartão: usaria ' + fmtMoney(money(used + s.amount)) + ' de ' + fmtMoney(limit) + ' (' + pct + '%).');
-        if (used + s.amount > limit + 0.004) warns.push('Passa do limite do ' + escapeHtml(card.name) + ' em ' + fmtMoney(money(used + s.amount - limit)) + '.');
+        var after = money(used + s.amount);
+        // A compra inteira (todas as parcelas) já ocupa o limite; ele volta aos poucos, conforme as faturas são pagas.
+        s.limitInfo = {name: card.name, limit: limit, used: used, avail: money(limit - used), after: after, availAfter: money(limit - after),
+          usedPct: Math.min(100, Math.round(100 * used / limit)), newPct: Math.max(0, Math.min(100 - Math.min(100, Math.round(100 * used / limit)), Math.round(100 * s.amount / limit))),
+          pct: Math.round(100 * after / limit), over: after > limit + 0.004, short: money(Math.max(0, after - limit)), per: s.n > 1 ? money(s.amount / s.n) : s.amount};
+        if (s.limitInfo.over) warns.push('Passa do limite disponível do ' + escapeHtml(card.name) + ': faltam ' + fmtMoney(s.limitInfo.short) + ' de limite.');
       }
     } else if (s.isGoal){
       var g = findById(State.goals, s.pay.slice(5)), imp = goalUseImpact(g, s.amount, today);
@@ -226,6 +229,19 @@ function monthsHtml(s){
       '<span>Ganhos</span><b class="tabular">' + fmtMoney(r.inc) + '</b><span>Sobra sem ela</span><b class="tabular">' + sobra(r.base) + '</b></div></div>'; }).join('') + '</div>';
   return table + cards;
 }
+// Cartão: limite do cartão antes e depois da compra, com barra (o que já usa + esta compra).
+function limitHtml(s){
+  var L = s.limitInfo;
+  if (!L) return '';
+  var tone = L.over ? 'bad' : L.pct >= 90 ? 'warn' : 'good';
+  return '<div class="sim-limit ' + tone + '"><div class="sl-head"><strong>Limite do cartão · ' + escapeHtml(L.name) + '</strong>' +
+    '<span>' + (L.over ? 'não cabe: faltam ' + fmtMoney(L.short) : 'depois da compra, sobram ' + fmtMoney(L.availAfter) + ' de ' + fmtMoney(L.limit)) + '</span></div>' +
+    '<div class="sl-bar" role="img" aria-label="' + L.pct + '% do limite usado depois da compra"><span class="used" style="width:' + L.usedPct + '%"></span><span class="new" style="width:' + L.newPct + '%"></span></div>' +
+    '<div class="sl-grid"><span>Limite</span><b class="tabular">' + fmtMoney(L.limit) + '</b><span>Já usado</span><b class="tabular">' + fmtMoney(L.used) + '</b>' +
+      '<span>Disponível agora</span><b class="tabular">' + fmtMoney(L.avail) + '</b><span>Esta compra' + (L.per !== undefined && s.n > 1 ? ' (' + s.n + 'x de ' + fmtMoney(L.per) + ')' : '') + '</span><b class="tabular">' + fmtMoney(s.amount) + '</b>' +
+      '<span>Disponível depois</span><b class="tabular ' + (L.over ? 'neg-text' : '') + '">' + fmtMoney(L.availAfter) + '</b></div>' +
+    '<p class="tx-meta">A compra toda (todas as parcelas) ocupa o limite agora, e ele volta a ser liberado conforme você paga cada fatura.</p></div>';
+}
 function resultHtml(s){
   if (s.error) return '<p class="tx-meta">' + escapeHtml(s.error.replace(/^Informe o valor da compra\.$/, 'Preencha o valor para ver como ficariam as contas.')) + '</p>';
   var red = firstRedMonth(s.rows), first = s.rows[0], min = Math.min.apply(null, s.rows.map(function(r){ return r.sim; }));
@@ -233,13 +249,14 @@ function resultHtml(s){
   var gain = s.rows.filter(function(r){ return r.added < 0; })[0];
   var verdict = s.kind === 'ganho' && gain ? ['good', 'Com esse ganho, ' + gain.label.replace(' (este mês)', '') + ' ficaria com ' + fmtMoney(gain.sim) + ' (' + fmtMoney(-gain.added) + ' a mais)' + (s.freq === 'monthly' ? ', e o mesmo vale para os meses seguintes.' : '.')] :
     s.isGoal ? (s.purpose === 'outro' ? ['warn', 'Usa dinheiro guardado na meta para outra coisa. As contas do banco não mudam, mas a meta encolhe.'] : ['good', 'O dinheiro vem da meta, para o objetivo dela. As contas do banco não mudam.']) :
+    s.limitInfo && s.limitInfo.over ? ['bad', 'Não cabe no limite do cartão: faltam ' + fmtMoney(s.limitInfo.short) + ' de limite disponível.'] :
     red ? ['bad', 'Deixa ' + red.label.replace(' (este mês)', '') + ' no vermelho (' + fmtMoney(red.sim) + ')' + (red.wasRed ? ', mês que já estava negativo sem a simulação.' : '.')] :
     tight ? ['warn', 'Cabe, mas deixa as contas apertadas: neste mês sobrariam ' + fmtMoney(first.sim) + '.'] : ['good', 'Cabe nas contas: o menor valor que sobra num mês seria ' + fmtMoney(min) + '.'];
   var noAcc = !State.accounts.length ? '<p class="tx-meta">Sem contas cadastradas, o primeiro mês parte de R$ 0,00. Cadastre suas contas em “Contas e cartões” para um resultado mais real.</p>' : '';
   var how = s.carry ? 'O saldo parte do que há nas contas hoje (' + fmtMoney(s.cash) + ') e o que sobra (ou falta) de um mês segue para o outro.' :
     'Cada mês é visto sozinho: ganhos − o que já está assumido − a simulação. Só o mês atual parte do que há nas contas hoje (' + fmtMoney(s.cash) + '). Marque “Somar o que sobra…” para acumular de um mês para o outro.';
   return '<div class="sim-verdict ' + verdict[0] + '"><strong>' + verdict[1] + '</strong></div>' +
-    (s.warns.length ? '<ul class="sim-warns">' + s.warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul>' : '') +
+    (s.warns.length ? '<ul class="sim-warns">' + s.warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul>' : '') + limitHtml(s) +
     (s.isGoal ? '' : monthsHtml(s) + '<p class="tx-meta">' + how + ' Já assumido = faturas suas que vencem no mês, contas fixas e parcelas de dívidas.</p>') +
     '<ul class="sim-notes">' + s.notes.map(function(n){ return '<li>' + n + '</li>'; }).join('') + '</ul>' + noAcc;
 }
