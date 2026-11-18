@@ -67,8 +67,8 @@ function budgetChartHtml(mb, monthTx, cats){
     (cur && b.spent > 0 ? ' Mantendo esse ritmo, o mês termina em <strong class="tabular ' + (b.projected > limit ? 'neg-text' : '') + '">' + fmtMoney(b.projected) + '</strong> (' + Math.round(100 * b.projected / limit) + '% do planejado).' : '') +
     (b.scheduled > 0 ? ' Ainda há ' + fmtMoney(b.scheduled) + ' agendados para os próximos dias.' : '');
   return '<div class="budget-chart card-lite"><div class="bch-head"><h4>Evolução do mês</h4>' +
-    '<select id="budgetChartCat" aria-label="Categoria do gráfico"><option value="all"' + (sel === 'all' ? ' selected' : '') + '>Todas as categorias planejadas</option>' +
-    withLimit.map(function(c){ return '<option value="' + escapeHtml(c.id) + '"' + (sel === c.id ? ' selected' : '') + '>' + escapeHtml(c.label) + '</option>'; }).join('') + '</select></div>' +
+    '</div><div class="bch-chips" role="group" aria-label="Categoria do gráfico"><button type="button" class="chip' + (sel === 'all' ? ' on' : '') + '" data-chart-cat="all" aria-pressed="' + (sel === 'all') + '">Todas</button>' +
+    withLimit.map(function(c){ return '<button type="button" class="chip' + (sel === c.id ? ' on' : '') + '" data-chart-cat="' + escapeHtml(c.id) + '" aria-pressed="' + (sel === c.id) + '">' + escapeHtml(c.label) + '</button>'; }).join('') + '</div>' +
     svg + '<div class="bch-legend"><span><i class="lg-line"></i>Gasto acumulado</span><span><i class="lg-ideal"></i>Ritmo ideal</span><span><i class="lg-limit"></i>Limite</span>' + (proj ? '<span><i class="lg-proj"></i>Projeção</span>' : '') + '</div>' +
     '<p class="bch-msg">' + msg + '</p></div>';
 }
@@ -155,8 +155,9 @@ export function renderBudgets(){
       '</div>';
   }
 
-  var chartSel = qs('#budgetChartCat', list);
-  if (chartSel) chartSel.addEventListener('change', function(){ State.budgetChartCat = chartSel.value; renderBudgets(); });
+  qsa('[data-chart-cat]', list).forEach(function(b){
+    b.addEventListener('click', function(){ State.budgetChartCat = b.getAttribute('data-chart-cat'); renderBudgets(); });
+  });
   var introOk = qs('[data-budget-intro-ok]', list);
   if (introOk) introOk.addEventListener('click', function(){ setPref('budgetIntroSeen', true); renderBudgets(); });
   var fillBtn = qs('[data-budget-fill]', list);

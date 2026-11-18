@@ -10,7 +10,7 @@ import {findById} from '../domain/util.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceDates, invoiceLabel} from '../domain/cards.js';
 
-import {labelOf, toast} from './dom.js';
+import {labelOf, toast, icon} from './dom.js';
 import {pdfWriter, showPdf, pdfReady} from './pdf.js';
 import {RECV_KINDS} from './constants.js';
 import {pctDelta} from './shell.js';
@@ -33,6 +33,12 @@ function purchaseRow(w, t){
   var who = whoLabel(t);
   w.row([formatDateBr(t.date), (t.description || '-') + (who !== 'Seu' ? ' (' + who + ')' : ''), catLabel(t.category, 'expense', t.categoryLabel),
     fmtMoney(myShare(t)), fmtMoney(othersShare(t)), fmtMoney(t.amount)], PURCHASE_COLS);
+}
+
+// Botões dos PDFs das faturas de todos os cartões (este mês e o que vem): em destaque e centralizados.
+export function invoicePdfButtonsHtml(){
+  return '<div class="ws-actions"><button type="button" class="btn btn-primary btn-pdf" data-allinv-pdf="0">' + icon('list') + 'PDF das faturas do mês</button>' +
+    '<button type="button" class="btn btn-primary btn-pdf" data-allinv-pdf="1">' + icon('calendar') + 'PDF do mês que vem</button></div>';
 }
 
 export function generateInvoicePdf(cardId, key){

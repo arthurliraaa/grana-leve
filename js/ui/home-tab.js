@@ -20,7 +20,7 @@ import {getPrefs, setPref} from '../data/session.js';
 import {inkOn, qs, qsa, escapeHtml, icon, optionsHtml, resolveVar, toast} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {wireTooltips} from './charts.js';
-import {generateMonthlyReport} from './reports.js';
+import {generateMonthlyReport, generateInvoicePdf, invoicePdfButtonsHtml} from './reports.js';
 import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab} from './shell.js';
 import {State, URGENCY_MARK, URGENCY_RANK, accountBalance, accountMoves, catBadge, catLabel, expenseCategoryTotals, expenseCats, forecastOccurrences, installmentGroups, k, monthOthers, monthTotals, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
 import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
@@ -237,7 +237,12 @@ export function nextMonthInvoices(){
       all += il; mine += mn; list.push({card: c, key: key, left: il, mine: money(mn)});
     });
   });
-  return {key: next, total: money(all), mine: money(mine), list: list};
+  // Contas fixas do mês que vem que ainda vão cair (ainda não lançadas) e ganhos previstos.
+  var fixed = billMonth(next).filter(function(o){ return !o.paid && !o.skipped; });
+  var income = forecastOccurrences(next).filter(function(o){ return o.received === undefined; });
+  return {key: next, total: money(all), mine: money(mine), list: list,
+    fixedTotal: money(sum(fixed, function(o){ return o.amount; })), fixed: fixed.map(function(o){ return {name: o.b.name, amount: o.amount}; }),
+    incomeTotal: money(sum(income, function(o){ return o.f.amount; }))};
 }
 // Dívida com parcela mensal: quantas parcelas no total e quantas já foram pagas (estimado pelo valor).
 function debtParcels(d){
@@ -456,6 +461,11 @@ export function renderSummary(){
       list.slice(0, 5).map(function(c){ return '<a class="sum-row sum-row-link" href="#/' + routeOf(c.go) + '" data-go="' + c.go + '"><span>' + URGENCY_MARK[c.urgency] + ' ' + escapeHtml(c.title) + ' <small>' + when(c) + '</small></span><strong class="tabular">' + fmtMoney(c.amount) + '</strong></a>'; }).join('')) :
     sumCard(3, 'clock', 'Próximos pagamentos', 'Nada pendente', 'sum-value-text', 'Sem faturas, contas fixas nem dívidas para pagar. 🎉', '',
       '<p class="sum-caption">Cadastre cartões em “Contas e cartões”, contas de todo mês em “Ganhos e gastos → Contas fixas” e dívidas em “Compromissos” para ver aqui o que vem pela frente.</p>' + goLink('fixas', 'Ver contas fixas'));
+  var pdfBar = document.getElementById('invPdfBar');
+  if (pdfBar){
+    pdfBar.hidden = !State.cards.length;
+    pdfBar.innerHTML = State.cards.length ? '<p class="ipb-title">Faturas dos cartões</p><p class="ipb-sub">Todas as faturas num só PDF, com a sua parte e a de outras pessoas separadas.</p>' + invoicePdfButtonsHtml() : '';
+  }
   document.getElementById('monthStatus').innerHTML = monthStatusHtml();
   document.getElementById('summaryCards').innerHTML = c1 + c2 + c3;
 }
@@ -602,7 +612,7 @@ function splitSummary(totalLabel, total, a, b){
 }
 // Uma linha por cartão/banco: nome, total e a barra das duas partes (largura relativa à maior).
 // A dica (mouse, teclado ou toque) mostra o detalhe da linha inteira, não só do pedaço tocado.
-function splitRows(rows, max, a, b, meta, tipFn){
+function splitRows(rows, max, a, b, meta, tipFn, openFn){
   function tipOf(r){ return escapeHtml(tipFn(r).join('||')); }
   function seg(cls, v, r){
     if (!(v > 0) || !(max > 0)) return '';
@@ -610,7 +620,7 @@ function splitRows(rows, max, a, b, meta, tipFn){
   }
   return '<div class="inv-rows" role="img" aria-label="' + escapeHtml(rows.map(function(r){ return r.name + ': ' + a.label.toLowerCase() + ' ' + fmtMoney(r[a.field]) + ', ' + b.label.toLowerCase() + ' ' + fmtMoney(r[b.field]); }).join('; ')) + '">' +
     rows.map(function(r){
-      return '<div class="inv-row" data-tip="' + tipOf(r) + '"><div class="inv-row-head"><strong>' + escapeHtml(r.name) + '</strong>' + (meta ? '<span class="tx-meta">' + meta(r) + '</span>' : '') + '<strong class="tabular inv-row-total">' + fmtMoney(r.total) + '</strong></div>' +
+      return '<div class="inv-row' + (openFn ? ' clickable' : '') + '"' + (openFn ? ' role="button" tabindex="0" data-open-detail="' + escapeHtml(openFn(r)) + '" aria-label="Ver o que tem em ' + escapeHtml(r.name) + '"' : '') + ' data-tip="' + tipOf(r) + '"><div class="inv-row-head"><strong>' + escapeHtml(r.name) + '</strong>' + (meta ? '<span class="tx-meta">' + meta(r) + '</span>' : '') + '<strong class="tabular inv-row-total">' + fmtMoney(r.total) + '</strong></div>' +
         '<div class="inv-track">' + seg(a.cls, r[a.field], r) + seg(b.cls, r[b.field], r) + '</div></div>';
     }).join('') + '</div>';
 }
@@ -631,7 +641,7 @@ export function renderInvoiceSplit(){
   if (!rows.length){ wrap.innerHTML = '<p class="chart-empty">Nenhuma fatura vence em ' + monthName(off) + '.</p>' + lateHtml; return; }
   if (((State.dashViews || {}).invsplit || 'chart') === 'table'){
     wrap.innerHTML = '<table class="data-table"><thead><tr><th>Cartão</th><th>Fatura</th><th>Minha parte</th><th>Outras pessoas</th><th>Total</th></tr></thead><tbody>' +
-      rows.map(function(r){ return '<tr><td>' + escapeHtml(r.card.name) + '</td><td>' + escapeHtml(r.label) + ' · vence ' + formatDateBr(r.due) + '</td><td class="tabular">' + fmtMoney(r.mine) +
+      rows.map(function(r){ return '<tr class="clickable" tabindex="0" data-open-detail="inv:' + r.card.id + ':' + r.key + '"><td>' + escapeHtml(r.card.name) + '</td><td>' + escapeHtml(r.label) + ' · vence ' + formatDateBr(r.due) + '</td><td class="tabular">' + fmtMoney(r.mine) +
         '</td><td class="tabular">' + fmtMoney(r.others) + '</td><td class="tabular">' + fmtMoney(r.total) + '</td></tr>'; }).join('') +
       '<tr><td colspan="2"><strong>Total</strong></td><td class="tabular"><strong>' + fmtMoney(tot.mine) + '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.others) +
       '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.total) + '</strong></td></tr></tbody></table>' + lateHtml;
@@ -642,8 +652,48 @@ export function renderInvoiceSplit(){
   wrap.innerHTML = splitSummary('Total das faturas', tot.total, Object.assign({value: tot.mine}, A), Object.assign({value: tot.others}, B)) +
     splitRows(rows, max, A, B, function(r){ return 'vence ' + formatDateBr(r.due) + ' · ' + r.status; }, function(r){
       return [r.name + ' · fatura de ' + r.label, 'Vence ' + formatDateBr(r.due) + ' · ' + r.status, 'Minha parte: ' + fmtMoney(r.mine) + ' (' + pctOf(r.mine, r.total) + '%)', 'Outras pessoas: ' + fmtMoney(r.others) + ' (' + pctOf(r.others, r.total) + '%)', 'Total: ' + fmtMoney(r.total)];
-    }) + lateHtml;
+    }, function(r){ return 'inv:' + r.card.id + ':' + r.key; }) + lateHtml + '<p class="chart-note">Toque num cartão para ver as compras da fatura.</p>';
   wireTooltips(wrap, '.inv-seg, .inv-row');
+}
+// Toque numa fatura ou num banco dos gráficos: lista o que tem dentro, dizendo de quem é cada compra.
+function detailRowsHtml(list, amountFn){
+  return '<div class="table-scroll"><table class="data-table"><thead><tr><th>Data</th><th>Gasto</th><th>De quem</th><th>Valor</th></tr></thead><tbody>' + list.map(function(t){
+    var who = whoLabel(t);
+    return '<tr><td>' + formatDateBr(t.date) + '</td><td>' + escapeHtml(t.description || catLabel(t.category, 'expense', t.categoryLabel)) + (t.installment ? ' <small class="tx-meta">' + t.installment.n + '/' + t.installment.total + '</small>' : '') +
+      '</td><td><span class="who-tag ' + (who === 'Seu' ? 'mine' : 'others') + '">' + escapeHtml(who) + '</span></td><td class="tabular">' + fmtMoney(amountFn(t)) + '</td></tr>';
+  }).join('') + '</tbody></table></div>';
+}
+export async function openInvoiceDetail(cardId, key){
+  var c = findById(State.cards, cardId);
+  if (!c) return;
+  var items = Cards.invoiceItems(State.transactions, c, key), dates = Cards.invoiceDates(key, c), carries = Cards.carryIns(c, key);
+  var mine = money(sum(items.filter(function(t){ return !(t.installment && t.installment.settled); }), myShare) + Cards.carryTotal(c, key));
+  var others = money(sum(items.filter(function(t){ return !(t.installment && t.installment.settled); }), othersShare));
+  var r = await openModal({
+    title: c.name + ' · fatura de ' + Cards.invoiceLabel(key, c), wide: true, submitLabel: 'Baixar a fatura em PDF', cancelLabel: 'Fechar',
+    body: '<p class="card-sub">Fecha ' + formatDateBr(dates.closing) + ' · vence ' + formatDateBr(dates.due) + ' · ' + Cards.invoiceStatus(c, key, todayKey(), State.transactions) +
+      '<br>Minha parte <strong class="tabular">' + fmtMoney(mine) + '</strong> · de outras pessoas <strong class="tabular">' + fmtMoney(others) + '</strong> · total <strong class="tabular">' + fmtMoney(money(mine + others)) + '</strong></p>' +
+      carries.map(function(x){ return '<p class="tx-meta">' + (x.mode === 'parcelado' ? 'Parcelamento da fatura de ' + Cards.invoiceLabel(x.from, c) + ' (' + x.i + '/' + x.n + ')' : 'Saldo da fatura de ' + Cards.invoiceLabel(x.from, c)) + ': ' + fmtMoney(x.amount) + '</p>'; }).join('') +
+      (items.length ? detailRowsHtml(items, function(t){ return Number(t.amount); }) : '<p class="empty-state">Nenhuma compra nesta fatura.</p>'),
+    onSubmit: function(){ return {pdf: true}; }
+  });
+  if (r && r.pdf) generateInvoicePdf(cardId, key);
+}
+export async function openBankDetail(index, off){
+  var d = creditDebitData(off || 0), row = d.rows[index];
+  if (!row) return;
+  var key = monthBounds(off || 0).key, today = todayKey(), upToToday = !off;
+  var tx = State.transactions.filter(function(t){ return t.type === 'expense' && monthKeyOf(t.date) === key && (!upToToday || t.date <= today); }).sort(function(a, b){ return a.date.localeCompare(b.date); });
+  var credit = tx.filter(function(t){ return t.paymentMethod === 'cartao' && row.cardIds.indexOf(t.cardId) >= 0; });
+  var debit = tx.filter(function(t){ return t.paymentMethod === 'conta' && row.accIds.indexOf(t.accountId) >= 0; });
+  function part(title, list){
+    return list.length ? '<h4>' + title + ' · <span class="tabular">' + fmtMoney(money(sum(list, function(t){ return Number(t.amount); }))) + '</span></h4>' + detailRowsHtml(list, function(t){ return Number(t.amount); }) : '';
+  }
+  await openModal({
+    title: row.name + ' · ' + monthName(off), wide: true, submitLabel: null, cancelLabel: 'Fechar',
+    body: '<p class="card-sub">Total <strong class="tabular">' + fmtMoney(row.total) + '</strong> · crédito ' + fmtMoney(row.credit) + ' · débito/Pix ' + fmtMoney(row.debit) + '. Inclui o que outras pessoas vão te devolver.</p>' +
+      (part('No cartão de crédito (pela data da compra)', credit) + part('Da conta (Pix ou débito)', debit) || '<p class="empty-state">Nada neste período.</p>')
+  });
 }
 // Crédito × débito por banco no mês escolhido: o que saiu no cartão (pela data da compra) e da conta
 // (Pix/débito). Conta e cartão do mesmo banco ficam juntos (bankGroups). Dinheiro e vale vão à parte.
@@ -657,7 +707,7 @@ export function creditDebitData(offset){
     accIds.forEach(function(id){ usedAcc[id] = true; }); cardIds.forEach(function(id){ usedCard[id] = true; });
     var debit = money(sum(tx.filter(function(t){ return t.paymentMethod === 'conta' && accIds.indexOf(t.accountId) >= 0; }), function(t){ return t.amount; }));
     var credit = money(sum(tx.filter(function(t){ return t.paymentMethod === 'cartao' && cardIds.indexOf(t.cardId) >= 0; }), function(t){ return t.amount; }));
-    return {name: (g.acc || g.cards[0]).name, credit: credit, debit: debit, total: money(credit + debit)};
+    return {name: (g.acc || g.cards[0]).name, credit: credit, debit: debit, total: money(credit + debit), accIds: accIds, cardIds: cardIds};
   });
   var cash = money(sum(tx.filter(function(t){ return (t.paymentMethod === 'conta' || !t.paymentMethod) && !usedAcc[t.accountId]; }), function(t){ return t.amount; }));
   var vale = money(sum(tx.filter(function(t){ return t.paymentMethod === 'vale'; }), function(t){ return t.amount; }));
@@ -678,7 +728,7 @@ export function renderCreditDebit(){
   if (!tot.total){ wrap.innerHTML = '<p class="chart-empty">' + (off > 0 ? 'Nada agendado nos bancos para ' : 'Nenhum gasto nos bancos em ') + monthName(off) + '.</p>' + outside; return; }
   if (((State.dashViews || {}).creditdebit || 'chart') === 'table'){
     wrap.innerHTML = '<table class="data-table"><thead><tr><th>Banco</th><th>Crédito</th><th>Débito/Pix</th><th>Total</th></tr></thead><tbody>' +
-      d.rows.map(function(r){ return '<tr><td>' + escapeHtml(r.name) + '</td><td class="tabular">' + fmtMoney(r.credit) + '</td><td class="tabular">' + fmtMoney(r.debit) + '</td><td class="tabular">' + fmtMoney(r.total) + '</td></tr>'; }).join('') +
+      d.rows.map(function(r, i){ return '<tr class="clickable" tabindex="0" data-open-detail="bank:' + i + '"><td>' + escapeHtml(r.name) + '</td><td class="tabular">' + fmtMoney(r.credit) + '</td><td class="tabular">' + fmtMoney(r.debit) + '</td><td class="tabular">' + fmtMoney(r.total) + '</td></tr>'; }).join('') +
       '<tr><td><strong>Total</strong></td><td class="tabular"><strong>' + fmtMoney(tot.credit) + '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.debit) + '</strong></td><td class="tabular"><strong>' + fmtMoney(tot.total) + '</strong></td></tr></tbody></table>' + outside;
     return;
   }
@@ -686,7 +736,7 @@ export function renderCreditDebit(){
   var max = Math.max.apply(null, rows.map(function(r){ return r.total; }).concat([0]));
   wrap.innerHTML = splitSummary('Total nos bancos', tot.total, Object.assign({value: tot.credit}, A), Object.assign({value: tot.debit}, B)) + splitRows(rows, max, A, B, null, function(r){
     return [r.name + ' · ' + monthName(off), 'Crédito: ' + fmtMoney(r.credit) + ' (' + pctOf(r.credit, r.total) + '%)', 'Débito/Pix: ' + fmtMoney(r.debit) + ' (' + pctOf(r.debit, r.total) + '%)', 'Total: ' + fmtMoney(r.total)];
-  }) + outside;
+  }, function(r){ return 'bank:' + d.rows.indexOf(r); }) + outside + '<p class="chart-note">Toque num banco para ver o que foi gasto.</p>';
   wireTooltips(wrap, '.inv-seg, .inv-row');
 }
 /* ---------- Gráficos do Início: mês escolhido (passado, atual ou futuro com previsão) ---------- */
@@ -1079,6 +1129,16 @@ export function wireHome(){
     toast('Previsão de ' + fmtMoney(amount) + ' adicionada.');
   });
 
+  function openDetail(el){
+    var parts = el.getAttribute('data-open-detail').split(':');
+    if (parts[0] === 'inv') openInvoiceDetail(parts[1], parts.slice(2).join(':'));
+    else if (parts[0] === 'bank') openBankDetail(Number(parts[1]), State.dashOffset || 0);
+  }
+  ['invSplitWrap', 'creditDebitWrap'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener('click', function(e){ var t = e.target.closest('[data-open-detail]'); if (t) openDetail(t); });
+    el.addEventListener('keydown', function(e){ var t = e.target.closest('[data-open-detail]'); if (t && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); openDetail(t); } });
+  });
   var donut = document.getElementById('donutWrap');
   donut.addEventListener('click', function(e){ var el = e.target.closest('[data-cat-id]'); if (el) openCategoryDetail(el.getAttribute('data-cat-id')); });
   donut.addEventListener('keydown', function(e){ var el = e.target.closest('[data-cat-id]'); if (el && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); openCategoryDetail(el.getAttribute('data-cat-id')); } });

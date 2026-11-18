@@ -14,6 +14,7 @@ import {Store} from '../data/store.js';
 import {qs, escapeHtml, optionsHtml, labelOf, icon, resolveVar, saveFile, toast} from './dom.js';
 import {openModal} from './modal.js';
 import {pdfWriter, pdfReady} from './pdf.js';
+import {invoicePdfButtonsHtml} from './reports.js';
 import {wireTooltips} from './charts.js';
 import {isForOther, isPersonal, myShare, othersShare, whoLabel} from '../domain/transactions.js';
 import {payAccountFor, renderBanks} from './accounts-tab.js';
@@ -166,6 +167,22 @@ export var INVOICE_PILL = {aberta:'good', fechada:'warning', vencida:'critical',
 
 // Resumo de "Contas e cartões": dinheiro nas contas, faturas que se pagam neste mês e quanto sobra.
 // "Faturas a pagar" é o total das faturas (inclusive a parte de outras pessoas); embaixo, quanto é seu.
+// Quadro “Mês que vem”: faturas que já vencem lá, contas fixas previstas (observação) e como o mês ficaria.
+function nextMonthHtml(next, cash, after, afterMine){
+  function neg(v){ return '<strong class="tabular ' + (v < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(v) + '</strong>'; }
+  var hasMine = next.mine < next.total - 0.004 || Math.abs(after - afterMine) >= 0.005;
+  var out = money(next.total + next.fixedTotal), outMine = money(next.mine + next.fixedTotal);
+  var lines = '<span class="ws-next-title">Mês que vem · ' + monthLabelOf(next.key) + '</span>' +
+    (next.total > 0 ? '<span class="ws-next-line">Faturas dos cartões: <strong class="tabular">' + fmtMoney(next.total) + '</strong>' + (next.mine < next.total - 0.004 ? ', dos quais <strong class="tabular">' + fmtMoney(next.mine) + '</strong> são seus' : '') + '</span>' : '') +
+    (next.fixedTotal > 0 ? '<span class="ws-next-line">Contas fixas previstas: <strong class="tabular">' + fmtMoney(next.fixedTotal) + '</strong> <small class="tx-meta">(' + next.fixed.slice(0, 4).map(function(o){ return escapeHtml(o.name) + ' ' + fmtMoney(o.amount); }).join(', ') + (next.fixed.length > 4 ? ' e mais ' + (next.fixed.length - 4) : '') + '; ainda não lançadas)</small></span>' : '') +
+    (next.incomeTotal > 0 ? '<span class="ws-next-line">Ganhos previstos: <strong class="tabular">' + fmtMoney(next.incomeTotal) + '</strong></span>' : '');
+  if (cash !== null){
+    lines += '<span class="ws-next-line ws-next-total">Como ficaria, pagando faturas e contas fixas (' + fmtMoney(out) + ') com o que sobra hoje: ' + neg(money(after - out)) +
+      (hasMine ? ' (ou ' + neg(money(afterMine - outMine)) + ' se te devolverem)' : '') + '</span>';
+    if (next.incomeTotal > 0) lines += '<span class="ws-next-line">E com os ganhos previstos: ' + neg(money(after - out + next.incomeTotal)) + (hasMine ? ' (ou ' + neg(money(afterMine - outMine + next.incomeTotal)) + ')' : '') + '</span>';
+  }
+  return '<div class="ws-next">' + lines + '</div>';
+}
 export function renderWalletSummary(){
   var el = document.getElementById('walletSummary');
   if (!State.accounts.length && !State.cards.length){ el.innerHTML = ''; return; }
@@ -181,12 +198,8 @@ export function renderWalletSummary(){
       '<div class="ws-box"><span class="tile-lbl">Sobra depois de pagar <button type="button" class="info-i" data-explain="devolver" aria-label="O que significam os dois valores?">i</button></span><span class="tile-sub">' +
       two('Se ninguém devolver', after, after < 0 ? 'neg-text' : 'pos-text', true) + two('Se te devolverem', afterMine, afterMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>') : '') +
     '</div>' +
-    (showCards ? '<div class="ws-actions"><button type="button" class="btn btn-ghost btn-sm" data-allinv-pdf="0">PDF das faturas do mês</button><button type="button" class="btn btn-ghost btn-sm" data-allinv-pdf="1">PDF do mês que vem</button></div>' : '') +
-    (showCards && next.total > 0 ? '<div class="ws-next"><span class="ws-next-title">Mês que vem · faturas de ' + monthLabelOf(next.key) + '</span>' +
-      '<span class="ws-next-line">Já tem <strong class="tabular">' + fmtMoney(next.total) + '</strong> a pagar' + (next.mine < next.total - 0.004 ? ', dos quais <strong class="tabular">' + fmtMoney(next.mine) + '</strong> são seus' : '') + '</span>' +
-      (cash !== null ? '<span class="ws-next-line">Se pagar tudo isso com o que sobra hoje: <strong class="tabular ' + (after - next.total < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(money(after - next.total)) + '</strong>' +
-        (Math.abs(after - afterMine) >= 0.005 || next.mine < next.total - 0.004 ? ' (ou <strong class="tabular ' + (afterMine - next.mine < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(money(afterMine - next.mine)) + '</strong> se te devolverem)' : '') + '</span>' : '') +
-      '</div>' : '') +
+    (showCards ? invoicePdfButtonsHtml() : '') +
+    (showCards && (next.total > 0 || next.fixedTotal > 0) ? nextMonthHtml(next, cash, after, afterMine) : '') +
     (showCards ? '<p class="ws-note">“Faturas a pagar” é o que ainda falta das faturas que vencem neste mês (o que você já pagou ou adiantou não entra), com tudo o que está nelas, inclusive a parte de outras pessoas.</p>' : '');
 }
 // Cartões aparecem dentro do bloco do banco (renderBanks, em accounts-tab.js).

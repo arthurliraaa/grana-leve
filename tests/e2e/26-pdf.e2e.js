@@ -14,10 +14,10 @@ L.run(async ({page}) => {
   L.ok(/Fatura Inter/.test(await L.modalTitle(page)) && await page.$('#modalRoot iframe, #modalRoot embed, #modalRoot object, #modalRoot a[download]') !== null, 'fatura em PDF gerada e mostrada');
   await L.closeModal(page);
   // PDF de todos os cartões: a fatura da compra vence em dezembro (mês que vem) ou neste mês, conforme o dia.
-  const inv = (await page.$('[data-allinv-pdf="0"]')) && (await page.$('[data-allinv-pdf="1"]'));
+  const inv = (await page.$('#walletSummary [data-allinv-pdf="0"]')) && (await page.$('#walletSummary [data-allinv-pdf="1"]'));
   L.ok(!!inv, 'botões do PDF de todas as faturas aparecem em Contas e cartões');
   for (const off of ['0', '1']){
-    await page.click('[data-allinv-pdf="' + off + '"]'); await L.sleep(800);
+    await page.click('#walletSummary [data-allinv-pdf="' + off + '"]'); await L.sleep(800);
     if (/Faturas/.test(await L.modalTitle(page).catch(() => '') || '')){ L.ok(true, 'PDF das faturas de todos os cartões gerado e mostrado'); await L.closeModal(page); break; }
   }
 });

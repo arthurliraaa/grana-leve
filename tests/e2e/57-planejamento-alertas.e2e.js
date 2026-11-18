@@ -35,6 +35,9 @@ L.run(async ({page}) => {
   const chart = await L.text(page, '.budget-chart');
   L.ok(/Evolução do mês/.test(chart) && /do planejado usado/.test(chart) && /ritmo ideal/.test(chart), 'o gráfico diz se está acima ou abaixo do ritmo ideal');
   L.ok(await page.$$eval('.budget-chart .bch-line, .budget-chart .bch-dot', e => e.length) >= 1, 'a linha do gasto acumulado é desenhada');
+  L.ok(!(await page.$('#budgetChartCat')) && await page.$$eval('.bch-chips .chip', c => c.length) >= 2, 'categorias do gráfico são botões (sem lista suspensa)');
+  await page.$eval('.bch-chips [data-chart-cat="alimentacao"]', el => el.click()); await L.sleep(200);
+  L.ok(/Alimentação/.test(await L.text(page, '.bch-chips .chip.on')) && /Evolução do mês/.test(await L.text(page, '.budget-chart')), 'escolher uma categoria atualiza o gráfico');
   await page.setViewport({width: 360, height: 760}); await L.sleep(150);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
   await page.setViewport({width: 1280, height: 900});
