@@ -2023,10 +2023,6 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sm-grid{ display:grid; grid-template-columns: 1fr auto; gap:3px 12px; font-size:.9rem; }
 .sm-grid span{ color: var(--text-secondary); }
 .sm-grid b{ text-align:right; font-weight:600; }
-@media (max-width: 760px){
-  .sim-table-wrap{ display:none; }
-  .sim-months{ display:grid; }
-}
 
 /* Simulador: limite do cartão antes e depois da compra */
 .sim-limit{ padding:12px 14px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); display:grid; gap:8px; }
@@ -2042,3 +2038,17 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sl-grid{ display:grid; grid-template-columns: 1fr auto; gap:3px 14px; font-size:.9rem; }
 .sl-grid span{ color: var(--text-secondary); }
 .sl-grid b{ text-align:right; font-weight:600; }
+
+/* Simulador: o layout segue o espaço real da caixa (não a largura da tela), para nada passar da borda */
+#simPanel{ container-type: inline-size; min-width:0; }
+.sim-result{ container-type: inline-size; min-width:0; display:grid; grid-template-columns: minmax(0, 1fr); }
+.sim-result > *{ min-width:0; }
+.sim-table-wrap{ overflow-x:auto; }
+@container (max-width: 980px){
+  .sim-body{ grid-template-columns: minmax(0, 1fr); }
+  .sim-result{ position:static; }
+}
+@container (max-width: 620px){
+  .sim-table-wrap{ display:none; }
+  .sim-months{ display:grid; }
+}

@@ -94,7 +94,11 @@ L.run(async ({page}) => {
   await page.click('#simSubmit'); await L.sleep(400);
   d = await L.db(page);
   L.ok(d.bills.some(b => b.name === 'Academia' && b.amount === 90), 'registrar cria a conta fixa');
-  await page.setViewport({width: 360, height: 760}); await L.sleep(200);
-  await open(); await L.sleep(200);
-  L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
+  // O resultado nunca passa da caixa, em qualquer largura (tabela em telas largas, cartões por mês nas estreitas).
+  for (const w of [1280, 1000, 820, 600, 360]){
+    await page.setViewport({width: w, height: 800}); await L.sleep(200);
+    await open(); await page.type('#simName', 'Teste'); await page.type('#simAmount', '300'); await L.sleep(250);
+    const fits = await page.evaluate(() => { const r = document.getElementById('simResult').getBoundingClientRect(), c = document.querySelector('.sim-card').getBoundingClientRect(); return r.right <= c.right + 1 && r.left >= c.left - 1 && document.documentElement.scrollWidth <= innerWidth + 1; });
+    L.ok(fits, 'o resultado cabe na caixa com a tela em ' + w + 'px');
+  }
 });
