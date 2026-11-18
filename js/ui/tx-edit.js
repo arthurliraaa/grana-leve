@@ -12,7 +12,7 @@ import {clampInstall, isPersonal, reversalsOf} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceLabel} from '../domain/cards.js';
 import {Store} from '../data/store.js';
-import {budgetAlerts} from '../domain/budgets.js';
+import {budgetAlerts, alertPercent} from '../domain/budgets.js';
 import {getPrefs, setPref} from '../data/session.js';
 
 import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast, toastAction} from './dom.js';
@@ -456,7 +456,7 @@ export async function saveTransactions(list){
   return saved;
 }
 
-// Aviso do planejamento: um popup (não fica na tela) quando uma categoria do mês chega perto do limite (90%) ou passa
+// Aviso do planejamento: um popup (não fica na tela) quando uma categoria do mês chega à porcentagem escolhida (padrão 90%) ou passa
 // dele. Cada categoria avisa uma vez por nível no mês (perto → passou); fechar o popup basta, ele não volta sozinho.
 // Dispara depois de um gasto novo e uma vez ao abrir o app (para o que já estava perto).
 export function checkBudgetAlerts(newTx){
@@ -473,7 +473,8 @@ export function showBudgetPopup(only, tries){
   var cur = monthBounds(0).key, prefs = getPrefs().budgetAlertSeen || {}, seen = prefs[cur] || {};
   var plan = {};
   expenseCats().forEach(function(c){ var l = budgetLimit(cur, c.id); if (l > 0) plan[c.id] = l; });
-  var alerts = budgetAlerts(expenseCategoryTotals(cur), plan).filter(function(x){ return (!only || only[x.cat]) && seen[x.cat] !== x.level; });
+  var pctSet = alertPercent(getPrefs().budgetAlertPct);
+  var alerts = budgetAlerts(expenseCategoryTotals(cur), plan, pctSet / 100).filter(function(x){ return (!only || only[x.cat]) && seen[x.cat] !== x.level; });
   if (!alerts.length) return;
   // Marca como avisado já: o popup aparece uma vez por nível.
   var next = {}; Object.keys(prefs).forEach(function(m){ if (m >= cur) next[m] = prefs[m]; });
@@ -484,7 +485,7 @@ export function showBudgetPopup(only, tries){
   openModal({
     title: over ? 'Atenção ao planejamento' : 'Perto do limite do planejamento',
     submitLabel: 'Ver planejamento', cancelLabel: 'Fechar',
-    body: '<p class="field-hint">Categorias deste mês que chegaram a 90% do planejado ou passaram dele:</p><ul class="ba-list">' + alerts.map(function(x){
+    body: '<p class="field-hint">Categorias deste mês que chegaram a ' + pctSet + '% do planejado ou passaram dele:</p><ul class="ba-list">' + alerts.map(function(x){
       var pct = Math.round(x.pct * 100);
       return '<li class="ba-row ' + x.level + '"><span class="ba-name">' + icon('gauge') + escapeHtml(catLabel(x.cat, 'expense')) + '</span>' +
         '<span class="tabular ba-val">' + (x.level === 'over' ? 'passou ' + fmtMoney(x.spent - x.limit) : 'restam ' + fmtMoney(x.limit - x.spent)) + ' · ' + pct + '%</span>' +

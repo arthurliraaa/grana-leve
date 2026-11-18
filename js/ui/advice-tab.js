@@ -4,7 +4,7 @@
  */
 import {monthBounds, todayKey} from '../domain/dates.js';
 import {fmtMoney} from '../domain/money.js';
-import {budgetsFor} from '../domain/budgets.js';
+import {budgetsFor, alertPercent} from '../domain/budgets.js';
 import {buildAdvice} from '../domain/advice.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, escapeHtml, icon, toast} from './dom.js';
@@ -21,35 +21,47 @@ export function currentAdvice(all){
   var key = monthBounds(0).key;
   var next = nextMonthInvoices();
   var advice = buildAdvice({today: todayKey(), transactions: State.transactions, plan: budgetsFor(State.budgetBase, State.budgetMonths, key),
-    catName: function(id){ return catLabel(id, 'expense'); }, receivables: State.receivables, goals: State.goals, nextCommitted: next.mine + next.fixedTotal});
+    catName: function(id){ return catLabel(id, 'expense'); }, receivables: State.receivables, goals: State.goals, nearPct: alertPercent(getPrefs().budgetAlertPct) / 100, nextCommitted: next.mine + next.fixedTotal});
   var hide = dismissedNow();
   return all ? advice : advice.filter(function(a){ return !hide[a.id]; });
 }
-function itemHtml(a, compact){
+var TONE = {warn: {label: 'Atenção', group: 'Pedem atenção'}, tip: {label: 'Ideia', group: 'Ideias para guardar mais'}, good: {label: 'Tudo certo', group: 'Boas notícias'}};
+// Conselho completo (aba): rótulo do tipo, título, o que foi visto, “o que fazer” e o botão de ação.
+function itemHtml(a){
   var act = a.action ? (a.action.type === 'limit' ?
     '<button type="button" class="btn btn-primary btn-sm" data-advice-limit="' + escapeHtml(a.action.cat + ':' + a.action.amount) + '">' + escapeHtml(a.action.label) + '</button>' :
     '<button type="button" class="btn btn-ghost btn-sm" data-advice-go="' + escapeHtml(a.action.tab) + '">' + escapeHtml(a.action.label) + '</button>') : '';
-  return '<article class="advice-item ' + a.tone + '">' + icon(a.tone === 'warn' ? 'gauge' : a.tone === 'good' ? 'check' : 'bolt') +
-    '<div class="ai-body"><h4>' + escapeHtml(a.title) + '</h4><p>' + escapeHtml(a.text) + '</p>' +
-    '<div class="ai-act">' + act + (a.kind === 'good' && a.id === 'good:calm' ? '' : '<button type="button" class="linklike" data-advice-dismiss="' + escapeHtml(a.id) + '">Dispensar</button>') + '</div></div></article>';
+  return '<article class="advice-item ' + a.tone + '">' +
+    '<header class="ai-head"><span class="advice-badge ' + a.tone + '">' + icon('bulb') + TONE[a.tone].label + '</span>' +
+      (a.saving > 0 ? '<span class="advice-gain">pode liberar ~' + fmtMoney(a.saving) + '</span>' : '') + '</header>' +
+    '<h4>' + escapeHtml(a.title) + '</h4><p class="ai-text">' + escapeHtml(a.text) + '</p>' +
+    (a.todo ? '<div class="ai-todo"><strong>O que fazer</strong><span>' + escapeHtml(a.todo) + '</span></div>' : '') +
+    '<div class="ai-act">' + act + (a.id === 'good:calm' ? '' : '<button type="button" class="linklike" data-advice-dismiss="' + escapeHtml(a.id) + '">Dispensar</button>') + '</div></article>';
+}
+// Linha curta do Início: rótulo + título; tocar leva aos conselhos.
+function miniHtml(a){
+  return '<button type="button" class="advice-mini ' + a.tone + '" data-advice-go="conselhos"><span class="advice-badge ' + a.tone + '">' + TONE[a.tone].label + '</span><span class="am-title">' + escapeHtml(a.title) + '</span><span class="am-go" aria-hidden="true">›</span></button>';
 }
 export function renderAdvice(){
   var card = document.getElementById('adviceCard'), list = document.getElementById('adviceList');
   if (!card || !list) return;
   var shown = currentAdvice(false);
-  var wrapEvents = function(el){
-    if (el._adviceWired) return;
-    el._adviceWired = true;
-    el.addEventListener('click', onClick);
-  };
-  wrapEvents(card); wrapEvents(list);
-  // Início: no máximo 3, só se houver algo além do elogio vazio.
-  card.hidden = !State.session || !State.transactions.length;
-  card.innerHTML = card.hidden ? '' : '<div class="card-head"><h3>Conselhos do mês</h3><button type="button" class="btn btn-ghost btn-sm" data-advice-go="conselhos">Ver todos</button></div>' +
-    '<p class="card-sub">Uma olhadinha nos seus gastos, com ideias para guardar mais. São só sugestões.</p>' +
-    (shown.length ? shown.slice(0, 3).map(function(a){ return itemHtml(a, true); }).join('') : '<p class="tx-meta">Você dispensou os conselhos deste mês. Eles voltam no próximo.</p>');
-  list.innerHTML = shown.length ? shown.map(function(a){ return itemHtml(a, false); }).join('') :
-    '<p class="empty-state">Você dispensou todos os conselhos deste mês. Eles voltam no próximo. 🌿</p>';
+  [card, list].forEach(function(el){ if (!el._adviceWired){ el._adviceWired = true; el.addEventListener('click', onClick); } });
+  var attention = shown.filter(function(a){ return a.tone === 'warn'; }).length;
+  // Início: só um resumo de 1 linha por conselho (os 3 que mais pesam).
+  card.hidden = !State.session || !State.transactions.length || !shown.length;
+  card.innerHTML = card.hidden ? '' : '<div class="card-head"><h3>' + icon('bulb') + 'Conselhos do mês</h3><button type="button" class="linklike" data-advice-go="conselhos">Ver todos (' + shown.length + ')</button></div>' +
+    '<div class="advice-minis">' + shown.slice(0, 3).map(miniHtml).join('') + '</div>';
+  // Aba: resumo no topo e os conselhos em grupos.
+  if (!shown.length){ list.innerHTML = '<p class="empty-state">Você dispensou todos os conselhos deste mês. Eles voltam no próximo. 🌿</p>'; }
+  else {
+    var groups = ['warn', 'tip', 'good'].map(function(t){
+      var items = shown.filter(function(a){ return a.tone === t; });
+      return items.length ? '<section class="advice-group"><h3 class="ag-title ' + t + '">' + TONE[t].group + ' <span>' + items.length + '</span></h3><div class="advice-grid">' + items.map(itemHtml).join('') + '</div></section>' : '';
+    }).join('');
+    list.innerHTML = '<p class="advice-summary">' + (attention ? '<strong>' + attention + (attention === 1 ? ' ponto pede' : ' pontos pedem') + ' atenção</strong> neste mês. ' : '<strong>Nada urgente</strong> neste mês. ') +
+      'Os conselhos mudam conforme você lança gastos.</p>' + groups;
+  }
   var restore = qs('#adviceRestore');
   if (restore) restore.hidden = !Object.keys(dismissedNow()).length;
 }

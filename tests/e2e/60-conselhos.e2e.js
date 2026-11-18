@@ -17,7 +17,7 @@ L.run(async ({page}) => {
 
   L.section('Card no Início');
   L.ok(!(await page.$eval('#adviceCard', e => e.hidden)) && /Conselhos do mês/.test(await L.text(page, '#adviceCard')), 'o Início mostra o card “Conselhos do mês”');
-  L.ok(await page.$$eval('#adviceCard .advice-item', i => i.length >= 1 && i.length <= 3), 'com no máximo 3 conselhos');
+  L.ok(await page.$$eval('#adviceCard .advice-mini', i => i.length >= 1 && i.length <= 3), 'com no máximo 3 conselhos');
   const card = await L.text(page, '#adviceCard');
   L.ok(/limites/i.test(card) || /Lazer/.test(card), 'fala dos gastos (limites ou Lazer acima do costume)');
 

@@ -30,6 +30,13 @@ L.run(async ({page}) => {
   L.ok(/Atenção ao planejamento/.test(await L.modalTitle(page)) && /passou R\$\s?60,00 · 106%/.test(t2), 'passando do limite abre outro popup (passou R$ 60)');
   await L.closeModal(page);
 
+  L.section('Escolher a porcentagem do aviso');
+  await L.tab(page, 'limites');
+  L.ok(await page.$$eval('[data-alert-pct]', b => b.length) === 4 && await page.$eval('[data-alert-pct="90"]', b => b.classList.contains('on')), 'há botões de porcentagem e o padrão 90% vem marcado');
+  await page.$eval('[data-alert-pct="70"]', b => b.click()); await L.sleep(500);
+  L.ok(await page.$eval('[data-alert-pct="70"]', b => b.classList.contains('on')), 'escolher 70% fica marcado');
+  await L.closeModal(page).catch(() => {});
+
   L.section('Gráfico de evolução');
   await L.tab(page, 'limites');
   const chart = await L.text(page, '.budget-chart');

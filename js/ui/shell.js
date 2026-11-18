@@ -263,7 +263,7 @@ function openDetailsPop(details){
 }
 // "Mais" no celular: as áreas que não cabem na barra inferior.
 export async function openMoreMenu(){
-  var items = [['conselhos','bolt','Conselhos'], ['limites','pie','Planejar gastos'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
+  var items = [['conselhos','bulb','Conselhos'], ['limites','pie','Planejar gastos'], ['metas','target','Metas'], ['compromissos','handshake','Compromissos'],
     ['aprenda','book','Aprenda'], ['conexoes','plug','Conexões'], ['perfil','user','Perfil e conta']].concat(State.isAdmin ? [['admin','shield','Administração']] : []);
   await openModal({
     title: 'Mais', submitLabel: null, cancelLabel: 'Fechar',

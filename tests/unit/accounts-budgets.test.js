@@ -182,3 +182,10 @@ test('ajuste de saldo entra no saldo e nas movimentações sem virar ganho nem g
   assert.deepEqual(moves.filter(m => m.kind === 'Ajuste de saldo').map(m => m.amount), [-0.12, 1100]);
   assert.equal(moves.filter(m => m.kind === 'Ganho').length, 0);
 });
+
+test('porcentagem de aviso escolhida: 70% avisa antes; valor inválido volta ao padrão de 90%', async () => {
+  const {budgetAlerts, alertPercent} = await import('../../js/domain/budgets.js');
+  assert.equal(budgetAlerts({a: 750}, {a: 1000}, 0.7).length, 1);
+  assert.equal(budgetAlerts({a: 750}, {a: 1000}).length, 0, 'sem escolha, só a partir de 90%');
+  assert.equal(alertPercent(80), 80); assert.equal(alertPercent('abc'), 90); assert.equal(alertPercent(30), 90); assert.equal(alertPercent(100), 90);
+});

@@ -1849,17 +1849,9 @@ details.purchase-notes[open] > summary{ margin-bottom:6px; }
 .bch-chips{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 2px; }
 .bch-chips .chip{ padding:5px 12px; border-radius:999px; border:1px solid var(--border); background: transparent; color: var(--text-secondary); font:inherit; font-size:.86rem; cursor:pointer; }
 .bch-chips .chip:hover{ border-color: var(--brand); color: var(--text-primary); }
-.bch-chips .chip.on{ background: var(--brand); border-color: var(--brand); color:#fff; font-weight:600; }
+.bch-chips .chip.on{ background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight:600; }
 
-/* Conselhos */
-.advice-card{ margin-top:16px; }
-.advice-item{ display:flex; gap:12px; padding:12px 14px; margin-top:10px; border:1px solid var(--border); border-left:4px solid var(--brand); border-radius: var(--radius); background: var(--surface); }
-.advice-item.warn{ border-left-color: var(--warning); }
-.advice-item.good{ border-left-color: var(--good); }
-.advice-item > .ico{ flex:none; margin-top:2px; color: var(--text-secondary); }
-.ai-body h4{ margin:0 0 4px; font-size:1rem; }
-.ai-body p{ margin:0 0 8px; font-size:.94rem; line-height:1.5; color: var(--text-secondary); }
-.ai-act{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+
 
 /* Folha de baixo no celular: alça para arrastar e fechar */
 .sheet-grip{ display:none; }
@@ -1884,3 +1876,56 @@ details.purchase-notes[open] > summary{ margin-bottom:6px; }
 .split-more{ display:block; margin-top:6px; font-size:.8rem; color: var(--text-secondary); }
 .detail-sec{ margin-top:14px; }
 .detail-sec h3{ margin:0 0 4px; font-size:1.02rem; }
+
+/* Conselhos: Início compacto e aba em grupos */
+.advice-card{ margin-top:16px; padding-bottom:10px; }
+.advice-card .card-head h3{ display:flex; align-items:center; gap:8px; }
+.advice-card .card-head h3 .ico{ color: var(--brand); }
+.advice-minis{ display:grid; gap:6px; }
+.advice-mini{ display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:9px 12px; border:1px solid var(--border); border-radius:12px; background: var(--surface); color: var(--text-primary); font:inherit; cursor:pointer; }
+.advice-mini:hover{ border-color: var(--brand); }
+.am-title{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.am-go{ color: var(--text-secondary); font-size:1.2rem; }
+.advice-badge{ display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:999px; font-size:.78rem; font-weight:700; letter-spacing:.02em; background: color-mix(in srgb, var(--brand) 16%, transparent); color: var(--text-primary); white-space:nowrap; }
+.advice-badge .ico{ width:14px; height:14px; }
+.advice-badge.warn{ background: color-mix(in srgb, var(--warning) 22%, transparent); }
+.advice-badge.good{ background: color-mix(in srgb, var(--good) 20%, transparent); }
+.advice-summary{ margin:0 0 10px; color: var(--text-secondary); }
+.advice-summary strong{ color: var(--text-primary); }
+.advice-group{ margin-top:18px; }
+.ag-title{ display:flex; align-items:center; gap:8px; margin:0 0 8px; font-size:1.05rem; }
+.ag-title span{ font-size:.8rem; padding:1px 9px; border-radius:999px; background: var(--surface-2); color: var(--text-secondary); }
+.advice-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:12px; }
+.advice-item{ display:flex; flex-direction:column; gap:8px; padding:14px 16px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.advice-item.warn{ border-top:3px solid var(--warning); }
+.advice-item.tip{ border-top:3px solid var(--brand); }
+.advice-item.good{ border-top:3px solid var(--good); }
+.ai-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.advice-gain{ font-size:.8rem; color: var(--good); font-weight:600; }
+.advice-item h4{ margin:0; font-size:1.05rem; }
+.ai-text{ margin:0; font-size:.93rem; line-height:1.5; color: var(--text-secondary); }
+.ai-todo{ display:grid; gap:2px; padding:9px 11px; border-radius:10px; background: var(--surface-2); font-size:.9rem; }
+.ai-todo strong{ font-size:.76rem; text-transform:uppercase; letter-spacing:.05em; color: var(--text-secondary); }
+.ai-act{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-top:auto; }
+
+/* Botões de PDF no topo de Contas e cartões: respiro embaixo, sem folga a mais em cima */
+#walletSummary > .ws-actions{ margin:0 0 16px; }
+.ws-next .ws-actions{ margin:10px 0 0; }
+
+/* Planejar gastos: em que porcentagem avisar */
+.budget-alert-set{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; margin:12px 0; padding:10px 14px; border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.bas-lbl{ font-weight:600; }
+.bas-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.bas-chips .chip{ padding:5px 14px; border-radius:999px; border:1px solid var(--border); background: transparent; color: var(--text-secondary); font:inherit; font-size:.9rem; cursor:pointer; }
+.bas-chips .chip.on{ background: var(--brand); border-color: var(--brand); color: var(--on-brand); font-weight:700; }
+.bas-other{ display:flex; align-items:center; gap:6px; font-size:.9rem; color: var(--text-secondary); }
+.bas-other input{ width:64px; }
+.budget-alert-set .field-hint{ flex-basis:100%; margin:0; }
+
+/* Planejar gastos: avisos e gráfico ocupam a largura toda; os cartões das categorias não esticam */
+#budgetList > .budget-alert-set, #budgetList > .budget-intro, #budgetList > .budget-chart{ grid-column: 1 / -1; margin:0; }
+#budgetList{ align-items:start; }
+.bch-svg{ max-width:760px; margin-left:auto; margin-right:auto; }
+.advice-card, .advice-minis{ min-width:0; }
+.advice-mini{ min-width:0; max-width:100%; box-sizing:border-box; }
+.advice-grid{ grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); }

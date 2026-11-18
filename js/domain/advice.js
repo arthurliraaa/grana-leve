@@ -43,7 +43,7 @@ export function buildAdvice(ctx){
   var today = ctx.today, key = today.slice(0, 7), n = daysIn(key), day = Number(today.slice(8, 10)), left = Math.max(0, n - day);
   var list = ctx.transactions, plan = ctx.plan || {}, name = ctx.catName || function(id){ return id; };
   var items = mineExpenses(list, key).filter(function(t){ return t.date <= today; });
-  var spent = byCategory(items), prev = previousAverages(list, key), out = [];
+  var spent = byCategory(items), prev = previousAverages(list, key), out = [], near = ctx.nearPct > 0 && ctx.nearPct < 1 ? ctx.nearPct : 0.9;
   function add(x){ x.impact = Math.round(x.impact || 0); out.push(x); }
 
   Object.keys(plan).forEach(function(cat){
@@ -55,10 +55,12 @@ export function buildAdvice(ctx){
         title: name(cat) + ' passou do planejado',
         text: 'Passou ' + fmtMoney(s - limit) + ' do limite de ' + fmtMoney(limit) + '. Tudo bem acontecer: ainda dá para segurar os próximos dias.' +
           (left && projected > s ? ' Se o resto do mês seguir no mesmo ritmo, o total vai chegar perto de ' + fmtMoney(projected) + '.' : ''),
+        todo: 'Evite novos gastos em ' + name(cat) + ' até o fim do mês, ou revise o limite se ele estiver baixo para você.',
         action: {type: 'go', tab: 'limites', label: 'Ver planejamento'}});
-    } else if (s >= 0.9 * limit){
+    } else if (s >= near * limit){
       add({id: 'near:' + cat, kind: 'near', tone: 'warn', impact: s / limit * 500,
         title: name(cat) + ' está perto do limite',
+        todo: 'Segure os próximos gastos em ' + name(cat) + (left ? ': dá cerca de ' + fmtMoney((limit - s) / left) + ' por dia.' : '.'),
         text: 'Já usou ' + Math.round(100 * s / limit) + '% do planejado e restam ' + fmtMoney(limit - s) + (left ? ' para ' + left + (left === 1 ? ' dia' : ' dias') + ' (cerca de ' + fmtMoney(limit - s > 0 ? (limit - s) / left : 0) + ' por dia).' : '.'),
         action: {type: 'go', tab: 'limites', label: 'Ver planejamento'}});
     }
@@ -74,7 +76,8 @@ export function buildAdvice(ctx){
           title: name(cat) + ' está acima do seu costume',
           text: 'Nos últimos meses você gastou em média ' + fmtMoney(avg) + ' por mês aqui e este mês caminha para ' + fmtMoney(money(proj)) + '. ' +
             'Voltar à média libera cerca de ' + fmtMoney(money(proj - avg)) + ' no mês' + (cut > 0 ? '; só reduzir a metade dessa diferença já deixa ' + fmtMoney(money(cut * 12)) + ' em um ano.' : '.'),
-          action: plan[cat] > 0 ? {type: 'go', tab: 'limites', label: 'Ver planejamento'} : {type: 'limit', cat: cat, amount: ceil10(avg), label: 'Definir limite de ' + fmtMoney(ceil10(avg))}});
+          todo: plan[cat] > 0 ? 'Compare com o limite que você definiu e veja se vale ajustar.' : 'Defina um limite perto da média (' + fmtMoney(ceil10(avg)) + ') e acompanhe ao longo do mês.',
+        action: plan[cat] > 0 ? {type: 'go', tab: 'limites', label: 'Ver planejamento'} : {type: 'limit', cat: cat, amount: ceil10(avg), label: 'Definir limite de ' + fmtMoney(ceil10(avg))}});
       }
     });
   }
@@ -85,6 +88,7 @@ export function buildAdvice(ctx){
     add({id: 'nolimit', kind: 'nolimit', tone: 'tip', impact: 300,
       title: 'Que tal definir limites?',
       text: 'Seus maiores gastos neste mês são ' + top.map(name).join(' e ') + '. Com um limite para cada um, o app avisa antes de passar e fica mais fácil guardar.',
+      todo: 'Escolha um valor para cada um e deixe o app avisar quando chegar perto.',
       action: {type: 'go', tab: 'limites', label: 'Definir limites'}});
   }
 
@@ -97,17 +101,20 @@ export function buildAdvice(ctx){
       add({id: 'savings:neg', kind: 'savings', tone: 'warn', impact: -(income - expense) + 800,
         title: 'Saiu mais do que entrou',
         text: 'Neste mês você gastou ' + fmtMoney(money(expense - income)) + ' a mais do que recebeu. Olhar as maiores categorias e adiar o que não for urgente costuma ajudar a fechar no azul.',
+        todo: 'Veja as maiores categorias do mês e adie o que não for urgente.',
         action: {type: 'go', tab: 'dashboard', label: 'Ver gastos do mês'}});
     } else if (rate < 0.1){
       var goal10 = money(income * 0.1 - (income - expense));
       add({id: 'savings:low', kind: 'savings', tone: 'tip', impact: goal10 + 200, saving: goal10,
         title: 'Dá para guardar um pouquinho mais',
         text: 'Até agora sobrou ' + Math.round(rate * 100) + '% do que entrou. Separar ' + fmtMoney(goal10) + ' a mais já chegaria a 10%, um bom começo.',
+        todo: 'Separe ' + fmtMoney(goal10) + ' assim que o dinheiro entrar, antes de gastar, numa meta só para isso.',
         action: {type: 'go', tab: 'metas', label: 'Criar uma meta'}});
     } else if (rate >= 0.2){
       add({id: 'good:savings', kind: 'good', tone: 'good', impact: 1,
         title: 'Você está guardando bem',
         text: 'Até agora sobrou ' + Math.round(rate * 100) + '% do que entrou neste mês. Que tal mandar essa sobra para uma meta?',
+        todo: 'Mande a sobra para uma meta, para ela não se misturar com o dia a dia.',
         action: {type: 'go', tab: 'metas', label: 'Ver metas'}});
     }
   }
@@ -117,6 +124,7 @@ export function buildAdvice(ctx){
     add({id: 'commit', kind: 'commit', tone: 'tip', impact: ctx.nextCommitted / 4,
       title: 'O mês que vem já começa pesado',
       text: 'Faturas e contas fixas somam ' + fmtMoney(ctx.nextCommitted) + ', mais da metade do que entrou neste mês. Se der, evite novas parcelas por enquanto.',
+      todo: 'Evite novas parcelas por enquanto e revise as contas fixas que dá para reduzir.',
       action: {type: 'go', tab: 'cartoes', label: 'Ver contas e cartões'}});
   }
 
@@ -128,7 +136,8 @@ export function buildAdvice(ctx){
     if (l.length >= 8 && total >= 100){
       add({id: 'small:' + cat, kind: 'small', tone: 'tip', impact: total / 2, saving: money(total * 0.2),
         title: 'Muitos gastos pequenos em ' + name(cat),
-        text: l.length + ' compras de até R$ 30 somam ' + fmtMoney(total) + ' neste mês. Juntar algumas delas ou escolher dias fixos para isso pode poupar uns ' + fmtMoney(money(total * 0.2)) + '.'});
+        text: l.length + ' compras de até R$ 30 somam ' + fmtMoney(total) + ' neste mês. Juntar algumas delas ou escolher dias fixos para isso pode poupar uns ' + fmtMoney(money(total * 0.2)) + '.',
+        todo: 'Junte compras pequenas numa só ou escolha um dia da semana para elas.'});
     }
   });
 
@@ -141,6 +150,7 @@ export function buildAdvice(ctx){
       add({id: 'receive', kind: 'receive', tone: 'tip', impact: owed / 3 + (late.length ? 200 : 0),
         title: 'Tem dinheiro para voltar para você',
         text: 'Faltam ' + fmtMoney(owed) + ' para receber' + (late.length ? ', e ' + late.length + (late.length === 1 ? ' combinado já passou' : ' combinados já passaram') + ' da data' : '') + '. Uma mensagem gentil de cobrança ajuda a fechar o mês.',
+        todo: 'Mande uma mensagem de cobrança para quem está atrasado.',
         action: {type: 'go', tab: 'receber', label: 'Ver quem me deve'}});
     }
   }
@@ -152,6 +162,7 @@ export function buildAdvice(ctx){
     add({id: 'goal:' + g.id, kind: 'goal', tone: 'tip', impact: f.needed,
       title: 'A meta “' + g.name + '” está um pouco atrasada',
       text: 'No ritmo atual ela não chega no prazo. Guardar cerca de ' + fmtMoney(f.needed) + ' por mês resolve.',
+      todo: 'Aumente o depósito mensal para cerca de ' + fmtMoney(f.needed) + ' ou ajuste o prazo da meta.',
       action: {type: 'go', tab: 'metas', label: 'Ver a meta'}});
   });
 

@@ -23,17 +23,18 @@ export function statusForPct(pct){
   return 'good';
 }
 
-// Quanto do planejado cada categoria já usou: [{cat, pct, level}] com level 'near' (a partir de 90%,
-// “perto do limite”) ou 'over' (passou de 100%). Só categorias com limite.
+// Quanto do planejado cada categoria já usou: [{cat, pct, level}] com level 'near' (a partir da porcentagem escolhida,
+// padrão 90%, “perto do limite”) ou 'over' (passou de 100%). Só categorias com limite.
 export var NEAR_LIMIT = 0.9;
-export function budgetAlerts(spentByCat, limits){
+export function budgetAlerts(spentByCat, limits, near){
+  var from = near > 0 && near < 1 ? near : NEAR_LIMIT;
   var out = [];
   Object.keys(limits || {}).forEach(function(cat){
     var limit = Number(limits[cat]) || 0, spent = Number(spentByCat[cat]) || 0;
     if (!(limit > 0)) return;
     var pct = spent / limit;
     if (pct > 1) out.push({cat: cat, pct: pct, level: 'over', spent: spent, limit: limit});
-    else if (pct >= NEAR_LIMIT) out.push({cat: cat, pct: pct, level: 'near', spent: spent, limit: limit});
+    else if (pct >= from) out.push({cat: cat, pct: pct, level: 'near', spent: spent, limit: limit});
   });
   return out.sort(function(a, b){ return b.pct - a.pct; });
 }
@@ -60,3 +61,6 @@ export function monthBurn(items, key, today, limit){
     projected: upto > 0 ? Math.round(spent / upto * n * 100) / 100 : 0,
     ahead: limit > 0 && upto > 0 ? Math.round((spent - limit * upto / n) * 100) / 100 : 0};
 }
+
+// Porcentagem de aviso escolhida pela pessoa (50 a 99); fora disso, o padrão de 90%.
+export function alertPercent(v){ var n = Math.round(Number(v)); return n >= 50 && n <= 99 ? n : Math.round(NEAR_LIMIT * 100); }

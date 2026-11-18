@@ -10,7 +10,7 @@ import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import {isPersonal, myShare} from '../domain/transactions.js';
 
-import {statusForPct, monthBurn} from '../domain/budgets.js';
+import {statusForPct, monthBurn, alertPercent} from '../domain/budgets.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {urgencyOf, byUrgency} from '../domain/urgency.js';
 
@@ -18,19 +18,30 @@ import {Store} from '../data/store.js';
 import {qs, qsa, escapeHtml, optionsHtml, icon, toast} from './dom.js';
 import {askAmount, openModal} from './modal.js';
 import {moreMenu} from './commitments-tab.js';
-import {renderDashboard, txRowHtml} from './home-tab.js';
+import {renderDashboard, txRowHtml, compactMoney} from './home-tab.js';
 import {State, budgetLimit, budgetLocked, catBadge, catLabel, expenseCats, k, setBudget, txForMonth, urgencyOptions, urgencySelectHtml} from './state.js';
-import {manageCategories} from './tx-edit.js';
+import {manageCategories, showBudgetPopup} from './tx-edit.js';
+import {renderAdvice} from './advice-tab.js';
 import {createCategory, populateCategorySelect} from './tx-list.js';
 
 /* ---------- Planejar gastos (aba "limites") ---------- */
 export var statusLabel = {good:'sob controle', warning:'quase no limite', critical:'estourou'};
 
 // Aviso de primeira vez na aba: como funcionam os alertas do planejamento (some quando a pessoa fecha).
+// Em que porcentagem do limite o app avisa: botões rápidos e um campo para outro valor. Vale para todos os meses.
+function alertSettingHtml(){
+  var cur = alertPercent(getPrefs().budgetAlertPct), quick = [70, 80, 90, 95];
+  return '<div class="budget-alert-set"><span class="bas-lbl">Avisar quando uma categoria chegar a</span>' +
+    '<span class="bas-chips" role="group" aria-label="Porcentagem do aviso">' + quick.map(function(p){
+      return '<button type="button" class="chip' + (cur === p ? ' on' : '') + '" data-alert-pct="' + p + '" aria-pressed="' + (cur === p) + '">' + p + '%</button>'; }).join('') + '</span>' +
+    '<label class="bas-other">ou outro: <span class="money-input sm"><input type="number" min="50" max="99" step="1" inputmode="numeric" id="alertPctInput" value="' + (quick.indexOf(cur) < 0 ? cur : '') + '" placeholder="' + cur + '" aria-label="Outra porcentagem"><span>%</span></span></label>' +
+    '<span class="field-hint">do limite do mês. Quando chegar, aparece um aviso na tela; passando do limite, avisa de novo.</span></div>';
+}
+// Aviso de primeira vez na aba: como funcionam os alertas do planejamento (some quando a pessoa fecha).
 function budgetIntroHtml(){
   if (getPrefs().budgetIntroSeen) return '';
   return '<div class="budget-intro" role="note">' + icon('gauge') + '<div><strong>Como o planejamento avisa você</strong>' +
-    '<p>Defina quanto quer gastar em cada categoria. Quando uma categoria chegar a <strong>90%</strong> do limite, ou passar dele, aparece um aviso no topo, em qualquer tela. ' +
+    '<p>Defina quanto quer gastar em cada categoria. Quando uma categoria chegar à porcentagem que você escolher (começa em <strong>90%</strong>) do limite, ou passar dele, aparece um aviso na tela. ' +
     'Aqui embaixo você acompanha a evolução do mês: se o gasto está acima ou abaixo do ritmo ideal.</p>' +
     '<button type="button" class="btn btn-ghost btn-sm" data-budget-intro-ok>Entendi</button></div></div>';
 }
@@ -44,7 +55,7 @@ function budgetChartHtml(mb, monthTx, cats){
   var limit = sumMoney(picked, function(c){ return budgetLimit(mb.key, c.id); });
   var items = monthTx.filter(function(t){ return !t.reversal && ids.indexOf(t.category) >= 0 && myShare(t) > 0; }).map(function(t){ return {date: t.date, amount: myShare(t)}; });
   var b = monthBurn(items, mb.key, todayKey(), limit);
-  var W = 600, H = 210, L = 46, R = 14, T = 12, B = 28, pw = W - L - R, ph = H - T - B;
+  var W = 600, H = 210, L = 58, R = 14, T = 12, B = 28, pw = W - L - R, ph = H - T - B;
   var top = Math.max(limit, b.spent, b.upto && b.upto < b.days ? b.projected : 0) * 1.08 || 1;
   function x(d){ return (L + pw * (d - 1) / Math.max(1, b.days - 1)).toFixed(1); }
   function y(v){ return (T + ph - ph * Math.min(v, top) / top).toFixed(1); }
@@ -55,7 +66,7 @@ function budgetChartHtml(mb, monthTx, cats){
   var ticks = [1, Math.round(b.days / 3), Math.round(2 * b.days / 3), b.days].filter(function(d, i, a){ return a.indexOf(d) === i; });
   var svg = '<svg class="bch-svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Evolução do gasto no mês comparada ao limite">' +
     '<line class="bch-limit" x1="' + L + '" y1="' + y(limit) + '" x2="' + (W - R) + '" y2="' + y(limit) + '"></line>' +
-    '<text class="bch-lbl" x="' + (L - 6) + '" y="' + (Number(y(limit)) + 4) + '" text-anchor="end">' + fmtMoney(limit) + '</text>' +
+    '<text class="bch-lbl" x="' + (L - 6) + '" y="' + (Number(y(limit)) + 4) + '" text-anchor="end">R$ ' + compactMoney(limit) + '</text>' +
     '<text class="bch-lbl" x="' + (L - 6) + '" y="' + (T + ph + 4) + '" text-anchor="end">0</text>' +
     idealLine + proj + (b.cum.length > 1 ? '<polyline class="bch-line ' + (over ? 'over' : '') + '" points="' + cum + '"></polyline>' : '') +
     (b.cum.length ? '<circle class="bch-dot ' + (over ? 'over' : '') + '" cx="' + x(b.upto) + '" cy="' + y(b.spent) + '" r="4"></circle>' : '') +
@@ -124,7 +135,7 @@ export function renderBudgets(){
     .map(function(c){ return {id: c.id, amount: Math.ceil(spent3[c.id] / 3 / 10) * 10}; }).filter(function(x){ return x.amount > 0; });
   if (fill.length) summary = summary.replace(/<\/div>$/, '<button type="button" class="btn btn-ghost btn-sm bs-fill" data-budget-fill>Usar a média dos últimos 3 meses' +
     (fill.length > 1 ? ' (' + fill.length + ' categorias)' : '') + '</button></div>');
-  list.innerHTML = summary + budgetIntroHtml() + budgetChartHtml(mb, monthTx, cats) + shown.map(budgetRowHtml).join('') +
+  list.innerHTML = summary + alertSettingHtml() + budgetIntroHtml() + budgetChartHtml(mb, monthTx, cats) + shown.map(budgetRowHtml).join('') +
     (hidden.length ? '<details class="budget-more"><summary>' + (spent3Any ? 'Sem gastos nos últimos 3 meses' : 'Outras categorias') + ' (' + hidden.length + '): ' + escapeHtml(hidden.map(function(c){ return c.label; }).join(', ')) + '</summary><div class="budget-cards">' +
       hidden.map(budgetRowHtml).join('') + '</div></details>' : '');
   function budgetRowHtml(c){
@@ -157,6 +168,22 @@ export function renderBudgets(){
 
   qsa('[data-chart-cat]', list).forEach(function(b){
     b.addEventListener('click', function(){ State.budgetChartCat = b.getAttribute('data-chart-cat'); renderBudgets(); });
+  });
+  function setAlertPct(v){
+    var n = alertPercent(v);
+    setPref('budgetAlertPct', n);
+    // Mudou a regra: o que já está nessa faixa pode avisar de novo neste mês.
+    var seen = getPrefs().budgetAlertSeen || {}; delete seen[monthBounds(0).key]; setPref('budgetAlertSeen', seen);
+    renderBudgets(); renderAdvice();
+    toast('Vou avisar quando uma categoria chegar a ' + n + '% do limite.');
+    showBudgetPopup(null);
+  }
+  qsa('[data-alert-pct]', list).forEach(function(b){ b.addEventListener('click', function(){ setAlertPct(b.getAttribute('data-alert-pct')); }); });
+  var pctIn = qs('#alertPctInput', list);
+  if (pctIn) pctIn.addEventListener('change', function(){
+    var n = Math.round(Number(pctIn.value));
+    if (!(n >= 50 && n <= 99)){ toast('Escolha uma porcentagem entre 50% e 99%.'); pctIn.value = ''; return; }
+    setAlertPct(n);
   });
   var introOk = qs('[data-budget-intro-ok]', list);
   if (introOk) introOk.addEventListener('click', function(){ setPref('budgetIntroSeen', true); renderBudgets(); });
