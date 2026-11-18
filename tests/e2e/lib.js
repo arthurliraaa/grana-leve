@@ -2,6 +2,16 @@
 import puppeteer from 'puppeteer-core';
 import {existsSync} from 'node:fs';
 
+// Relógio dos testes: começa sempre em 17/11/2026 às 12h (e anda normalmente a partir daí), no teste e no navegador.
+// Assim o resultado não depende do dia em que a bateria roda (fechamento de fatura, fim de mês...).
+// E2E_REALDATE=1 usa a data de verdade (para conferir o app em outros dias).
+const RealDate = Date;
+export const CLOCK_OFFSET = process.env.E2E_REALDATE ? 0 : new RealDate(2026, 10, 17, 12, 0, 0).getTime() - RealDate.now();
+if (CLOCK_OFFSET){
+  const now = () => RealDate.now() + CLOCK_OFFSET;
+  globalThis.Date = class extends RealDate { constructor(...a){ if (a.length === 0) super(now()); else super(...a); } static now(){ return now(); } };
+}
+
 export const BASE = process.env.BASE || 'http://127.0.0.1:5510/';
 const CHROME = process.env.CHROME_PATH || ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', 'C:/Program Files/Google/Chrome/Application/chrome.exe'].find(p => existsSync(p));
@@ -19,6 +29,10 @@ export async function launch(){
   if (!CHROME) throw new Error('Chrome não encontrado. Defina CHROME_PATH.');
   const browser = await puppeteer.launch({executablePath: CHROME, headless: 'new', args: ['--no-sandbox', '--lang=pt-BR']});
   const page = await browser.newPage();
+  if (CLOCK_OFFSET) await page.evaluateOnNewDocument(off => {
+    const R = Date, now = () => R.now() + off;
+    window.Date = class extends R { constructor(...a){ if (a.length === 0) super(now()); else super(...a); } static now(){ return now(); } };
+  }, CLOCK_OFFSET);
   // Avisos com “Desfazer” aceitam toque e podem ficar por cima de botões perto do rodapé: nos testes eles
   // não interceptam cliques por coordenada (o teste do Desfazer clica no próprio botão).
   await page.evaluateOnNewDocument(() => { document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '.toast.toast-action{pointer-events:none !important}'; document.head.appendChild(st); }); });
