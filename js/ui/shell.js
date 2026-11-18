@@ -29,7 +29,7 @@ import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, for
 import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {renderAdvice, wireAdvice} from './advice-tab.js';
-import {wireSimulator} from './simulator.js';
+import {wireSimulator, renderSimulator} from './simulator.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -198,7 +198,7 @@ export var ROUTES = {dashboard:'inicio', lancamentos:'lancamentos', cartoes:'con
 // endereço (#/compromissos/me-devem); vazio = a parte padrão.
 export var SUBTABS = {
   dividas: {parent: 'compromissos', slug: 'eu-devo'}, receber: {parent: 'compromissos', slug: 'me-devem'},
-  lanc: {parent: 'lancamentos', slug: ''}, fixas: {parent: 'lancamentos', slug: 'contas-fixas'}
+  lanc: {parent: 'lancamentos', slug: ''}, fixas: {parent: 'lancamentos', slug: 'contas-fixas'}, simular: {parent: 'lancamentos', slug: 'simular'}
 };
 function subsOf(parent){ return Object.keys(SUBTABS).filter(function(k){ return SUBTABS[k].parent === parent; }); }
 function currentSub(parent){ return (State.subTab || {})[parent] || subsOf(parent)[0]; }
@@ -226,6 +226,7 @@ export function showSubTab(parent, sub){
     b.tabIndex = on ? 0 : -1;
   });
   subsOf(parent).forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
+  if (sub === 'simular') renderSimulator();   // sempre com os dados de agora (contas, cartões, metas)
 }
 // name pode ser uma área (TABS) ou uma parte dela (SUBTABS: 'dividas', 'receber', 'lanc', 'fixas').
 export function showTab(name){

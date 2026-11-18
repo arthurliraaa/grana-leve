@@ -12,7 +12,6 @@ import {myShare, isPersonal} from '../domain/transactions.js';
 import {projectCash, firstRedMonth, splitInstallments, goalUseImpact} from '../domain/simulate.js';
 import {Store} from '../data/store.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
-import {openModal} from './modal.js';
 import {State, k, catLabel, catOptions, expenseCats, incomeCats, txForMonth, expenseCategoryTotals, budgetLimit, cardUsed, expandInstallments, forecastOccurrences, totalAccountsBalance} from './state.js';
 import {billMonth} from './bills.js';
 import {dashboardFigures, monthPayments} from './home-tab.js';
@@ -219,7 +218,7 @@ function resultHtml(s){
   var noAcc = !State.accounts.length ? '<p class="tx-meta">Sem contas cadastradas, o saldo parte de R$ 0,00. Cadastre suas contas em “Contas e cartões” para um resultado mais real.</p>' : '';
   return '<div class="sim-verdict ' + verdict[0] + '"><strong>' + verdict[1] + '</strong></div>' +
     (s.warns.length ? '<ul class="sim-warns">' + s.warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul>' : '') +
-    (s.isGoal ? '' : '<div class="table-scroll"><table class="data-table sim-table"><thead><tr><th>Mês</th><th>Já assumido</th><th>Esta simulação</th><th>Ganhos</th><th>Saldo sem ela</th><th>Saldo com ela</th></tr></thead><tbody>' + s.rows.map(function(r){
+    (s.isGoal ? '' : '<div class="table-scroll"><table class="data-table sim-table"><thead><tr><th>Mês</th><th>Já assumido</th><th>Simulação</th><th>Ganhos</th><th>Saldo sem</th><th>Saldo com</th></tr></thead><tbody>' + s.rows.map(function(r){
       var simTxt = r.added > 0 ? '− ' + fmtMoney(r.added) : r.added < 0 ? '+ ' + fmtMoney(-r.added) : '—';
       return '<tr><td>' + escapeHtml(r.label) + '</td><td class="tabular">' + fmtMoney(r.out) + '</td><td class="tabular ' + (r.added > 0 ? 'neg-text' : r.added < 0 ? 'pos-text' : '') + '">' + simTxt + '</td><td class="tabular">' + fmtMoney(r.inc) + '</td>' +
         '<td class="tabular ' + (r.base < 0 ? 'neg-text' : '') + '">' + fmtMoney(r.base) + '</td><td class="tabular ' + (r.sim < 0 ? 'neg-text' : '') + '"><strong>' + fmtMoney(r.sim) + '</strong></td></tr>'; }).join('') + '</tbody></table></div>' +
@@ -227,33 +226,40 @@ function resultHtml(s){
     '<ul class="sim-notes">' + s.notes.map(function(n){ return '<li>' + n + '</li>'; }).join('') + '</ul>' + noAcc;
 }
 
-export async function openSimulator(){
-  var r = await openModal({
-    title: 'Simular gasto ou ganho', wide: true, submitLabel: 'Registrar de verdade', cancelLabel: 'Fechar',
-    body: '<p class="field-hint">Veja como ficariam as suas contas antes de decidir. Nada é salvo enquanto você simula.</p>' + formHtml(),
-    onOpen: function(modal){
-      var form = qs('form', modal) || modal;
-      function sync(){
-        var kind = (qs('input[name=kind]:checked', modal) || {}).value;
-        qsa('[data-for]', modal).forEach(function(el){ el.hidden = el.getAttribute('data-for').split(',').indexOf(kind) < 0; });
-        var pay = qs('#simPay', modal).value;
-        qs('[data-card]', modal).hidden = !(kind === 'compra' && pay.indexOf('card:') === 0);
-        qs('[data-goalbox]', modal).hidden = !(kind === 'compra' && pay.indexOf('goal:') === 0);
-        var s = compute(readForm(form));
-        qs('#simResult', modal).innerHTML = resultHtml(s || readForm(form));
-      }
-      modal.addEventListener('input', sync); modal.addEventListener('change', sync);
-      sync();
-    },
-    onSubmit: function(form){
-      var s = readForm(form);
-      if (s.error) return {error: s.error};
-      if (s.kind === 'compra' && s.isGoal && s.goal === undefined) s.goal = findById(State.goals, s.pay.slice(5));
-      if (s.kind === 'compra' && s.isGoal && s.amount > Number(s.goal.currentAmount || 0) + 0.001) return {error: 'A meta só tem ' + fmtMoney(s.goal.currentAmount || 0) + ' guardados.'};
-      return {register: s};
-    }
-  });
-  if (r && r.register) await registerSimulation(r.register);
+// Painel da guia “Simular” (em Ganhos e gastos): formulário à esquerda e resultado ao lado, ao vivo.
+// Montado de novo toda vez que a guia abre, para refletir as contas, cartões e metas de agora.
+export function renderSimulator(){
+  var panel = document.getElementById('simPanel');
+  if (!panel) return;
+  panel.innerHTML = formHtml() + '<div class="sim-actions"><button type="submit" class="btn btn-primary" id="simSubmit">Registrar de verdade</button>' +
+    '<button type="button" class="btn btn-ghost" id="simClear">Limpar</button>' +
+    '<p class="form-error" id="simError" role="alert"></p></div>';
+  panel.insertAdjacentHTML('afterbegin', '<h3 class="sim-title">Simular gasto ou ganho</h3>');
+  syncSimulator();
+}
+function syncSimulator(){
+  var form = document.getElementById('simForm'), panel = document.getElementById('simPanel');
+  if (!form || !panel) return;
+  var kind = (qs('input[name=kind]:checked', panel) || {}).value;
+  qsa('[data-for]', panel).forEach(function(el){ el.hidden = el.getAttribute('data-for').split(',').indexOf(kind) < 0; });
+  var pay = qs('#simPay', panel).value;
+  qs('[data-card]', panel).hidden = !(kind === 'compra' && pay.indexOf('card:') === 0);
+  qs('[data-goalbox]', panel).hidden = !(kind === 'compra' && pay.indexOf('goal:') === 0);
+  var s = readForm(form);
+  qs('#simResult', panel).innerHTML = resultHtml(compute(s) || s);
+  var err = document.getElementById('simError'); if (err) err.textContent = '';
+}
+async function submitSimulator(e){
+  e.preventDefault();
+  var form = document.getElementById('simForm'), err = document.getElementById('simError');
+  var s = readForm(form);
+  if (s.error){ err.textContent = s.error; return; }
+  if (s.kind === 'compra' && s.isGoal){
+    s.goal = findById(State.goals, s.pay.slice(5));
+    if (s.amount > Number(s.goal.currentAmount || 0) + 0.001){ err.textContent = 'A meta só tem ' + fmtMoney(s.goal.currentAmount || 0) + ' guardados.'; return; }
+  }
+  await registerSimulation(s);
+  renderSimulator();   // começa uma simulação nova
 }
 
 // Registrar de verdade: o que foi simulado vira lançamento, dívida ou conta fixa.
@@ -320,5 +326,12 @@ export async function registerSimulation(s){
 }
 
 export function wireSimulator(){
-  document.addEventListener('click', function(e){ if (e.target.closest('[data-sim-open]')) openSimulator(); });
+  var form = document.getElementById('simForm');
+  if (form){
+    form.addEventListener('input', syncSimulator); form.addEventListener('change', syncSimulator);
+    form.addEventListener('submit', submitSimulator);
+    form.addEventListener('click', function(e){ if (e.target.closest('#simClear')) renderSimulator(); });
+  }
+  // Qualquer botão com data-sim-open leva para a guia Simular.
+  document.addEventListener('click', function(e){ if (e.target.closest('[data-sim-open]')) showTab('simular'); });
 }

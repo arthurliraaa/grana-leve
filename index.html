@@ -370,6 +370,7 @@
         <div class="segmented seg-wide" role="tablist" aria-label="Ganhos e gastos">
           <button type="button" role="tab" id="segbtn-lanc" aria-controls="tab-lanc" data-sub="lanc" aria-selected="true">Lançamentos</button>
           <button type="button" role="tab" id="segbtn-fixas" aria-controls="tab-fixas" data-sub="fixas" aria-selected="false" tabindex="-1">Contas fixas</button>
+          <button type="button" role="tab" id="segbtn-simular" aria-controls="tab-simular" data-sub="simular" aria-selected="false" tabindex="-1">Simular</button>
         </div>
         <div id="tab-lanc" class="subpanel" role="tabpanel" aria-labelledby="segbtn-lanc">
           <div class="card">
@@ -457,7 +458,7 @@
                 <strong id="txMonthLabel">—</strong>
                 <button type="button" id="nextMonth" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
               </div>
-              <span class="card-actions"><button class="btn btn-ghost btn-sm" type="button" data-sim-open id="simulateBtn">Simular gasto ou ganho</button><button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button></span>
+              <button class="linklike" type="button" id="exportCsvBtn">Baixar CSV</button>
             </div>
             <div class="segmented tx-views" role="group" aria-label="Como ver os lançamentos">
               <button type="button" data-txview="list" aria-pressed="true" class="active">Lista</button>
@@ -479,6 +480,12 @@
             <div id="txList"></div>
           </div>
         </div>
+        <!-- Simular: "se eu comprar isso, como ficam minhas contas?" (parte de Ganhos e gastos) -->
+      <div id="tab-simular" class="subpanel" role="tabpanel" aria-labelledby="segbtn-simular" hidden>
+        <p class="tab-intro">Veja como ficariam as suas contas, mês a mês, antes de comprar, financiar ou assumir um gasto. Nada é salvo enquanto você simula.</p>
+        <form id="simForm" class="card sim-card" novalidate><div id="simPanel"></div></form>
+      </div>
+
         <!-- Contas fixas (água, luz, internet, assinaturas…): gastos do mês, parte de Ganhos e gastos -->
       <div id="tab-fixas" class="subpanel" role="tabpanel" aria-labelledby="segbtn-fixas" hidden>
         <p class="tab-intro">Luz, internet, aluguel, assinaturas: no dia de cada uma, o gasto entra sozinho.</p>
