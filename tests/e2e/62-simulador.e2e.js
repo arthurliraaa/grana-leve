@@ -17,7 +17,7 @@ L.run(async ({page}) => {
   L.ok(!(await page.$eval('#tab-simular', e => e.hidden)) && /Simular/.test(await L.text(page, '#segbtn-simular')), 'a guia “Simular” fica em Ganhos e gastos, ao lado de Lançamentos e Contas fixas');
   await page.type('#simName', 'Geladeira'); await page.type('#simAmount', '400');
   await L.setVal(page, '#simPay', 'acc:' + (await L.db(page)).accounts[0].id); await L.sleep(250);
-  L.ok(/Cabe nas contas/.test(await result()) && /Simulação/.test(await result()) && /Saldo com/.test(await result()), 'R$ 400 com R$ 1.000 nas contas: cabe, com a tabela por mês');
+  L.ok(/Cabe nas contas/.test(await result()) && /Simulação/.test(await result()) && /Sobra com/.test(await result()), 'R$ 400 com R$ 1.000 nas contas: cabe, com a tabela por mês');
   await page.$eval('#simAmount', e => { e.value = ''; }); await page.type('#simAmount', '5.000'); await L.sleep(250);
   L.ok(/no vermelho/.test(await result()), 'R$ 5.000 deixa o saldo no vermelho');
   await page.$eval('#simAmount', e => { e.value = ''; }); await page.type('#simAmount', '300'); await L.sleep(200);

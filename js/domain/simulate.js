@@ -7,13 +7,16 @@
 import {money} from './money.js';
 import {goalSummary} from './goals.js';
 
-// Saldo no fim de cada mês sem e com a simulação (acumulando: o que sobra de um mês segue para o outro).
-export function projectCash(cash, months, adds, inflowNow){
+// Como fica cada mês sem e com a simulação. Por padrão (carry = false) cada mês é visto sozinho: o que entra menos o
+// que sai naquele mês, sem somar o que sobrou ou faltou nos anteriores; só o primeiro mês parte do que há nas contas
+// hoje. Com carry = true, o que sobra de um mês segue para o outro (saldo acumulado).
+export function projectCash(cash, months, adds, inflowNow, carry){
   var base = Number(cash) || 0, sim = base + (Number(inflowNow) || 0), rows = [];
   months.forEach(function(m, i){
-    base = money(base + (m.inc || 0) - (m.out || 0));
-    var extra = Number((adds || {})[i]) || 0;
-    sim = money(sim + (m.inc || 0) - (m.out || 0) - extra);
+    var extra = Number((adds || {})[i]) || 0, net = (m.inc || 0) - (m.out || 0);
+    if (!carry && i > 0){ base = 0; sim = 0; }
+    base = money(base + net);
+    sim = money(sim + net - extra);
     rows.push({key: m.key, label: m.label, out: money(m.out || 0), inc: money(m.inc || 0), added: money(extra), base: base, sim: sim, diff: money(sim - base)});
   });
   return rows;

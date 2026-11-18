@@ -2013,3 +2013,17 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 @media (max-width: 980px){ .sim-body{ grid-template-columns: minmax(0, 1fr); } }
 .sim-table th, .sim-table td{ padding:7px 6px; }
 .sim-table{ font-size:.82rem; }
+
+/* Resultado do simulador: tabela em tela larga, cartões por mês no celular (sem rolar para os lados) */
+.sim-months{ display:none; gap:8px; }
+.sim-table-wrap{ overflow:visible; }
+.sim-month{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; background: var(--surface); }
+.sm-head{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 10px; align-items:baseline; margin-bottom:6px; }
+.sm-head span{ font-size:.86rem; color: var(--text-secondary); }
+.sm-grid{ display:grid; grid-template-columns: 1fr auto; gap:3px 12px; font-size:.9rem; }
+.sm-grid span{ color: var(--text-secondary); }
+.sm-grid b{ text-align:right; font-weight:600; }
+@media (max-width: 760px){
+  .sim-table-wrap{ display:none; }
+  .sim-months{ display:grid; }
+}

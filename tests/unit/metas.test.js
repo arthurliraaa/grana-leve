@@ -97,15 +97,15 @@ test('meta sem valor alvo: nunca conclui, não tem "falta", mostra ritmo e saldo
   assert.equal(semPrazo.atDeadline, undefined);
 });
 
-test('simulador: saldo por mês sem e com a compra, mês no vermelho e parcelas', async () => {
+test('simulador: saldo por mês sem e com a compra, mês no vermelho e parcelas (acumulando)', async () => {
   const {projectCash, firstRedMonth, splitInstallments, goalUseImpact} = await import('../../js/domain/simulate.js');
   const months = [{key: '2026-11', label: 'nov', out: 200, inc: 0}, {key: '2026-12', label: 'dez', out: 300, inc: 100}, {key: '2027-01', label: 'jan', out: 300, inc: 100}];
-  const rows = projectCash(1000, months, {0: 100, 1: 100, 2: 100}, 0);
+  const rows = projectCash(1000, months, {0: 100, 1: 100, 2: 100}, 0, true);
   assert.deepEqual(rows.map(r => r.base), [800, 600, 400]);
   assert.deepEqual(rows.map(r => r.sim), [700, 400, 100]);
   assert.deepEqual(rows.map(r => r.diff), [-100, -200, -300]);
   assert.equal(firstRedMonth(rows), null);
-  const red = projectCash(1000, months, {0: 900}, 0);
+  const red = projectCash(1000, months, {0: 900}, 0, true);
   assert.equal(firstRedMonth(red).label, 'nov', 'compra de 900 já deixa novembro no vermelho (-100)');
   assert.equal(projectCash(0, [months[0]], {}, 500)[0].sim, 300, 'dinheiro que entra já (empréstimo) soma');
   assert.deepEqual(splitInstallments(100, 3), [33.34, 33.33, 33.33]);
@@ -113,4 +113,13 @@ test('simulador: saldo por mês sem e com a compra, mês no vermelho e parcelas'
   const imp = goalUseImpact(g, 800, '2026-11-10');
   assert.equal(imp.after, 1200); assert.equal(imp.pctBefore, 40); assert.equal(imp.pctAfter, 24); assert.equal(imp.shortfall, 0);
   assert.equal(goalUseImpact(g, 2500, '2026-11-10').shortfall, 500, 'mais do que tem guardado');
+});
+
+test('simulador: cada mês visto sozinho (sem acumular), só o primeiro parte do que há nas contas', async () => {
+  const {projectCash} = await import('../../js/domain/simulate.js');
+  const months = [{key: '2026-11', label: 'nov', out: 200, inc: 0}, {key: '2026-12', label: 'dez', out: 300, inc: 100}, {key: '2027-01', label: 'jan', out: 300, inc: 100}];
+  const rows = projectCash(1000, months, {0: 100, 1: 100, 2: 100}, 0);
+  assert.deepEqual(rows.map(r => r.base), [800, -200, -200], 'dezembro e janeiro: 100 − 300, sem somar o mês anterior');
+  assert.deepEqual(rows.map(r => r.sim), [700, -300, -300]);
+  assert.deepEqual(rows.map(r => r.diff), [-100, -100, -100]);
 });

@@ -106,6 +106,7 @@ function formHtml(actions){
         '<label class="check"><input type="radio" name="gmode" value="so"> Só tirar da meta (sem lançar gasto)</label></fieldset>' +
     '</div>' +
     '<div class="sim-hz"><span>Olhar os próximos</span>' + HORIZONS.map(function(h){ return '<label class="chip-radio"><input type="radio" name="hz" value="' + h + '"' + (h === 6 ? ' checked' : '') + '><span>' + h + ' meses</span></label>'; }).join('') + '</div>' +
+    '<label class="check sim-sal"><input type="checkbox" name="carry"> Somar o que sobra (ou falta) de um mês no seguinte</label>' +
     (salaryAverage() > 0 ? '<label class="check sim-sal"><input type="checkbox" name="usesal" checked> Considerar o meu salário nos próximos meses (cerca de ' + fmtMoney(salaryAverage()) + ' por mês, a média dos últimos meses)</label>' : '') +
     (actions || '') + '</div><div id="simResult" class="sim-result" aria-live="polite"></div></div>';
 }
@@ -115,7 +116,7 @@ function readForm(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
   var kind = (qs('input[name=kind]:checked', form) || {}).value || 'compra';
   var hz = Number((qs('input[name=hz]:checked', form) || {}).value) || 6;
-  var s = {kind: kind, hz: hz, usesal: !!(form.elements.usesal && form.elements.usesal.checked), name: v('name').trim(), cat: v('cat'), notes: [], warns: [], adds: {}, inflowNow: 0, error: ''};
+  var s = {kind: kind, hz: hz, usesal: !!(form.elements.usesal && form.elements.usesal.checked), carry: !!(form.elements.carry && form.elements.carry.checked), name: v('name').trim(), cat: v('cat'), notes: [], warns: [], adds: {}, inflowNow: 0, error: ''};
   if (kind === 'compra'){
     s.amount = money(v('amount')); s.pay = v('pay'); s.date = v('date') || todayKey();
     s.isCard = s.pay.indexOf('card:') === 0; s.isGoal = s.pay.indexOf('goal:') === 0;
@@ -203,28 +204,43 @@ function compute(s){
   }
   var cash = State.accounts.length ? totalAccountsBalance() : 0;
   var base = baselineMonths(s.hz, s.usesal);
-  s.rows = projectCash(cash, base, adds, s.inflowNow);
+  s.rows = projectCash(cash, base, adds, s.inflowNow, s.carry);
   if (s.usesal && base.some(function(b){ return b.sal > 0; })) notes.push('Considerei o seu salário de cerca de ' + fmtMoney(salaryAverage()) + ' por mês (média dos últimos meses) nos meses em que ele ainda não está lançado nem previsto. Desmarque a opção acima para ver sem ele.');
   s.cash = cash;
   return s;
 }
 
+// Um mês no resultado: nome curto (“dez/26”) e marca de “agora” no mês atual.
+function monthShort(r){ return monthLabelOf(r.key).split(' de ')[0].slice(0, 3) + '/' + r.key.slice(2, 4) + (/este mês/.test(r.label) ? ' · agora' : ''); }
+function simCell(r){ return r.added > 0 ? '− ' + fmtMoney(r.added) : r.added < 0 ? '+ ' + fmtMoney(-r.added) : '—'; }
+function simCls(r){ return r.added > 0 ? 'neg-text' : r.added < 0 ? 'pos-text' : ''; }
+function sobra(v){ return '<span class="' + (v < 0 ? 'neg-text' : '') + '">' + fmtMoney(v) + '</span>'; }
+// Tabela (telas largas) e cartões por mês (celular): o mesmo conteúdo, sem precisar rolar para os lados.
+function monthsHtml(s){
+  var table = '<div class="sim-table-wrap"><table class="data-table sim-table"><thead><tr><th>Mês</th><th>Já assumido</th><th>Simulação</th><th>Ganhos</th><th>Sobra sem</th><th>Sobra com</th></tr></thead><tbody>' + s.rows.map(function(r){
+    return '<tr><td>' + escapeHtml(monthShort(r)) + '</td><td class="tabular">' + fmtMoney(r.out) + '</td><td class="tabular ' + simCls(r) + '">' + simCell(r) + '</td><td class="tabular">' + fmtMoney(r.inc) + '</td>' +
+      '<td class="tabular">' + sobra(r.base) + '</td><td class="tabular"><strong>' + sobra(r.sim) + '</strong></td></tr>'; }).join('') + '</tbody></table></div>';
+  var cards = '<div class="sim-months">' + s.rows.map(function(r){
+    return '<div class="sim-month"><div class="sm-head"><strong>' + escapeHtml(monthShort(r)) + '</strong><span>Sobra com a simulação <strong class="tabular">' + sobra(r.sim) + '</strong></span></div>' +
+      '<div class="sm-grid"><span>Já assumido</span><b class="tabular">' + fmtMoney(r.out) + '</b><span>Simulação</span><b class="tabular ' + simCls(r) + '">' + simCell(r) + '</b>' +
+      '<span>Ganhos</span><b class="tabular">' + fmtMoney(r.inc) + '</b><span>Sobra sem ela</span><b class="tabular">' + sobra(r.base) + '</b></div></div>'; }).join('') + '</div>';
+  return table + cards;
+}
 function resultHtml(s){
   if (s.error) return '<p class="tx-meta">' + escapeHtml(s.error.replace(/^Informe o valor da compra\.$/, 'Preencha o valor para ver como ficariam as contas.')) + '</p>';
-  var red = firstRedMonth(s.rows), min = Math.min.apply(null, s.rows.map(function(r){ return r.sim; }));
-  var tight = !red && s.cash > 0 && min < s.cash * 0.1;
-  var last = s.rows[s.rows.length - 1];
-  var verdict = s.kind === 'ganho' ? ['good', 'Com esse ganho, o saldo no fim de ' + last.label.replace(' (este mês)', '') + ' ficaria em ' + fmtMoney(last.sim) + ' (' + fmtMoney(last.diff) + ' a mais).'] : s.isGoal ? (s.purpose === 'outro' ? ['warn', 'Usa dinheiro guardado na meta para outra coisa. As contas do banco não mudam, mas a meta encolhe.'] : ['good', 'O dinheiro vem da meta, para o objetivo dela. As contas do banco não mudam.']) : red ? ['bad', 'Deixa o saldo no vermelho em ' + red.label + (red.wasRed ? ' (já estava negativo sem a simulação)' : '') + ' (' + fmtMoney(red.sim) + ').'] :
-    tight ? ['warn', 'Cabe, mas deixa as contas apertadas: o menor saldo seria ' + fmtMoney(min) + '.'] : ['good', 'Cabe nas contas: o menor saldo seria ' + fmtMoney(min) + '.'];
-  var noAcc = !State.accounts.length ? '<p class="tx-meta">Sem contas cadastradas, o saldo parte de R$ 0,00. Cadastre suas contas em “Contas e cartões” para um resultado mais real.</p>' : '';
+  var red = firstRedMonth(s.rows), first = s.rows[0], min = Math.min.apply(null, s.rows.map(function(r){ return r.sim; }));
+  var tight = !red && s.cash > 0 && first.sim < s.cash * 0.1;
+  var gain = s.rows.filter(function(r){ return r.added < 0; })[0];
+  var verdict = s.kind === 'ganho' && gain ? ['good', 'Com esse ganho, ' + gain.label.replace(' (este mês)', '') + ' ficaria com ' + fmtMoney(gain.sim) + ' (' + fmtMoney(-gain.added) + ' a mais)' + (s.freq === 'monthly' ? ', e o mesmo vale para os meses seguintes.' : '.')] :
+    s.isGoal ? (s.purpose === 'outro' ? ['warn', 'Usa dinheiro guardado na meta para outra coisa. As contas do banco não mudam, mas a meta encolhe.'] : ['good', 'O dinheiro vem da meta, para o objetivo dela. As contas do banco não mudam.']) :
+    red ? ['bad', 'Deixa ' + red.label.replace(' (este mês)', '') + ' no vermelho (' + fmtMoney(red.sim) + ')' + (red.wasRed ? ', mês que já estava negativo sem a simulação.' : '.')] :
+    tight ? ['warn', 'Cabe, mas deixa as contas apertadas: neste mês sobrariam ' + fmtMoney(first.sim) + '.'] : ['good', 'Cabe nas contas: o menor valor que sobra num mês seria ' + fmtMoney(min) + '.'];
+  var noAcc = !State.accounts.length ? '<p class="tx-meta">Sem contas cadastradas, o primeiro mês parte de R$ 0,00. Cadastre suas contas em “Contas e cartões” para um resultado mais real.</p>' : '';
+  var how = s.carry ? 'O saldo parte do que há nas contas hoje (' + fmtMoney(s.cash) + ') e o que sobra (ou falta) de um mês segue para o outro.' :
+    'Cada mês é visto sozinho: ganhos − o que já está assumido − a simulação. Só o mês atual parte do que há nas contas hoje (' + fmtMoney(s.cash) + '). Marque “Somar o que sobra…” para acumular de um mês para o outro.';
   return '<div class="sim-verdict ' + verdict[0] + '"><strong>' + verdict[1] + '</strong></div>' +
     (s.warns.length ? '<ul class="sim-warns">' + s.warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul>' : '') +
-    (s.isGoal ? '' : '<div class="table-scroll"><table class="data-table sim-table"><thead><tr><th>Mês</th><th>Já assumido</th><th>Simulação</th><th>Ganhos</th><th>Saldo sem</th><th>Saldo com</th></tr></thead><tbody>' + s.rows.map(function(r){
-      var simTxt = r.added > 0 ? '− ' + fmtMoney(r.added) : r.added < 0 ? '+ ' + fmtMoney(-r.added) : '—';
-      var shortMonth = monthLabelOf(r.key).split(' de ')[0].slice(0, 3) + '/' + r.key.slice(2, 4) + (/este mês/.test(r.label) ? ' · agora' : '');
-      return '<tr><td>' + escapeHtml(shortMonth) + '</td><td class="tabular">' + fmtMoney(r.out) + '</td><td class="tabular ' + (r.added > 0 ? 'neg-text' : r.added < 0 ? 'pos-text' : '') + '">' + simTxt + '</td><td class="tabular">' + fmtMoney(r.inc) + '</td>' +
-        '<td class="tabular ' + (r.base < 0 ? 'neg-text' : '') + '">' + fmtMoney(r.base) + '</td><td class="tabular ' + (r.sim < 0 ? 'neg-text' : '') + '"><strong>' + fmtMoney(r.sim) + '</strong></td></tr>'; }).join('') + '</tbody></table></div>' +
-    '<p class="tx-meta">Mês a mês: o que já está assumido para sair (faturas suas que vencem no mês, contas fixas e parcelas de dívidas), o que esta simulação coloca em cada mês, e os ganhos considerados. O saldo parte do que há nas contas hoje (' + fmtMoney(s.cash) + ') e o que sobra de um mês segue para o outro.</p>') +
+    (s.isGoal ? '' : monthsHtml(s) + '<p class="tx-meta">' + how + ' Já assumido = faturas suas que vencem no mês, contas fixas e parcelas de dívidas.</p>') +
     '<ul class="sim-notes">' + s.notes.map(function(n){ return '<li>' + n + '</li>'; }).join('') + '</ul>' + noAcc;
 }
 
