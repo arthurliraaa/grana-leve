@@ -92,9 +92,14 @@ export function workdaysInMonth(year, month){
   for (var d = 1; d <= last; d++){ var w = new Date(year, month, d).getDay(); if (w !== 0 && w !== 6) n++; }
   return n;
 }
-// Valor de um desconto. mode: 'fixed' (R$), 'pct' (% do salário) ou 'benefit' (calculado pelo benefício recebido no mês):
+// Valor de um desconto. mode: 'fixed' (R$), 'pct' (% do salário), 'perday' (cobrado por dia de uso) ou 'benefit' (calculado pelo benefício recebido no mês):
 // no vale-transporte desconta pct% do salário, mas nunca mais do que o próprio vale recebido; nos demais, pct% do benefício.
 export function discountAmount(d, base){
+  // 'perday': o que foi cobrado num mês (charged, em refDays dias de uso) vira um valor por dia e acompanha os dias do mês (days).
+  if (d.mode === 'perday'){
+    var ref = Number(d.refDays) || 0, used = d.days === undefined || d.days === '' ? ref : Math.max(0, Number(d.days) || 0);
+    return ref > 0 ? money(Math.max(0, Number(d.charged) || 0) / ref * used) : 0;
+  }
   if (d.mode === 'benefit'){
     var received = Math.max(0, Number(d.benefit) || 0), p = Math.max(0, Number(d.pct) || 0);
     return money(d.type === 'vt' ? Math.min(received, base * p / 100) : received * p / 100);
@@ -178,7 +183,7 @@ function runNet(opts, tables, withVariable){
   // estágio e bolsa: sem descontos obrigatórios.
   chosen.forEach(function(d){
     var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === d.type; })[0] || {};
-    minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : d.mode === 'benefit' ? ' (' + (Number(d.pct) || 0) + '%' + (d.type === 'vt' ? ' do salário, até o valor do vale' : ' do benefício') + ')' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
+    minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : d.mode === 'perday' ? ' (' + (d.days === undefined ? d.refDays : d.days) + ' dias de uso)' : d.mode === 'benefit' ? ' (' + (Number(d.pct) || 0) + '%' + (d.type === 'vt' ? ' do salário, até o valor do vale' : ' do benefício') + ')' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
   });
   var net = money(total + freeBonus - disc);
   return {lines: lines, gross: gross, extras: ot.total, bonuses: money(taxableBonus + freeBonus), total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};

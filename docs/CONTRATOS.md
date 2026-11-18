@@ -142,7 +142,9 @@ overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, {workDays, restDays
 //   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ dias de trabalho) × dias de repouso (padrão 25 e 5)
 DISCOUNT_TYPES                                  // vt, saude, odonto, refeicao, pensao, consignado, sindical, adiantamento (varia), outro
 BONUS_TYPES                                     // homeoffice, ajuda, alimentacao, transporte (não tributam); bonificacao, comissao, plr (variam); bonificacao-vale (varia, não tributa); gratificacao, outro
-discountAmount({mode: 'pct'|'fixed'|'benefit', value, benefit, pct}, base) -> reais
+discountAmount({mode: 'pct'|'fixed'|'perday'|'benefit', value, benefit, pct, charged, refDays, days}, base) -> reais
+//   mode 'perday' (só vt e refeicao): charged ÷ refDays × days — o que foi cobrado num mês (em refDays dias de uso) vira
+//   valor por dia e acompanha os dias de uso do mês (days, padrão: dias úteis; a pessoa corrige por feriados)
 //   mode 'benefit' (só vt e refeicao): vt = min(benefit, pct% do salário), pois o desconto nunca passa do valor do vale;
 //   refeicao = pct% do benefício recebido no mês. A tela calcula benefit do vt como passagem por dia × dias de uso
 //   (padrão: dias úteis do mês, workdaysInMonth(ano, mês 0-11), sem descontar feriados)

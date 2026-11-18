@@ -110,3 +110,13 @@ test('descontos pelo benefício: vale-transporte (até % do salário, nunca mais
   assert.equal(r.net, 2751.4 - 180 - 120, 'o vale de 21 dias × R$ 12 (252) passa de 6% do salário: desconta 180; o vale-refeição, 120');
   assert.ok(r.lines.some(l => /Vale-transporte \(6% do salário, até o valor do vale\)/.test(l.label)));
 });
+
+test('desconto por dias do mês: o que foi cobrado num mês vira valor por dia e acompanha os dias do mês seguinte', () => {
+  assert.equal(discountAmount({type: 'vt', mode: 'perday', charged: 21, refDays: 21, days: 20}, 3000), 20, 'R$ 21 em 21 dias = R$ 1 por dia; mês com 20 dias = R$ 20');
+  assert.equal(discountAmount({type: 'vt', mode: 'perday', charged: 7, refDays: 21, days: 20}, 3000), 6.67);
+  assert.equal(discountAmount({type: 'vt', mode: 'perday', charged: 7, refDays: 21}, 3000), 7, 'sem dias do mês novo vale o próprio valor cobrado');
+  assert.equal(discountAmount({type: 'vt', mode: 'perday', charged: 7, refDays: 0, days: 20}, 3000), 0);
+  const r = netSalary({regime: 'clt', gross: 3000, discounts: [{type: 'vt', mode: 'perday', charged: 21, refDays: 21, days: 22}]});
+  assert.equal(r.net, 2751.4 - 22);
+  assert.ok(r.lines.some(l => /Vale-transporte \(22 dias de uso\)/.test(l.label)));
+});

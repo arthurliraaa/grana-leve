@@ -30,6 +30,9 @@ function benefitPanelHtml(d){
     '<div class="sc-ben-vt field"><label>Desconto de até (% do salário)</label><input class="sc-b-pct-vt" type="number" min="0" max="100" step="0.5" value="' + (d.type === 'vt' && d.pct !== undefined ? d.pct : 6) + '"></div>' +
     '<div class="sc-ben-other field"><label>Valor recebido no mês</label><span class="money-input"><span>R$</span><input class="sc-b-recv" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="' + f(d.type !== 'vt' ? d.benefit : '') + '"></span></div>' +
     '<div class="sc-ben-other field"><label>Desconto do benefício (%)</label><input class="sc-b-pct" type="number" min="0" max="100" step="0.5" value="' + (d.type !== 'vt' && d.pct !== undefined ? d.pct : 20) + '"></div>' +
+    '<div class="sc-ben-day field"><label>Cobrado no mês (R$)</label><span class="money-input"><span>R$</span><input class="sc-p-charged" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="' + f(d.charged) + '"></span></div>' +
+    '<div class="sc-ben-day field"><label>Em quantos dias de uso</label><input class="sc-p-ref" type="number" min="1" max="31" step="1" value="' + (d.refDays || days) + '"></div>' +
+    '<div class="sc-ben-day field"><label>Dias de uso deste mês</label><input class="sc-p-days" type="number" min="0" max="31" step="1" value="' + days + '"></div>' +
     '<p class="sc-d-calc field-hint" aria-live="polite"></p></div>';
 }
 function rowHtml(kind, d){
@@ -38,7 +41,7 @@ function rowHtml(kind, d){
   var meta = metaOf(kind, d.type), taxable = d.taxable === undefined ? meta.taxable !== false : !!d.taxable;
   return '<div class="sc-disc-row" data-kind="' + kind + '"><select class="sc-d-type" aria-label="' + (bonus ? 'Tipo de ganho extra' : 'Tipo de desconto') + '">' + typeOptions(kind, d.type) + '</select>' +
     '<span class="money-input sc-d-val"><input class="sc-d-value" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Valor" value="' + (d.value === '' || d.value === undefined ? '' : String(d.value).replace('.', ',')) + '">' +
-    '<select class="sc-d-mode" aria-label="Em reais, porcentagem ou pelo benefício"><option value="fixed"' + (d.mode === 'fixed' || !d.mode ? ' selected' : '') + '>R$</option><option value="pct"' + (d.mode === 'pct' ? ' selected' : '') + '>%</option>' + (bonus ? '' : '<option value="benefit"' + (d.mode === 'benefit' ? ' selected' : '') + '>pelo benefício</option>') + '</select></span>' +
+    '<select class="sc-d-mode" aria-label="Em reais, porcentagem ou pelo benefício"><option value="fixed"' + (d.mode === 'fixed' || !d.mode ? ' selected' : '') + '>R$</option><option value="pct"' + (d.mode === 'pct' ? ' selected' : '') + '>%</option>' + (bonus ? '' : '<option value="perday"' + (d.mode === 'perday' ? ' selected' : '') + '>por dias do mês</option><option value="benefit"' + (d.mode === 'benefit' ? ' selected' : '') + '>pelo benefício</option>') + '</select></span>' +
     (bonus ? '' : benefitPanelHtml(d)) +
     '<p class="sc-d-eq" aria-live="polite"></p>' +
     '<div class="sc-d-foot"><label class="check sc-d-varies"><input class="sc-d-var" type="checkbox"' + ((d.varies || meta.varies) ? ' checked' : '') + '> Varia todo mês</label>' +
@@ -64,7 +67,7 @@ function bodyHtml(){
       '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão em dinheiro pagam; a bonificação recebida em vales ou cartão benefício não tem desconto. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></fieldset>' +
     '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
-      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição, escolha “pelo benefício”: você informa o que recebeu no mês (passagem por dia × dias de uso, ou o valor do vale) e o desconto sai calculado. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo. Tudo o que você informar fica guardado e já vem preenchido nos próximos meses: é só ajustar o que mudou.</p></fieldset>' +
+      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição há duas formas de acompanhar o mês: “por dias do mês” (você informa quanto foi cobrado e em quantos dias de uso; nos meses seguintes o valor se ajusta aos dias úteis, que você pode corrigir por causa de feriados) ou “pelo benefício” (passagem por dia × dias de uso, ou o valor do vale). O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo. Tudo o que você informar fica guardado e já vem preenchido nos próximos meses: é só ajustar o que mudou.</p></fieldset>' +
     '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
       '<div class="sc-grid"><div class="field"><label for="scH50">Horas a 50% (dias úteis)</label><input id="scH50" name="h50" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
       '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
@@ -78,28 +81,36 @@ function readRows(form, kind){
   return qsa('.sc-disc-row[data-kind="' + kind + '"]', form).map(function(row){
     var o = {type: qs('.sc-d-type', row).value, mode: qs('.sc-d-mode', row).value, value: num(qs('.sc-d-value', row).value), varies: qs('.sc-d-var', row).checked};
     if (kind === 'bonus') o.taxable = qs('.sc-d-tax', row).checked;
+    else if (o.mode === 'perday'){ o.charged = num(qs('.sc-p-charged', row).value); o.refDays = Number(qs('.sc-p-ref', row).value) || 0; o.days = Number(qs('.sc-p-days', row).value) || 0; }
     else if (o.mode === 'benefit'){
       if (o.type === 'vt'){ o.daily = num(qs('.sc-b-daily', row).value); o.days = Number(qs('.sc-b-days', row).value) || 0; o.benefit = Math.round(o.daily * o.days * 100) / 100; o.pct = Number(qs('.sc-b-pct-vt', row).value) || 0; }
       else { o.benefit = num(qs('.sc-b-recv', row).value); o.pct = Number(qs('.sc-b-pct', row).value) || 0; }
     }
     return o;
-  }).filter(function(d){ return d.mode === 'benefit' ? d.benefit > 0 : d.value > 0; });
+  }).filter(function(d){ return d.mode === 'perday' ? d.charged > 0 && d.refDays > 0 : d.mode === 'benefit' ? d.benefit > 0 : d.value > 0; });
 }
 // Mostra/esconde o que depende do tipo e do modo da linha (o modo “pelo benefício” só existe para vale-transporte e vale-refeição).
 function applyRow(row, gross){
   // Quanto o valor informado representa do salário (em %) ou em reais, para entender o desconto ou o ganho do mês.
   var mode0 = qs('.sc-d-mode', row).value, v0 = num(qs('.sc-d-value', row).value), eq = qs('.sc-d-eq', row);
-  if (mode0 === 'benefit' || !(v0 > 0) || !(gross > 0)) eq.textContent = '';
+  if (mode0 === 'benefit' || mode0 === 'perday' || !(v0 > 0) || !(gross > 0)) eq.textContent = '';
   else eq.textContent = mode0 === 'pct' ? 'Equivale a ' + fmtMoney(gross * v0 / 100) + ' neste salário.' : 'Equivale a ' + String(Math.round(v0 / gross * 10000) / 100).replace('.', ',') + '% do salário.';
   if (row.getAttribute('data-kind') !== 'disc') return;
-  var type = qs('.sc-d-type', row).value, meta = metaOf('disc', type), mode = qs('.sc-d-mode', row), opt = qs('option[value=benefit]', mode);
-  opt.hidden = opt.disabled = !meta.benefit;
-  if (!meta.benefit && mode.value === 'benefit') mode.value = 'fixed';
-  var ben = mode.value === 'benefit';
+  var type = qs('.sc-d-type', row).value, meta = metaOf('disc', type), mode = qs('.sc-d-mode', row);
+  qsa('option[value=benefit], option[value=perday]', mode).forEach(function(opt){ opt.hidden = opt.disabled = !meta.benefit; });
+  if (!meta.benefit && (mode.value === 'benefit' || mode.value === 'perday')) mode.value = 'fixed';
+  var perday = mode.value === 'perday', ben = mode.value === 'benefit' || perday;
   row.classList.toggle('is-benefit', ben);
-  qsa('.sc-ben-vt', row).forEach(function(el){ el.hidden = type !== 'vt'; });
-  qsa('.sc-ben-other', row).forEach(function(el){ el.hidden = type === 'vt'; });
+  qsa('.sc-ben-vt', row).forEach(function(el){ el.hidden = perday || type !== 'vt'; });
+  qsa('.sc-ben-other', row).forEach(function(el){ el.hidden = perday || type === 'vt'; });
+  qsa('.sc-ben-day', row).forEach(function(el){ el.hidden = !perday; });
   if (!ben) return;
+  if (perday){
+    var ch = num(qs('.sc-p-charged', row).value), ref = Number(qs('.sc-p-ref', row).value) || 0, used = Number(qs('.sc-p-days', row).value) || 0, o2 = qs('.sc-d-calc', row);
+    o2.textContent = !(ch > 0 && ref > 0) ? 'Informe quanto foi cobrado num mês e em quantos dias de uso. Nos próximos meses o valor acompanha os dias do mês.'
+      : 'Cobrado ' + fmtMoney(ch) + ' em ' + ref + ' dias = ' + fmtMoney(ch / ref) + ' por dia. Este mês, com ' + used + ' dias: ' + fmtMoney(discountAmount({mode: 'perday', charged: ch, refDays: ref, days: used}, gross)) + '.';
+    return;
+  }
   var out = qs('.sc-d-calc', row);
   var cur = {type: type, mode: 'benefit', benefit: 0, pct: 0};
   if (type === 'vt'){ cur.benefit = Math.round(num(qs('.sc-b-daily', row).value) * (Number(qs('.sc-b-days', row).value) || 0) * 100) / 100; cur.pct = Number(qs('.sc-b-pct-vt', row).value) || 0; }
@@ -162,7 +173,7 @@ export async function openSalaryCalculator(){
           var row = e.target.closest('.sc-disc-row'), meta = metaOf(row.getAttribute('data-kind'), e.target.value);
           qs('.sc-d-var', row).checked = !!meta.varies;
           if (qs('.sc-d-tax', row)) qs('.sc-d-tax', row).checked = meta.taxable !== false;
-          if (row.getAttribute('data-kind') === 'disc' && qs('.sc-d-mode', row).value === 'benefit' && !meta.benefit) qs('.sc-d-mode', row).value = 'fixed';
+          if (row.getAttribute('data-kind') === 'disc' && (qs('.sc-d-mode', row).value === 'benefit' || qs('.sc-d-mode', row).value === 'perday') && !meta.benefit) qs('.sc-d-mode', row).value = 'fixed';
         }
         sync();
       });

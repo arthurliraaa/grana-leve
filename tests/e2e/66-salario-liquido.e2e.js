@@ -52,6 +52,20 @@ L.run(async ({page}) => {
   await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-type', 'refeicao'); await L.sleep(250);
   await page.type('#scDiscList .sc-disc-row:nth-child(2) .sc-b-recv', '600'); await L.sleep(250);
   L.ok(/Desconto: R\$\s?120,00 \(20% do benefício\)/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-calc')), 'vale-refeição de R$ 600 com 20% de desconto: R$ 120');
+  L.section('Desconto por dias do mês');
+  await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-type', 'vt');
+  await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-mode', 'perday'); await L.sleep(250);
+  L.ok(!(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-ben-day', e => e.hidden)) && await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-ben-vt', e => e.hidden), 'em “por dias do mês” pede o valor cobrado e em quantos dias de uso');
+  await page.type('#scDiscList .sc-disc-row:nth-child(2) .sc-p-charged', '21');
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-ref', e => { e.value = '21'; e.dispatchEvent(new Event('input', {bubbles: true})); });
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-days', e => { e.value = '20'; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(250);
+  L.ok(/R\$\s?1,00 por dia\. Este mês, com 20 dias: R\$\s?20,00/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-calc')), 'R$ 21 em 21 dias = R$ 1 por dia; num mês de 20 dias o desconto é R$ 20');
+  L.ok(/Vale-transporte \(20 dias de uso\)\s*− R\$\s?20,00/.test(await net()), 'o resultado usa o valor do mês');
+  await L.closeModal(page);
+  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
+  L.ok(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-d-mode', e => e.value) === 'perday' && await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-charged', e => e.value) === '21' && await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-ref', e => e.value) === '21', 'o que foi cobrado fica guardado: no mês seguinte já vem preenchido');
+  const nd = Number(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-days', e => e.value));
+  L.ok(nd >= 19 && nd <= 23, 'e os dias de uso do mês novo vêm com os dias úteis do mês (' + nd + '), então o valor acompanha o mês');
   await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-d-del', e => e.click()); await L.sleep(250);
 
   L.section('Ganhos além do salário');
