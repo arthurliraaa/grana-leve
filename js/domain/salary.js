@@ -75,17 +75,30 @@ export function overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, day
 
 // Tipos de desconto do contracheque. mode: 'pct' (% do salário) ou 'fixed' (R$). varies: costuma mudar de um mês para o outro.
 export var DISCOUNT_TYPES = [
-  {id: 'vt', label: 'Vale-transporte', mode: 'fixed', hint: 'no máximo 6% do salário; muita empresa desconta bem menos'},
+  {id: 'vt', label: 'Vale-transporte', mode: 'fixed', benefit: true, hint: 'até 6% do salário, limitado ao valor do vale; muita empresa desconta bem menos'},
   {id: 'saude', label: 'Plano de saúde', mode: 'fixed'},
   {id: 'odonto', label: 'Plano odontológico', mode: 'fixed'},
-  {id: 'refeicao', label: 'Vale-refeição ou alimentação (parte do empregado)', mode: 'fixed'},
+  {id: 'refeicao', label: 'Vale-refeição ou alimentação (parte do empregado)', mode: 'fixed', benefit: true},
   {id: 'pensao', label: 'Pensão alimentícia', mode: 'fixed', hint: 'também reduz o imposto de renda'},
   {id: 'consignado', label: 'Empréstimo consignado', mode: 'fixed'},
   {id: 'sindical', label: 'Contribuição sindical', mode: 'fixed'},
   {id: 'adiantamento', label: 'Adiantamento ou vale', mode: 'fixed', varies: true},
   {id: 'outro', label: 'Outro desconto', mode: 'fixed'}
 ];
+// Dias úteis (segunda a sexta) de um mês, sem descontar feriados: ponto de partida para os dias de vale-transporte.
+// month: 0 a 11.
+export function workdaysInMonth(year, month){
+  var n = 0, last = new Date(year, month + 1, 0).getDate();
+  for (var d = 1; d <= last; d++){ var w = new Date(year, month, d).getDay(); if (w !== 0 && w !== 6) n++; }
+  return n;
+}
+// Valor de um desconto. mode: 'fixed' (R$), 'pct' (% do salário) ou 'benefit' (calculado pelo benefício recebido no mês):
+// no vale-transporte desconta pct% do salário, mas nunca mais do que o próprio vale recebido; nos demais, pct% do benefício.
 export function discountAmount(d, base){
+  if (d.mode === 'benefit'){
+    var received = Math.max(0, Number(d.benefit) || 0), p = Math.max(0, Number(d.pct) || 0);
+    return money(d.type === 'vt' ? Math.min(received, base * p / 100) : received * p / 100);
+  }
   var v = Math.max(0, Number(d.value) || 0);
   return money(d.mode === 'pct' ? base * v / 100 : v);
 }
@@ -165,7 +178,7 @@ function runNet(opts, tables, withVariable){
   // estágio e bolsa: sem descontos obrigatórios.
   chosen.forEach(function(d){
     var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === d.type; })[0] || {};
-    minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
+    minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : d.mode === 'benefit' ? ' (' + (Number(d.pct) || 0) + '%' + (d.type === 'vt' ? ' do salário, até o valor do vale' : ' do benefício') + ')' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
   });
   var net = money(total + freeBonus - disc);
   return {lines: lines, gross: gross, extras: ot.total, bonuses: money(taxableBonus + freeBonus), total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};

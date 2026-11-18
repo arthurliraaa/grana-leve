@@ -30,6 +30,25 @@ L.run(async ({page}) => {
   await page.$eval('.sc-disc-row:nth-child(2) .sc-d-del', e => e.click()); await L.sleep(250);
   L.ok(!/Adiantamento/.test(await net()), 'dá para remover um desconto');
 
+  L.section('Desconto pelo benefício');
+  await page.$eval('[data-add-disc]', e => e.click()); await L.sleep(200);
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-d-type', e => { e.value = 'vt'; e.dispatchEvent(new Event('change', {bubbles: true})); });
+  await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-mode', 'benefit'); await L.sleep(250);
+  L.ok(await page.$eval('#scDiscList .sc-disc-row:nth-child(2)', e => e.classList.contains('is-benefit')) && !(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-ben-vt', e => e.hidden)), 'em “pelo benefício” o vale-transporte pede passagem por dia, dias de uso e o % do salário');
+  const days = Number(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-b-days', e => e.value));
+  L.ok(days >= 19 && days <= 23, 'os dias de uso já vêm com os dias úteis do mês (' + days + ')');
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-b-days', e => { e.value = '20'; e.dispatchEvent(new Event('input', {bubbles: true})); });
+  await page.type('#scDiscList .sc-disc-row:nth-child(2) .sc-b-daily', '5'); await L.sleep(250);
+  r = await net();
+  L.ok(/Vale do mês: R\$\s?100,00\. Desconto: R\$\s?100,00/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-calc')), 'passagem de R$ 5 × 20 dias = vale de R$ 100: o desconto é só os 100 (6% do salário seria 180)');
+  L.ok(/Vale-transporte \(6% do salário, até o valor do vale\)\s*− R\$\s?100,00/.test(r), 'o resultado mostra o desconto do vale-transporte pelo benefício');
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-b-daily', e => { e.value = '20'; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(250);
+  L.ok(/Desconto: R\$\s?180,00/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-calc')), 'com vale de R$ 400 o desconto para em 6% do salário (R$ 180)');
+  await L.setVal(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-type', 'refeicao'); await L.sleep(250);
+  await page.type('#scDiscList .sc-disc-row:nth-child(2) .sc-b-recv', '600'); await L.sleep(250);
+  L.ok(/Desconto: R\$\s?120,00 \(20% do benefício\)/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-calc')), 'vale-refeição de R$ 600 com 20% de desconto: R$ 120');
+  await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-d-del', e => e.click()); await L.sleep(250);
+
   L.section('Ganhos além do salário');
   await page.$eval('[data-add-bonus]', e => e.click()); await L.sleep(200);
   await page.type('#scBonusList .sc-d-value', '150'); await L.sleep(250);

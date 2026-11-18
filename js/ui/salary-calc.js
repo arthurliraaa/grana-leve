@@ -6,7 +6,7 @@
  * As contas ficam em js/domain/salary.js.
  */
 import {fmtMoney} from '../domain/money.js';
-import {netSalary, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
+import {netSalary, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
 import {openModal} from './modal.js';
@@ -20,13 +20,26 @@ function typesOf(kind){ return kind === 'bonus' ? BONUS_TYPES : DISCOUNT_TYPES; 
 function metaOf(kind, id){ return typesOf(kind).filter(function(t){ return t.id === id; })[0] || {}; }
 function typeOptions(kind, sel){ return typesOf(kind).map(function(t){ return '<option value="' + t.id + '"' + (t.id === sel ? ' selected' : '') + '>' + escapeHtml(t.label) + '</option>'; }).join(''); }
 // Uma linha de desconto ou de ganho extra: tipo, valor (R$ ou %), “varia todo mês”, (ganhos: “paga imposto”) e remover.
+// Painel “pelo benefício”: o vale-transporte vem da passagem por dia × dias do mês (limitado a % do salário); os demais, do
+// valor recebido no mês × % que a empresa desconta dele.
+function benefitPanelHtml(d){
+  var now = new Date(), days = workdaysInMonth(now.getFullYear(), now.getMonth()), f = function(v){ return v === undefined || v === '' ? '' : String(v).replace('.', ','); };
+  return '<div class="sc-d-ben">' +
+    '<div class="sc-ben-vt field"><label>Passagem por dia (ida e volta)</label><span class="money-input"><span>R$</span><input class="sc-b-daily" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="' + f(d.daily) + '"></span></div>' +
+    '<div class="sc-ben-vt field"><label>Dias de uso no mês</label><input class="sc-b-days" type="number" min="0" max="31" step="1" value="' + days + '"></div>' +
+    '<div class="sc-ben-vt field"><label>Desconto de até (% do salário)</label><input class="sc-b-pct-vt" type="number" min="0" max="100" step="0.5" value="' + (d.type === 'vt' && d.pct !== undefined ? d.pct : 6) + '"></div>' +
+    '<div class="sc-ben-other field"><label>Valor recebido no mês</label><span class="money-input"><span>R$</span><input class="sc-b-recv" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="' + f(d.type !== 'vt' ? d.benefit : '') + '"></span></div>' +
+    '<div class="sc-ben-other field"><label>Desconto do benefício (%)</label><input class="sc-b-pct" type="number" min="0" max="100" step="0.5" value="' + (d.type !== 'vt' && d.pct !== undefined ? d.pct : 20) + '"></div>' +
+    '<p class="sc-d-calc field-hint" aria-live="polite"></p></div>';
+}
 function rowHtml(kind, d){
   var bonus = kind === 'bonus';
   d = d || {type: bonus ? 'homeoffice' : 'vt', mode: 'fixed', value: '', varies: bonus ? !!metaOf(kind, 'homeoffice').varies : false};
   var meta = metaOf(kind, d.type), taxable = d.taxable === undefined ? meta.taxable !== false : !!d.taxable;
   return '<div class="sc-disc-row" data-kind="' + kind + '"><select class="sc-d-type" aria-label="' + (bonus ? 'Tipo de ganho extra' : 'Tipo de desconto') + '">' + typeOptions(kind, d.type) + '</select>' +
     '<span class="money-input sc-d-val"><input class="sc-d-value" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Valor" value="' + (d.value === '' || d.value === undefined ? '' : String(d.value).replace('.', ',')) + '">' +
-    '<select class="sc-d-mode" aria-label="Em reais ou porcentagem"><option value="fixed"' + (d.mode !== 'pct' ? ' selected' : '') + '>R$</option><option value="pct"' + (d.mode === 'pct' ? ' selected' : '') + '>%</option></select></span>' +
+    '<select class="sc-d-mode" aria-label="Em reais, porcentagem ou pelo benefício"><option value="fixed"' + (d.mode === 'fixed' || !d.mode ? ' selected' : '') + '>R$</option><option value="pct"' + (d.mode === 'pct' ? ' selected' : '') + '>%</option>' + (bonus ? '' : '<option value="benefit"' + (d.mode === 'benefit' ? ' selected' : '') + '>pelo benefício</option>') + '</select></span>' +
+    (bonus ? '' : benefitPanelHtml(d)) +
     '<div class="sc-d-foot"><label class="check sc-d-varies"><input class="sc-d-var" type="checkbox"' + ((d.varies || meta.varies) ? ' checked' : '') + '> Varia todo mês</label>' +
     (bonus ? '<label class="check sc-d-taxl"><input class="sc-d-tax" type="checkbox"' + (taxable ? ' checked' : '') + '> Paga imposto</label>' : '') +
     '<button type="button" class="linklike sc-d-del" aria-label="Remover">Remover</button></div></div>';
@@ -50,7 +63,7 @@ function bodyHtml(){
       '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão em dinheiro pagam; a bonificação recebida em vales ou cartão benefício não tem desconto. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></fieldset>' +
     '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
-      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo.</p></fieldset>' +
+      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição, escolha “pelo benefício”: você informa o que recebeu no mês (passagem por dia × dias de uso, ou o valor do vale) e o desconto sai calculado. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo.</p></fieldset>' +
     '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
       '<div class="sc-grid"><div class="field"><label for="scH50">Horas a 50% (dias úteis)</label><input id="scH50" name="h50" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
       '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
@@ -64,8 +77,33 @@ function readRows(form, kind){
   return qsa('.sc-disc-row[data-kind="' + kind + '"]', form).map(function(row){
     var o = {type: qs('.sc-d-type', row).value, mode: qs('.sc-d-mode', row).value, value: num(qs('.sc-d-value', row).value), varies: qs('.sc-d-var', row).checked};
     if (kind === 'bonus') o.taxable = qs('.sc-d-tax', row).checked;
+    else if (o.mode === 'benefit'){
+      if (o.type === 'vt'){ o.daily = num(qs('.sc-b-daily', row).value); o.days = Number(qs('.sc-b-days', row).value) || 0; o.benefit = Math.round(o.daily * o.days * 100) / 100; o.pct = Number(qs('.sc-b-pct-vt', row).value) || 0; }
+      else { o.benefit = num(qs('.sc-b-recv', row).value); o.pct = Number(qs('.sc-b-pct', row).value) || 0; }
+    }
     return o;
-  }).filter(function(d){ return d.value > 0; });
+  }).filter(function(d){ return d.mode === 'benefit' ? d.benefit > 0 : d.value > 0; });
+}
+// Mostra/esconde o que depende do tipo e do modo da linha (o modo “pelo benefício” só existe para vale-transporte e vale-refeição).
+function applyRow(row, gross){
+  if (row.getAttribute('data-kind') !== 'disc') return;
+  var type = qs('.sc-d-type', row).value, meta = metaOf('disc', type), mode = qs('.sc-d-mode', row), opt = qs('option[value=benefit]', mode);
+  opt.hidden = opt.disabled = !meta.benefit;
+  if (!meta.benefit && mode.value === 'benefit') mode.value = 'fixed';
+  var ben = mode.value === 'benefit';
+  row.classList.toggle('is-benefit', ben);
+  qsa('.sc-ben-vt', row).forEach(function(el){ el.hidden = type !== 'vt'; });
+  qsa('.sc-ben-other', row).forEach(function(el){ el.hidden = type === 'vt'; });
+  if (!ben) return;
+  var out = qs('.sc-d-calc', row);
+  var cur = {type: type, mode: 'benefit', benefit: 0, pct: 0};
+  if (type === 'vt'){ cur.benefit = Math.round(num(qs('.sc-b-daily', row).value) * (Number(qs('.sc-b-days', row).value) || 0) * 100) / 100; cur.pct = Number(qs('.sc-b-pct-vt', row).value) || 0; }
+  else { cur.benefit = num(qs('.sc-b-recv', row).value); cur.pct = Number(qs('.sc-b-pct', row).value) || 0; }
+  if (!(cur.benefit > 0)){ out.textContent = type === 'vt' ? 'Informe a passagem por dia e os dias de uso para calcular o vale e o desconto.' : 'Informe quanto recebeu no mês para calcular o desconto.'; return; }
+  var disc = discountAmount(cur, gross);
+  out.textContent = type === 'vt'
+    ? 'Vale do mês: ' + fmtMoney(cur.benefit) + '. Desconto: ' + fmtMoney(disc) + (gross > 0 ? ' (' + cur.pct + '% do salário seria ' + fmtMoney(gross * cur.pct / 100) + '; o desconto nunca passa do valor do vale).' : '.')
+    : 'Recebeu ' + fmtMoney(cur.benefit) + ' no mês. Desconto: ' + fmtMoney(disc) + ' (' + cur.pct + '% do benefício).';
 }
 function readOpts(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
@@ -96,6 +134,8 @@ export async function openSalaryCalculator(){
         var o = readOpts(form);
         qsa('[data-for]', modal).forEach(function(el){ el.hidden = el.getAttribute('data-for').split(',').indexOf(o.regime) < 0; });
         qs('#scGrossLbl', modal).textContent = GROSS_LABEL[o.regime];
+        var gross = Number(o.gross) || 0;
+        qsa('.sc-disc-row', modal).forEach(function(row){ applyRow(row, gross); });
         var res = netSalary(o);
         qs('#scResult', modal).innerHTML = resultHtml(res, o.regime);
         qs('[data-use=month]', modal).hidden = !res.hasVariable;
@@ -108,6 +148,7 @@ export async function openSalaryCalculator(){
           var row = e.target.closest('.sc-disc-row'), meta = metaOf(row.getAttribute('data-kind'), e.target.value);
           qs('.sc-d-var', row).checked = !!meta.varies;
           if (qs('.sc-d-tax', row)) qs('.sc-d-tax', row).checked = meta.taxable !== false;
+          if (row.getAttribute('data-kind') === 'disc' && qs('.sc-d-mode', row).value === 'benefit' && !meta.benefit) qs('.sc-d-mode', row).value = 'fixed';
         }
         sync();
       });
@@ -128,7 +169,7 @@ export async function openSalaryCalculator(){
   });
   if (!r || r === true) return null;
   var o = r.opts;
-  setPref('workProfile', {regime: o.regime, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct, discounts: o.discounts, bonuses: o.bonuses});
+  setPref('workProfile', {regime: o.regime, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct, discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses});
   return {net: r.net, kind: r.kind, regime: o.regime};
 }
 

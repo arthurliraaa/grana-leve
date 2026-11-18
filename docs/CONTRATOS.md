@@ -142,7 +142,10 @@ overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, {workDays, restDays
 //   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ dias de trabalho) × dias de repouso (padrão 25 e 5)
 DISCOUNT_TYPES                                  // vt, saude, odonto, refeicao, pensao, consignado, sindical, adiantamento (varia), outro
 BONUS_TYPES                                     // homeoffice, ajuda, alimentacao, transporte (não tributam); bonificacao, comissao, plr (variam); bonificacao-vale (varia, não tributa); gratificacao, outro
-discountAmount({mode: 'pct'|'fixed', value}, base) -> reais
+discountAmount({mode: 'pct'|'fixed'|'benefit', value, benefit, pct}, base) -> reais
+//   mode 'benefit' (só vt e refeicao): vt = min(benefit, pct% do salário), pois o desconto nunca passa do valor do vale;
+//   refeicao = pct% do benefício recebido no mês. A tela calcula benefit do vt como passagem por dia × dias de uso
+//   (padrão: dias úteis do mês, workdaysInMonth(ano, mês 0-11), sem descontar feriados)
 netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps, meiKind, inssKind,
            simplesRate, otherPct, bonuses})   // discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}]
 //   bonuses (ganhos além do salário): [{type, label?, mode, value, varies?, taxable?}]; taxable soma à base do INSS e do

@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
+import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, workdaysInMonth, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
 
 test('INSS do empregado: progressivo por faixa e limitado ao teto', () => {
   assert.equal(inssEmployee(1621), 121.58, '7,5% sobre o salário mínimo');
@@ -96,4 +96,17 @@ test('ganhos além do salário: auxílio e ajuda de custo não pagam imposto; bo
   assert.equal(vale.fixedNet, 2751.4, 'e como varia, fica fora do fixo');
   assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'pct', value: 10}]}).net, 3051.4, 'também em % do salário');
   assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150, taxable: true}]}).net, 2901.4 - 18, 'dá para marcar que paga imposto (INSS de 12% sobre os 150)');
+});
+
+test('descontos pelo benefício: vale-transporte (até % do salário, nunca mais que o vale) e vale-refeição (% do benefício)', () => {
+  assert.equal(workdaysInMonth(2026, 10), 21, 'novembro de 2026 tem 21 dias úteis (segunda a sexta)');
+  assert.equal(workdaysInMonth(2026, 1), 20, 'fevereiro de 2026');
+  assert.equal(discountAmount({type: 'vt', mode: 'benefit', benefit: 150, pct: 6}, 3000), 150, 'vale de 150 é menor que 6% do salário (180): desconta só os 150');
+  assert.equal(discountAmount({type: 'vt', mode: 'benefit', benefit: 400, pct: 6}, 3000), 180, 'vale de 400: desconta 6% do salário');
+  assert.equal(discountAmount({type: 'vt', mode: 'benefit', benefit: 400, pct: 3}, 3000), 90, 'a empresa pode descontar bem menos que 6%');
+  assert.equal(discountAmount({type: 'refeicao', mode: 'benefit', benefit: 600, pct: 20}, 3000), 120, '20% do que recebeu em vale-refeição');
+  assert.equal(discountAmount({type: 'refeicao', mode: 'benefit', benefit: 0, pct: 20}, 3000), 0);
+  const r = netSalary({regime: 'clt', gross: 3000, discounts: [{type: 'vt', mode: 'benefit', benefit: 21 * 12, pct: 6}, {type: 'refeicao', mode: 'benefit', benefit: 600, pct: 20}]});
+  assert.equal(r.net, 2751.4 - 180 - 120, 'o vale de 21 dias × R$ 12 (252) passa de 6% do salário: desconta 180; o vale-refeição, 120');
+  assert.ok(r.lines.some(l => /Vale-transporte \(6% do salário, até o valor do vale\)/.test(l.label)));
 });
