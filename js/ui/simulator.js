@@ -13,7 +13,7 @@ import {projectCash, firstRedMonth, splitInstallments, goalUseImpact} from '../d
 import {Store} from '../data/store.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
 import {openModal} from './modal.js';
-import {State, k, catLabel, catOptions, expenseCats, expenseCategoryTotals, budgetLimit, cardUsed, expandInstallments, forecastOccurrences, totalAccountsBalance} from './state.js';
+import {State, k, catLabel, catOptions, expenseCats, incomeCats, expenseCategoryTotals, budgetLimit, cardUsed, expandInstallments, forecastOccurrences, totalAccountsBalance} from './state.js';
 import {billMonth} from './bills.js';
 import {dashboardFigures, monthPayments} from './home-tab.js';
 import {applyPayment, paymentOptions} from './tx-list.js';
@@ -21,7 +21,7 @@ import {offGoalWarningHtml, goalMove} from './planning-tab.js';
 import {renderAll, showTab} from './shell.js';
 import {saveTransactions} from './tx-edit.js';
 
-var KINDS = [{id: 'compra', label: 'Compra'}, {id: 'emprestimo', label: 'Empréstimo ou financiamento'}, {id: 'fixo', label: 'Gasto fixo mensal'}];
+var KINDS = [{id: 'compra', label: 'Compra'}, {id: 'ganho', label: 'Ganho'}, {id: 'emprestimo', label: 'Empréstimo ou financiamento'}, {id: 'fixo', label: 'Gasto fixo mensal'}];
 var HORIZONS = [3, 6, 12];
 
 // O que sai (a parte da pessoa) de faturas que vencem no mês `key`.
@@ -70,6 +70,10 @@ function formHtml(){
       '<div class="field" data-for="compra"><label for="simPay">Pagar com</label><select id="simPay" name="pay">' + optionsHtml(pays, (pays.filter(function(p){ return p.id.indexOf('card:') === 0; })[0] || pays[0] || {}).id) + '</select></div>' +
       '<div class="field" data-for="compra" data-card><label for="simN">Em quantas parcelas</label><input id="simN" name="n" type="number" min="1" max="24" step="1" value="1"></div>' +
       '<div class="field" data-for="compra"><label for="simDate">Data da compra</label><input id="simDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
+      '<div class="field" data-for="ganho"><label for="simIncAmount">Valor do ganho</label><span class="money-input"><span>R$</span><input id="simIncAmount" name="incamount" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
+      '<div class="field" data-for="ganho"><label for="simIncFreq">Com que frequência</label><select id="simIncFreq" name="incfreq"><option value="once">Uma vez só (ex.: bônus, venda)</option><option value="monthly">Todo mês (ex.: aumento, novo trabalho)</option></select></div>' +
+      '<div class="field" data-for="ganho"><label for="simIncStart">Começa a receber</label><select id="simIncStart" name="incstart"><option value="0">Neste mês</option><option value="1" selected>No mês que vem</option></select></div>' +
+      '<div class="field" data-for="ganho"><label for="simIncAcc">Entra em</label><select id="simIncAcc" name="incacc">' + optionsHtml(State.accounts.map(function(a){ return {id: a.id, label: a.name}; }).concat([{id: '', label: 'Dinheiro (fora das contas)'}]), (State.accounts[0] || {id: ''}).id) + '</select></div>' +
       '<div class="field" data-for="emprestimo"><label for="simRecv">Dinheiro que entra na conta <span class="opt">(opcional)</span></label><span class="money-input"><span>R$</span><input id="simRecv" name="recv" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
       '<div class="field" data-for="emprestimo"><label for="simParcels">Número de parcelas</label><input id="simParcels" name="parcels" type="number" min="1" max="120" step="1" value="12"></div>' +
       '<div class="field" data-for="emprestimo"><label for="simParcel">Valor de cada parcela</label><span class="money-input"><span>R$</span><input id="simParcel" name="parcel" type="text" data-money autocomplete="off" inputmode="decimal"></span><span class="field-hint">Já com juros, como o banco informou. A 1ª parcela cai no mês que vem.</span></div>' +
@@ -102,6 +106,9 @@ function readForm(form){
     s.n = s.isCard ? Tx.clampInstall(v('n')) : 1;
     s.purpose = (qs('input[name=purpose]:checked', form) || {}).value || 'meta'; s.gmode = (qs('input[name=gmode]:checked', form) || {}).value || 'lancar';
     if (!(s.amount > 0)) s.error = 'Informe o valor da compra.'; else if (!validDateStr(s.date)) s.error = 'Use uma data entre 1900 e 3000.';
+  } else if (kind === 'ganho'){
+    s.amount = money(v('incamount')); s.freq = v('incfreq') || 'once'; s.start = Number(v('incstart')) || 0; s.acc = v('incacc');
+    if (!(s.amount > 0)) s.error = 'Informe o valor do ganho.'; else if (!s.name) s.error = 'Dê um nome ao ganho.';
   } else if (kind === 'emprestimo'){
     s.recv = money(v('recv')); s.parcels = Math.max(1, Math.round(Number(v('parcels')) || 0)); s.parcel = money(v('parcel'));
     if (!(s.parcel > 0)) s.error = 'Informe o valor de cada parcela.'; else if (!s.name) s.error = 'Dê um nome ao empréstimo.';
@@ -150,6 +157,15 @@ function compute(s){
       notes.push('Planejamento de ' + escapeHtml(catLabel(s.cat, 'expense')) + ': ficaria em ' + fmtMoney(spent) + ' de ' + fmtMoney(lim) + ' (' + Math.round(100 * spent / lim) + '%).');
       if (spent > lim) warns.push(escapeHtml(catLabel(s.cat, 'expense')) + ' passaria do limite do mês em ' + fmtMoney(money(spent - lim)) + '.');
     }
+  } else if (s.kind === 'ganho'){
+    // Ganho entra como "saída negativa": soma ao saldo dos meses em que cai.
+    if (s.freq === 'monthly'){
+      for (var g2 = s.start; g2 < s.hz; g2++) adds[g2] = money((adds[g2] || 0) - s.amount);
+      notes.push('Ganho de ' + fmtMoney(s.amount) + ' todo mês: ' + fmtMoney(money(s.amount * 12)) + ' em um ano.');
+    } else {
+      if (s.start < s.hz) adds[s.start] = money((adds[s.start] || 0) - s.amount);
+      notes.push('Entra uma vez só, ' + (s.start === 0 ? 'neste mês' : 'no mês que vem') + ', ' + (s.acc ? 'na conta ' + escapeHtml((findById(State.accounts, s.acc) || {}).name || '') : 'em dinheiro') + '.');
+    }
   } else if (s.kind === 'emprestimo'){
     s.inflowNow = s.recv;
     for (var i = 1; i <= s.parcels && i < s.hz; i++) adds[i] = money((adds[i] || 0) + s.parcel);
@@ -175,7 +191,8 @@ function resultHtml(s){
   if (s.error) return '<p class="tx-meta">' + escapeHtml(s.error.replace(/^Informe o valor da compra\.$/, 'Preencha o valor para ver como ficariam as contas.')) + '</p>';
   var red = firstRedMonth(s.rows), min = Math.min.apply(null, s.rows.map(function(r){ return r.sim; }));
   var tight = !red && s.cash > 0 && min < s.cash * 0.1;
-  var verdict = s.isGoal ? (s.purpose === 'outro' ? ['warn', 'Usa dinheiro guardado na meta para outra coisa. As contas do banco não mudam, mas a meta encolhe.'] : ['good', 'O dinheiro vem da meta, para o objetivo dela. As contas do banco não mudam.']) : red ? ['bad', 'Deixa o saldo no vermelho em ' + red.label + (red.wasRed ? ' (já estava negativo sem a simulação)' : '') + ' (' + fmtMoney(red.sim) + ').'] :
+  var last = s.rows[s.rows.length - 1];
+  var verdict = s.kind === 'ganho' ? ['good', 'Com esse ganho, o saldo no fim de ' + last.label.replace(' (este mês)', '') + ' ficaria em ' + fmtMoney(last.sim) + ' (' + fmtMoney(last.diff) + ' a mais).'] : s.isGoal ? (s.purpose === 'outro' ? ['warn', 'Usa dinheiro guardado na meta para outra coisa. As contas do banco não mudam, mas a meta encolhe.'] : ['good', 'O dinheiro vem da meta, para o objetivo dela. As contas do banco não mudam.']) : red ? ['bad', 'Deixa o saldo no vermelho em ' + red.label + (red.wasRed ? ' (já estava negativo sem a simulação)' : '') + ' (' + fmtMoney(red.sim) + ').'] :
     tight ? ['warn', 'Cabe, mas deixa as contas apertadas: o menor saldo seria ' + fmtMoney(min) + '.'] : ['good', 'Cabe nas contas: o menor saldo seria ' + fmtMoney(min) + '.'];
   var noAcc = !State.accounts.length ? '<p class="tx-meta">Sem contas cadastradas, o saldo parte de R$ 0,00. Cadastre suas contas em “Contas e cartões” para um resultado mais real.</p>' : '';
   return '<div class="sim-verdict ' + verdict[0] + '"><strong>' + verdict[1] + '</strong></div>' +
@@ -240,6 +257,25 @@ export async function registerSimulation(s){
     renderAll();
     var cardT = tx.paymentMethod === 'cartao' ? findById(State.cards, tx.cardId) : null;
     toast('Compra registrada' + (cardT ? ' na fatura de ' + Cards.invoiceLabel(Cards.invoiceKeyFor(s.date, cardT), cardT) + ' do ' + cardT.name : ' e descontada da conta') + (n > 1 ? ' em ' + n + 'x' : '') + '.');
+    return;
+  }
+  if (s.kind === 'ganho'){
+    var incCat = (incomeCats().filter(function(c){ return c.id === 'salario'; })[0] || incomeCats()[0] || {id: 'outros_receita'}).id;
+    if (s.freq === 'monthly'){
+      // Todo mês: vira uma previsão recorrente (aparece em “Previstas” e entra na previsão do mês).
+      var sd = s.start === 0 ? todayKey() : shiftMonthKey(monthBounds(0).key, 1) + '-01';
+      var fc = {description: s.name, amount: s.amount, date: sd, recurring: true, category: /sal[aá]rio/i.test(s.name) ? 'salario' : 'outros_receita', received: {}, createdAt: Date.now()};
+      var savedF = await Store.add(k(), 'forecasts', fc);
+      State.forecasts.push(savedF);
+      renderAll();
+      toast('Ganho previsto de ' + fmtMoney(s.amount) + ' por mês adicionado em “Previstas”. Quando cair, é só registrar o recebimento.');
+      return;
+    }
+    var itx = {type: 'income', amount: s.amount, category: incCat, categoryLabel: catLabel(incCat, 'income'), date: s.start === 0 ? todayKey() : shiftMonthKey(monthBounds(0).key, 1) + '-01',
+      description: s.name, paymentMethod: null, accountId: s.acc || null, createdAt: Date.now()};
+    await saveTransactions([itx]);
+    renderAll();
+    toast('Ganho de ' + fmtMoney(s.amount) + ' registrado' + (s.start === 0 ? '.' : ' para o mês que vem.'));
     return;
   }
   if (s.kind === 'emprestimo'){

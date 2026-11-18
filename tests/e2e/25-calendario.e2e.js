@@ -40,10 +40,13 @@ L.run(async ({page}) => {
   L.ok(/Vencimento de fatura/.test(await L.text(page, '.cal-legend')), 'legenda dos previstos');
 
   L.section('Próximo mês: parcela e fatura');
+  // O botão pode ficar por baixo do topo fixo da página: rola até o centro antes de clicar.
+  await page.$eval('#nextMonth', e => e.scrollIntoView({block: 'center'}));
   await page.click('#nextMonth'); await L.sleep(150);
   const nextTxt = await page.$$eval('#txCal [data-cal-day]', c => c.map(x => x.querySelector('.sr-only').textContent).join('|'));
   L.ok(/gastos R\$\s?100,00/.test(nextTxt), 'parcela do mês que vem aparece no dia dela');
   L.ok(/vencimento de fatura Fatura Inter/.test(nextTxt), 'vencimento da fatura do Inter marcado');
+  await page.$eval('#prevMonth', e => e.scrollIntoView({block: 'center'}));
   await page.click('#prevMonth'); await L.sleep(150);
 
   L.section('Filtros');

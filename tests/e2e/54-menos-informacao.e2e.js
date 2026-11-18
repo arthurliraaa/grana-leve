@@ -64,6 +64,7 @@ L.run(async ({page}) => {
   await L.tab(page, 'limites'); await L.sleep(150);
   L.ok(await mid('#tab-limites .month-switch'), 'o de Planejar também');
   await L.tab(page, 'dashboard'); await L.dashSection(page, 'graficos');
-  const row = await page.$$eval('#dashPrev, #dashNavLabel, #dashNext', els => els.map(e => { const r = e.getBoundingClientRect(); return Math.round(r.top + r.height / 2); }));
-  L.ok(Math.max(...row) - Math.min(...row) <= 4, 'no Início, ‹ mês › ficam numa linha só');
+  // ‹ mês › na mesma linha: os dois botões alinhados e o nome do mês dentro da altura deles (o selo “Este mês” pode ficar embaixo do nome).
+  const nav = await page.$$eval('#dashPrev, #dashNavLabel, #dashNext', els => els.map(e => { const r = e.getBoundingClientRect(); return {top: r.top, bottom: r.bottom, c: r.top + r.height / 2}; }));
+  L.ok(Math.abs(nav[0].c - nav[2].c) <= 4 && nav[1].top >= nav[0].top - 4 && nav[1].bottom <= nav[0].bottom + 4, 'no Início, ‹ mês › ficam numa linha só');
 });

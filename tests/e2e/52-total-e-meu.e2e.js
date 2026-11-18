@@ -17,7 +17,7 @@ L.run(async ({page}) => {
     // Fatura antiga e ainda não paga: 100 meus + 300 de outra pessoa (vence/venceu até este mês).
     t('c1', {amount: 100, date: arg.old, paymentMethod: 'cartao', cardId: arg.card});
     t('c2', {amount: 300, date: arg.old, paymentMethod: 'cartao', cardId: arg.card, forOther: {person: 'Maria', receivableId: 'r2'}});
-  `, {today, old: L.dayOffset(-45), card: card.id});
+  `, {today, old: L.monthKey(-2) + '-15', card: card.id});
   await L.tab(page, 'dashboard');
   await page.click('#dashDetailsBtn'); await L.sleep(250);
   const have = L.moneyOf((/Você tem (R\$\s?[\d.,]+) nas contas/.exec(await L.text(page, '#monthStatus')) || [])[1]);
@@ -98,7 +98,7 @@ L.run(async ({page}) => {
   L.ok(/gastos R\$\s?900,00 \(seus R\$\s?300,00 · de outras pessoas R\$\s?600,00\)/.test(await L.text(page, '#txSummary')), 'resumo da lista: total, seus e de outras pessoas');
 
   L.section('Fatura paga em parte: a sua parte continua toda a pagar');
-  const key = await page.evaluate(async (c, d) => { const {invoiceKeyFor} = await import('/js/domain/cards.js'); return invoiceKeyFor(d, c); }, card, L.dayOffset(-45));
+  const key = await page.evaluate(async (c, d) => { const {invoiceKeyFor} = await import('/js/domain/cards.js'); return invoiceKeyFor(d, c); }, card, L.monthKey(-2) + '-15');
   await L.patchDb(page, `u.cards[0].invoiceAdvances = {[arg.key]: [{id: 'ad1', amount: 350, date: arg.today}]};`, {key, today});
   await L.tab(page, 'dashboard'); await L.sleep(200);
   const f2 = await tile('Falta pagar');
@@ -135,10 +135,11 @@ L.run(async ({page}) => {
   L.ok(await centered('.tx-views'), '“Lista | Calendário | Ano” fica centralizado');
   await L.tab(page, 'cartoes'); await L.sleep(150);
   L.ok(await page.$eval('.ws-box', el => getComputedStyle(el).textAlign) === 'center', 'as caixas do resumo de Contas e cartões têm o texto centralizado');
-  await page.$eval('#bankList .card-menu > summary', el => el.click()); await L.sleep(200);
-  const pop = await page.$eval('#bankList .card-menu[open] > .more-pop', el => { const r = el.getBoundingClientRect(); return {l: r.left, r: r.right, t: r.top, b: r.bottom, vw: innerWidth, vh: innerHeight}; });
-  L.ok(pop.l >= 0 && pop.r <= pop.vw && pop.t >= 0 && pop.b <= pop.vh, 'o menu ⋯ da conta abre inteiro dentro da tela');
-  await page.$eval('#bankList .card-menu[open] > summary', el => el.click());
+  // No celular o menu ⋯ abre como folha de baixo (janela “Mais ações”), inteira dentro da tela.
+  await page.$eval('#bankList .card-menu > summary', el => el.click()); await L.sleep(300);
+  const sheet = await page.$eval('#modalRoot .modal', el => { const r = el.getBoundingClientRect(); return {l: r.left, r: r.right, b: r.bottom, vw: innerWidth, vh: innerHeight}; }).catch(() => null);
+  L.ok(/Mais ações/.test(await L.modalTitle(page) || '') && sheet && sheet.l >= 0 && sheet.r <= sheet.vw && sheet.b <= sheet.vh + 1, 'o menu ⋯ da conta abre como folha, inteira dentro da tela');
+  await L.closeModal(page);
   await page.$eval('#moreBtn', el => el.click()); await L.sleep(250);
   const items = await page.$$eval('.more-menu .more-item', els => els.map(e => getComputedStyle(e).textAlign + '/' + getComputedStyle(e).alignItems));
   L.ok(items.length > 6 && items.every(x => x === 'center/center'), 'os itens do “Mais” (inclusive tutorial e ajuda) têm o conteúdo centralizado');

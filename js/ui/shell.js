@@ -510,9 +510,33 @@ export async function boot(){
 }
 
 // Eventos gerais: cliques e formulários compartilhados entre as abas, navegação e conexão.
+// No celular, o menu ⋯ (cartões, contas, compromissos...) abre como folha de baixo, igual ao menu “Mais”: não depende de
+// posicionamento fixo, tem alvos de toque grandes e fecha arrastando. No computador continua o menu em cima do botão.
+function wireMobileMenus(){
+  document.addEventListener('click', function(e){
+    var sum = e.target.closest && e.target.closest('details.card-menu > summary');
+    if (!sum || !window.matchMedia || !window.matchMedia('(max-width: 620px)').matches) return;
+    e.preventDefault(); e.stopPropagation();
+    var btns = qsa('.more-pop button', sum.parentElement);
+    if (!btns.length) return;
+    openModal({title: 'Mais ações', submitLabel: null, cancelLabel: 'Fechar',
+      body: '<div class="sheet-actions">' + btns.map(function(b, i){
+        return '<button type="button" class="sheet-act' + (b.classList.contains('danger') ? ' danger' : '') + '" data-i="' + i + '">' + b.innerHTML + '</button>'; }).join('') + '</div>',
+      onOpen: function(modal, close){
+        modal.addEventListener('click', function(ev){
+          var it = ev.target.closest('[data-i]');
+          if (!it) return;
+          var target = btns[Number(it.getAttribute('data-i'))];
+          close(null);
+          setTimeout(function(){ target.click(); }, 0);
+        });
+      }});
+  }, true);
+}
 export function wireShell(){
   wireAdvice();
   wireSimulator();
+  wireMobileMenus();
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();
   document.addEventListener('keydown', function(e){

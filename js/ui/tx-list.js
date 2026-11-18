@@ -302,7 +302,36 @@ export function renderTransactionsTab(){
   var list = document.getElementById('txList');
   if (view === 'cal'){ renderTxCalendar(mb, tx, list); return; }
   if (!tx.length){ list.innerHTML = purchaseNotices(mb.key) + '<p class="empty-state">' + (filtering ? 'Nenhum lançamento encontrado com esses filtros.' : 'Nenhum lançamento neste mês.') + '</p>'; return; }
-  list.innerHTML = purchaseNotices(mb.key) + sortTxView(tx).map(txRowHtml).join('');
+  list.innerHTML = purchaseNotices(mb.key) + listWithRefundGroups(sortTxView(tx));
+}
+// Devoluções de uma mesma pessoa (3 ou mais) ficam numa caixa que abre e fecha, para a lista não virar uma parede de
+// linhas iguais (ex.: 24 parcelas devolvidas). A escolha de abrir fica lembrada até recarregar.
+function refundPerson(t){
+  var r = t.receivableId && findById(State.receivables, t.receivableId);
+  if (r && r.person) return String(r.person).trim();
+  var m = /^(?:Devolução de|Recebido de)\s+(.+)$/.exec(t.description || '');
+  return m ? m[1].trim() : '';
+}
+function listWithRefundGroups(sorted){
+  State.txGroupOpen = State.txGroupOpen || {};
+  var groups = {};
+  sorted.forEach(function(t){
+    if (t.type !== 'income' || !t.refund) return;
+    var p = refundPerson(t);
+    if (p) (groups[fold(p)] = groups[fold(p)] || {name: p, list: []}).list.push(t);
+  });
+  var placed = {}, out = [];
+  sorted.forEach(function(t){
+    var key = t.type === 'income' && t.refund && refundPerson(t) ? fold(refundPerson(t)) : null, g = key && groups[key];
+    if (!(g && g.list.length >= 3)){ out.push(txRowHtml(t)); return; }
+    if (placed[key]) return;
+    placed[key] = true;
+    var total = sum(g.list, function(x){ return Number(x.amount) || 0; }), gk = 'refund:' + key;
+    out.push('<details class="tx-group" data-group-key="' + escapeHtml(gk) + '"' + (State.txGroupOpen[gk] ? ' open' : '') + '><summary><span class="tg-ico" aria-hidden="true">🤝</span>' +
+      '<span class="tg-main"><strong>Devoluções de ' + escapeHtml(g.name) + '</strong><small>' + g.list.length + ' recebimentos · último em ' + formatDateBr(g.list[0].date) + '</small></span>' +
+      '<span class="tabular tg-total">+ ' + fmtMoney(total) + '</span></summary>' + g.list.map(txRowHtml).join('') + '</details>');
+  });
+  return out.join('');
 }
 // No calendário, a parcela do cartão que conta neste mês (pela fatura) fica no dia do vencimento da fatura.
 function calendarDate(t, key){
@@ -486,6 +515,7 @@ export function wireTransactions(){
   document.getElementById('txIxWrap').addEventListener('input', populateInstallSelect);
   document.getElementById('txIxWrap').addEventListener('change', populateInstallSelect);
   document.getElementById('txList').addEventListener('toggle', function(e){ if (e.target.matches && e.target.matches('[data-notes-toggle]')) setPref('txNotesOpen', e.target.open); }, true);
+  document.getElementById('txList').addEventListener('toggle', function(e){ var d = e.target; if (d.matches && d.matches('[data-group-key]')){ State.txGroupOpen = State.txGroupOpen || {}; State.txGroupOpen[d.getAttribute('data-group-key')] = d.open; } }, true);
   document.getElementById('txSort').addEventListener('change', function(e){ setPref('txSort', e.target.value); });
   ['txSearch','txFilterType','txFilterPay','txSort','txFilterCat'].forEach(function(id){
     document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);

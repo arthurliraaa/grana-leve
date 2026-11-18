@@ -50,6 +50,30 @@ L.run(async ({page}) => {
   const gasto = d.transactions.find(t => t.id === last.txId);
   L.ok(gasto && gasto.goalId === 'gv' && gasto.accountId === null && /da meta Viagem/.test(gasto.description), 'e entrou em Ganhos e gastos sem mexer no saldo das contas');
 
+  await L.tab(page, 'conselhos'); await L.sleep(300);
+  L.ok(/usou dinheiro da meta “Viagem” para outra coisa/.test(await L.text(page, '#adviceList')), 'o uso da meta para outra coisa vira um conselho de atenção');
+
+  L.section('Simular um ganho');
+  await open();
+  await page.click('input[name=kind][value=ganho]'); await L.sleep(150);
+  await page.type('#simName', 'Bônus'); await page.type('#simIncAmount', '500');
+  await L.setVal(page, '#simIncStart', '0'); await L.sleep(300);
+  const rg = await result();
+  L.ok(/Com esse ganho/.test(rg) && /R\$\s?500,00 a mais/.test(rg) && /Entra uma vez só/.test(rg), 'ganho único: mostra quanto o saldo fica e quanto a mais');
+  await L.setVal(page, '#simIncFreq', 'monthly'); await L.sleep(300);
+  L.ok(/R\$\s?6\.000,00 em um ano/.test(await result()), 'ganho todo mês: 500 × 12 = 6.000 em um ano');
+  await L.setVal(page, '#simIncFreq', 'once'); await L.sleep(200);
+  await L.submitModal(page); await L.sleep(400);
+  d = await L.db(page);
+  L.ok(d.transactions.some(t => t.type === 'income' && t.description === 'Bônus' && t.amount === 500), 'registrar o ganho único lança a entrada');
+  await open();
+  await page.click('input[name=kind][value=ganho]'); await L.sleep(150);
+  await page.type('#simName', 'Aumento'); await page.type('#simIncAmount', '300');
+  await L.setVal(page, '#simIncFreq', 'monthly'); await L.sleep(200);
+  await L.submitModal(page); await L.sleep(400);
+  d = await L.db(page);
+  L.ok(d.forecasts.some(f => f.description === 'Aumento' && f.amount === 300 && f.recurring === true), 'ganho todo mês vira uma previsão recorrente');
+
   L.section('Empréstimo e gasto fixo');
   await open();
   await page.click('input[name=kind][value=emprestimo]'); await L.sleep(150);

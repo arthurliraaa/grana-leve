@@ -69,3 +69,18 @@ test('sem nada a dizer, elogia; e ordena pelo que mais pesa', () => {
   const a = buildAdvice({...base, today: '2026-11-10', transactions: tx, plan: {alimentacao: 1000, lazer: 1000}});
   assert.equal(a[0].id, 'over:alimentacao', 'quem passou vem antes de quem está perto');
 });
+
+test('dinheiro da meta usado fora do objetivo e não reposto vira ponto de atenção', () => {
+  const g = {id: 'g', name: 'Viagem', targetAmount: 5000, currentAmount: 1200, createdAt: 1,
+    moves: [{id: 'a', date: '2026-10-01', amount: 2000, kind: 'deposit'}, {id: 'b', date: '2026-11-05', amount: 800, kind: 'withdraw', purpose: 'outro'}]};
+  let a = buildAdvice({...base, today: '2026-11-10', transactions: [], plan: {}, goals: [g]});
+  const off = a.find(x => x.id === 'goaloff:g');
+  assert.ok(off && off.tone === 'warn'); assert.match(off.text, /800,00/); assert.match(off.text, /24%/);
+  assert.equal(a[0].id, 'goaloff:g', 'pesa mais que o resto');
+  g.moves.push({id: 'c', date: '2026-11-08', amount: 800, kind: 'deposit'});
+  g.currentAmount = 2000;
+  a = buildAdvice({...base, today: '2026-11-10', transactions: [], plan: {}, goals: [g]});
+  assert.ok(!a.some(x => x.id === 'goaloff:g'), 'depois de repor, o aviso some');
+  const certo = {...g, moves: [{id: 'a', date: '2026-10-01', amount: 2000, kind: 'deposit'}, {id: 'b', date: '2026-11-05', amount: 800, kind: 'withdraw', purpose: 'meta'}]};
+  assert.ok(!buildAdvice({...base, today: '2026-11-10', transactions: [], plan: {}, goals: [certo]}).some(x => x.kind === 'goaloff'), 'uso para o objetivo da meta não alerta');
+});

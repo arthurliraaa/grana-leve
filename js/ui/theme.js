@@ -28,17 +28,33 @@ export function themePref(){
   try{ saved = localStorage.getItem(THEME_KEY); } catch(e){}
   return saved === 'dark' || saved === 'light' ? saved : 'system';
 }
+// Troca de tema com transição suave (para não ofuscar): o navegador cruza a tela antiga com a nova; sem esse recurso,
+// as cores esmaecem aos poucos; com “reduzir movimento” ligado, troca na hora.
+function smoothly(apply){
+  var root = document.documentElement;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ apply(); return; }
+  if (document.startViewTransition){
+    root.classList.add('theme-vt');
+    var t = document.startViewTransition(apply);
+    t.finished.then(function(){ root.classList.remove('theme-vt'); }, function(){ root.classList.remove('theme-vt'); });
+    return;
+  }
+  root.classList.add('theme-fade');
+  apply();
+  setTimeout(function(){ root.classList.remove('theme-fade'); }, 700);
+}
 export function setThemePref(v){
   try{ if (v === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, v); } catch(e){}
-  if (v === 'system') document.documentElement.removeAttribute('data-theme');
-  applyTheme(v === 'system' ? null : v);
-  if (State.session) renderAll();
+  smoothly(function(){
+    if (v === 'system') document.documentElement.removeAttribute('data-theme');
+    applyTheme(v === 'system' ? null : v);
+    if (State.session) renderAll();
+  });
 }
 export function toggleTheme(){
   var next = currentTheme() === 'dark' ? 'light' : 'dark';
   try{ localStorage.setItem(THEME_KEY, next); } catch(e){}
-  applyTheme(next);
-  if (State.session) renderAll();
+  smoothly(function(){ applyTheme(next); if (State.session) renderAll(); });
 }
 
 // Aplica o tema salvo e liga o botão de tema.

@@ -13,7 +13,7 @@ import {money, fmtMoney} from './money.js';
 import {isPersonal, myShare, txForMonth} from './transactions.js';
 import {shiftMonthKey} from './dates.js';
 import {recvRemaining, recvNextDue} from './receivables.js';
-import {goalForecast} from './goals.js';
+import {goalForecast, goalMoves} from './goals.js';
 
 function sum(list, fn){ return list.reduce(function(a, x){ return a + fn(x); }, 0); }
 function daysIn(key){ return new Date(Number(key.slice(0, 4)), Number(key.slice(5, 7)), 0).getDate(); }
@@ -154,6 +154,23 @@ export function buildAdvice(ctx){
         action: {type: 'go', tab: 'receber', label: 'Ver quem me deve'}});
     }
   }
+
+  // Dinheiro guardado numa meta usado para outra coisa e ainda não reposto: ponto de atenção.
+  (ctx.goals || []).filter(function(g){ return !g.deletedAt; }).forEach(function(g){
+    var moves = goalMoves(g), outs = moves.filter(function(m){ return m.kind === 'withdraw' && m.purpose === 'outro' && !m.undone; });
+    if (!outs.length) return;
+    var first = outs.map(function(m){ return m.date; }).sort()[0];
+    var used = money(sum(outs, function(m){ return Number(m.amount) || 0; }));
+    var back = sum(moves.filter(function(m){ return m.kind === 'deposit' && m.date >= first; }), function(m){ return Number(m.amount) || 0; });
+    var left = money(Math.max(0, used - back));
+    if (!(left >= 1)) return;
+    var T = Number(g.targetAmount) || 0, pace = money(Math.ceil(left / 3));
+    add({id: 'goaloff:' + g.id, kind: 'goaloff', tone: 'warn', impact: left + 1500,
+      title: 'Você usou dinheiro da meta “' + g.name + '” para outra coisa',
+      text: 'Foram ' + fmtMoney(used) + ' tirados fora do objetivo e ainda faltam ' + fmtMoney(left) + ' para repor. A meta está com ' + fmtMoney(Number(g.currentAmount) || 0) + (T > 0 ? ' (' + Math.round(100 * (Number(g.currentAmount) || 0) / T) + '% do alvo)' : '') + '.',
+      todo: 'Volte a guardar cerca de ' + fmtMoney(pace) + ' por mês, por uns 3 meses, para repor o que foi usado.',
+      action: {type: 'go', tab: 'metas', label: 'Ver a meta'}});
+  });
 
   // Metas que estão ficando para trás do prazo.
   (ctx.goals || []).filter(function(g){ return !g.deletedAt; }).forEach(function(g){

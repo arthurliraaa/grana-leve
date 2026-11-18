@@ -1945,3 +1945,30 @@ details.purchase-notes[open] > summary{ margin-bottom:6px; }
 .sim-verdict.bad{ border-color: var(--critical); background: color-mix(in srgb, var(--critical) 12%, var(--surface)); }
 .sim-warns, .sim-notes{ margin:0; padding-left:20px; display:grid; gap:4px; font-size:.92rem; }
 .sim-warns li{ color: var(--critical); }
+
+/* Lista de lançamentos: devoluções de uma pessoa numa caixa que abre e fecha */
+.tx-group{ border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin:6px 0; }
+.tx-group > summary{ display:flex; align-items:center; gap:12px; padding:10px 14px; cursor:pointer; list-style:none; }
+.tx-group > summary::-webkit-details-marker{ display:none; }
+.tx-group > summary::after{ content:'▾'; color: var(--text-secondary); }
+.tx-group[open] > summary::after{ content:'▴'; }
+.tg-ico{ width:36px; height:36px; display:grid; place-items:center; border-radius:50%; background: var(--surface-2); }
+.tg-main{ flex:1; min-width:0; display:grid; }
+.tg-main small{ color: var(--text-secondary); }
+.tg-total{ font-weight:700; color: var(--good); }
+.tx-group[open] > summary{ border-bottom:1px solid var(--border); }
+.tx-group > .tx-row{ margin:0 8px; }
+
+/* Trocar o tema claro/escuro: transição lenta e suave, sem clarão */
+html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(root){ animation-duration:.7s; animation-timing-function: ease-in-out; }
+@media (prefers-reduced-motion: no-preference){
+  html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after{
+    transition: background-color .6s ease-in-out, color .6s ease-in-out, border-color .6s ease-in-out, fill .6s ease-in-out, stroke .6s ease-in-out, box-shadow .6s ease-in-out !important;
+  }
+}
+/* Folha de ações do menu ⋯ no celular */
+.sheet-actions{ display:grid; gap:4px; margin:-6px -8px 0; }
+.sheet-act{ display:flex; align-items:center; gap:14px; width:100%; min-height:54px; padding:12px 14px; border:none; border-radius:12px; background:none; color: var(--text-primary); font:inherit; font-size:1rem; text-align:left; cursor:pointer; }
+.sheet-act:hover, .sheet-act:active{ background: var(--surface-2); }
+.sheet-act .ico{ width:20px; height:20px; flex:none; }
+.sheet-act.danger{ color: var(--critical); }
