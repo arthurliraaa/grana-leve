@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, workdaysInMonth, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
+import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, workdaysInMonth, onCallPay, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
 
 test('INSS do empregado: progressivo por faixa e limitado ao teto', () => {
   assert.equal(inssEmployee(1621), 121.58, '7,5% sobre o salário mínimo');
@@ -119,4 +119,24 @@ test('desconto por dias do mês: o que foi cobrado num mês vira valor por dia e
   const r = netSalary({regime: 'clt', gross: 3000, discounts: [{type: 'vt', mode: 'perday', charged: 21, refDays: 21, days: 22}]});
   assert.equal(r.net, 2751.4 - 22);
   assert.ok(r.lines.some(l => /Vale-transporte \(22 dias de uso\)/.test(l.label)));
+});
+
+test('sobreaviso (1/3 da hora normal) e FGTS (8% depositado pela empresa, fora do líquido)', () => {
+  assert.equal(onCallPay(2200, 44, 30), 100, '30 h × R$ 10 × 1/3');
+  assert.equal(onCallPay(2200, 44, 0), 0);
+  const base = netSalary({regime: 'clt', gross: 3000});
+  assert.equal(base.fgts, 240, '8% de R$ 3.000');
+  assert.equal(base.net, 2751.4, 'o FGTS não entra no líquido');
+  const sa = netSalary({regime: 'clt', gross: 3000, sobreaviso: 30});
+  assert.equal(sa.onCall, 136.36);
+  assert.equal(sa.extras, 136.36, 'o sobreaviso conta como ganho variável do mês');
+  assert.ok(sa.lines.some(l => l.id === 'sobreaviso' && /Sobreaviso \(30 h\)/.test(l.label)));
+  assert.equal(sa.hasVariable, true);
+  assert.equal(sa.fixedNet, 2751.4, 'fora do líquido fixo');
+  assert.equal(sa.net, 2871.4, 'entra na base do INSS: 136,36 − 16,36 de INSS');
+  assert.equal(sa.fgts, 250.91, 'o FGTS do mês também cresce com o sobreaviso');
+  assert.equal(sa.fixedFgts, 240);
+  assert.equal(netSalary({regime: 'servidor', gross: 3000}).fgts, 0, 'servidor estatutário não tem FGTS');
+  assert.equal(netSalary({regime: 'mei', gross: 3000}).fgts, 0);
+  assert.equal(netSalary({regime: 'mei', gross: 3000, sobreaviso: 30}).onCall, 0, 'só CLT e servidor');
 });

@@ -68,9 +68,10 @@ function bodyHtml(){
     '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
       '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição há duas formas de acompanhar o mês: “por dias do mês” (você informa quanto foi cobrado e em quantos dias de uso; nos meses seguintes o valor se ajusta aos dias úteis, que você pode corrigir por causa de feriados) ou “pelo benefício” (passagem por dia × dias de uso, ou o valor do vale). O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo. Tudo o que você informar fica guardado e já vem preenchido nos próximos meses: é só ajustar o que mudou.</p></fieldset>' +
-    '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
+    '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras, sobreaviso e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
       '<div class="sc-grid"><div class="field"><label for="scH50">Horas a 50% (dias úteis)</label><input id="scH50" name="h50" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
       '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
+      '<div class="field"><label for="scSa">Horas de sobreaviso (1/3 da hora normal)</label><input id="scSa" name="sa" type="number" min="0" max="400" step="1" placeholder="0"></div>' +
       '<div class="field"><label for="scWork">Dias de trabalho no mês</label><input id="scWork" name="work" type="number" min="1" max="31" step="1" placeholder="25"></div>' +
       '<div class="field"><label for="scRest">Domingos e feriados (repouso)</label><input id="scRest" name="rest" type="number" min="0" max="12" step="1" placeholder="5"></div></div>' +
       '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o repouso semanal remunerado (DSR) sobre as horas extras</label></fieldset>' +
@@ -125,7 +126,7 @@ function readOpts(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
   return {regime: v('regime') || 'clt', gross: v('gross'), weeklyHours: Number(v('week')) || 44, dependents: Number(v('dep')) || 0,
     rpps: v('rpps') === '' ? 14 : Number(v('rpps')), meiKind: v('mei'), inssKind: v('inss'), simplesRate: v('simples') === '' ? 6 : Number(v('simples')), otherPct: Number(v('otherpct')) || 0,
-    discounts: readRows(form, 'disc'), bonuses: readRows(form, 'bonus'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
+    discounts: readRows(form, 'disc'), bonuses: readRows(form, 'bonus'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, sobreaviso: Number(v('sa')) || 0, workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
     dsr: !!(form.elements.dsr && form.elements.dsr.checked)};
 }
 function resultHtml(r, regime){
@@ -134,10 +135,11 @@ function resultHtml(r, regime){
     return '<tr class="' + l.kind + '"><td>' + escapeHtml(l.label) + '</td><td class="tabular">' + (l.kind === 'minus' ? '− ' : l.kind === 'plus' ? '+ ' : '') + fmtMoney(l.amount) + '</td></tr>'; }).join('') +
     '<tr class="net"><td><strong>' + (r.hasVariable ? 'Líquido deste mês' : 'Líquido estimado') + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr>' +
     (r.hasVariable ? '<tr class="net fixed"><td><strong>Líquido fixo (todo mês)</strong><br><small class="tx-meta">só o salário e os descontos que não variam</small></td><td class="tabular"><strong>' + fmtMoney(r.fixedNet) + '</strong></td></tr>' : '') +
+    (r.fgts > 0 ? '<tr class="info"><td>FGTS que a empresa deposita (8%)<br><small class="tx-meta">não sai do seu salário: vai para a sua conta do FGTS' + (r.hasVariable ? '; no fixo seria ' + fmtMoney(r.fixedFgts) : '') + '</small></td><td class="tabular">' + fmtMoney(r.fgts) + '</td></tr>' : '') +
     '</tbody></table>' +
     '<p class="tx-meta">Os descontos somam ' + fmtMoney(r.discounts) + ' (' + String(r.rate).replace('.', ',') + '% do total bruto).' +
-    (r.hasVariable ? ' Horas extras, ganhos e descontos que variam mudam a cada mês: registre o fixo todo mês e lance o que variar no mês em que acontecer.' : '') +
-    (regime === 'clt' || regime === 'servidor' ? ' O FGTS é depositado pela empresa e não sai do seu salário.' : '') + '</p>';
+    (r.hasVariable ? ' Horas extras, sobreaviso, ganhos e descontos que variam mudam a cada mês: registre o fixo todo mês e lance o que variar no mês em que acontecer.' : '') +
+    (regime === 'servidor' ? ' Servidor estatutário não tem FGTS.' : '') + '</p>';
 }
 
 // O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela

@@ -2070,6 +2070,7 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sc-table td{ padding:6px 8px; }
 .sc-table tr.minus td:last-child{ color: var(--critical); }
 .sc-table tr.plus td:last-child{ color: var(--good); }
+.sc-table tr.info td{ color: var(--text-secondary); font-size:.9rem; border-top:1px dashed var(--border); }
 .sc-table tr.net td{ border-top:2px solid var(--border); font-size:1.05rem; }
 .sc-use{ display:flex; justify-content:flex-end; }
 .sc-disc{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; display:grid; gap:10px; min-width:0; }

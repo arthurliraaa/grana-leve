@@ -138,6 +138,7 @@ irrfMonthly({gross, pension, dependents, alimony}) -> reais
 //   base = gross − max(pension + dependentes × 189,59, simplificado 607,20); tabela mensal; depois a redução da
 //   Lei 15.270/2025: gross ≤ 5.000 zera o imposto; de 5.000 a 7.350: redutor = 978,62 − 0,133145 × gross
 hourlyRate(salary, weeklyHours) -> reais        // divisor = horas semanais × 5 (44h = 220)
+onCallPay(salary, weeklyHours, hours) -> reais   // sobreaviso: 1/3 da hora normal por hora à disposição (TABLES.onCall)
 overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, {workDays, restDays}) -> {hourly, pay50, pay100, dsr, total}
 //   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ dias de trabalho) × dias de repouso (padrão 25 e 5)
 DISCOUNT_TYPES                                  // vt, saude, odonto, refeicao, pensao, consignado, sindical, adiantamento (varia), outro
@@ -149,10 +150,12 @@ discountAmount({mode: 'pct'|'fixed'|'perday'|'benefit', value, benefit, pct, cha
 //   refeicao = pct% do benefício recebido no mês. A tela calcula benefit do vt como passagem por dia × dias de uso
 //   (padrão: dias úteis do mês, workdaysInMonth(ano, mês 0-11), sem descontar feriados)
 netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps, meiKind, inssKind,
-           simplesRate, otherPct, bonuses})   // discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}]
+           simplesRate, otherPct, bonuses, sobreaviso})   // discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}]
 //   bonuses (ganhos além do salário): [{type, label?, mode, value, varies?, taxable?}]; taxable soma à base do INSS e do
 //   imposto (padrão por tipo: bonificação, comissão, gratificação, PLR pagam; auxílios e ajuda de custo não), senão só ao líquido
-  -> {lines: [{id, label, amount, kind: 'base'|'plus'|'minus'}], gross, extras, total, discounts, net, fixedNet, hasVariable, rate}
+  -> {lines: [{id, label, amount, kind: 'base'|'plus'|'minus'}], gross, extras, onCall, fgts, fixedFgts, total, discounts, net, fixedNet, hasVariable, rate}
+//   fgts = 8% do total tributável, só CLT; é depósito da empresa e NÃO entra no líquido (servidor, MEI etc.: 0).
+//   Sobreaviso (sobreaviso = horas) é ganho variável e tributável, só clt e servidor, sem reflexo no DSR
 //   regime: clt | servidor | mei | autonomo | pj | estagio | outro. Só o salário e os descontos que NÃO variam são fixos:
 //   horas extras (e o repouso delas) e descontos com varies:true entram só em net (o mês); fixedNet é o que se registra
 //   todo mês (igual a net quando hasVariable é false). Pensão alimentícia também reduz a base do imposto de renda.

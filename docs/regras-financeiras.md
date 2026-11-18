@@ -113,12 +113,13 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   calculadora estima o líquido conforme o jeito de trabalhar: CLT (INSS progressivo, imposto de renda com a
   dedução mais vantajosa entre INSS + dependentes e o simplificado, e a redução da Lei 15.270/2025), servidor (previdência em % e o mesmo imposto), MEI (DAS), autônomo (INSS e carnê-leão), PJ no Simples (%),
   estágio (sem descontos) e outro. Horas extras (CLT e servidor): 50% e 100% sobre a hora normal (salário ÷ jornada
-  semanal × 5), com o reflexo no descanso semanal (DSR) calculado pelos dias de trabalho e de repouso informados;
+  semanal × 5), com o sobreaviso (1/3 da hora normal por hora à disposição da empresa) e o reflexo das horas extras no descanso semanal (DSR) calculado pelos dias de trabalho e de repouso informados;
   elas entram na base do INSS e do imposto. Os ganhos além do salário (auxílio home office, ajuda de custo, bonificação, comissão…) entram por tipo: os tributáveis somam à base do INSS e do imposto, os indenizatórios só ao líquido (inclusive a bonificação paga em vales ou cartão benefício, que não tem desconto). No vale-transporte e no vale-refeição o desconto pode acompanhar os dias do mês (informa-se o que foi cobrado e em quantos dias de uso; nos meses seguintes o valor por dia é multiplicado pelos dias úteis, ajustáveis por feriados) ou ser calculado pelo benefício recebido no mês: o vale-transporte desconta até uma % do salário (6% no máximo), mas nunca mais do que o vale (passagem por dia × dias de uso); o vale-refeição desconta uma % do valor recebido. Os descontos do contracheque são escolhidos por tipo (vale-transporte,
   plano de saúde, pensão, consignado…), em R$ ou %, e cada um pode ser marcado como “varia todo mês” (o
   vale-transporte, por exemplo, costuma ser bem menos que 6%). Só o salário e os descontos que não variam são
   fixos: o “líquido fixo” é o que vira o salário fixo; horas extras, ganhos e descontos que variam (bonificação, adiantamento…) entram só no
-  líquido do mês em que acontecem. As tabelas são de 2026 e precisam ser conferidas todo ano.
+  líquido do mês em que acontecem. O FGTS (8% da remuneração, só CLT) é depositado pela empresa: aparece
+  como informação e nunca entra no líquido. As tabelas são de 2026 e precisam ser conferidas todo ano.
 
 ## Compras parceladas
 

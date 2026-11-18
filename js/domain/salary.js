@@ -25,6 +25,10 @@ export var TABLES = {
   // Hora extra: 50% em dia útil e 100% em domingo/feriado; reflexo no descanso semanal (DSR) estimado com 25 dias
   // úteis e 5 domingos/feriados por mês.
   overtime: {rate50: 0.5, rate100: 1, workDays: 25, restDays: 5},
+  // Sobreaviso: cada hora à disposição da empresa (fora do expediente, aguardando ser chamado) paga 1/3 da hora normal.
+  onCall: 1 / 3,
+  // FGTS: a empresa deposita 8% da remuneração numa conta do trabalhador; não sai do salário.
+  fgts: 0.08,
   vt: 0.06
 };
 
@@ -71,6 +75,12 @@ export function overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, day
   var work = days && Number(days.workDays) > 0 ? Number(days.workDays) : O.workDays, rest = days && Number(days.restDays) >= 0 && days.restDays !== '' && days.restDays !== undefined ? Number(days.restDays) : O.restDays;
   var dsr = withDsr ? money((pay50 + pay100) / work * rest) : 0;
   return {hourly: money(hourly), pay50: pay50, pay100: pay100, dsr: dsr, total: money(pay50 + pay100 + dsr)};
+}
+
+// Sobreaviso: 1/3 da hora normal por hora à disposição da empresa. Sem reflexo no repouso nesta estimativa.
+export function onCallPay(salary, weeklyHours, hours, tables){
+  var T = tables || TABLES;
+  return money(hourlyRate(salary, weeklyHours) * T.onCall * pct(hours));
 }
 
 // Tipos de desconto do contracheque. mode: 'pct' (% do salário) ou 'fixed' (R$). varies: costuma mudar de um mês para o outro.
@@ -126,7 +136,7 @@ export var BONUS_TYPES = [
 export function bonusAmount(b, base){ return discountAmount(b, base); }
 
 // Líquido estimado. opts: {regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps,
-// meiKind, inssKind, simplesRate, otherPct, bonuses}. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}];
+// meiKind, inssKind, simplesRate, otherPct, bonuses, sobreaviso}. fgts: o que a empresa deposita (8%, só CLT), fora do líquido. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}];
 // bonuses: [{type, label?, mode, value, varies?, taxable?}] (ganhos extras: ver BONUS_TYPES).
 // Só o salário (e os descontos que não variam) é fixo: horas extras e descontos “que variam” entram só no líquido
 // DESTE MÊS (net); o líquido para registrar todo mês é fixedNet.
@@ -134,7 +144,8 @@ export function netSalary(opts, tables){
   var full = runNet(opts, tables, true);
   var hasVariable = full.extras > 0 || (opts.discounts || []).some(function(d){ return d.varies && discountAmount(d, full.gross) > 0; }) ||
     (opts.bonuses || []).some(function(b){ return b.varies && bonusAmount(b, full.gross) > 0; });
-  full.fixedNet = hasVariable ? runNet(opts, tables, false).net : full.net;
+  var fixed = hasVariable ? runNet(opts, tables, false) : full;
+  full.fixedNet = fixed.net; full.fixedFgts = fixed.fgts;
   full.hasVariable = hasVariable;
   return full;
 }
@@ -142,6 +153,7 @@ function runNet(opts, tables, withVariable){
   var T = tables || TABLES, regime = opts.regime || 'clt', gross = money(Math.max(0, Number(opts.gross) || 0));
   var lines = [], ot = {pay50: 0, pay100: 0, dsr: 0, total: 0};
   var canOvertime = regime === 'clt' || regime === 'servidor';
+  var onCall = canOvertime && withVariable ? onCallPay(gross, opts.weeklyHours, opts.sobreaviso, T) : 0;
   if (canOvertime && withVariable) ot = overtimePay(gross, opts.weeklyHours, opts.h50, opts.h100, opts.dsr !== false, T, {workDays: opts.workDays, restDays: opts.restDays});
   // Ganhos extras: os que variam só entram no mês. Os tributáveis somam à base do INSS e do imposto; os demais só ao líquido.
   var bonusLines = [], taxableBonus = 0, freeBonus = 0;
@@ -152,10 +164,11 @@ function runNet(opts, tables, withVariable){
     bonusLines.push({id: 'b:' + (b.type || 'outro'), label: (b.label || meta.label || 'Ganho extra') + (b.mode === 'pct' ? ' (' + (Number(b.value) || 0) + '%)' : '') + (b.varies ? ' · varia' : '') + (taxable ? '' : ' · não tributa'), amount: v, kind: 'plus'});
     if (taxable) taxableBonus += v; else freeBonus += v;
   });
-  var total = money(gross + ot.total + taxableBonus), disc = 0;
+  var extras = money(ot.total + onCall), total = money(gross + extras + taxableBonus), disc = 0;
   lines.push({id: 'gross', label: 'Salário bruto', amount: gross, kind: 'base'});
   if (ot.pay50) lines.push({id: 'ot50', label: 'Horas extras 50% (' + Number(opts.h50) + ' h)', amount: ot.pay50, kind: 'plus'});
   if (ot.pay100) lines.push({id: 'ot100', label: 'Horas extras 100% (' + Number(opts.h100) + ' h)', amount: ot.pay100, kind: 'plus'});
+  if (onCall) lines.push({id: 'sobreaviso', label: 'Sobreaviso (' + Number(opts.sobreaviso) + ' h)', amount: onCall, kind: 'plus'});
   if (ot.dsr) lines.push({id: 'dsr', label: 'Descanso semanal (DSR) sobre as horas extras', amount: ot.dsr, kind: 'plus'});
   bonusLines.forEach(function(l){ lines.push(l); });
   function minus(id, label, v){ v = money(v); if (v > 0){ lines.push({id: id, label: label, amount: v, kind: 'minus'}); disc += v; } return v; }
@@ -186,7 +199,7 @@ function runNet(opts, tables, withVariable){
     minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : d.mode === 'perday' ? ' (' + (d.days === undefined ? d.refDays : d.days) + ' dias de uso)' : d.mode === 'benefit' ? ' (' + (Number(d.pct) || 0) + '%' + (d.type === 'vt' ? ' do salário, até o valor do vale' : ' do benefício') + ')' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
   });
   var net = money(total + freeBonus - disc);
-  return {lines: lines, gross: gross, extras: ot.total, bonuses: money(taxableBonus + freeBonus), total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
+  return {lines: lines, gross: gross, extras: extras, onCall: onCall, fgts: regime === 'clt' ? money(total * T.fgts) : 0, bonuses: money(taxableBonus + freeBonus), total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
 }
 
 export var REGIMES = [

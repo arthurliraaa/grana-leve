@@ -13,7 +13,7 @@ L.run(async ({page}) => {
   await page.type('#scGross', '3.000'); await L.sleep(250);
   let r = await net();
   L.ok(/INSS\s*− R\$\s?248,60/.test(r) && /Líquido estimado\s*R\$\s?2\.751,40/.test(r), 'CLT de R$ 3.000: INSS de 248,60 e líquido de 2.751,40 (imposto de renda zerado)');
-  L.ok(/FGTS/.test(r) && /Confira no seu holerite/.test(await L.text(page, '#modalRoot')), 'avisa que é estimativa e que o FGTS é da empresa');
+  L.ok(/FGTS que a empresa deposita \(8%\).*R\$\s?240,00/.test(r) && /Confira no seu holerite/.test(await L.text(page, '#modalRoot')), 'mostra o FGTS que a empresa deposita (8% = R$ 240,00, fora do líquido) e avisa que é estimativa');
 
   L.section('Descontos por tipo');
   await page.$eval('[data-add-disc]', e => e.click()); await L.sleep(200);
@@ -86,6 +86,12 @@ L.run(async ({page}) => {
   r = await net();
   L.ok(/Horas extras 50% \(10 h\)/.test(r) && /Horas extras 100% \(4 h\)/.test(r) && /Descanso semanal/.test(r), 'mostra as horas extras (50% e 100%) e o repouso semanal (DSR)');
   const dsr25 = (await net()).match(/Descanso semanal[^\d]*R\$\s?([\d.,]+)/)[1];
+  await page.type('#scSa', '30'); await L.sleep(250);
+  r = await net();
+  L.ok(/Sobreaviso \(30 h\)\s*\+ R\$\s?136,36/.test(r), 'sobreaviso: 30 h pagam 1/3 da hora normal (R$ 136,36)');
+  const fgMes = await page.$eval('#scResult tr.info td:last-child', e => e.textContent.replace(/[^\d,]/g, '').replace(',', '.')).catch(() => '0');
+  L.ok(Number(fgMes) > 240 && /no fixo seria R\$\s?240,00/.test(r), 'o FGTS do mês acompanha as extras e o sobreaviso (R$ ' + fgMes + ') e diz o do fixo (R$ 240,00)');
+  await page.$eval('#scSa', e => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); }); await L.sleep(200);
   await page.type('#scWork', '20'); await page.type('#scRest', '10'); await L.sleep(250);
   const dsr20 = (await net()).match(/Descanso semanal[^\d]*R\$\s?([\d.,]+)/)[1];
   L.ok(dsr25 !== dsr20, 'o repouso muda com os dias de trabalho e de descanso informados (' + dsr25 + ' → ' + dsr20 + ')');
