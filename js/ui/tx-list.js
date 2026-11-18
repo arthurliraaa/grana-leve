@@ -161,6 +161,7 @@ export function syncTxFormVisibility(){
   if (!onCard){ document.getElementById('txInstall').value = '1'; resetInstallExtras(document, 'txIx'); }
   populateInstallSelect();
   document.getElementById('txPaymentField').hidden = !isExpense;
+  document.getElementById('txSalaryLink').hidden = isExpense;   // ganho: calcular o líquido do salário
   document.getElementById('txAccountField').hidden = isExpense || !State.accounts.length;
   document.getElementById('txForOtherField').hidden = !isExpense;
   var other = document.getElementById('txForOther').checked;

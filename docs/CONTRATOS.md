@@ -129,3 +129,21 @@ categoryExpenses(list, key, cat, all) -> lançamentos da categoria no mês (mesm
 
 Nenhuma migração SQL foi necessária: os campos novos (`invoicePaidDue`, `adjustments`, `purpose`, `goalId`)
 ficam dentro dos documentos já guardados (jsonb).
+
+## Salário líquido e horas extras (`js/domain/salary.js`)
+Estimativa, com as tabelas de 2026 reunidas em `TABLES` (atualizar uma vez por ano: INSS, IRRF, MEI).
+```js
+inssEmployee(gross) -> reais                    // progressivo (7,5/9/12/14%) e limitado ao teto
+irrfMonthly({gross, pension, dependents, alimony}) -> reais
+//   base = gross − max(pension + dependentes × 189,59, simplificado 607,20); tabela mensal; depois a redução da
+//   Lei 15.270/2025: gross ≤ 5.000 zera o imposto; de 5.000 a 7.350: redutor = 978,62 − 0,133145 × gross
+hourlyRate(salary, weeklyHours) -> reais        // divisor = horas semanais × 5 (44h = 220)
+overtimePay(salary, weeklyHours, h50, h100, withDsr) -> {hourly, pay50, pay100, dsr, total}
+//   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ 25 dias úteis) × 5 descansos
+netSalary({regime, gross, weeklyHours, h50, h100, dsr, dependents, vt, health, rpps, meiKind, inssKind, simplesRate, otherPct})
+  -> {lines: [{id, label, amount, kind: 'base'|'plus'|'minus'}], gross, extras, total, discounts, net, fixedNet, rate}
+//   regime: clt | servidor | mei | autonomo | pj | estagio | outro. fixedNet = líquido sem as horas extras
+//   (para registrar como salário fixo). Hora extra só em clt e servidor.
+```
+A tela (`js/ui/salary-calc.js`) abre de “Previstas”, do simulador (ganho) e do formulário de ganho, e guarda o jeito de
+trabalhar nas preferências (`workProfile`).

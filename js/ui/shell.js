@@ -30,6 +30,7 @@ import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashb
 import {renderConnections, renderLearn} from './learn-tab.js';
 import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {wireSimulator, renderSimulator} from './simulator.js';
+import {wireSalaryCalc} from './salary-calc.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -537,6 +538,7 @@ function wireMobileMenus(){
 export function wireShell(){
   wireAdvice();
   wireSimulator();
+  wireSalaryCalc();
   wireMobileMenus();
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();

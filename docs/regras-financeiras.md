@@ -109,6 +109,14 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   (`goalId` no lançamento). Para o objetivo da meta não há aviso; para outra coisa (`purpose: 'outro'`) aparece
   um aviso de cuidado e, enquanto não for reposto com depósitos, um conselho de atenção.
 
+- **Salário líquido (estimativa)**: ao informar um salário fixo (Previstas, simulador ou formulário de ganho), a
+  calculadora estima o líquido conforme o jeito de trabalhar: CLT (INSS progressivo, imposto de renda com a
+  dedução mais vantajosa entre INSS + dependentes e o simplificado, e a redução da Lei 15.270/2025; vale-transporte
+  opcional), servidor (previdência em % e o mesmo imposto), MEI (DAS), autônomo (INSS e carnê-leão), PJ no Simples (%),
+  estágio (sem descontos) e outro. Horas extras (CLT e servidor): 50% e 100% sobre a hora normal (salário ÷ jornada
+  semanal × 5), com o reflexo no descanso semanal estimado; elas entram na base do INSS e do imposto. O “líquido
+  fixo” (sem as extras) é o que vira o salário fixo. As tabelas são de 2026 e precisam ser conferidas todo ano.
+
 ## Compras parceladas
 
 - Só compras no cartão são parceladas (até 24x). Cada parcela é um lançamento, uma por

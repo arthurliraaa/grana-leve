@@ -2052,3 +2052,18 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
   .sim-table-wrap{ display:none; }
   .sim-months{ display:grid; }
 }
+
+/* Calculadora de salário líquido */
+.sal-link{ margin-top:4px; font-size:.85rem; text-align:left; }
+.sc-body{ display:grid; gap:12px; }
+.sc-grid{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px 12px; }
+.sc-grid .field[hidden], .sc-body [data-for][hidden]{ display:none; }
+.sc-ot{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; display:grid; gap:10px; }
+.sc-ot legend{ font-weight:600; padding:0 6px; }
+.sc-result{ display:grid; gap:8px; }
+.sc-table td{ padding:6px 8px; }
+.sc-table tr.minus td:last-child{ color: var(--critical); }
+.sc-table tr.plus td:last-child{ color: var(--good); }
+.sc-table tr.net td{ border-top:2px solid var(--border); font-size:1.05rem; }
+.sc-use{ display:flex; justify-content:flex-end; }
+@media (max-width: 520px){ .sc-grid{ grid-template-columns: minmax(0, 1fr); } }
