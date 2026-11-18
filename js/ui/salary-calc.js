@@ -1,20 +1,34 @@
 /*
  * Calculadora de salário líquido (estimativa), de acordo com o jeito de trabalhar: CLT, servidor, MEI, autônomo, PJ, estágio.
- * Com horas extras (50% e 100%, com o reflexo no descanso semanal). Abre de “Previstas”, do simulador (ganho) e do
- * formulário de ganho; “Usar o líquido” preenche o campo de valor. As contas ficam em js/domain/salary.js.
+ * Descontos do contracheque por tipo (vale-transporte, plano de saúde, pensão…), horas extras de 50% e 100% com o descanso
+ * semanal (DSR). Só o salário e os descontos fixos valem todo mês: horas extras e descontos que variam entram só no
+ * líquido DESTE MÊS. Abre de “Previstas”, do simulador (ganho) e do formulário de ganho; “Usar” preenche o valor.
+ * As contas ficam em js/domain/salary.js.
  */
 import {fmtMoney} from '../domain/money.js';
-import {netSalary, REGIMES, TABLES} from '../domain/salary.js';
+import {netSalary, REGIMES, TABLES, DISCOUNT_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, qsa, escapeHtml, optionsHtml} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
 import {openModal} from './modal.js';
 
 var GROSS_LABEL = {clt: 'Salário bruto (o da carteira)', servidor: 'Salário bruto', mei: 'Quanto você fatura por mês', autonomo: 'Quanto você recebe por mês',
   pj: 'Quanto a empresa fatura por mês', estagio: 'Valor da bolsa', outro: 'Valor bruto por mês'};
 
 function profile(){ return getPrefs().workProfile || {}; }
+function num(v){ var n = Number(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')); return isFinite(n) ? n : 0; }
+function typeOptions(sel){ return DISCOUNT_TYPES.map(function(t){ return '<option value="' + t.id + '"' + (t.id === sel ? ' selected' : '') + '>' + escapeHtml(t.label) + '</option>'; }).join(''); }
+// Uma linha de desconto: tipo, valor (R$ ou %), “varia todo mês” e remover.
+function discRowHtml(d){
+  d = d || {type: 'vt', mode: 'fixed', value: '', varies: false};
+  var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === d.type; })[0] || {};
+  return '<div class="sc-disc-row"><select class="sc-d-type" aria-label="Tipo de desconto">' + typeOptions(d.type) + '</select>' +
+    '<span class="sc-d-val"><input class="sc-d-value" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Valor do desconto" value="' + (d.value === '' || d.value === undefined ? '' : String(d.value).replace('.', ',')) + '">' +
+    '<select class="sc-d-mode" aria-label="Em reais ou porcentagem"><option value="fixed"' + (d.mode !== 'pct' ? ' selected' : '') + '>R$</option><option value="pct"' + (d.mode === 'pct' ? ' selected' : '') + '>%</option></select></span>' +
+    '<label class="check sc-d-varies"><input class="sc-d-var" type="checkbox"' + ((d.varies || meta.varies) ? ' checked' : '') + '> varia todo mês</label>' +
+    '<button type="button" class="linklike sc-d-del" aria-label="Remover desconto">remover</button></div>';
+}
 function bodyHtml(){
-  var p = profile();
+  var p = profile(), discs = (p.discounts && p.discounts.length ? p.discounts : []);
   return '<p class="field-hint">Estimativa com as tabelas de ' + TABLES.year + '. Confira no seu holerite: pode ter adicionais, convenção coletiva e outros descontos.</p>' +
     '<div class="field"><label for="scRegime">Como você trabalha</label><select id="scRegime" name="regime">' + optionsHtml(REGIMES, p.regime || 'clt') + '</select></div>' +
     '<div class="sc-grid">' +
@@ -26,35 +40,47 @@ function bodyHtml(){
       '<div class="field" data-for="autonomo"><label for="scInss">INSS</label><select id="scInss" name="inss">' + optionsHtml([{id: 'normal', label: 'Contribuo (20%, até o teto)'}, {id: 'simplificado', label: 'Plano simplificado (11% do salário mínimo)'}, {id: 'none', label: 'Não contribuo'}], p.inssKind || 'normal') + '</select></div>' +
       '<div class="field" data-for="pj"><label for="scSimples">Imposto do Simples (%)</label><input id="scSimples" name="simples" type="number" min="0" max="35" step="0.5" value="' + (p.simplesRate === undefined ? 6 : p.simplesRate) + '"></div>' +
       '<div class="field" data-for="outro"><label for="scOther">Desconto (%)</label><input id="scOther" name="otherpct" type="number" min="0" max="60" step="0.5" value="' + (p.otherPct || 0) + '"></div>' +
-      '<div class="field"><label for="scHealth">Outros descontos fixos <span class="opt">(plano de saúde etc.)</span></label><span class="money-input"><span>R$</span><input id="scHealth" name="health" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (p.health || '') + '"></span></div>' +
     '</div>' +
-    '<label class="check" data-for="clt"><input type="checkbox" name="vt"' + (p.vt ? ' checked' : '') + '> Desconta vale-transporte (6% do salário)</label>' +
-    '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras no mês <span class="opt">(opcional)</span></legend>' +
+    '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList">' + discs.map(discRowHtml).join('') + '</div>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
+      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo.</p></fieldset>' +
+    '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
       '<div class="sc-grid"><div class="field"><label for="scH50">Horas a 50% (dias úteis)</label><input id="scH50" name="h50" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
-      '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div></div>' +
-      '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o reflexo no descanso semanal (DSR), estimado</label></fieldset>' +
+      '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
+      '<div class="field"><label for="scWork">Dias de trabalho no mês</label><input id="scWork" name="work" type="number" min="1" max="31" step="1" placeholder="25"></div>' +
+      '<div class="field"><label for="scRest">Domingos e feriados (repouso)</label><input id="scRest" name="rest" type="number" min="0" max="12" step="1" placeholder="5"></div></div>' +
+      '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o repouso semanal remunerado (DSR) sobre as horas extras</label></fieldset>' +
     '<div id="scResult" class="sc-result" aria-live="polite"></div>' +
-    '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="total" hidden>Usar o líquido com as horas extras</button></div>';
+    '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="month" hidden>Usar o líquido deste mês (só uma vez)</button></div>';
+}
+function readDiscounts(form){
+  return qsa('.sc-disc-row', form).map(function(row){
+    return {type: qs('.sc-d-type', row).value, mode: qs('.sc-d-mode', row).value, value: num(qs('.sc-d-value', row).value), varies: qs('.sc-d-var', row).checked};
+  }).filter(function(d){ return d.value > 0; });
 }
 function readOpts(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
-  return {regime: v('regime') || 'clt', gross: v('gross'), weeklyHours: Number(v('week')) || 44, dependents: Number(v('dep')) || 0, vt: !!(form.elements.vt && form.elements.vt.checked),
+  return {regime: v('regime') || 'clt', gross: v('gross'), weeklyHours: Number(v('week')) || 44, dependents: Number(v('dep')) || 0,
     rpps: v('rpps') === '' ? 14 : Number(v('rpps')), meiKind: v('mei'), inssKind: v('inss'), simplesRate: v('simples') === '' ? 6 : Number(v('simples')), otherPct: Number(v('otherpct')) || 0,
-    health: v('health'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, dsr: !!(form.elements.dsr && form.elements.dsr.checked)};
+    discounts: readDiscounts(form), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
+    dsr: !!(form.elements.dsr && form.elements.dsr.checked)};
 }
 function resultHtml(r, regime){
   if (!(r.gross > 0)) return '<p class="tx-meta">Informe o valor para ver o líquido.</p>';
   return '<table class="data-table sc-table"><tbody>' + r.lines.map(function(l){
     return '<tr class="' + l.kind + '"><td>' + escapeHtml(l.label) + '</td><td class="tabular">' + (l.kind === 'minus' ? '− ' : l.kind === 'plus' ? '+ ' : '') + fmtMoney(l.amount) + '</td></tr>'; }).join('') +
-    '<tr class="net"><td><strong>Líquido estimado' + (r.extras > 0 ? ' (com as horas extras)' : '') + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr></tbody></table>' +
-    '<p class="tx-meta">Os descontos somam ' + fmtMoney(r.discounts) + ' (' + String(r.rate).replace('.', ',') + '% do total bruto).' + (r.extras > 0 ? ' Sem as horas extras, o líquido fixo é de <strong>' + fmtMoney(r.fixedNet) + '</strong>.' : '') +
+    '<tr class="net"><td><strong>' + (r.hasVariable ? 'Líquido deste mês' : 'Líquido estimado') + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr>' +
+    (r.hasVariable ? '<tr class="net fixed"><td><strong>Líquido fixo (todo mês)</strong><br><small class="tx-meta">só o salário e os descontos que não variam</small></td><td class="tabular"><strong>' + fmtMoney(r.fixedNet) + '</strong></td></tr>' : '') +
+    '</tbody></table>' +
+    '<p class="tx-meta">Os descontos somam ' + fmtMoney(r.discounts) + ' (' + String(r.rate).replace('.', ',') + '% do total bruto).' +
+    (r.hasVariable ? ' Horas extras e descontos que variam mudam a cada mês: registre o fixo todo mês e lance o que variar no mês em que acontecer.' : '') +
     (regime === 'clt' || regime === 'servidor' ? ' O FGTS é depositado pela empresa e não sai do seu salário.' : '') + '</p>';
 }
 
-// Abre a calculadora. Devolve {net, kind: 'fixed'|'total', regime} ou null se a pessoa fechar.
+// Abre a calculadora. Devolve {net, kind: 'fixed'|'month', regime} ou null se a pessoa fechar.
 export async function openSalaryCalculator(){
   var r = await openModal({
-    title: 'Calcular o salário líquido', wide: true, submitLabel: 'Usar o líquido fixo', cancelLabel: 'Fechar', body: '<div class="sc-body">' + bodyHtml() + '</div>',
+    title: 'Calcular o salário líquido', wide: true, submitLabel: 'Usar o líquido fixo (todo mês)', cancelLabel: 'Fechar', body: '<div class="sc-body">' + bodyHtml() + '</div>',
     onOpen: function(modal, close){
       var form = qs('form', modal) || modal;
       function sync(){
@@ -63,11 +89,24 @@ export async function openSalaryCalculator(){
         qs('#scGrossLbl', modal).textContent = GROSS_LABEL[o.regime];
         var res = netSalary(o);
         qs('#scResult', modal).innerHTML = resultHtml(res, o.regime);
-        qs('[data-use=total]', modal).hidden = !(res.extras > 0);
+        qs('[data-use=month]', modal).hidden = !res.hasVariable;
         form._res = res; form._opts = o;
       }
-      modal.addEventListener('input', sync); modal.addEventListener('change', sync);
-      qs('[data-use=total]', modal).addEventListener('click', function(){ if (form._res) close({net: form._res.net, kind: 'total', opts: form._opts}); });
+      modal.addEventListener('input', sync);
+      modal.addEventListener('change', function(e){
+        // Ao trocar o tipo do desconto, “varia todo mês” acompanha o costume daquele tipo (adiantamento varia; plano de saúde não).
+        if (e.target.classList.contains('sc-d-type')){
+          var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === e.target.value; })[0] || {};
+          qs('.sc-d-var', e.target.closest('.sc-disc-row')).checked = !!meta.varies;
+        }
+        sync();
+      });
+      modal.addEventListener('click', function(e){
+        if (e.target.closest('[data-add-disc]')){ qs('#scDiscList', modal).insertAdjacentHTML('beforeend', discRowHtml()); sync(); }
+        var del = e.target.closest('.sc-d-del');
+        if (del){ del.closest('.sc-disc-row').remove(); sync(); }
+      });
+      qs('[data-use=month]', modal).addEventListener('click', function(){ if (form._res) close({net: form._res.net, kind: 'month', opts: form._opts}); });
       sync();
     },
     onSubmit: function(form){
@@ -78,7 +117,7 @@ export async function openSalaryCalculator(){
   });
   if (!r || r === true) return null;
   var o = r.opts;
-  setPref('workProfile', {regime: o.regime, weeklyHours: o.weeklyHours, dependents: o.dependents, vt: o.vt, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct, health: o.health});
+  setPref('workProfile', {regime: o.regime, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct, discounts: o.discounts});
   return {net: r.net, kind: r.kind, regime: o.regime};
 }
 
@@ -87,12 +126,17 @@ export function wireSalaryCalc(){
   document.addEventListener('click', async function(e){
     var b = e.target.closest('[data-salary-calc]');
     if (!b) return;
-    var field = document.getElementById(b.getAttribute('data-salary-calc'));
+    var id = b.getAttribute('data-salary-calc'), field = document.getElementById(id);
     var res = await openSalaryCalculator();
     if (res && field){
       field.value = res.net;
       field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true}));
       field.focus();
+      // Valor do mês (com extras): vale só uma vez; em “Previstas” o “Repete todo mês” sai marcado para não repetir o que varia.
+      if (res.kind === 'month'){
+        var rec = id === 'fcAmount' ? document.getElementById('fcRecurring') : null;
+        if (rec && rec.checked){ rec.checked = false; toast('Esse valor tem horas extras ou descontos que variam, então deixei “Repete todo mês” desmarcado.'); }
+      }
     }
   });
 }

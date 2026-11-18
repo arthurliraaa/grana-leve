@@ -24,8 +24,10 @@ de pagar as faturas.
   compras parceladas (até 24x), contas fixas (luz, aluguel, assinaturas) e previsões de entrada.
   Devoluções de uma mesma pessoa ficam numa caixa que abre e fecha.
 - **Salário líquido**: ao colocar um salário fixo (Previstas, simulador ou ganho), uma calculadora estima o
-  líquido conforme o jeito de trabalhar (CLT, servidor, MEI, autônomo, PJ, estágio), com horas extras de 50% e
-  100%. É estimativa, com as tabelas de 2026.
+  líquido conforme o jeito de trabalhar (CLT, servidor, MEI, autônomo, PJ, estágio), com descontos por tipo
+  (vale-transporte, plano de saúde, pensão…, em R$ ou %) e horas extras de 50% e 100% com o repouso. Só o salário
+  e os descontos fixos valem todo mês; extras e descontos que variam entram só no mês. É estimativa, com as
+  tabelas de 2026.
 - **Simular** (guia em Ganhos e gastos): “se eu comprar, financiar ou assumir isso, como ficam as minhas
   contas?”. Compra à vista, no cartão (com fechamento e vencimento), com o dinheiro de uma meta, ganho,
   empréstimo e gasto fixo; mostra o saldo mês a mês (considera o salário de costume) e permite “Registrar

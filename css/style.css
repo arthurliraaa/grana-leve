@@ -2066,4 +2066,14 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sc-table tr.plus td:last-child{ color: var(--good); }
 .sc-table tr.net td{ border-top:2px solid var(--border); font-size:1.05rem; }
 .sc-use{ display:flex; justify-content:flex-end; }
+.sc-disc{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; display:grid; gap:10px; min-width:0; }
+.sc-disc legend{ font-weight:600; padding:0 6px; }
+.sc-disc-row{ display:grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap:8px; align-items:center; padding-bottom:8px; border-bottom:1px dashed var(--border); }
+.sc-d-val{ display:flex; gap:6px; min-width:0; }
+.sc-d-val input{ min-width:0; flex:1; }
+.sc-d-val select{ width:auto; flex:0 0 auto; }
+.sc-d-varies{ font-size:.85rem; }
+.sc-d-del{ justify-self:end; color: var(--critical); }
+.sc-table tr.fixed td{ background: var(--surface-2, transparent); }
+@media (max-width: 520px){ .sc-disc-row{ grid-template-columns: minmax(0, 1fr); } .sc-d-del{ justify-self:start; } }
 @media (max-width: 520px){ .sc-grid{ grid-template-columns: minmax(0, 1fr); } }

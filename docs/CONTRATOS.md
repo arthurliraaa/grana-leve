@@ -138,12 +138,19 @@ irrfMonthly({gross, pension, dependents, alimony}) -> reais
 //   base = gross − max(pension + dependentes × 189,59, simplificado 607,20); tabela mensal; depois a redução da
 //   Lei 15.270/2025: gross ≤ 5.000 zera o imposto; de 5.000 a 7.350: redutor = 978,62 − 0,133145 × gross
 hourlyRate(salary, weeklyHours) -> reais        // divisor = horas semanais × 5 (44h = 220)
-overtimePay(salary, weeklyHours, h50, h100, withDsr) -> {hourly, pay50, pay100, dsr, total}
-//   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ 25 dias úteis) × 5 descansos
-netSalary({regime, gross, weeklyHours, h50, h100, dsr, dependents, vt, health, rpps, meiKind, inssKind, simplesRate, otherPct})
-  -> {lines: [{id, label, amount, kind: 'base'|'plus'|'minus'}], gross, extras, total, discounts, net, fixedNet, rate}
-//   regime: clt | servidor | mei | autonomo | pj | estagio | outro. fixedNet = líquido sem as horas extras
-//   (para registrar como salário fixo). Hora extra só em clt e servidor.
+overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, {workDays, restDays}) -> {hourly, pay50, pay100, dsr, total}
+//   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ dias de trabalho) × dias de repouso (padrão 25 e 5)
+DISCOUNT_TYPES                                  // vt, saude, odonto, refeicao, pensao, consignado, sindical, adiantamento (varia), outro
+discountAmount({mode: 'pct'|'fixed', value}, base) -> reais
+netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps, meiKind, inssKind,
+           simplesRate, otherPct})   // discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}]
+  -> {lines: [{id, label, amount, kind: 'base'|'plus'|'minus'}], gross, extras, total, discounts, net, fixedNet, hasVariable, rate}
+//   regime: clt | servidor | mei | autonomo | pj | estagio | outro. Só o salário e os descontos que NÃO variam são fixos:
+//   horas extras (e o repouso delas) e descontos com varies:true entram só em net (o mês); fixedNet é o que se registra
+//   todo mês (igual a net quando hasVariable é false). Pensão alimentícia também reduz a base do imposto de renda.
+//   O vale-transporte não é fixo em 6%: cada empresa desconta um valor, por isso é um desconto editável em R$ ou %.
+//   Hora extra só em clt e servidor.
 ```
 A tela (`js/ui/salary-calc.js`) abre de “Previstas”, do simulador (ganho) e do formulário de ganho, e guarda o jeito de
-trabalhar nas preferências (`workProfile`).
+trabalhar e os descontos nas preferências (`workProfile`). “Usar o líquido fixo” preenche `fixedNet`; “Usar o líquido
+deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em Previstas).

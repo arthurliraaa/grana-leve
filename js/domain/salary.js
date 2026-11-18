@@ -62,33 +62,65 @@ export function hourlyRate(salary, weeklyHours){
   var h = Number(weeklyHours) > 0 ? Number(weeklyHours) : 44;
   return (Number(salary) || 0) / (h * 5);
 }
-// Horas extras do mês: {h50, h100, dsr} → {hourly, pay50, pay100, dsr, total}.
-export function overtimePay(salary, weeklyHours, h50, h100, withDsr, tables){
+// Horas extras do mês → {hourly, pay50, pay100, dsr, total}. O descanso semanal (DSR) sobre elas é estimado com os dias
+// de trabalho e os dias de repouso (domingos e feriados) do mês: (horas extras ÷ dias de trabalho) × dias de repouso.
+// opts: {h50, h100, withDsr, workDays, restDays}.
+export function overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, days){
   var O = (tables || TABLES).overtime, hourly = hourlyRate(salary, weeklyHours);
   var pay50 = money(hourly * (1 + O.rate50) * pct(h50)), pay100 = money(hourly * (1 + O.rate100) * pct(h100));
-  var dsr = withDsr ? money((pay50 + pay100) / O.workDays * O.restDays) : 0;
+  var work = days && Number(days.workDays) > 0 ? Number(days.workDays) : O.workDays, rest = days && Number(days.restDays) >= 0 && days.restDays !== '' && days.restDays !== undefined ? Number(days.restDays) : O.restDays;
+  var dsr = withDsr ? money((pay50 + pay100) / work * rest) : 0;
   return {hourly: money(hourly), pay50: pay50, pay100: pay100, dsr: dsr, total: money(pay50 + pay100 + dsr)};
 }
 
-// Líquido estimado. opts: {regime, gross, weeklyHours, h50, h100, dsr, dependents, vt, health, other, rpps, meiKind,
-// simplesRate, inssKind, otherPct}. Devolve {lines, gross, extras, total, discounts, net, rate} (lines = o passo a passo).
+// Tipos de desconto do contracheque. mode: 'pct' (% do salário) ou 'fixed' (R$). varies: costuma mudar de um mês para o outro.
+export var DISCOUNT_TYPES = [
+  {id: 'vt', label: 'Vale-transporte', mode: 'fixed', hint: 'no máximo 6% do salário; muita empresa desconta bem menos'},
+  {id: 'saude', label: 'Plano de saúde', mode: 'fixed'},
+  {id: 'odonto', label: 'Plano odontológico', mode: 'fixed'},
+  {id: 'refeicao', label: 'Vale-refeição ou alimentação (parte do empregado)', mode: 'fixed'},
+  {id: 'pensao', label: 'Pensão alimentícia', mode: 'fixed', hint: 'também reduz o imposto de renda'},
+  {id: 'consignado', label: 'Empréstimo consignado', mode: 'fixed'},
+  {id: 'sindical', label: 'Contribuição sindical', mode: 'fixed'},
+  {id: 'adiantamento', label: 'Adiantamento ou vale', mode: 'fixed', varies: true},
+  {id: 'outro', label: 'Outro desconto', mode: 'fixed'}
+];
+export function discountAmount(d, base){
+  var v = Math.max(0, Number(d.value) || 0);
+  return money(d.mode === 'pct' ? base * v / 100 : v);
+}
+
+// Líquido estimado. opts: {regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps,
+// meiKind, inssKind, simplesRate, otherPct}. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}].
+// Só o salário (e os descontos que não variam) é fixo: horas extras e descontos “que variam” entram só no líquido
+// DESTE MÊS (net); o líquido para registrar todo mês é fixedNet.
 export function netSalary(opts, tables){
+  var full = runNet(opts, tables, true);
+  var hasVariable = full.extras > 0 || (opts.discounts || []).some(function(d){ return d.varies && discountAmount(d, full.gross) > 0; });
+  full.fixedNet = hasVariable ? runNet(opts, tables, false).net : full.net;
+  full.hasVariable = hasVariable;
+  return full;
+}
+function runNet(opts, tables, withVariable){
   var T = tables || TABLES, regime = opts.regime || 'clt', gross = money(Math.max(0, Number(opts.gross) || 0));
   var lines = [], ot = {pay50: 0, pay100: 0, dsr: 0, total: 0};
   var canOvertime = regime === 'clt' || regime === 'servidor';
-  if (canOvertime) ot = overtimePay(gross, opts.weeklyHours, opts.h50, opts.h100, opts.dsr !== false, T);
+  if (canOvertime && withVariable) ot = overtimePay(gross, opts.weeklyHours, opts.h50, opts.h100, opts.dsr !== false, T, {workDays: opts.workDays, restDays: opts.restDays});
   var total = money(gross + ot.total), disc = 0;
   lines.push({id: 'gross', label: 'Salário bruto', amount: gross, kind: 'base'});
   if (ot.pay50) lines.push({id: 'ot50', label: 'Horas extras 50% (' + Number(opts.h50) + ' h)', amount: ot.pay50, kind: 'plus'});
   if (ot.pay100) lines.push({id: 'ot100', label: 'Horas extras 100% (' + Number(opts.h100) + ' h)', amount: ot.pay100, kind: 'plus'});
-  if (ot.dsr) lines.push({id: 'dsr', label: 'Descanso semanal sobre as horas extras (estimado)', amount: ot.dsr, kind: 'plus'});
+  if (ot.dsr) lines.push({id: 'dsr', label: 'Descanso semanal (DSR) sobre as horas extras', amount: ot.dsr, kind: 'plus'});
   function minus(id, label, v){ v = money(v); if (v > 0){ lines.push({id: id, label: label, amount: v, kind: 'minus'}); disc += v; } return v; }
+  // Descontos escolhidos (os que variam só entram no líquido do mês). Pensão alimentícia também abate no imposto.
+  var chosen = (opts.discounts || []).filter(function(d){ return withVariable || !d.varies; });
+  var alimony = 0;
+  chosen.forEach(function(d){ if (d.type === 'pensao') alimony += discountAmount(d, gross); });
 
   if (regime === 'clt' || regime === 'servidor'){
     var prev = regime === 'clt' ? inssEmployee(total, T) : money(total * pct(opts.rpps === undefined ? 14 : opts.rpps) / 100);
     minus('inss', regime === 'clt' ? 'INSS' : 'Previdência do servidor (' + (opts.rpps === undefined ? 14 : pct(opts.rpps)) + '%)', prev);
-    minus('irrf', 'Imposto de renda (IRRF)', irrfMonthly({gross: total, pension: prev, dependents: opts.dependents}, T));
-    if (opts.vt) minus('vt', 'Vale-transporte (6% do salário)', gross * T.vt);
+    minus('irrf', 'Imposto de renda (IRRF)', irrfMonthly({gross: total, pension: prev, dependents: opts.dependents, alimony: alimony}, T));
   } else if (regime === 'autonomo'){
     var kind = opts.inssKind || 'normal', base = Math.min(total, T.inss.ceiling), inssA = kind === 'none' ? 0 : kind === 'simplificado' ? T.minWage * T.autonomo.simplifiedRate : base * T.autonomo.rate;
     minus('inss', 'INSS' + (kind === 'simplificado' ? ' (plano simplificado, 11% do salário mínimo)' : kind === 'normal' ? ' (20%, até o teto)' : ''), inssA);
@@ -102,13 +134,12 @@ export function netSalary(opts, tables){
     minus('outros%', 'Descontos (' + pct(opts.otherPct) + '%)', total * pct(opts.otherPct) / 100);
   }
   // estágio e bolsa: sem descontos obrigatórios.
-  if (regime === 'clt' || regime === 'servidor') minus('health', 'Plano de saúde e outros descontos', opts.health);
-  else minus('health', 'Outros descontos', opts.health);
+  chosen.forEach(function(d){
+    var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === d.type; })[0] || {};
+    minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
+  });
   var net = money(total - disc);
-  // Líquido só do fixo (sem as horas extras), para registrar como salário fixo.
-  var fixed = ot.total > 0 ? netSalary(Object.assign({}, opts, {h50: 0, h100: 0}), T).net : net;
-  return {lines: lines, gross: gross, extras: ot.total, total: total, discounts: money(disc), net: net, fixedNet: fixed,
-    rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
+  return {lines: lines, gross: gross, extras: ot.total, total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
 }
 
 export var REGIMES = [
