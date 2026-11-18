@@ -22,13 +22,22 @@ de pagar as faturas.
   andamento.
 - **Ganhos e gastos**: lista, calendário e visão do ano, busca e filtros, exportação em CSV,
   compras parceladas (até 24x), contas fixas (luz, aluguel, assinaturas) e previsões de entrada.
+  Devoluções de uma mesma pessoa ficam numa caixa que abre e fecha.
+- **Simular** (guia em Ganhos e gastos): “se eu comprar, financiar ou assumir isso, como ficam as minhas
+  contas?”. Compra à vista, no cartão (com fechamento e vencimento), com o dinheiro de uma meta, ganho,
+  empréstimo e gasto fixo; mostra o saldo mês a mês (considera o salário de costume) e permite “Registrar
+  de verdade”. Usar dinheiro de uma meta para outra coisa mostra um aviso de cuidado.
 - **Contas e cartões**: saldo por conta, transferências, cartão com limite, fechamento e
   vencimento, fatura montada sozinha, pagamento parcial ou adiantado, relatório por cartão (em PDF)
   e vale-alimentação. O resumo se lê como uma conta: *nas contas − faturas a pagar = sobra*.
-- **Planejar gastos**: quanto gastar por categoria em cada mês (meses passados ficam travados) e
-  aviso ao chegar em 80% do limite.
-- **Metas**: prazo, onde o dinheiro está (poupança, CDB, LCI/LCA, Tesouro…), taxa atualizada pelo
-  Banco Central (CDI, Selic e IPCA) e previsões em juros compostos.
+- **Planejar gastos**: quanto gastar por categoria em cada mês (meses passados ficam travados), aviso
+  em popup ao chegar numa porcentagem escolhida do limite (padrão 90%) e gráfico da evolução do mês.
+- **Conselhos**: ideias gentis feitas pelos seus próprios gastos (o que passou do limite, está acima do
+  costume, quanto dá para guardar). Regras simples no aparelho, sem IA e sem enviar dados; não é
+  recomendação de investimento.
+- **Metas**: com ou sem valor alvo e com ou sem prazo, onde o dinheiro está (poupança, CDB, LCI/LCA,
+  Tesouro…), taxa atualizada pelo Banco Central (CDI, Selic e IPCA) e previsões em juros compostos.
+  Retirar dinheiro diz se foi para o objetivo ou para outra coisa (com aviso e conselho até repor).
 - **Compromissos**: o que você deve e o que te devem, com cobrança por mensagem pronta, Pix e
   cobrança compartilhada entre duas contas.
 
@@ -72,7 +81,8 @@ O app usa módulos ES; abrir o `index.html` direto do disco não funciona.
 ```bash
 npm run lint       # ESLint
 npm test           # regras (dinheiro, datas, faturas, saldos, parser, build): node:test
-npm run test:e2e   # o app inteiro no Chrome (puppeteer-core); use CHROME_PATH se precisar
+npm run test:e2e   # o app inteiro no Chrome (puppeteer-core), 4 arquivos ao mesmo tempo (~2,5 min);
+                   # relógio fixo em 17/11/2026; E2E_JOBS=1 (um por vez) e E2E_REALDATE=1 (data de hoje)
 npm run test:db    # migrações e regras de acesso do banco, num Postgres local (podman)
 npm run check      # lint + testes de regras
 E2E_ROOT=dist node tests/e2e/run.js 01 04   # testes no navegador contra a versão publicada
@@ -91,7 +101,9 @@ js/domain/            regras puras: dinheiro, datas, lançamentos, parcelas, car
                       contas, planejamento, metas, investimentos, a receber, parser…
 js/data/              Store (local/nuvem), Supabase, sessão e preferências, backup e migrações
 js/ui/                uma área por arquivo (Início, Ganhos e gastos, Cartões, Planejar, chat,
-                      perfil, tutorial, painel adm…); shell.js liga a navegação e os eventos
+                      perfil, tutorial, painel adm…); shell.js liga a navegação e os eventos.
+                      Início: home-tab.js + dash-data/dash-charts/dash-details; Conselhos: advice-tab.js;
+                      Simular: simulator.js
 supabase/             migrações, testes das regras de acesso e modelos de e-mail
 tools/                build (esbuild) e atualização do service worker
 tests/unit/ e2e/      testes das regras e do navegador

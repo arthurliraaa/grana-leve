@@ -1978,26 +1978,38 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .new-item-form .field[hidden]{ display:none; }
 
 .sim-table th, .sim-table td{ white-space:nowrap; }
+.sim-table{ font-size:.84rem; }
+.sim-table th, .sim-table td{ padding:7px 8px; }
 .sim-sal{ margin:2px 0; }
 /* Nova meta: campos em pares que ocupam a largura toda */
 #goalForm .field{ grid-column: span 2; }
 #goalForm .f-full, #goalForm .f-submit, #goalForm .inv-more{ grid-column: 1 / -1; }
 
-/* Guia Simular: formulário e resultado lado a lado no computador */
-.sim-card{ padding:18px 20px; }
-.sim-title{ margin:0 0 6px; font-size:1.1rem; }
-#simPanel{ display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap:12px 26px; align-items:start; }
-#simPanel > .sim-title, #simPanel > .sim-kinds, #simPanel > .sim-actions{ grid-column: 1 / -1; }
-#simPanel > .sim-grid, #simPanel > .sim-goal, #simPanel > .sim-hz, #simPanel > .sim-sal{ grid-column: 1; }
-#simPanel > .sim-result{ grid-column: 2; grid-row: 3 / span 6; position:sticky; top:84px; }
-#simPanel .sim-grid{ grid-template-columns: minmax(0, 1fr); }
+
+/* Guia Simular: formulário compacto à esquerda, resultado à direita */
+.sim-card{ padding:18px 22px; }
+.sim-title{ margin:0 0 10px; font-size:1.15rem; }
+.sim-body{ display:grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.35fr); gap:20px 28px; align-items:start; margin-top:14px; }
+.sim-left{ display:grid; gap:14px; }
+.sim-grid{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
+.sim-grid .f-full{ grid-column: 1 / -1; }
+.sim-grid .field[hidden]{ display:none; }
+.sim-grid .field > label{ font-size:.82rem; font-weight:600; color: var(--text-secondary); }
+.sim-grid .field input, .sim-grid .field select{ min-height:42px; padding:8px 12px; }
+.sim-grid .money-input input{ min-height:0; }
+.sim-hz{ flex-wrap:nowrap; }
+.sim-hz .chip-radio span{ padding:5px 12px; }
 .sim-actions{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.sim-result{ position:sticky; top:84px; min-height:120px; }
 @media (max-width: 980px){
-  #simPanel{ grid-template-columns: minmax(0, 1fr); }
-  #simPanel > .sim-result, #simPanel > .sim-grid, #simPanel > .sim-goal, #simPanel > .sim-hz, #simPanel > .sim-sal{ grid-column: 1; grid-row: auto; position:static; }
+  .sim-body{ grid-template-columns: minmax(0, 1fr); }
+  .sim-result{ position:static; }
 }
-#simPanel{ grid-template-columns: minmax(0, .85fr) minmax(0, 1.35fr); }
-.sim-table{ font-size:.84rem; }
-.sim-table th, .sim-table td{ padding:7px 8px; }
-@media (max-width: 980px){ #simPanel{ grid-template-columns: minmax(0, 1fr); } }
-.sim-table th{ white-space:nowrap; }
+@media (max-width: 460px){ .sim-grid{ grid-template-columns: minmax(0, 1fr); } .sim-hz{ flex-wrap:wrap; } }
+.sim-body{ grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.sim-hz{ flex-wrap:wrap; }
+.sim-hz span, .sim-hz .chip-radio span{ white-space:nowrap; }
+.sim-grid .money-input{ min-height:42px; }
+@media (max-width: 980px){ .sim-body{ grid-template-columns: minmax(0, 1fr); } }
+.sim-table th, .sim-table td{ padding:7px 6px; }
+.sim-table{ font-size:.82rem; }

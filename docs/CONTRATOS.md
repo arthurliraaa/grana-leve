@@ -80,3 +80,52 @@ linkedToDelete(list, receivables, ids) -> {reversals, receivables, refunds, adva
 // parser.js — parse(): "dia 31" quando o mês passado não tem o dia → último mês que tem, com
 // recognized.date = false (a revisão destaca a data).
 ```
+
+
+## Novembro/2026: funções novas do domínio (conselhos, simulador, metas, alertas, faturas)
+Todas puras (sem DOM nem `Store`), em `js/domain/`; valores em reais arredondados por `money()`.
+
+```js
+// advice.js — conselhos do mês, por regras. Ordem: o que mais pesa primeiro.
+buildAdvice({today, transactions, plan, catName, receivables, goals, nextCommitted, nearPct?})
+  -> [{id, kind, tone: 'warn'|'tip'|'good', title, text, todo?, saving?, action?, impact}]
+//   kind: over | near | spike | nolimit | savings | commit | small | receive | goal | goaloff | good
+//   action: {type: 'limit', cat, amount, label} | {type: 'go', tab, label}
+previousAverages(transactions, key) -> {avg: {categoria: média}, months}   // últimos 3 meses com gasto
+
+// simulate.js — "se eu fizer isso, como ficam as contas?". adds = {deslocamento do mês: saída a mais}.
+projectCash(cash, months /* [{key,label,out,inc}] */, adds, inflowNow)
+  -> [{key, label, out, inc, added, base, sim, diff}]     // saldo no fim de cada mês, sem (base) e com (sim)
+firstRedMonth(rows) -> {label, sim, wasRed} | null
+splitInstallments(total, n) -> [reais]                    // a 1ª leva os centavos
+goalUseImpact(goal, amount, today) -> {current, after, shortfall, hasTarget, pctBefore, pctAfter, pace, monthsToRefill, targetDate}
+
+// budgets.js
+budgetAlerts(spentByCat, limits, near?) -> [{cat, pct, level: 'near'|'over', spent, limit}]   // near padrão 0,9
+alertPercent(v) -> 50..99 (inválido → 90)
+monthBurn(items, key, today, limit) -> {days, upto, cum, spent, scheduled, limit, ideal, projected, ahead}
+
+// goals.js
+hasTarget(g) -> boolean            // targetAmount > 0; sem alvo a meta nunca conclui
+goalForecast(g, today)             // sem alvo: {openEnded: true, ...} e, com prazo, atDeadline
+// movimentações da meta: {id, date, amount, kind: 'deposit'|'yield'|'withdraw', purpose?: 'outro', txId?}
+//   purpose 'outro' = retirada para outra coisa (fora do objetivo); txId liga ao lançamento de gasto.
+
+// cards.js — fatura paga que ainda recebe compras
+card.invoicePaidDue[key] = {due, at}   // total da fatura quando foi marcada como paga
+invoicePaidSnapshot(card, key) -> {due, at} | null
+invoiceExtraAfterPaid(list, card, key) -> reais   // o que passou do total pago, abatido dos adiantamentos feitos depois
+invoiceStatus(card, key, today, list?)   // com list: paga + compra nova vira aberta/fechada/vencida; adiantamento que quita fatura fechada = 'paga'
+invoiceLeft(list, card, key)             // fatura paga com registro: só o que chegou depois
+
+// accounts.js — ajuste de saldo
+account.adjustments: [{id, date, createdAt, amount, note?}]   // entra no saldo, não é ganho nem gasto (kind 'Ajuste de saldo')
+
+// transactions.js
+whoLabel(t) -> 'Seu' | 'De Fulano' | 'Dividida com A, B'
+categoryExpenses(list, key, cat, all) -> lançamentos da categoria no mês (mesma regra do gráfico)
+// lançamento pago com o dinheiro de uma meta: {paymentMethod: 'conta', accountId: null, goalId}
+```
+
+Nenhuma migração SQL foi necessária: os campos novos (`invoicePaidDue`, `adjustments`, `purpose`, `goalId`)
+ficam dentro dos documentos já guardados (jsonb).

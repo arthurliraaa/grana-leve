@@ -98,6 +98,17 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   não volta. Há também “Registrar tudo” por pessoa e “Registrar todos os recebimentos” (valor que vence
   agora de cada um), com “Desfazer”.
 
+- **Simular (guia em Ganhos e gastos)**: nada é salvo ao simular. O saldo parte do que há nas contas hoje e
+  segue mês a mês: *já assumido* (faturas suas que vencem no mês, contas fixas pendentes, parcela das dívidas)
+  + *ganhos previstos* (previsões; e, se a pessoa teve salário em pelo menos 2 dos últimos 3 meses, o salário
+  de costume nos meses sem salário lançado ou previsto) − o que a simulação coloca no mês. Compra no cartão
+  pesa no mês em que **vence** a fatura de cada parcela (fechamento e vencimento do cartão). “Registrar de
+  verdade” cria o gasto (conta ou parcelas), a dívida, a conta fixa, o ganho ou a previsão mensal.
+- **Dinheiro de uma meta**: pagar com o dinheiro guardado numa meta tira o valor dela (movimentação
+  `withdraw`) e, se a pessoa quiser, lança o gasto em Ganhos e gastos sem mexer no saldo de nenhuma conta
+  (`goalId` no lançamento). Para o objetivo da meta não há aviso; para outra coisa (`purpose: 'outro'`) aparece
+  um aviso de cuidado e, enquanto não for reposto com depósitos, um conselho de atenção.
+
 ## Compras parceladas
 
 - Só compras no cartão são parceladas (até 24x). Cada parcela é um lançamento, uma por

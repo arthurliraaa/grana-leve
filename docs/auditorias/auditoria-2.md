@@ -168,7 +168,7 @@ Rodados no commit `7a804d4` sem nenhuma mudança: o resultado é o mesmo antes e
 
 | Id | Tarefa | Dono | Arquivos permitidos | Aceite | Status |
 |---|---|---|---|---|---|
-| A2-T17 | Descobrir por que esses 3 e2e falham e corrigir o teste ou o app | qa (diagnóstico), dono da camada (correção) | `tests/e2e/25-calendario.e2e.js`, `tests/e2e/54-menos-informacao.e2e.js` (+ o arquivo da causa) | Os 3 passam em qualquer data | todo |
+| A2-T17 | Descobrir por que esses 3 e2e falham e corrigir o teste ou o app | qa (diagnóstico), dono da camada (correção) | `tests/e2e/25-calendario.e2e.js`, `tests/e2e/54-menos-informacao.e2e.js`, `tests/e2e/52-total-e-meu.e2e.js` | Os 3 passam em qualquer data | **done** (18/11/2026): eram problemas dos testes, não do app. 25: o botão “próximo mês” ficava sob o cabeçalho fixo (o teste agora rola até ele); 52: a fatura “de 45 dias atrás” caía no fechamento em certos dias (agora usa o dia 15 de dois meses atrás); 54: o teste media o centro do nome do mês e o selo “Este mês” fica embaixo. Além disso, os e2e passaram a usar relógio fixo e rodar em paralelo. |
 
 ### Onda 3: tirar dinheiro da UI e fechar (depois da E3a)
 

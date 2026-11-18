@@ -73,17 +73,18 @@ function payChoices(forFixed){
   return opts;
 }
 
-function formHtml(){
+function formHtml(actions){
   var cats = catOptions(expenseCats()), pays = payChoices(false);
   return '<div class="sim-kinds" role="group" aria-label="O que simular">' + KINDS.map(function(x, i){
       return '<label class="chip-radio"><input type="radio" name="kind" value="' + x.id + '"' + (i ? '' : ' checked') + '><span>' + x.label + '</span></label>'; }).join('') + '</div>' +
+    '<div class="sim-body"><div class="sim-left">' +
     '<div class="sim-grid">' +
-      '<div class="field"><label for="simName">Descrição</label><input id="simName" name="name" type="text" maxlength="50" placeholder="Ex: geladeira, viagem, financiamento"></div>' +
-      '<div class="field" data-for="compra,fixo"><label for="simCat">Categoria</label><select id="simCat" name="cat">' + optionsHtml(cats, (cats[0] || {}).id) + '</select></div>' +
+      '<div class="field f-full"><label for="simName">Descrição</label><input id="simName" name="name" type="text" maxlength="50" placeholder="Ex: geladeira, viagem, financiamento"></div>' +
       '<div class="field" data-for="compra"><label for="simAmount">Valor total</label><span class="money-input"><span>R$</span><input id="simAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
       '<div class="field" data-for="compra"><label for="simPay">Pagar com</label><select id="simPay" name="pay">' + optionsHtml(pays, (pays.filter(function(p){ return p.id.indexOf('card:') === 0; })[0] || pays[0] || {}).id) + '</select></div>' +
       '<div class="field" data-for="compra" data-card><label for="simN">Em quantas parcelas</label><input id="simN" name="n" type="number" min="1" max="24" step="1" value="1"></div>' +
       '<div class="field" data-for="compra"><label for="simDate">Data da compra</label><input id="simDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + todayKey() + '"></div>' +
+      '<div class="field" data-for="compra,fixo"><label for="simCat">Categoria</label><select id="simCat" name="cat">' + optionsHtml(cats, (cats[0] || {}).id) + '</select></div>' +
       '<div class="field" data-for="ganho"><label for="simIncAmount">Valor do ganho</label><span class="money-input"><span>R$</span><input id="simIncAmount" name="incamount" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
       '<div class="field" data-for="ganho"><label for="simIncFreq">Com que frequência</label><select id="simIncFreq" name="incfreq"><option value="once">Uma vez só (ex.: bônus, venda)</option><option value="monthly">Todo mês (ex.: aumento, novo trabalho)</option></select></div>' +
       '<div class="field" data-for="ganho"><label for="simIncStart">Começa a receber</label><select id="simIncStart" name="incstart"><option value="0">Neste mês</option><option value="1" selected>No mês que vem</option></select></div>' +
@@ -106,7 +107,7 @@ function formHtml(){
     '</div>' +
     '<div class="sim-hz"><span>Olhar os próximos</span>' + HORIZONS.map(function(h){ return '<label class="chip-radio"><input type="radio" name="hz" value="' + h + '"' + (h === 6 ? ' checked' : '') + '><span>' + h + ' meses</span></label>'; }).join('') + '</div>' +
     (salaryAverage() > 0 ? '<label class="check sim-sal"><input type="checkbox" name="usesal" checked> Considerar o meu salário nos próximos meses (cerca de ' + fmtMoney(salaryAverage()) + ' por mês, a média dos últimos meses)</label>' : '') +
-    '<div id="simResult" class="sim-result" aria-live="polite"></div>';
+    (actions || '') + '</div><div id="simResult" class="sim-result" aria-live="polite"></div></div>';
 }
 
 // Lê o formulário e calcula tudo. Devolve também o texto de erro (quando falta algo) para o registro.
@@ -220,7 +221,8 @@ function resultHtml(s){
     (s.warns.length ? '<ul class="sim-warns">' + s.warns.map(function(w){ return '<li>' + w + '</li>'; }).join('') + '</ul>' : '') +
     (s.isGoal ? '' : '<div class="table-scroll"><table class="data-table sim-table"><thead><tr><th>Mês</th><th>Já assumido</th><th>Simulação</th><th>Ganhos</th><th>Saldo sem</th><th>Saldo com</th></tr></thead><tbody>' + s.rows.map(function(r){
       var simTxt = r.added > 0 ? '− ' + fmtMoney(r.added) : r.added < 0 ? '+ ' + fmtMoney(-r.added) : '—';
-      return '<tr><td>' + escapeHtml(r.label) + '</td><td class="tabular">' + fmtMoney(r.out) + '</td><td class="tabular ' + (r.added > 0 ? 'neg-text' : r.added < 0 ? 'pos-text' : '') + '">' + simTxt + '</td><td class="tabular">' + fmtMoney(r.inc) + '</td>' +
+      var shortMonth = monthLabelOf(r.key).split(' de ')[0].slice(0, 3) + '/' + r.key.slice(2, 4) + (/este mês/.test(r.label) ? ' · agora' : '');
+      return '<tr><td>' + escapeHtml(shortMonth) + '</td><td class="tabular">' + fmtMoney(r.out) + '</td><td class="tabular ' + (r.added > 0 ? 'neg-text' : r.added < 0 ? 'pos-text' : '') + '">' + simTxt + '</td><td class="tabular">' + fmtMoney(r.inc) + '</td>' +
         '<td class="tabular ' + (r.base < 0 ? 'neg-text' : '') + '">' + fmtMoney(r.base) + '</td><td class="tabular ' + (r.sim < 0 ? 'neg-text' : '') + '"><strong>' + fmtMoney(r.sim) + '</strong></td></tr>'; }).join('') + '</tbody></table></div>' +
     '<p class="tx-meta">Mês a mês: o que já está assumido para sair (faturas suas que vencem no mês, contas fixas e parcelas de dívidas), o que esta simulação coloca em cada mês, e os ganhos considerados. O saldo parte do que há nas contas hoje (' + fmtMoney(s.cash) + ') e o que sobra de um mês segue para o outro.</p>') +
     '<ul class="sim-notes">' + s.notes.map(function(n){ return '<li>' + n + '</li>'; }).join('') + '</ul>' + noAcc;
@@ -231,9 +233,9 @@ function resultHtml(s){
 export function renderSimulator(){
   var panel = document.getElementById('simPanel');
   if (!panel) return;
-  panel.innerHTML = formHtml() + '<div class="sim-actions"><button type="submit" class="btn btn-primary" id="simSubmit">Registrar de verdade</button>' +
+  panel.innerHTML = formHtml('<div class="sim-actions"><button type="submit" class="btn btn-primary" id="simSubmit">Registrar de verdade</button>' +
     '<button type="button" class="btn btn-ghost" id="simClear">Limpar</button>' +
-    '<p class="form-error" id="simError" role="alert"></p></div>';
+    '<p class="form-error" id="simError" role="alert"></p></div>');
   panel.insertAdjacentHTML('afterbegin', '<h3 class="sim-title">Simular gasto ou ganho</h3>');
   syncSimulator();
 }

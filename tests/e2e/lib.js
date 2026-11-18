@@ -6,7 +6,9 @@ import {existsSync} from 'node:fs';
 // Assim o resultado não depende do dia em que a bateria roda (fechamento de fatura, fim de mês...).
 // E2E_REALDATE=1 usa a data de verdade (para conferir o app em outros dias).
 const RealDate = Date;
-export const CLOCK_OFFSET = process.env.E2E_REALDATE ? 0 : new RealDate(2026, 10, 17, 12, 0, 0).getTime() - RealDate.now();
+// Testes que falam com serviços de fora (o Turnstile da Cloudflare recusa relógio desencontrado) usam a hora de verdade.
+const REAL_CLOCK = /27-captcha/.test(process.argv[1] || '');
+export const CLOCK_OFFSET = process.env.E2E_REALDATE || REAL_CLOCK ? 0 : new RealDate(2026, 10, 17, 12, 0, 0).getTime() - RealDate.now();
 if (CLOCK_OFFSET){
   const now = () => RealDate.now() + CLOCK_OFFSET;
   globalThis.Date = class extends RealDate { constructor(...a){ if (a.length === 0) super(now()); else super(...a); } static now(){ return now(); } };
