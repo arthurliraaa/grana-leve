@@ -31,7 +31,7 @@ import {renderConnections, renderLearn} from './learn-tab.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
-import {generateInvoicePdf} from './reports.js';
+import {generateInvoicePdf, generateAllInvoicesPdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions} from './state.js';
 import {advanceInstallments, openTxModal} from './tx-edit.js';
 import {TX_SORTS, populateCategorySelect, populateInstallSelect, populatePaymentSelect, renderTransactionsTab, syncTxFormVisibility} from './tx-list.js';
@@ -653,6 +653,7 @@ export function wireShell(){
       return;
     }
     if ((el = t.closest('[data-inv-pdf]'))){ generateInvoicePdf(el.getAttribute('data-inv-pdf'), el.getAttribute('data-key')); return; }
+    if ((el = t.closest('[data-allinv-pdf]'))){ generateAllInvoicesPdf(Number(el.getAttribute('data-allinv-pdf'))); return; }
     if ((el = t.closest('[data-inv-paid]'))){ toggleInvoicePaid(el.getAttribute('data-inv-paid'), el.getAttribute('data-key')); return; }
     if ((el = t.closest('[data-invadv-undo]'))){ undoInvoiceAdvance(el.getAttribute('data-invadv-undo')); return; }
     // Contas bancárias

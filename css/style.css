@@ -1768,3 +1768,28 @@ details.tip-card[open] > summary h4::after{ content:" −"; }
 .ws-next{ margin-top:10px; padding:12px 14px; border:1px dashed var(--border); border-radius: var(--radius); background: var(--surface); display:grid; gap:4px; font-size:.95rem; }
 .ws-next-title{ font-weight:700; }
 .ws-next strong{ font-size:1.1rem; }
+
+.ws-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+
+.cat-details{ display:grid; gap:6px; }
+.cat-detail{ border:1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.cat-detail > summary{ display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; list-style:none; }
+.cat-detail > summary::-webkit-details-marker{ display:none; }
+.cat-detail > summary::after{ content:'▾'; margin-left:4px; color: var(--text-secondary); }
+.cat-detail[open] > summary::after{ content:'▴'; }
+.cd-name{ flex:1; font-weight:600; }
+.cd-val{ font-weight:700; }
+.cd-pct{ color: var(--text-secondary); min-width:3ch; text-align:right; }
+.cat-detail .table-scroll{ padding:0 8px 8px; }
+.who-tag{ display:inline-block; padding:1px 8px; border-radius:999px; font-size:.78rem; border:1px solid var(--border); }
+.who-tag.mine{ background: color-mix(in srgb, var(--good) 14%, transparent); }
+.who-tag.others{ background: color-mix(in srgb, var(--warning) 18%, transparent); }
+
+.cat-click, [data-cat-id]{ cursor:pointer; }
+.cat-click:hover, .cat-click:focus-visible{ background: color-mix(in srgb, var(--brand) 8%, transparent); }
+
+details.purchase-notes > summary{ cursor:pointer; list-style:none; margin:0; display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; }
+details.purchase-notes > summary::-webkit-details-marker{ display:none; }
+details.purchase-notes > summary::before{ content:'▸'; color: var(--text-secondary); }
+details.purchase-notes[open] > summary::before{ content:'▾'; }
+details.purchase-notes[open] > summary{ margin-bottom:6px; }

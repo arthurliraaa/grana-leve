@@ -25,6 +25,10 @@ L.run(async ({page}) => {
   L.ok(await page.$$eval('#crBody .inv-seg.mine', e => e.length) === 1 && await page.$$eval('#crBody .inv-seg.others', e => e.length) === 1, 'barra da fatura dividida nas duas partes');
   L.ok(/Gessi\s*R\$\s?250,00/.test(body) && /Ana\s*R\$\s?100,00/.test(body), 'quanto é de cada pessoa (Gessi 200 + 50; Ana 100)');
 
+  await page.$$eval('#crBody .cat-detail', ds => ds.forEach(d => { d.open = true; }));
+  const det = await L.text(page, '#crBody .cat-details');
+  L.ok(/De Gessi/.test(det) && /Seu/.test(det), 'categorias abrem e mostram cada compra, dizendo se é sua ou de uma pessoa');
+
   L.section('Só a minha parte');
   await L.setVal(page, '#crWho', 'mine'); await L.sleep(100);
   body = await L.text(page, '#crBody');

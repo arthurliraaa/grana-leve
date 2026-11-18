@@ -6,7 +6,7 @@ import {bankGroups} from './accounts-tab.js';
 import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey} from '../domain/dates.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
-import {isForOther, isRefund, isReversal, reversalsOf, myShare, othersShare} from '../domain/transactions.js';
+import {isForOther, isRefund, isReversal, reversalsOf, myShare, othersShare, whoLabel, categoryExpenses} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import * as Budgets from '../domain/budgets.js';
 import {statusForPct} from '../domain/budgets.js';
@@ -740,7 +740,7 @@ export function renderDonut(){
   var scope = State.donutScope === 'mine' ? 'mine' : 'all';
   qsa('[data-donut-scope]').forEach(function(b){ b.setAttribute('aria-pressed', b.getAttribute('data-donut-scope') === scope ? 'true' : 'false'); });
   var allCats = projectCats(key, true), mineCats = projectCats(key, false), byCat = scope === 'all' ? allCats : mineCats, proj = monthProjection(key);
-  var entries = expenseCats().map(function(c){ return {label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0, all: allCats[c.id]||0, mine: mineCats[c.id]||0}; })
+  var entries = expenseCats().map(function(c){ return {id:c.id, label:c.label, emoji:c.emoji, color:c.color, value: byCat[c.id]||0, all: allCats[c.id]||0, mine: mineCats[c.id]||0}; })
     .filter(function(e){ return e.value>0; }).sort(function(a, b){ return b.value - a.value; });
   var total = sum(entries, function(e){ return e.value; });
   if (!total){
@@ -750,7 +750,7 @@ export function renderDonut(){
   if (State.donutView === 'table'){
     var anyOthers = entries.some(function(e){ return e.all - e.mine > 0.004; });
     wrap.innerHTML = '<table class="data-table"><thead><tr><th>Categoria</th><th>' + (scope === 'all' ? 'Total' : 'Seus gastos') + '</th>' + (scope === 'all' && anyOthers ? '<th>Seus</th>' : '') + '<th>%</th></tr></thead><tbody>' +
-      entries.map(function(e){ return '<tr><td>'+escapeHtml(e.label)+'</td><td class="tabular">'+fmtMoney(e.value)+'</td>' + (scope === 'all' && anyOthers ? '<td class="tabular">' + fmtMoney(e.mine) + '</td>' : '') + '<td class="tabular">'+Math.round(100*e.value/total)+'%</td></tr>'; }).join('') +
+      entries.map(function(e){ return '<tr class="cat-click" tabindex="0" data-cat-id="' + e.id + '"><td>'+escapeHtml(e.label)+'</td><td class="tabular">'+fmtMoney(e.value)+'</td>' + (scope === 'all' && anyOthers ? '<td class="tabular">' + fmtMoney(e.mine) + '</td>' : '') + '<td class="tabular">'+Math.round(100*e.value/total)+'%</td></tr>'; }).join('') +
       '<tr><td><strong>Total</strong></td><td class="tabular"><strong>'+fmtMoney(total)+'</strong></td>' + (scope === 'all' && anyOthers ? '<td class="tabular"><strong>' + fmtMoney(sum(entries, function(e){ return e.mine; })) + '</strong></td>' : '') + '<td>100%</td></tr></tbody></table>';
     return;
   }
@@ -765,12 +765,14 @@ export function renderDonut(){
   var figure = style === 'blocos' ? donutBlocks(entries, total, wrap) : donutSvg(entries, total, style, m.label, wrap);
   var rows = '<ol class="cat-rank">' + entries.slice(0, 7).map(function(e){
     var pct = Math.round(100 * e.value / total);
-    return '<li><span class="cat-rank-top"><span class="cat-rank-name"><span class="legend-swatch" style="background:' + resolveVar(e.color, wrap) + '"></span>' + escapeHtml(e.emoji + ' ' + e.label) + '</span>' +
+    return '<li class="cat-click" tabindex="0" data-cat-id="' + e.id + '"><span class="cat-rank-top"><span class="cat-rank-name"><span class="legend-swatch" style="background:' + resolveVar(e.color, wrap) + '"></span>' + escapeHtml(e.emoji + ' ' + e.label) + '</span>' +
       '<span class="tabular">' + fmtMoney(e.value) + ' <small>' + pct + '%</small></span></span>' +
       '<span class="cat-rank-bar"><span style="width:' + pct + '%; background:' + resolveVar(e.color, wrap) + '"></span></span></li>';
   }).join('') + (entries.length > 7 ? '<li class="tx-meta">+ ' + (entries.length - 7) + ' categorias menores (veja na tabela)</li>' : '') + '</ol>';
   wrap.innerHTML = '<div class="donut-layout is-' + style + '">' + figure + rows + '</div>' +
-    (proj.expExtra > 0 ? '<p class="chart-note">Inclui ' + fmtMoney(proj.expExtra) + ' de contas fixas previstas, ainda não lançadas.</p>' : '');
+    '<p class="chart-note">Toque numa categoria para ver o que foi gasto nela. ' + (proj.expExtra > 0 ?
+      'Inclui ' + fmtMoney(proj.expExtra) + ' de contas fixas que ainda vão cair neste mês (' + proj.bills.map(function(o){ return escapeHtml(o.b.name) + ' ' + fmtMoney(o.amount); }).join(', ') + '), mesmo sem estarem lançadas. ' : 'Contas fixas já lançadas estão incluídas; não há nenhuma pendente neste mês. ') +
+      'Compras no cartão entram no mês em que a fatura vence.</p>';
   wireTooltips(wrap, '.donut-seg, .tm-block');
   if (wrap.closest('.card').offsetHeight) renderBarChart();
 }
@@ -787,6 +789,26 @@ export function setDonutStyle(style){
   setPref('donutStyle', style);
   renderDonut();
 }
+// Toque numa categoria do gráfico: lista o que foi gasto nela no mês (mesma regra do gráfico: “Tudo” ou só a sua parte).
+export async function openCategoryDetail(catId){
+  var m = dashMonth(), key = m.key, scope = State.donutScope === 'mine' ? 'mine' : 'all', all = scope === 'all';
+  var cat = expenseCats().filter(function(c){ return c.id === catId; })[0] || {label: catId, emoji: ''};
+  var items = categoryExpenses(State.transactions, key, catId, all).map(function(t){ return {t: t, v: all ? Number(t.amount) || 0 : myShare(t)}; }).filter(function(x){ return x.v !== 0; });
+  var bills = monthProjection(key).bills.filter(function(o){ return o.b.category === catId; });
+  var total = money(sum(items, function(x){ return x.v; }) + sum(bills, function(o){ return o.amount; }));
+  var rows = items.map(function(x){
+    var t = x.t, who = whoLabel(t);
+    return '<tr><td>' + formatDateBr(t.date) + '</td><td>' + escapeHtml(t.description || cat.label) + (t.installment ? ' <small class="tx-meta">' + t.installment.n + '/' + t.installment.total + '</small>' : '') +
+      (t.paymentMethod === 'cartao' ? ' <small class="tx-meta">cartão</small>' : '') + '</td><td><span class="who-tag ' + (who === 'Seu' ? 'mine' : 'others') + '">' + escapeHtml(!all && t.split ? 'Sua parte (dividida)' : who) + '</span></td><td class="tabular">' + fmtMoney(x.v) + '</td></tr>';
+  }).concat(bills.map(function(o){
+    return '<tr><td>' + formatDateBr(o.date) + '</td><td>' + escapeHtml(o.b.name) + ' <small class="tx-meta">conta fixa prevista</small></td><td><span class="who-tag mine">Seu</span></td><td class="tabular">' + fmtMoney(o.amount) + '</td></tr>';
+  })).join('');
+  await openModal({
+    title: (cat.emoji ? cat.emoji + ' ' : '') + cat.label + ' · ' + m.label.split(' de ')[0], wide: true, submitLabel: null, cancelLabel: 'Fechar',
+    body: '<p class="card-sub">Total <strong class="tabular">' + fmtMoney(total) + '</strong> · ' + (all ? 'tudo o que saiu, inclusive a parte de outras pessoas' : 'só a sua parte') + '</p>' +
+      (rows ? '<div class="table-scroll"><table class="data-table"><thead><tr><th>Data</th><th>Gasto</th><th>De quem</th><th>Valor</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<p class="empty-state">Nada nesta categoria.</p>')
+  });
+}
 function donutSvg(entries, total, style, monthLabel, wrap){
   if (style === 'pizza') return pieSvg(entries, total, monthLabel, wrap);
   var size = 220, cx = size / 2, cy = size / 2;
@@ -797,7 +819,7 @@ function donutSvg(entries, total, style, monthLabel, wrap){
     cum += frac;
     return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + resolveVar(e.color, wrap) + '" stroke-width="' + sw + '" stroke-linecap="butt" style="--i:' + i + '" ' +
       'stroke-dasharray="' + dash.toFixed(2) + ' ' + (circumference - dash).toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '" ' +
-      'transform="rotate(-90 ' + cx + ' ' + cy + ')" tabindex="0" data-tip="' + e.tip + '" class="donut-seg"></circle>';
+      'transform="rotate(-90 ' + cx + ' ' + cy + ')" tabindex="0" data-cat-id="' + e.id + '" data-tip="' + e.tip + '" class="donut-seg"></circle>';
   }).join('');
   var center = '<text x="' + cx + '" y="' + (cy - 6) + '" text-anchor="middle" font-size="11" style="fill:var(--text-muted)">' + donutCaption() + '</text>' +
     '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="17" font-weight="700" style="fill:var(--text-primary)">' + fmtMoney(total) + '</text>';
@@ -817,7 +839,7 @@ function pieSvg(entries, total, monthLabel, wrap){
     var shape = frac >= 0.9999 ? '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="' + color + '"></circle>' :
       '<path d="M' + cx + ',' + cy + 'L' + pt(a0, R) + 'A' + R + ',' + R + ' 0 ' + (frac > 0.5 ? 1 : 0) + ' 1 ' + pt(a1, R) + 'Z" fill="' + color + '"></path>';
     var label = frac >= 0.06 ? '<text class="pie-pct" style="fill:' + inkOn(color) + '" x="' + (cx + R * 0.62 * Math.cos(mid)).toFixed(1) + '" y="' + (cy + R * 0.62 * Math.sin(mid) + 4).toFixed(1) + '" text-anchor="middle">' + Math.round(100 * frac) + '%</text>' : '';
-    return '<g class="donut-seg pie-slice" tabindex="0" data-tip="' + e.tip + '" style="--i:' + i + ';--dx:' + (7 * Math.cos(mid)).toFixed(2) + 'px;--dy:' + (7 * Math.sin(mid)).toFixed(2) + 'px">' + shape + label + '</g>';
+    return '<g class="donut-seg pie-slice" tabindex="0" data-cat-id="' + e.id + '" data-tip="' + e.tip + '" style="--i:' + i + ';--dx:' + (7 * Math.cos(mid)).toFixed(2) + 'px;--dy:' + (7 * Math.sin(mid)).toFixed(2) + 'px">' + shape + label + '</g>';
   }).join('');
   return '<div class="donut-fig"><svg class="donut-svg pie-svg" viewBox="0 0 ' + size + ' ' + size + '" role="img" aria-label="Gastos por categoria em ' + escapeHtml(monthLabel) + '">' + slices + '</svg>' +
     '<p class="donut-total">' + donutCaption() + ' <strong class="tabular">' + fmtMoney(total) + '</strong></p></div>';
@@ -856,7 +878,7 @@ function donutBlocks(entries, total, wrap){
   return '<div class="tm" role="img" aria-label="Gastos por categoria, blocos proporcionais ao valor">' + entries.map(function(e, i){
     var q = rects[i], pct = Math.round(100 * e.value / total), big = q.w > 22 && q.h > 22, mid = q.w > 13 && q.h > 13;
     return '<div class="tm-block' + (big ? ' big' : mid ? ' mid' : '') + '" tabindex="0" style="color:' + inkOn(resolveVar(e.color, wrap)) + ';left:' + q.x.toFixed(2) + '%;top:' + (q.y / H * 100).toFixed(2) + '%;width:' + q.w.toFixed(2) + '%;height:' + (q.h / H * 100).toFixed(2) +
-      '%;background:' + resolveVar(e.color, wrap) + '" data-tip="' + e.tip + '">' +
+      '%;background:' + resolveVar(e.color, wrap) + '" data-cat-id="' + e.id + '" data-tip="' + e.tip + '">' +
       '<span class="tm-emoji" aria-hidden="true">' + escapeHtml(e.emoji) + '</span>' + (big ? '<span class="tm-name">' + escapeHtml(e.label) + '</span>' : '') + (mid || big ? '<span class="tm-pct">' + pct + '%</span>' : '') + '</div>';
   }).join('') + '</div>';
 }
@@ -1057,6 +1079,9 @@ export function wireHome(){
     toast('Previsão de ' + fmtMoney(amount) + ' adicionada.');
   });
 
+  var donut = document.getElementById('donutWrap');
+  donut.addEventListener('click', function(e){ var el = e.target.closest('[data-cat-id]'); if (el) openCategoryDetail(el.getAttribute('data-cat-id')); });
+  donut.addEventListener('keydown', function(e){ var el = e.target.closest('[data-cat-id]'); if (el && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); openCategoryDetail(el.getAttribute('data-cat-id')); } });
   document.getElementById('pdfReportBtn').addEventListener('click', generateMonthlyReport);
   document.getElementById('calcHelpBtn').addEventListener('click', calcHelp);
 }

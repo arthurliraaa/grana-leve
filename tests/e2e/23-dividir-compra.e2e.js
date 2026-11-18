@@ -44,6 +44,12 @@ L.run(async ({page}) => {
   const firstMonth = invoiceFor(L.dayOffset(0), card).due.slice(0, 7), sameMonth = firstMonth === L.monthKey(0);
   if (!sameMonth){
     L.ok(/Compras deste mês que entram em faturas seguintes/.test(await L.text(page, '#txList')) && /Geladeira/.test(await L.text(page, '#txList .purchase-notes')), 'no mês da compra: aviso da compra, sem somar');
+    await page.click('#txList .purchase-notes > summary'); await L.sleep(150);
+    L.ok(await page.$eval('#txList .purchase-notes', e => !e.open), 'o aviso das compras que caem em outro mês pode ser fechado');
+    await L.tab(page, 'dashboard'); await L.tab(page, 'lancamentos');
+    L.ok(await page.$eval('#txList .purchase-notes', e => !e.open), 'e continua fechado depois de sair e voltar');
+    await page.click('#txList .purchase-notes > summary'); await L.sleep(150);
+    L.ok(await page.$eval('#txList .purchase-notes', e => e.open), 'e abre de novo');
     await page.click('#nextMonth'); await L.sleep(150);
   }
   L.ok(/Dividida: sua parte R\$\s?50,00 · Mãe, Irmão/.test(await L.text(page, '#txList')), 'no mês da fatura: a parcela dividida e a sua parte');

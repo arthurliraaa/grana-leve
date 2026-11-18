@@ -45,3 +45,13 @@ test('pedidos antigos (mais de um dia) saem da lista', () => {
   markLinkSent('recovery', 'novo@gmail.com', t0 + 2 * 86400000);
   assert.ok(!/velho/.test(mem.get('granaleve_link_sent_v1')));
 });
+
+test('dica de onde olhar quando o e-mail não chega, por provedor', async () => {
+  const {mailProviderTip} = await import('../../js/data/auth.js');
+  assert.match(mailProviderTip('a@hotmail.com'), /Lixo Eletrônico/);
+  assert.match(mailProviderTip('a@outlook.com.br'), /Outros/);
+  assert.match(mailProviderTip('a@live.com'), /Hotmail/);
+  assert.match(mailProviderTip('a@yahoo.com.br'), /Spam/);
+  assert.equal(mailProviderTip('a@gmail.com'), '');
+  assert.equal(mailProviderTip(''), '');
+});

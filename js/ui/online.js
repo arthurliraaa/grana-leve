@@ -10,7 +10,7 @@ import {Store, COLLECTIONS} from '../data/store.js';
 import {readBackup} from '../data/backup.js';
 import {authMessage, retryAfter} from '../data/supabase.js';
 import {EMAIL_LINK_HOURS, EMAIL_RESEND_SECONDS} from '../config.js';
-import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, emailTypo, linkWait, markLinkSent, lockRemaining, registerFail, clearFails} from '../data/auth.js';
+import {makePasswordRecord, verifyPassword, passwordProblem, sanitizeEmailKey, validEmail, emailTypo, mailProviderTip, linkWait, markLinkSent, lockRemaining, registerFail, clearFails} from '../data/auth.js';
 import {saveSession, newSession, getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, toast} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
@@ -63,11 +63,13 @@ async function requestLink(kind, email, send){
   markLinkSent(kind, email);
   return {sent: true};
 }
-async function linkSentModal(title, intro){
+async function linkSentModal(title, intro, email){
+  var tip = mailProviderTip(email);
   await openModal({title: title, submitLabel: null, cancelLabel: 'Entendi',
     body: '<p>' + intro + '</p>' +
       '<ul class="link-tips"><li>' + escapeHtml(LINK_RULES) + '</li>' +
       '<li>Pode levar alguns minutos. Confira também o <strong>Spam</strong> e as abas <strong>Promoções</strong> ou <strong>Atualizações</strong>.</li>' +
+      (tip ? '<li>' + tip + '</li>' : '') +
       '<li>Não chegou depois de alguns minutos? Confira se o e-mail está escrito certo e peça de novo.</li></ul>'});
 }
 // E-mail com domínio parecido com um provedor (gmaill.com): pergunta antes de seguir.
@@ -185,7 +187,7 @@ export async function forgotPassword(prefill){
       return sent.error ? sent : {email: email};
     }
   });
-  if (r && r.email) await linkSentModal('Confira o seu e-mail', 'Se houver uma conta com <strong>' + escapeHtml(r.email) + '</strong>, enviamos o link para criar a nova senha. Abra o link neste ou em outro aparelho: não é preciso estar logado.');
+  if (r && r.email) await linkSentModal('Confira o seu e-mail', 'Se houver uma conta com <strong>' + escapeHtml(r.email) + '</strong>, enviamos o link para criar a nova senha. Abra o link neste ou em outro aparelho: não é preciso estar logado.', r.email);
 }
 // Quem entra pelo link de nova senha define a senha antes de usar o app. Na volta pelo link, isso
 // acontece antes de abrir os dados (nada abre por cima). Retorna true se a senha foi trocada;
@@ -287,7 +289,7 @@ function offerResend(errEl, email){
     var r = await requestLink('signup', email, function(e){ return Store.resendConfirmation(e, siteUrl()); });
     if (r.error){ errEl.textContent = r.error; return; }
     errEl.textContent = '';
-    await linkSentModal('Enviamos um novo link', 'Abra o e-mail enviado para <strong>' + escapeHtml(email) + '</strong> e toque no link para ativar a conta.');
+    await linkSentModal('Enviamos um novo link', 'Abra o e-mail enviado para <strong>' + escapeHtml(email) + '</strong> e toque no link para ativar a conta.', email);
   });
   errEl.append(' ', b);
 }
@@ -368,7 +370,7 @@ export function wireAuth(){
         if (res.session){ State.freshLogin = true; await startOnlineSession(res.user); toast('Conta criada! Bem-vindo(a), ' + name.split(' ')[0] + '.'); return; }
         // Com confirmação por e-mail ligada, a conta só entra depois do link.
         markLinkSent('signup', email);
-        await linkSentModal('Confirme seu e-mail', 'Enviamos um link de confirmação para <strong>' + escapeHtml(email) + '</strong>. Abra o e-mail e toque no link para ativar a conta; depois é só entrar.');
+        await linkSentModal('Confirme seu e-mail', 'Enviamos um link de confirmação para <strong>' + escapeHtml(email) + '</strong>. Abra o e-mail e toque no link para ativar a conta; depois é só entrar.', email);
         showAuthTab('login');
         document.getElementById('loginEmail').value = email;
       } catch(err){ errEl.textContent = authMessage(err.cause || err); }

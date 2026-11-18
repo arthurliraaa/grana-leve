@@ -47,6 +47,13 @@ export function splitEqual(total, people){
   var n = Math.max(1, Math.round(Number(people)) || 1);
   return splitAmount(total, n);
 }
+// De quem é o gasto, em palavras: "Seu", "De Fulano" (pago por outra pessoa) ou "Dividida com A, B".
+export function whoLabel(t){
+  if (isForOther(t)) return 'De ' + ((t.forOther && t.forOther.person) || 'outra pessoa');
+  if (t.split && Array.isArray(t.split.people) && t.split.people.length)
+    return 'Dividida com ' + t.split.people.map(function(p){ return p.person || 'outra pessoa'; }).join(', ');
+  return 'Seu';
+}
 // Quanto do gasto é de outras pessoas (pago por elas ou a parte delas numa compra dividida).
 export function othersShare(t){
   if (t.type !== 'expense') return 0;
@@ -98,6 +105,11 @@ export function expenseCategoryTotals(list, key, all){
     out[t.category] = money((out[t.category] || 0) + (all ? (Number(t.amount) || 0) : myShare(t)));
   });
   return out;
+}
+// Os gastos de uma categoria no mês, na mesma regra do gráfico (all: com o que é de outras pessoas).
+export function categoryExpenses(list, key, cat, all){
+  return txForMonth(list, key).filter(function(t){ return t.type === 'expense' && t.category === cat && (isPersonal(t) || (all && isForOther(t))); })
+    .sort(function(a, b){ return a.date.localeCompare(b.date); });
 }
 // Até quantos meses à frente existem lançamentos (parcelas futuras).
 export function maxMonthOffset(list, curKey){

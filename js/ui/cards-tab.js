@@ -15,7 +15,7 @@ import {qs, escapeHtml, optionsHtml, labelOf, icon, resolveVar, saveFile, toast}
 import {openModal} from './modal.js';
 import {pdfWriter, pdfReady} from './pdf.js';
 import {wireTooltips} from './charts.js';
-import {isForOther, isPersonal, myShare, othersShare} from '../domain/transactions.js';
+import {isForOther, isPersonal, myShare, othersShare, whoLabel} from '../domain/transactions.js';
 import {payAccountFor, renderBanks} from './accounts-tab.js';
 import {monthPayments, nextMonthInvoices, two, txRowHtml} from './home-tab.js';
 import {State, accountName, cardUsed, catOptions, expenseCats, installmentGroups, invoiceItems, invoiceStatus, k, totalAccountsBalance} from './state.js';
@@ -43,6 +43,8 @@ export async function cardReport(cardId){
     for (var j=Number(st.period)-1;j>=0;j--) out.push(shiftMonthKey(base, -j));
     return out;
   }
+  // Na visão “só a minha parte”, uma compra dividida aparece como “Sua parte”, sem nomes de outras pessoas.
+  function whoOf(t){ return st.who === 'mine' && t.split ? 'Sua parte (dividida)' : whoLabel(t); }
   function amountOf(t){ return st.who === 'mine' ? myShare(t) : st.who === 'others' ? othersShare(t) : Number(t.amount); }
   function data(){
     var ks = keys();
@@ -51,12 +53,13 @@ export async function cardReport(cardId){
       return {key:key, items:items, mine: money(sum(items, myShare)), others: money(sum(items, othersShare)), total: money(sum(items, amountOf))};
     });
     if (st.period === 'next') rows = rows.filter(function(r){ return r.total !== 0; });
-    var byCat = {}, byPerson = {};
+    var byCat = {}, byPerson = {}, catItems = {};
     rows.forEach(function(r){ r.items.forEach(function(t){
       byCat[t.category] = (byCat[t.category]||0) + amountOf(t);
+      if (amountOf(t) !== 0) (catItems[t.category] = catItems[t.category] || []).push(t);
       peopleShares(t).forEach(function(p){ var kk = p.person.trim().toLowerCase(); (byPerson[kk] = byPerson[kk] || {person: p.person.trim(), value: 0}).value += p.amount; });
     }); });
-    var catRows = expenseCats().map(function(x){ return {label:x.label, color:x.color, value: money(byCat[x.id]||0)}; }).filter(function(x){ return x.value > 0; }).sort(function(a,b){ return b.value - a.value; });
+    var catRows = expenseCats().map(function(x){ return {label:x.label, color:x.color, value: money(byCat[x.id]||0), items: (catItems[x.id] || []).slice().sort(function(a, b){ return a.date.localeCompare(b.date); })}; }).filter(function(x){ return x.value > 0; }).sort(function(a,b){ return b.value - a.value; });
     var people = Object.keys(byPerson).map(function(kk){ return {person: byPerson[kk].person, value: money(byPerson[kk].value)}; }).filter(function(p){ return p.value > 0; }).sort(function(a, b){ return b.value - a.value; });
     return {rows: rows, catRows: catRows, people: people, total: money(sum(rows, function(r){ return r.total; })),
       mine: money(sum(rows, function(r){ return r.mine; })), others: money(sum(rows, function(r){ return r.others; }))};
@@ -92,9 +95,15 @@ export async function cardReport(cardId){
       (st.who !== 'mine' && d.people.length ? '<h4>Quanto é de cada pessoa</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>Pessoa</th><th>Valor</th><th>%</th></tr></thead><tbody>' +
         d.people.map(function(p){ return '<tr><td>' + escapeHtml(p.person) + '</td><td class="tabular">' + fmtMoney(p.value) + '</td><td class="tabular">' + pct(p.value, d.others) + '%</td></tr>'; }).join('') +
         '</tbody></table></div><p class="tx-meta">Compras pagas por você para a pessoa e a parte dela nas compras divididas. O que já foi devolvido aparece em “Me devem”.</p>' : '') +
-      '<h4>Por categoria</h4><div class="table-scroll"><table class="data-table"><thead><tr><th>Categoria</th><th>Valor</th><th>%</th></tr></thead><tbody>' + d.catRows.map(function(x){
-        return '<tr><td><span class="legend-swatch" style="display:inline-block;margin-right:6px;background:' + resolveVar(x.color) + '"></span>' + escapeHtml(x.label) + '</td><td class="tabular">' + fmtMoney(x.value) + '</td><td class="tabular">' + pct(x.value, d.total) + '%</td></tr>';
-      }).join('') + '</tbody></table></div>';
+      '<h4>Por categoria <small class="tx-meta">toque para ver as compras</small></h4><div class="cat-details">' + d.catRows.map(function(x){
+        return '<details class="cat-detail"><summary><span class="legend-swatch" style="display:inline-block;margin-right:6px;background:' + resolveVar(x.color) + '"></span><span class="cd-name">' + escapeHtml(x.label) +
+          '</span><span class="tabular cd-val">' + fmtMoney(x.value) + '</span><span class="tabular cd-pct">' + pct(x.value, d.total) + '%</span></summary>' +
+          '<div class="table-scroll"><table class="data-table"><thead><tr><th>Data</th><th>Compra</th><th>De quem</th><th>Valor</th></tr></thead><tbody>' + x.items.map(function(t){
+            var who = whoOf(t);
+            return '<tr><td>' + formatDateBr(t.date) + '</td><td>' + escapeHtml(t.description || '-') + (t.installment ? ' <small class="tx-meta">' + t.installment.n + '/' + t.installment.total + '</small>' : '') +
+              '</td><td><span class="who-tag ' + (who === 'Seu' || who === 'Sua parte (dividida)' ? 'mine' : 'others') + '">' + escapeHtml(who) + '</span></td><td class="tabular">' + fmtMoney(amountOf(t)) + '</td></tr>';
+          }).join('') + '</tbody></table></div></details>';
+      }).join('') + '</div>';
     wireTooltips(qs('#crBody', modal), '.inv-seg, .report-bar');
   }
   function pdf(){
@@ -121,6 +130,17 @@ export async function cardReport(cardId){
     w.section('Por categoria');
     if (!d.catRows.length) w.text('Nenhuma compra no período.');
     else { w.header(['Categoria', 'Valor', '%'], [220, 140, 80]); d.catRows.forEach(function(x){ w.row([x.label, fmtMoney(x.value), pct(x.value, d.total) + '%'], [220, 140, 80]); }); }
+    // Detalhe: cada compra da categoria, dizendo de quem é (seu, de uma pessoa ou dividida).
+    if (d.catRows.length){
+      w.space(12); w.section('Detalhe das compras');
+      var DC = [62, 190, 150, 92];
+      d.catRows.forEach(function(x){
+        w.band(x.label + '  ·  ' + fmtMoney(x.value));
+        w.header(['Data', 'Compra', 'De quem', 'Valor'], DC);
+        x.items.forEach(function(t){ w.row([formatDateBr(t.date), (t.description || '-') + (t.installment ? ' ' + t.installment.n + '/' + t.installment.total : ''), whoOf(t), fmtMoney(amountOf(t))], DC); });
+        w.space(8);
+      });
+    }
     w.footer();
     saveFile('grana-leve-relatorio-' + c.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '.pdf', w.doc.output('blob'), 'application/pdf').then(function(){ toast('Relatório baixado.'); });
   }
@@ -161,6 +181,7 @@ export function renderWalletSummary(){
       '<div class="ws-box"><span class="tile-lbl">Sobra depois de pagar <button type="button" class="info-i" data-explain="devolver" aria-label="O que significam os dois valores?">i</button></span><span class="tile-sub">' +
       two('Se ninguém devolver', after, after < 0 ? 'neg-text' : 'pos-text', true) + two('Se te devolverem', afterMine, afterMine < 0 ? 'neg-text' : 'pos-text', true) + '</span></div>') : '') +
     '</div>' +
+    (showCards ? '<div class="ws-actions"><button type="button" class="btn btn-ghost btn-sm" data-allinv-pdf="0">PDF das faturas do mês</button><button type="button" class="btn btn-ghost btn-sm" data-allinv-pdf="1">PDF do mês que vem</button></div>' : '') +
     (showCards && next.total > 0 ? '<div class="ws-next"><span class="ws-next-title">Mês que vem · faturas de ' + monthLabelOf(next.key) + '</span>' +
       '<span class="ws-next-line">Já tem <strong class="tabular">' + fmtMoney(next.total) + '</strong> a pagar' + (next.mine < next.total - 0.004 ? ', dos quais <strong class="tabular">' + fmtMoney(next.mine) + '</strong> são seus' : '') + '</span>' +
       (cash !== null ? '<span class="ws-next-line">Se pagar tudo isso com o que sobra hoje: <strong class="tabular ' + (after - next.total < 0 ? 'neg-text' : 'pos-text') + '">' + fmtMoney(money(after - next.total)) + '</strong>' +

@@ -36,7 +36,7 @@ L.run(async ({page}) => {
   L.section('Futuro: previsão');
   await page.$eval('#dashNext', e => e.click()); await L.sleep(200);
   L.ok(/Previsão · próximo mês/.test(await txt('#dashNavBadge')), 'badge diz que é previsão');
-  L.ok(/Moradia.*R\$\s?900,00/.test(await txt('#donutWrap')) && /Inclui R\$\s?900,00 de contas fixas previstas/.test(await txt('#donutWrap')), 'a conta fixa (aluguel) entra na previsão do mês');
+  L.ok(/Moradia.*R\$\s?900,00/.test(await txt('#donutWrap')) && /Inclui R\$\s?900,00 de contas fixas que ainda vão cair/.test(await txt('#donutWrap')), 'a conta fixa (aluguel) entra na previsão do mês');
   L.ok(await page.$('#barWrap .bar-forecast') !== null && /previsão/.test(await txt('#barWrap .chart-note')), 'barras com parte hachurada (prevista)');
   L.ok(/ganhos R\$\s?600,00.*gastos R\$\s?900,00.*saldo.*-R\$\s?300,00|ganhos R\$\s?600,00.*gastos R\$\s?900,00/.test(await txt('#barWrap .chart-note')), 'resumo do mês: ganhos 600 (freela previsto), gastos 900');
   L.ok(/previsão/.test(await txt('#comparisonSummary')), 'comparação marca como previsão');
@@ -73,4 +73,16 @@ L.run(async ({page}) => {
   await page.click('[data-view-toggle="bar"]');
   await page.setViewport({width: 360, height: 760}); await L.sleep(200);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
+
+  L.section('Categoria clicável');
+  await page.click('#donutWrap li[data-cat-id="alimentacao"]'); await L.sleep(250);
+  let mtxt = await L.text(page, '#modalRoot');
+  L.ok(/Alimentação/.test(await L.modalTitle(page)) && /Mercado/.test(mtxt) && /R\$\s?400,00/.test(mtxt), 'tocar em Alimentação abre o que foi gasto nela (Mercado, 400)');
+  await L.closeModal(page);
+  await page.click('#donutWrap li[data-cat-id="moradia"]'); await L.sleep(250);
+  mtxt = await L.text(page, '#modalRoot');
+  L.ok(/Aluguel/.test(mtxt) && /conta fixa prevista/.test(mtxt), 'a conta fixa prevista aparece na categoria Moradia');
+  await L.closeModal(page);
+  L.ok(/Toque numa categoria/.test(await txt('#donutWrap')) && /contas fixas que ainda vão cair/.test(await txt('#donutWrap')), 'texto explica o que entra no gráfico (fixas previstas)');
+
 });

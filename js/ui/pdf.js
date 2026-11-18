@@ -29,6 +29,13 @@ export function pdfWriter(title, subtitle){
     cells.forEach(function(c,i){ doc.text(doc.splitTextToSize(String(c), widths[i]-8)[0] || '', x, w.y); x += widths[i]; });
     w.y += 17;
   };
+  // Faixa de destaque (nome do cartão): separa uma parte da outra com cor.
+  w.band = function(t){
+    ensure(36);
+    doc.setFillColor(232,240,236); doc.rect(marginX - 4, w.y - 12, pageW - 2 * marginX + 8, 20, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(20,70,50); doc.text(t, marginX, w.y + 2);
+    w.y += 22;
+  };
   w.text = function(t){ ensure(20); doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(90,90,85); doc.text(t, marginX, w.y); w.y += 20; };
   w.space = function(n){ w.y += n; };
   w.footer = function(){

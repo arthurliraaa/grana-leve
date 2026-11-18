@@ -76,6 +76,17 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   `myShare`/`othersShare`). Em "tudo", cada fatura aparece dividida nas duas partes, e há a
   tabela "Quanto é de cada pessoa" (na dividida, a parte da pessoa proporcional ao valor da parcela).
 
+- **Relatórios e PDFs**: no relatório do cartão, cada categoria abre e mostra as compras dela, dizendo se
+  a compra é sua, de uma pessoa ou dividida; o PDF traz o mesmo detalhe. O PDF da fatura tem as colunas
+  *Minha parte*, *Outras pessoas* e *Total*. Em “Contas e cartões”, “PDF das faturas do mês” (ou do mês
+  que vem) junta as faturas de todos os cartões que vencem no mês, com o resumo somando minha parte e a de
+  outras pessoas e o que sobra nas contas.
+- **Gráficos do Início**: tocar numa categoria (rosca, pizza, blocos, ranking ou tabela) abre os gastos
+  dela no mês, na mesma visão do gráfico (“Tudo” ou só a sua parte). Contas fixas que ainda vão cair
+  entram no gráfico e aparecem na lista como “conta fixa prevista”.
+- **Ganhos e gastos**: o aviso “Compras deste mês que entram em faturas seguintes” abre e fecha (a
+  escolha fica salva).
+
 ## Compras parceladas
 
 - Só compras no cartão são parceladas (até 24x). Cada parcela é um lançamento, uma por

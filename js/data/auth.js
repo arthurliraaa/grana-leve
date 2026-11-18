@@ -90,6 +90,17 @@ export function emailTypo(email){
   return best ? user + '@' + best : '';
 }
 
+// Dica de onde olhar quando o e-mail de confirmação não chega, conforme o provedor ('' se não há dica específica).
+// Hotmail/Outlook/Live/MSN costumam mandar mensagem de remetente novo para o Lixo Eletrônico.
+export function mailProviderTip(email){
+  var domain = String(email || '').trim().toLowerCase().split('@')[1] || '';
+  if (/^(hotmail|outlook|live|msn)\./.test(domain))
+    return 'No Outlook/Hotmail, olhe a pasta <strong>Lixo Eletrônico</strong> e a aba <strong>Outros</strong> da Caixa de Entrada. Se estiver lá, marque como “Não é lixo eletrônico”.';
+  if (/^(yahoo|ymail)\./.test(domain)) return 'No Yahoo, olhe a pasta <strong>Spam</strong>.';
+  if (/^(icloud|me|mac)\./.test(domain)) return 'No iCloud, olhe a pasta <strong>Lixo Eletrônico</strong>.';
+  return '';
+}
+
 // Intervalo entre pedidos de link por e-mail (nova senha, confirmação): o Supabase recusa um pedido
 // novo para o mesmo endereço antes do intervalo, e cada link novo invalida o anterior.
 var LINK_KEY = 'granaleve_link_sent_v1';

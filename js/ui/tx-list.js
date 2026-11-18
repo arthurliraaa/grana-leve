@@ -17,7 +17,7 @@ import {billMonth} from './bills.js';
 import {monthGridHtml, dayEventsHtml, yearHtml} from './calendar.js';
 import {Store} from '../data/store.js';
 
-import {setPref} from '../data/session.js';
+import {getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, csvCell, optionsHtml, icon, saveFile, toast, escapeHtml} from './dom.js';
 import {openModal} from './modal.js';
 import {PAYMENT_LABELS} from './constants.js';
@@ -317,7 +317,9 @@ function purchaseNotices(key){
       Tx.monthOf(t) !== key && (!t.installment || t.installment.n === 1);
   }));
   if (!list.length) return '';
-  return '<div class="purchase-notes"><p class="tiles-group">Compras deste mês que entram em faturas seguintes <span>não somam aqui</span></p>' +
+  var noteTotal = sum(list, function(t){ return t.installment ? Number(t.installment.totalAmount) : Number(t.amount); });
+  return '<details class="purchase-notes" data-notes-toggle' + (getPrefs().txNotesOpen === false ? '' : ' open') + '><summary class="tiles-group">Compras deste mês que entram em faturas seguintes <span>não somam aqui · ' +
+    list.length + (list.length === 1 ? ' compra' : ' compras') + ' · ' + fmtMoney(noteTotal) + '</span></summary>' +
     list.map(function(t){
       var c = findById(State.cards, t.cardId), inv = Cards.invoiceFor(t.date, c), n = t.installment ? t.installment.total : 1;
       var name = t.installment ? t.installment.baseDescription : (t.description || catLabel(t.category, 'expense'));
@@ -326,7 +328,7 @@ function purchaseNotices(key){
         '<div class="tx-meta">' + formatDateBr(t.purchaseDate || t.date) + ' · ' + escapeHtml(c ? 'Cartão ' + c.name : 'Cartão') + ' · ' +
         (n > 1 ? n + 'x de ' + fmtMoney(t.amount) + ' (' + fmtMoney(total) + ') · 1ª parcela' : 'entra') + ' na fatura de ' + inv.label + ' (vence ' + formatDateBr(inv.due) + ')</div></div>' +
         '<button class="tx-del tx-edit" type="button" data-edit-tx="' + escapeHtml(t.id) + '" aria-label="Editar compra" title="Editar">' + icon('edit') + '</button></div>';
-    }).join('') + '</div>';
+    }).join('') + '</details>';
 }
 export function renderTxCalendar(mb, tx, list){
   var days = {}, events = monthEvents(mb.key);
@@ -483,6 +485,7 @@ export function wireTransactions(){
   ['input', 'change'].forEach(function(ev){ document.getElementById('txDate').addEventListener(ev, populateInstallSelect); });
   document.getElementById('txIxWrap').addEventListener('input', populateInstallSelect);
   document.getElementById('txIxWrap').addEventListener('change', populateInstallSelect);
+  document.getElementById('txList').addEventListener('toggle', function(e){ if (e.target.matches && e.target.matches('[data-notes-toggle]')) setPref('txNotesOpen', e.target.open); }, true);
   document.getElementById('txSort').addEventListener('change', function(e){ setPref('txSort', e.target.value); });
   ['txSearch','txFilterType','txFilterPay','txSort','txFilterCat'].forEach(function(id){
     document.getElementById(id).addEventListener(id === 'txSearch' ? 'input' : 'change', renderTransactionsTab);
