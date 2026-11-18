@@ -386,7 +386,8 @@
             <section class="forecast-panel" id="forecastPanel" aria-labelledby="forecastTitle" hidden>
               <div class="forecast-head">
                 <h4 id="forecastTitle">Previsões de entrada <span class="month-lbl" id="forecastMonthLabel"></span></h4>
-                <p class="field-hint">O que você ainda espera receber neste mês (salário, freela, pagamento combinado). Quando o dinheiro cair, toque em “Recebi”. <span class="sal-line">É salário? <button type="button" class="linklike sal-link" data-salary-calc="fcAmount">Calcular o líquido do salário</button></span></p>
+                <p class="field-hint">O que você ainda espera receber neste mês (salário, freela, pagamento combinado). Quando o dinheiro cair, toque em “Recebi”. </p>
+                <div class="sal-callout"><svg class="ico" aria-hidden="true"><use href="#i-wallet"/></svg><span><strong>É salário?</strong> Veja quanto cai na conta depois dos descontos.</span><button type="button" class="btn btn-sm sal-btn" data-salary-calc="fcAmount">Calcular o líquido do salário</button></div>
               </div>
               <div id="forecastList"></div>
               <form id="forecastForm" class="inline-form">

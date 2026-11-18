@@ -2056,7 +2056,11 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 /* Calculadora de salário líquido */
 .sal-link{ margin-top:4px; font-size:.85rem; text-align:left; }
 .field-hint .sal-link{ margin:0; font-size:inherit; display:inline; }
-.sal-line{ display:block; margin-top:4px; }
+.sal-callout{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:10px 12px; border-radius:12px; background: var(--brand-tint); border:1px solid color-mix(in srgb, var(--brand) 35%, transparent); color: var(--brand-strong); font-size:.9rem; }
+.sal-callout .ico{ width:20px; height:20px; flex:none; }
+.sal-callout > span{ flex:1 1 220px; min-width:0; }
+.sal-btn{ background: var(--brand); color: var(--on-brand); border-color: var(--brand); font-weight:700; }
+.sal-btn:hover{ filter:brightness(1.08); }
 .sc-body{ display:grid; gap:12px; }
 .sc-grid{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px 12px; }
 .sc-grid .field[hidden], .sc-body [data-for][hidden]{ display:none; }
