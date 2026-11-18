@@ -47,7 +47,7 @@ function bodyHtml(){
     '</div>' +
     '<fieldset class="sc-disc"><legend>Ganhos além do salário <span class="opt">(opcional)</span></legend><div id="scBonusList" class="sc-list">' + bonuses.map(function(b){ return rowHtml('bonus', b); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-bonus>+ Adicionar ganho</button>' +
-      '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão pagam. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></fieldset>' +
+      '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão em dinheiro pagam; a bonificação recebida em vales ou cartão benefício não tem desconto. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></fieldset>' +
     '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
       '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo.</p></fieldset>' +

@@ -91,6 +91,9 @@ test('ganhos além do salário: auxílio e ajuda de custo não pagam imposto; bo
   assert.equal(mes.hasVariable, true);
   assert.equal(mes.net, 3781.4);
   assert.equal(mes.fixedNet, 2901.4, 'a bonificação (varia) só entra no líquido do mês');
+  const vale = netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'bonificacao-vale', mode: 'fixed', value: 500, varies: true}]});
+  assert.equal(vale.net, 3251.4, 'bonificação em vales entra inteira, sem INSS nem imposto');
+  assert.equal(vale.fixedNet, 2751.4, 'e como varia, fica fora do fixo');
   assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'pct', value: 10}]}).net, 3051.4, 'também em % do salário');
   assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150, taxable: true}]}).net, 2901.4 - 18, 'dá para marcar que paga imposto (INSS de 12% sobre os 150)');
 });
