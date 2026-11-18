@@ -13,20 +13,22 @@ L.run(async ({page}) => {
   await page.$eval('[data-budget-cat="alimentacao"]', el => el.blur()); await L.sleep(300);
   L.ok(!!(await page.$('.budget-chart svg')), 'com limite definido, a aba mostra o gráfico de evolução do mês');
   await L.addTx(page, {amount: 850, desc: 'Mercado', category: 'alimentacao'});
-  L.ok(await page.$eval('#budgetAlerts', e => e.hidden), 'com 85% ainda não há aviso');
+  L.ok(!(await page.$('#modalRoot .ba-list')), 'com 85% ainda não há aviso');
   await L.addTx(page, {amount: 60, desc: 'Padaria', category: 'alimentacao'});
-  await L.tab(page, 'dashboard');
-  const t1 = await L.text(page, '#budgetAlerts');
-  L.ok(!(await page.$eval('#budgetAlerts', e => e.hidden)) && /Alimentação/.test(t1) && /91%/.test(t1) && /Restam R\$\s?90,00/.test(t1), 'com 91% aparece o aviso no Início: restam R$ 90');
-  await L.tab(page, 'metas');
-  L.ok(!(await page.$eval('#budgetAlerts', e => e.hidden)), 'o aviso aparece também em outras telas (Metas)');
+  await L.sleep(300);
+  const t1 = await L.text(page, '#modalRoot');
+  L.ok(/Perto do limite do planejamento/.test(await L.modalTitle(page)) && /Alimentação/.test(t1) && /restam R\$\s?90,00 · 91%/.test(t1), 'com 91% abre um popup: perto do limite, restam R$ 90');
+  await L.closeModal(page);
+  L.ok(!(await page.$('#budgetAlerts')), 'não há faixa fixa na tela');
+  await L.tab(page, 'dashboard'); await L.tab(page, 'metas'); await L.sleep(300);
+  L.ok(await page.$eval('#modalRoot', e => e.hidden), 'depois de fechado, o aviso não volta sozinho');
 
-  L.section('Dispensar e passar do limite');
-  await page.click('[data-budget-dismiss]'); await L.sleep(150);
-  L.ok(await page.$eval('#budgetAlerts', e => e.hidden), 'dispensar esconde o aviso');
+  L.section('Passar do limite avisa de novo');
   await L.addTx(page, {amount: 150, desc: 'Jantar', category: 'alimentacao'});
-  const t2 = await L.text(page, '#budgetAlerts');
-  L.ok(!(await page.$eval('#budgetAlerts', e => e.hidden)) && /passou R\$\s?60,00 do planejado/.test(t2), 'passando do limite o aviso volta (passou R$ 60)');
+  await L.sleep(300);
+  const t2 = await L.text(page, '#modalRoot');
+  L.ok(/Atenção ao planejamento/.test(await L.modalTitle(page)) && /passou R\$\s?60,00 · 106%/.test(t2), 'passando do limite abre outro popup (passou R$ 60)');
+  await L.closeModal(page);
 
   L.section('Gráfico de evolução');
   await L.tab(page, 'limites');

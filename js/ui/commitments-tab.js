@@ -66,18 +66,30 @@ export function renderDebts(){
     if (!groups[key]){ groups[key] = {name: name, list: []}; order.push(key); }
     groups[key].list.push(d);
   });
-  if (order.length === 1 && order[0] === ''){ grid.innerHTML = debts.map(debtCardHtml).join(''); return; }
+  if (order.length === 1 && order[0] === ''){ grid.innerHTML = listWithDone(debts, function(d){ return debtLeft(d) <= 0; }, debtCardHtml, 'Dívidas pagas', 'debt:', grid); return; }
   order.sort(function(a, b){ return (a === '') - (b === ''); });
   grid.innerHTML = order.map(function(key){
     var g = groups[key], open = g.list.filter(function(d){ return debtLeft(d) > 0; }), left = sumMoney(open, debtLeft);
     var meta = g.list.length + (g.list.length === 1 ? ' dívida' : ' dívidas') + (open.length ? ' · ' + open.length + ' em aberto' : ' · tudo pago');
     if (!key) return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="Dívidas sem nome de quem cobra">' +
       personHead('', meta + ' · toque em ⋯ e em Editar para dizer a quem você deve', 'Você deve', left) +
-      '<div class="debt-grid person-items">' + g.list.map(debtCardHtml).join('') + '</div></section>';
+      '<div class="debt-grid person-items">' + listWithDone(g.list, function(d){ return debtLeft(d) <= 0; }, debtCardHtml, 'Dívidas pagas', 'debt:' + key, grid) + '</div></section>';
     return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="Você deve a ' + escapeHtml(g.name) + '">' +
       personHead(g.name, meta, open.length ? 'Você deve a ' + escapeHtml(g.name) : 'Tudo pago', open.length ? left : sumMoney(g.list, function(d){ return d.totalAmount; })) +
-      '<div class="debt-grid person-items">' + g.list.map(debtCardHtml).join('') + '</div></section>';
+      '<div class="debt-grid person-items">' + listWithDone(g.list, function(d){ return debtLeft(d) <= 0; }, debtCardHtml, 'Dívidas pagas', 'debt:' + key, grid) + '</div></section>';
   }).join('');
+}
+// Itens já pagos/recebidos ficam recolhidos num bloco “Pagas”/“Recebidos”; a pessoa abre se quiser (a escolha
+// vale até recarregar). Os em aberto vêm primeiro.
+function listWithDone(list, isDone, cardFn, label, stateKey, grid){
+  State.doneOpen = State.doneOpen || {};
+  if (grid && !grid._doneWired){
+    grid._doneWired = true;
+    grid.addEventListener('toggle', function(e){ var d = e.target; if (d.matches && d.matches('[data-done-key]')) State.doneOpen[d.getAttribute('data-done-key')] = d.open; }, true);
+  }
+  var open = list.filter(function(x){ return !isDone(x); }), done = list.filter(isDone);
+  return open.map(cardFn).join('') + (done.length ? '<details class="done-items" data-done-key="' + escapeHtml(stateKey) + '"' + (State.doneOpen[stateKey] ? ' open' : '') + '><summary>' +
+    label + ' (' + done.length + ')</summary><div class="debt-grid">' + done.map(cardFn).join('') + '</div></details>' : '');
 }
 function debtCardHtml(d){
   var remaining = debtLeft(d);
@@ -370,7 +382,7 @@ export function renderReceivables(){
     return '<section class="person-group' + (open.length ? '' : ' all-done') + '" aria-label="' + escapeHtml(g.name) + ' te deve">' +
       personHead(g.name, meta, open.length ? escapeHtml(g.name) + ' te deve' : 'Tudo recebido', open.length ? left : sumMoney(g.list, function(r){ return r.totalAmount; }),
         open.length > 1 ? '<button class="btn btn-primary btn-sm" type="button" data-recv-get-all="' + escapeHtml(key) + '">Registrar tudo</button><button class="btn btn-ghost btn-sm" type="button" data-recv-charge-all="' + escapeHtml(key) + '">' + icon('chat') + 'Cobrar tudo</button>' : '') +
-      '<div class="debt-grid person-items">' + g.list.map(recvCardHtml).join('') + '</div></section>';
+      '<div class="debt-grid person-items">' + listWithDone(g.list, function(r){ return r.forgiven || recvRemaining(r) <= 0; }, recvCardHtml, 'Recebidos', 'recv:' + key, grid) + '</div></section>';
   }).join('');
   if (State.receivables.some(function(r){ return !r.forgiven && recvBehind(r); })) setTimeout(autoSyncReceivables, 0);
 }

@@ -25,4 +25,11 @@ L.run(async ({page}) => {
   await L.submitModal(page); await L.sleep(400);
   L.ok(JSON.stringify(await recvd()) === JSON.stringify([100, 50, 80]), 'registrou os três de uma vez');
   L.ok(/Recebido/.test(await L.text(page, '#recvGrid')), 'cartões ficam como recebidos');
+
+  L.section('Quitados ficam recolhidos');
+  L.ok(await page.$$eval('#recvGrid .done-items', ds => ds.length > 0 && ds.every(d => !d.open)), 'os recebidos ficam recolhidos num bloco “Recebidos”');
+  await page.click('#recvGrid .done-items > summary'); await L.sleep(150);
+  L.ok(await page.$eval('#recvGrid .done-items', d => d.open) && /Pizza|Empréstimo|Ingresso/.test(await L.text(page, '#recvGrid .done-items[open]')), 'abrir mostra os itens');
+  await L.tab(page, 'dashboard'); await L.tab(page, 'receber');
+  L.ok(await page.$eval('#recvGrid .done-items', d => d.open), 'a escolha de abrir é lembrada ao voltar');
 });

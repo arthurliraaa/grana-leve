@@ -33,7 +33,7 @@ import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkPro
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf, generateAllInvoicesPdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions} from './state.js';
-import {advanceInstallments, openTxModal, renderBudgetAlerts} from './tx-edit.js';
+import {advanceInstallments, openTxModal, showBudgetPopup} from './tx-edit.js';
 import {TX_SORTS, populateCategorySelect, populateInstallSelect, populatePaymentSelect, renderTransactionsTab, syncTxFormVisibility} from './tx-list.js';
 
 /* ============ Excluir lançamento com itens ligados ============ */
@@ -178,7 +178,6 @@ export function renderAll(){
   renderCards();
   renderVouchers();
   renderBudgets();
-  renderBudgetAlerts();
   renderGoals();
   renderDebts();
   renderReceivables();
@@ -337,6 +336,8 @@ export async function enterApp(profileHint){
   State.navReady = true;
   // Contas fixas cujo dia chegou entram sozinhas em Ganhos e gastos.
   if (await runAutoBills()) renderAll();
+  // Planejamento: categorias que já estavam perto do limite ou passaram avisam uma vez, num popup.
+  setTimeout(function(){ showBudgetPopup(null); }, 1200);
   // Abriu por um link de cobrança: mostra para aceitar antes das boas-vindas.
   if (await acceptPendingCharge()) return;
   // Cobranças compartilhadas: novidades da outra pessoa (pagamentos, confirmações).

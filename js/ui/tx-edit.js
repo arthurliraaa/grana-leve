@@ -8,18 +8,18 @@ import {findById} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
 import {CUSTOM_COLORS} from '../domain/categories.js';
 import * as Tx from '../domain/transactions.js';
-import {clampInstall, isPersonal, reversalsOf, myShare} from '../domain/transactions.js';
+import {clampInstall, isPersonal, reversalsOf} from '../domain/transactions.js';
 import * as Cards from '../domain/cards.js';
 import {invoiceKeyFor, invoiceLabel} from '../domain/cards.js';
 import {Store} from '../data/store.js';
-import {NEAR_LIMIT, budgetAlerts} from '../domain/budgets.js';
+import {budgetAlerts} from '../domain/budgets.js';
 import {getPrefs, setPref} from '../data/session.js';
 
 import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast, toastAction} from './dom.js';
 import {openModal} from './modal.js';
 import {openQuickEntry} from './chat.js';
 import {paymentLabel} from './home-tab.js';
-import {renderAll} from './shell.js';
+import {renderAll, showTab} from './shell.js';
 import {State, accountName, budgetLimit, catBadge, catLabel, catOptions, categoryNameProblem, categorySelectHtml, wireCategorySuggestion, expandInstallments, expenseCategoryTotals, expenseCats, incomeCats, installmentGroups, invoiceStatus, k, sortTransactions} from './state.js';
 import {accountSelectHtml, addCategory, applyPayment, cardIdOf, installExtrasHtml, installStepperHtml, installSummary, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
 
@@ -456,54 +456,42 @@ export async function saveTransactions(list){
   return saved;
 }
 
-// Avisa na hora quando um gasto do mês atual faz a categoria chegar perto do limite (90%) ou passar do planejado.
-// O aviso aparece como mensagem e fica também na faixa de alertas, visível em qualquer tela.
+// Aviso do planejamento: um popup (não fica na tela) quando uma categoria do mês chega perto do limite (90%) ou passa
+// dele. Cada categoria avisa uma vez por nível no mês (perto → passou); fechar o popup basta, ele não volta sozinho.
+// Dispara depois de um gasto novo e uma vez ao abrir o app (para o que já estava perto).
 export function checkBudgetAlerts(newTx){
-  var cur = monthBounds(0).key, added = {};
-  newTx.forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && Tx.monthOf(t) === cur) added[t.category] = (added[t.category]||0) + myShare(t); });
-  var spentNow = expenseCategoryTotals(cur);
-  Object.keys(added).forEach(function(cat){
-    var limit = budgetLimit(cur, cat);
-    if (!limit) return;
-    var after = spentNow[cat] || 0, before = after - added[cat];
-    var name = catLabel(cat, 'expense');
-    if (after > limit && before <= limit){
-      toast('Atenção: você passou ' + fmtMoney(after - limit) + ' do planejado para ' + name + ' neste mês.');
-    } else if (after >= NEAR_LIMIT * limit && before < NEAR_LIMIT * limit && after <= limit){
-      toast('Perto do limite: você já usou ' + Math.round(100 * after / limit) + '% do planejado para ' + name + '. Restam ' + fmtMoney(limit - after) + '.');
-    }
-  });
-  renderBudgetAlerts();
+  var cur = monthBounds(0).key, touched = {};
+  (newTx || []).forEach(function(t){ if (t.type === 'expense' && isPersonal(t) && Tx.monthOf(t) === cur) touched[t.category] = true; });
+  if (Object.keys(touched).length) showBudgetPopup(touched);
 }
-// Faixa de alertas do planejamento (qualquer tela): categorias do mês a partir de 90% do limite ou acima dele.
-// “Dispensar” esconde o aviso daquela categoria neste mês; ele volta se passar do limite.
-var alertsWired = false;
-export function renderBudgetAlerts(){
-  var el = document.getElementById('budgetAlerts');
-  if (!el) return;
-  var cur = monthBounds(0).key, seen = (getPrefs().budgetAlertSeen || {})[cur] || {};
+// only: categorias a considerar ({id: true}); sem isso, todas (abertura do app).
+export function showBudgetPopup(only, tries){
+  var root = document.getElementById('modalRoot');
+  if (!State.session || !root) return;
+  // Já tem um popup aberto: espera um pouco em vez de fechar o outro.
+  if (!root.hidden){ if ((tries || 0) < 20) setTimeout(function(){ showBudgetPopup(only, (tries || 0) + 1); }, 400); return; }
+  var cur = monthBounds(0).key, prefs = getPrefs().budgetAlertSeen || {}, seen = prefs[cur] || {};
   var plan = {};
   expenseCats().forEach(function(c){ var l = budgetLimit(cur, c.id); if (l > 0) plan[c.id] = l; });
-  var alerts = State.session ? budgetAlerts(expenseCategoryTotals(cur), plan).filter(function(x){ return seen[x.cat] !== x.level; }) : [];
-  el.hidden = !alerts.length;
-  if (!alertsWired){
-    alertsWired = true;
-    el.addEventListener('click', function(e){
-      var b = e.target.closest('[data-budget-dismiss]');
-      if (!b) return;
-      var parts = b.getAttribute('data-budget-dismiss').split(':'), prefs = getPrefs().budgetAlertSeen || {}, key = monthBounds(0).key;
-      prefs[key] = Object.assign({}, prefs[key] || {}); prefs[key][parts[0]] = parts[1];
-      setPref('budgetAlertSeen', prefs);
-      renderBudgetAlerts();
-    });
-  }
-  el.innerHTML = alerts.map(function(x){
-    var name = escapeHtml(catLabel(x.cat, 'expense'));
-    return '<div class="ba-item ' + x.level + '"><span class="ba-txt">' + icon('gauge') + (x.level === 'over' ?
-        '<strong>' + name + '</strong> passou ' + fmtMoney(x.spent - x.limit) + ' do planejado (' + Math.round(x.pct * 100) + '%).' :
-        '<strong>' + name + '</strong> está em ' + Math.round(x.pct * 100) + '% do planejado. Restam ' + fmtMoney(x.limit - x.spent) + '.') + '</span>' +
-      '<span class="ba-act"><a href="#/limites" data-go="limites">Ver planejamento</a><button type="button" class="linklike" data-budget-dismiss="' + x.cat + ':' + x.level + '">Dispensar</button></span></div>';
-  }).join('');
+  var alerts = budgetAlerts(expenseCategoryTotals(cur), plan).filter(function(x){ return (!only || only[x.cat]) && seen[x.cat] !== x.level; });
+  if (!alerts.length) return;
+  // Marca como avisado já: o popup aparece uma vez por nível.
+  var next = {}; Object.keys(prefs).forEach(function(m){ if (m >= cur) next[m] = prefs[m]; });
+  next[cur] = Object.assign({}, seen);
+  alerts.forEach(function(x){ next[cur][x.cat] = x.level; });
+  setPref('budgetAlertSeen', next);
+  var over = alerts.filter(function(x){ return x.level === 'over'; }).length;
+  openModal({
+    title: over ? 'Atenção ao planejamento' : 'Perto do limite do planejamento',
+    submitLabel: 'Ver planejamento', cancelLabel: 'Fechar',
+    body: '<p class="field-hint">Categorias deste mês que chegaram a 90% do planejado ou passaram dele:</p><ul class="ba-list">' + alerts.map(function(x){
+      var pct = Math.round(x.pct * 100);
+      return '<li class="ba-row ' + x.level + '"><span class="ba-name">' + icon('gauge') + escapeHtml(catLabel(x.cat, 'expense')) + '</span>' +
+        '<span class="tabular ba-val">' + (x.level === 'over' ? 'passou ' + fmtMoney(x.spent - x.limit) : 'restam ' + fmtMoney(x.limit - x.spent)) + ' · ' + pct + '%</span>' +
+        '<span class="ba-bar"><span style="width:' + Math.min(100, pct) + '%"></span></span></li>';
+    }).join('') + '</ul>',
+    onSubmit: function(){ return {go: true}; }
+  }).then(function(r){ if (r && r.go) showTab('limites'); });
 }
 export function installmentRowHtml(g, withCard){
   var pct = g.total > 0 ? g.done / g.total : 0;

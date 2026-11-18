@@ -63,8 +63,9 @@ L.run(async ({page}) => {
 
   L.section('Aviso de planejamento usa o valor do mês');
   await L.addTx(page, {amount: 640, category: 'alimentacao'});
-  const toasts = await L.allToasts(page);
-  L.ok(/Perto do limite: você já usou 91% do planejado para Alimentação/.test(toasts), 'aviso de 91% (perto do limite) com o limite de 700');
+  await L.sleep(1200);
+  L.ok(/Alimentação/.test(await L.text(page, '#modalRoot')) && /91%/.test(await L.text(page, '#modalRoot')), 'popup de aviso a 91% (perto do limite) com o limite de 700');
+  await L.closeModal(page);
 
   L.section('Nova categoria pelo Planejar gastos');
   await L.tab(page, 'limites');
