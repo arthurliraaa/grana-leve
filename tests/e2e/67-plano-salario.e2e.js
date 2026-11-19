@@ -59,6 +59,13 @@ L.run(async ({page}) => {
   L.ok(/Reajuste em dezembro\/2026/.test(await L.text(page, '.sp-raises')) && /\+10%/.test(await L.text(page, '.sp-raises')), 'o reajuste aparece na evolução (+10%)');
   await L.closeModal(page);
 
+  L.section('Outro aparelho');
+  await page.evaluate(key => { const k = 'granaleve_prefs_' + key; const cur = JSON.parse(localStorage.getItem(k) || '{}'); delete cur.workProfile; localStorage.setItem(k, JSON.stringify(cur)); }, email.toLowerCase());
+  await L.reload(page); await L.sleep(300);
+  await page.$eval('[data-salary-open]', e => e.click()); await L.sleep(300);
+  L.ok(/Salário bruto R\$\s?3\.300,00/.test(await L.text(page, '#spCalc')), 'sem o perfil neste aparelho, ele volta da previsão (que sincroniza com a conta): salário bruto de R$ 3.300,00');
+  await L.closeModal(page);
+
   L.section('Celular');
   await page.setViewport({width: 360, height: 760}); await L.sleep(150);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');

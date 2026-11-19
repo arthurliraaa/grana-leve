@@ -14,9 +14,19 @@ import {openModal, confirmAction} from './modal.js';
 import {State, k, forecastOccurrences, sortTransactions} from './state.js';
 import {accountSelectHtml, renderTransactionsTab} from './tx-list.js';
 import {renderDashboard} from './home-tab.js';
-import {openSalaryCalculator, savedSalary} from './salary-calc.js';
+import {openSalaryCalculator, savedSalary, getWorkProfile, setWorkProfile} from './salary-calc.js';
 
 export function salaryForecast(){ return State.forecasts.filter(function(f){ return f.salary && f.salary.rule; })[0] || null; }
+
+// O perfil da calculadora vive no aparelho (preferências), mas a previsão do salário sincroniza com a conta: ela leva uma
+// cópia do perfil (plan.profile). Em outro aparelho, ou depois de limpar o navegador, a cópia mais nova volta para as preferências.
+export function hydrateSalaryProfile(){
+  var f = salaryForecast(), remote = f && f.salary.profile;
+  if (!remote || !(Number(remote.gross) > 0)) return;
+  var local = getWorkProfile();
+  if (!(Number(local.gross) > 0) || (Number(remote.updatedAt) || 0) > (Number(local.updatedAt) || 0)) setWorkProfile(remote);
+}
+function withProfile(plan){ return Object.assign({}, plan, {profile: getWorkProfile()}); }
 
 // Próximo salário a confirmar: o mês mais antigo (anterior ou atual) cuja data já chegou e que ainda não foi recebido.
 export function salaryDue(){
@@ -50,7 +60,7 @@ async function registerSalary(due, res){
   var r = res.res, received = Object.assign({}, f.received || {}); received[key] = res.net;
   var plan = Object.assign({}, f.salary, {months: Object.assign({}, f.salary.months || {})});
   plan.months[key] = {gross: r.gross, net: res.net, extras: money(r.extras + r.bonuses), discounts: r.discounts, fgts: r.fgts || 0, date: date};
-  var before = f.salary.steps || [], next = withStep(plan, key, r.gross, r.fixedNet);
+  var before = f.salary.steps || [], next = withProfile(withStep(plan, key, r.gross, r.fixedNet));
   await Store.update(k(), 'forecasts', f.id, {received: received, salary: next});
   f.received = received; f.salary = next;
   renderDashboard(); renderTransactionsTab();
@@ -60,6 +70,7 @@ async function registerSalary(due, res){
 
 // Pergunta se o salário já caiu: abre a calculadora com os valores guardados, para a pessoa acrescentar o que mudou no mês.
 export async function confirmSalary(due){
+  hydrateSalaryProfile();
   due = due || salaryDue();
   if (!due) return false;
   var today = todayKey(), f = due.f, key = due.key || monthKeyOf(due.occ.date);
@@ -85,6 +96,7 @@ export function askSalaryIfDue(){
 export function renderSalaryCard(){
   var el = document.getElementById('salaryCard');
   if (!el) return;
+  hydrateSalaryProfile();
   var plan = salaryForecast(), calc = savedSalary(), due = salaryDue(), html = '';
   if (due){
     html = '<div class="salary-card-text"><strong>Seu salário deveria ter caído ' + (due.occ.date === todayKey() ? 'hoje' : 'em ' + formatDateBr(due.occ.date)) + '.</strong> Previsto ' + fmtMoney(due.occ.f.amount) + '. Já caiu? Confirme os valores do mês, com o que variou.</div>' +
@@ -127,6 +139,7 @@ function readRule(form){
 }
 
 export async function openSalaryPlan(presetRule){
+  hydrateSalaryProfile();
   var f = salaryForecast(), calc = savedSalary();
   var calcHtml = function(c){ return c ? '<p><strong>Salário bruto ' + fmtMoney(c.gross) + '</strong> · líquido fixo estimado <strong>' + fmtMoney(c.fixedNet) + '</strong> por mês.</p>' : '<p class="field-hint">Antes, calcule o seu líquido: ele é o valor que vai aparecer como previsão todo mês.</p>'; };
   var r = await openModal({
@@ -160,12 +173,12 @@ export async function openSalaryPlan(presetRule){
   if (f){
     // Mudou o salário ou o líquido: vale a partir deste mês, ou do próximo se o deste mês já foi recebido (o recebido não muda).
     var from = f.received && f.received[cur] !== undefined ? shiftMonthKey(cur, 1) : cur;
-    var plan = withStep(Object.assign({}, f.salary, {rule: r.rule}), from, c.gross, c.fixedNet);
+    var plan = withProfile(withStep(Object.assign({}, f.salary, {rule: r.rule}), from, c.gross, c.fixedNet));
     await Store.update(k(), 'forecasts', f.id, {salary: plan, date: payDate(r.rule, monthKeyOf(f.date))});
     f.salary = plan; f.date = payDate(r.rule, monthKeyOf(f.date));
   } else {
     var doc = {description: 'Salário', amount: c.fixedNet, date: payDate(r.rule, cur), recurring: true, category: 'salario', received: {}, createdAt: Date.now(),
-      salary: {rule: r.rule, steps: [{from: cur, gross: c.gross, net: c.fixedNet}], months: {}}};
+      salary: {rule: r.rule, steps: [{from: cur, gross: c.gross, net: c.fixedNet}], months: {}, profile: getWorkProfile()}};
     var saved = await Store.add(k(), 'forecasts', doc);
     State.forecasts.push(saved);
   }

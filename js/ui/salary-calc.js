@@ -15,6 +15,10 @@ var GROSS_LABEL = {clt: 'Salário bruto (o da carteira)', servidor: 'Salário br
   pj: 'Quanto a empresa fatura por mês', estagio: 'Valor da bolsa', outro: 'Valor bruto por mês'};
 
 function profile(){ return getPrefs().workProfile || {}; }
+// O perfil (salário, descontos, ganhos) também viaja dentro da previsão do salário, para aparecer em outro aparelho:
+// quem sincroniza chama estas duas funções (ver salary-plan.js).
+export function getWorkProfile(){ return profile(); }
+export function setWorkProfile(p){ setPref('workProfile', p); }
 function num(v){ var n = Number(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')); return isFinite(n) ? n : 0; }
 function typesOf(kind){ return kind === 'bonus' ? BONUS_TYPES : DISCOUNT_TYPES; }
 function metaOf(kind, id){ return typesOf(kind).filter(function(t){ return t.id === id; })[0] || {}; }
@@ -170,7 +174,7 @@ function extraHtml(t, v){
 // O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela
 // só fechar a calculadora. Os dias de uso do vale-transporte não ficam: mudam todo mês.
 function saveProfile(o){
-  setPref('workProfile', {regime: o.regime, gross: Number(o.gross) || 0, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct,
+  setPref('workProfile', {updatedAt: Date.now(), regime: o.regime, gross: Number(o.gross) || 0, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct,
     discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses});
 }
 

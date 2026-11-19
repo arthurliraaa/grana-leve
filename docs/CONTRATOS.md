@@ -172,7 +172,9 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 O salário previsto todo mês é uma previsão de entrada (`forecasts`) com o campo `salary`; as datas e os valores de cada mês
 saem de `forecastOccurrences`. Contas puras, sem feriados (a pessoa corrige a data ao confirmar).
 ```js
-// forecast.salary = {rule, steps: [{from: 'AAAA-MM', gross, net}], months: {'AAAA-MM': {gross, net, extras, discounts, fgts, date}}}
+// forecast.salary = {rule, steps: [{from: 'AAAA-MM', gross, net}], months: {'AAAA-MM': {gross, net, extras, discounts, fgts, date}}, profile}
+// profile = cópia do perfil da calculadora (prefs.workProfile, com updatedAt): sincroniza com a conta; hydrateSalaryProfile() traz
+// a cópia mais nova de volta para as preferências deste aparelho
 // rule: {type: 'day', day} | {type: 'workday', n, saturday}   (sábado conta como dia útil: Súmula 381 do TST; domingo nunca)
 nthWorkday(ano, mês0a11, n, sábado) -> dia do mês
 payDate(rule, 'AAAA-MM') -> 'AAAA-MM-DD'      // dia fixo cai no último dia do mês curto

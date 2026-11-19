@@ -1,7 +1,8 @@
 /*
  * Plano do salário: quando ele cai (dia do mês ou enésimo dia útil), quanto vale em cada mês (com reajustes) e a
  * evolução do que foi recebido. Fica dentro de uma previsão de entrada (forecast.salary):
- *   salary: {rule, steps: [{from: 'AAAA-MM', gross, net}], months: {'AAAA-MM': {gross, net, extras, discounts, fgts, date}}}
+ *   salary: {rule, steps: [{from: 'AAAA-MM', gross, net}], months: {'AAAA-MM': {gross, net, extras, discounts, fgts, date}}, profile}
+ *   profile: cópia do perfil da calculadora (salário, descontos, ganhos), para aparecer em outro aparelho
  *   rule: {type: 'day', day: 15} | {type: 'workday', n: 5, saturday: true}
  * Contas puras. Feriados não são conhecidos: a pessoa corrige a data na hora de confirmar que o dinheiro caiu.
  */
