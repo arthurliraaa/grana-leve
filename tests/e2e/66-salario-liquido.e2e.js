@@ -81,6 +81,20 @@ L.run(async ({page}) => {
   L.ok(/Líquido fixo \(todo mês\)[\s\S]*R\$\s?2\.811,40/.test(r) && /Líquido deste mês\s*R\$\s?3\.691,40/.test(r), 'a bonificação entra só no líquido do mês (3.691,40); o fixo continua 2.811,40');
   await page.$eval('#scBonusList .sc-disc-row:nth-child(2) .sc-d-del', e => e.click()); await L.sleep(250);
 
+  L.section('13º salário e férias');
+  L.ok(await page.$eval('.sc-extra', e => !e.hidden) && /13º/.test(await L.text(page, '#scExtraSum')), 'em CLT há “13º salário e férias”, com o resumo no título');
+  await page.$eval('.sc-extra summary', e => e.click()); await L.sleep(200);
+  const ex = await L.text(page, '#scExtraRes');
+  L.ok(/1ª parcela \(até 30\/11\)[^R]*R\$\s?[\d.]+,\d\d/.test(ex) && /Líquido do 13º\s*R\$\s?[\d.]+,\d\d/.test(ex), 'mostra a 1ª parcela (sem descontos) e a 2ª (com INSS e imposto) do 13º');
+  L.ok(/Férias \(30 dias\)/.test(ex) && /1\/3 constitucional/.test(ex), 'mostra as férias com o terço constitucional');
+  await page.$eval('input[name=vs]', e => e.click()); await L.sleep(250);
+  L.ok(/Abono pecuniário/.test(await L.text(page, '#scExtraRes')) && /Férias \(20 dias\)/.test(await L.text(page, '#scExtraRes')), 'vender 10 dias soma o abono (sem desconto) e deixa 20 dias para gozar');
+  await page.$eval('input[name=vs]', e => e.click());
+  await page.type('#scTM', '6'); await L.sleep(250);
+  L.ok(/13º bruto \(6\/12\)/.test(await L.text(page, '#scExtraRes')), 'com 6 meses trabalhados o 13º é proporcional (6/12)');
+  await page.$eval('#scTM', e => { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); });
+  await page.$eval('.sc-extra summary', e => e.click()); await L.sleep(150);
+
   L.section('Horas extras e repouso');
   await page.type('#scH50', '10'); await page.type('#scH100', '4'); await L.sleep(250);
   r = await net();
@@ -117,6 +131,12 @@ L.run(async ({page}) => {
   L.ok(await page.$eval('#scRegime', e => e.value) === 'clt' && await page.$eval('#scDiscList .sc-d-value', e => e.value) === '3', 'o jeito de trabalhar e os descontos ficam salvos para a próxima vez');
   L.ok(/^3\.?000/.test(await page.$eval('#scGross', e => e.value)), 'o salário bruto também já vem preenchido');
   await L.closeModal(page);
+
+  L.section('Usar o 13º');
+  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
+  await page.$eval('.sc-extra summary', e => e.click()); await L.sleep(200);
+  await page.$eval('[data-use=third1]', e => e.click()); await L.sleep(400);
+  L.ok(Number(await page.$eval('#fcAmount', e => e.value)) === 1500, '“Usar a 1ª parcela” preenche metade do 13º (R$ 1.500,00)');
 
   L.section('Simulador e formulário de ganho');
   await page.$eval('#segbtn-simular', e => e.click()); await L.sleep(300);

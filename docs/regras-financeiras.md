@@ -118,7 +118,7 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   plano de saúde, pensão, consignado…), em R$ ou %, e cada um pode ser marcado como “varia todo mês” (o
   vale-transporte, por exemplo, costuma ser bem menos que 6%). Só o salário e os descontos que não variam são
   fixos: o “líquido fixo” é o que vira o salário fixo; horas extras, ganhos e descontos que variam (bonificação, adiantamento…) entram só no
-  líquido do mês em que acontecem. O FGTS (8% da remuneração, só CLT) é depositado pela empresa: aparece
+  líquido do mês em que acontecem. O 13º salário (1ª parcela metade, sem descontos; INSS e imposto só na 2ª, sobre o 13º inteiro e à parte do salário) e as férias (dias + 1/3 constitucional, com a opção de vender 10 dias sem desconto) aparecem à parte, em estimativas separadas, só para CLT e servidor, e a média mensal de extras entra neles. O FGTS (8% da remuneração, só CLT) é depositado pela empresa: aparece
   como informação e nunca entra no líquido. As tabelas são de 2026 e precisam ser conferidas todo ano.
 
 - **Meu salário (previsão mensal)**: o líquido fixo calculado vira uma previsão de entrada que se repete todo mês, no dia

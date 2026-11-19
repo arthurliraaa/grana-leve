@@ -6,7 +6,7 @@
  * As contas ficam em js/domain/salary.js.
  */
 import {fmtMoney} from '../domain/money.js';
-import {netSalary, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
+import {netSalary, thirteenth, vacation, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
 import {openModal} from './modal.js';
@@ -75,6 +75,13 @@ function bodyHtml(){
       '<div class="field"><label for="scWork">Dias de trabalho no mês</label><input id="scWork" name="work" type="number" min="1" max="31" step="1" placeholder="25"></div>' +
       '<div class="field"><label for="scRest">Domingos e feriados (repouso)</label><input id="scRest" name="rest" type="number" min="0" max="12" step="1" placeholder="5"></div></div>' +
       '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o repouso semanal remunerado (DSR) sobre as horas extras</label></fieldset>' +
+    '<details class="sc-extra" data-for="clt,servidor"><summary>13º salário e férias <span class="opt" id="scExtraSum"></span></summary><div class="sc-extra-body">' +
+      '<div class="sc-grid"><div class="field"><label for="scTM">Meses trabalhados no ano (13º)</label><input id="scTM" name="tm" type="number" min="0" max="12" step="1" placeholder="12"></div>' +
+      '<div class="field"><label for="scVA">Média mensal de extras e adicionais</label><span class="money-input"><span>R$</span><input id="scVA" name="va" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00"></span></div>' +
+      '<div class="field"><label for="scVD">Dias de férias</label><input id="scVD" name="vd" type="number" min="1" max="30" step="1" placeholder="30"></div>' +
+      '<label class="check sc-vs"><input type="checkbox" name="vs"> Vender 10 dias (abono pecuniário)</label></div>' +
+      '<p class="field-hint">Horas extras, adicionais e comissões entram no 13º e nas férias pela média do ano: informe a média mensal.</p>' +
+      '<div id="scExtraRes"></div></div></details>' +
     '<div id="scResult" class="sc-result" aria-live="polite"></div>' +
     '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="month" hidden>Usar o líquido deste mês (só uma vez)</button></div>';
 }
@@ -126,7 +133,7 @@ function readOpts(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
   return {regime: v('regime') || 'clt', gross: v('gross'), weeklyHours: Number(v('week')) || 44, dependents: Number(v('dep')) || 0,
     rpps: v('rpps') === '' ? 14 : Number(v('rpps')), meiKind: v('mei'), inssKind: v('inss'), simplesRate: v('simples') === '' ? 6 : Number(v('simples')), otherPct: Number(v('otherpct')) || 0,
-    discounts: readRows(form, 'disc'), bonuses: readRows(form, 'bonus'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, sobreaviso: Number(v('sa')) || 0, workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
+    discounts: readRows(form, 'disc'), bonuses: readRows(form, 'bonus'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, sobreaviso: Number(v('sa')) || 0, varAvg: Number(v('va')) || 0, thirdMonths: v('tm') === '' ? undefined : Number(v('tm')), vacDays: v('vd') === '' ? undefined : Number(v('vd')), vacSell: !!(form.elements.vs && form.elements.vs.checked), workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
     dsr: !!(form.elements.dsr && form.elements.dsr.checked)};
 }
 function resultHtml(r, regime){
@@ -140,6 +147,24 @@ function resultHtml(r, regime){
     '<p class="tx-meta">Os descontos somam ' + fmtMoney(r.discounts) + ' (' + String(r.rate).replace('.', ',') + '% do total bruto).' +
     (r.hasVariable ? ' Horas extras, sobreaviso, ganhos e descontos que variam mudam a cada mês: registre o fixo todo mês e lance o que variar no mês em que acontecer.' : '') +
     (regime === 'servidor' ? ' Servidor estatutário não tem FGTS.' : '') + '</p>';
+}
+
+// 13º e férias (estimativas à parte do salário do mês): tabelas e os botões para usar cada valor.
+function extraTable(title, r, rows){
+  return '<h5>' + title + '</h5><table class="data-table sc-table"><tbody>' + r.lines.map(function(l){
+    return '<tr class="' + l.kind + '"><td>' + escapeHtml(l.label) + '</td><td class="tabular">' + (l.kind === 'minus' ? '− ' : l.kind === 'plus' ? '+ ' : '') + fmtMoney(l.amount) + '</td></tr>'; }).join('') + rows +
+    (r.fgts > 0 ? '<tr class="info"><td>FGTS que a empresa deposita (8%)<br><small class="tx-meta">não sai de você</small></td><td class="tabular">' + fmtMoney(r.fgts) + '</td></tr>' : '') + '</tbody></table>';
+}
+function extraHtml(t, v){
+  if (!t || !v) return '';
+  return extraTable('13º salário', t,
+    '<tr class="info"><td>1ª parcela (até 30/11): metade, sem descontos</td><td class="tabular">' + fmtMoney(t.first) + '</td></tr>' +
+    '<tr class="info"><td>2ª parcela (até 20/12): com INSS e imposto</td><td class="tabular">' + fmtMoney(t.second) + '</td></tr>' +
+    '<tr class="net"><td><strong>Líquido do 13º</strong></td><td class="tabular"><strong>' + fmtMoney(t.net) + '</strong></td></tr>') +
+    '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="third1">Usar a 1ª parcela</button><button type="button" class="btn btn-ghost btn-sm" data-use="third2">Usar a 2ª parcela</button></div>' +
+    extraTable('Férias', v, '<tr class="net"><td><strong>Líquido das férias</strong></td><td class="tabular"><strong>' + fmtMoney(v.net) + '</strong></td></tr>') +
+    '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="vacation">Usar o líquido das férias</button></div>' +
+    '<p class="tx-meta">Estimativas à parte do salário do mês: o 13º é tributado sozinho (INSS e imposto só na 2ª parcela) e as férias têm o terço constitucional; o imposto real das férias pode mudar com o que se recebe no mesmo mês.</p>';
 }
 
 // O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela
@@ -178,6 +203,10 @@ export async function openSalaryCalculator(config){
         qs('#scResult', modal).innerHTML = resultHtml(res, o.regime);
         qs('[data-use=month]', modal).hidden = config.confirm || !res.hasVariable;
         form._res = res; form._opts = o;
+        var t13 = gross > 0 ? thirteenth(o) : null, vac = gross > 0 ? vacation(o) : null;
+        form._extra = {third: t13, vac: vac};
+        qs('#scExtraRes', modal).innerHTML = extraHtml(t13, vac);
+        qs('#scExtraSum', modal).textContent = t13 && vac ? '(13º ' + fmtMoney(t13.net) + ' · férias ' + fmtMoney(vac.net) + ')' : '';
         saveProfile(o);
       }
       modal.addEventListener('input', sync);
@@ -198,6 +227,12 @@ export async function openSalaryCalculator(config){
         if (del){ del.closest('.sc-disc-row').remove(); sync(); }
       });
       qs('[data-use=month]', modal).addEventListener('click', function(){ if (form._res) close({net: form._res.net, kind: 'month', res: form._res, opts: form._opts}); });
+      // Usar o valor de uma parcela do 13º ou das férias (cada um vale uma vez só).
+      modal.addEventListener('click', function(e){
+        var u = e.target.closest('[data-use]'), kind = u && u.getAttribute('data-use'), x = form._extra;
+        if (!x || !x.third || !(kind === 'third1' || kind === 'third2' || kind === 'vacation')) return;
+        close({net: kind === 'third1' ? x.third.first : kind === 'third2' ? x.third.second : x.vac.net, kind: kind, res: form._res, opts: form._opts});
+      });
       sync();
     },
     onSubmit: function(form){
@@ -225,9 +260,9 @@ export function wireSalaryCalc(){
       field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true}));
       field.focus();
       // Valor do mês (com extras): vale só uma vez; em “Previstas” o “Repete todo mês” sai marcado para não repetir o que varia.
-      if (res.kind === 'month'){
+      if (res.kind !== 'fixed'){
         var rec = id === 'fcAmount' ? document.getElementById('fcRecurring') : null;
-        if (rec && rec.checked){ rec.checked = false; toast('Esse valor tem horas extras, ganhos ou descontos que variam, então deixei “Repete todo mês” desmarcado.'); }
+        if (rec && rec.checked){ rec.checked = false; toast('Esse valor vale só para um mês (extras, ganhos, descontos que variam, 13º ou férias), então deixei “Repete todo mês” desmarcado.'); }
       }
     }
   });

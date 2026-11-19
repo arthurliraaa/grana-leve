@@ -2115,3 +2115,9 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sp-evo td, .sp-evo th{ padding:6px 8px; }
 .sp-remove{ color: var(--critical); justify-self:start; font-size:.86rem; }
 @media (max-width: 520px){ .sc-confirm{ grid-template-columns: minmax(0, 1fr); } }
+.sc-extra{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; }
+.sc-extra > summary{ font-weight:600; cursor:pointer; }
+.sc-extra-body{ display:grid; gap:10px; margin-top:10px; }
+.sc-extra-body h5{ margin:6px 0 0; font-size:.95rem; }
+.sc-vs{ align-self:end; padding-bottom:10px; }
+.sc-extra[hidden]{ display:none; }

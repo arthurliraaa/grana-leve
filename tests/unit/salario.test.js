@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, workdaysInMonth, onCallPay, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
+import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, workdaysInMonth, onCallPay, thirteenth, vacation, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
 
 test('INSS do empregado: progressivo por faixa e limitado ao teto', () => {
   assert.equal(inssEmployee(1621), 121.58, '7,5% sobre o salário mínimo');
@@ -139,4 +139,43 @@ test('sobreaviso (1/3 da hora normal) e FGTS (8% depositado pela empresa, fora d
   assert.equal(netSalary({regime: 'servidor', gross: 3000}).fgts, 0, 'servidor estatutário não tem FGTS');
   assert.equal(netSalary({regime: 'mei', gross: 3000}).fgts, 0);
   assert.equal(netSalary({regime: 'mei', gross: 3000, sobreaviso: 30}).onCall, 0, 'só CLT e servidor');
+});
+
+test('13º salário: 1ª parcela sem descontos, INSS e imposto só na 2ª, tributado à parte do salário', () => {
+  const t = thirteenth({regime: 'clt', gross: 3000});
+  assert.equal(t.total, 3000);
+  assert.equal(t.first, 1500, 'metade, sem descontos');
+  assert.equal(t.inss, 248.6, 'INSS sobre o 13º inteiro');
+  assert.equal(t.irrf, 0, 'até 5 mil o imposto zera (Lei 15.270)');
+  assert.equal(t.second, 1251.4, '3.000 − 1.500 − 248,60');
+  assert.equal(t.net, 2751.4);
+  assert.equal(t.fgts, 240, '8% depositado pela empresa');
+  assert.equal(thirteenth({regime: 'clt', gross: 3000, thirdMonths: 6}).total, 1500, 'só 6 meses trabalhados: 6/12');
+  assert.equal(thirteenth({regime: 'clt', gross: 3000, varAvg: 300}).total, 3300, 'a média das extras entra');
+  assert.equal(thirteenth({regime: 'clt', gross: 8000}).irrf, 1037.85, 'acima de 7.350 não há redução: o imposto sai da tabela, com o INSS abatido');
+  assert.equal(thirteenth({regime: 'servidor', gross: 3000, rpps: 14}).inss, 420, 'servidor: previdência em %');
+  assert.equal(thirteenth({regime: 'servidor', gross: 3000}).fgts, 0);
+  assert.equal(thirteenth({regime: 'mei', gross: 3000}), null, 'só CLT e servidor');
+});
+
+test('férias: dias gozados + 1/3, abono pecuniário isento e FGTS sobre o que é salário', () => {
+  const v = vacation({regime: 'clt', gross: 3000});
+  assert.equal(v.days, 30);
+  assert.equal(v.pay, 3000);
+  assert.equal(v.third, 1000);
+  assert.equal(v.taxable, 4000);
+  assert.equal(v.inss, 368.6);
+  assert.equal(v.irrf, 0);
+  assert.equal(v.net, 3631.4);
+  assert.equal(v.fgts, 320, '8% sobre férias + 1/3');
+  const half = vacation({regime: 'clt', gross: 3000, vacDays: 15});
+  assert.equal(half.pay, 1500);
+  assert.equal(half.third, 500);
+  const sell = vacation({regime: 'clt', gross: 3000, vacSell: true});
+  assert.equal(sell.days, 20, 'vendendo 10 dias sobram 20 para gozar');
+  assert.equal(sell.abono, 1333.33, '10 dias + 1/3, sem desconto');
+  assert.equal(sell.taxable, 2666.67);
+  assert.equal(sell.net, 3784.31);
+  assert.equal(vacation({regime: 'clt', gross: 3000, vacSell: true, vacDays: 30}).days, 20, 'o máximo continua 20 com o abono');
+  assert.equal(vacation({regime: 'autonomo', gross: 3000}), null);
 });

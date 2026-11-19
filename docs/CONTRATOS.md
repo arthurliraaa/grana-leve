@@ -143,6 +143,12 @@ overtimePay(salary, weeklyHours, h50, h100, withDsr, tables, {workDays, restDays
 //   50% = ×1,5; 100% = ×2; DSR estimado = (horas extras ÷ dias de trabalho) × dias de repouso (padrão 25 e 5)
 DISCOUNT_TYPES                                  // vt, saude, odonto, refeicao, pensao, consignado, sindical, adiantamento (varia), outro
 BONUS_TYPES                                     // homeoffice, ajuda, alimentacao, transporte (não tributam); bonificacao, comissao, plr (variam); bonificacao-vale (varia, não tributa); gratificacao, outro
+thirteenth({regime, gross, varAvg, thirdMonths, dependents, rpps}) -> {months, total, first, inss, irrf, second, net, fgts, lines} | null
+//   13º: (gross + varAvg) × meses/12; 1ª parcela = metade, sem descontos; INSS e imposto (com a redução da Lei 15.270) só
+//   sobre o 13º inteiro, à parte do salário, e saem da 2ª parcela. Só clt e servidor; fgts só clt.
+vacation({regime, gross, varAvg, vacDays, vacSell, dependents, rpps}) -> {days, pay, third, abono, taxable, inss, irrf, net, fgts, lines} | null
+//   férias: (gross + varAvg) ÷ 30 × dias + 1/3; vender 10 dias (vacSell) soma o abono + 1/3 sem desconto e limita os dias
+//   gozados a 20; INSS/imposto/FGTS só sobre os dias gozados + 1/3. Estimativa isolada do salário do mês.
 discountAmount({mode: 'pct'|'fixed'|'perday'|'benefit', value, benefit, pct, charged, refDays, days}, base) -> reais
 //   mode 'perday' (só vt e refeicao): charged ÷ refDays × days — o que foi cobrado num mês (em refDays dias de uso) vira
 //   valor por dia e acompanha os dias de uso do mês (days, padrão: dias úteis; a pessoa corrige por feriados)

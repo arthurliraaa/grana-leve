@@ -202,6 +202,49 @@ function runNet(opts, tables, withVariable){
   return {lines: lines, gross: gross, extras: extras, onCall: onCall, fgts: regime === 'clt' ? money(total * T.fgts) : 0, bonuses: money(taxableBonus + freeBonus), total: total, discounts: money(disc), net: net, rate: total > 0 ? Math.round(1000 * disc / total) / 10 : 0};
 }
 
+// Previdência (INSS ou do servidor) sobre um valor avulso, como o 13º ou as férias.
+function socialOn(opts, value, T){
+  return (opts.regime || 'clt') === 'servidor' ? money(value * pct(opts.rpps === undefined ? 14 : opts.rpps) / 100) : inssEmployee(value, T);
+}
+function monthlyBase(opts){ return money(Math.max(0, Number(opts.gross) || 0) + pct(opts.varAvg)); }
+
+// 13º salário (CLT e servidor): bruto = (salário + média mensal de extras) × meses trabalhados no ano ÷ 12. A 1ª parcela (até
+// 30/11) é metade do bruto, sem descontos; o INSS e o imposto de renda saem só da 2ª (até 20/12), calculados sobre o 13º
+// inteiro, à parte do salário (tributação exclusiva, com a redução da Lei 15.270/2025 sobre o próprio 13º).
+// opts: {regime, gross, varAvg, thirdMonths, dependents, rpps}. Devolve null fora de CLT e servidor.
+export function thirteenth(opts, tables){
+  var T = tables || TABLES, regime = opts.regime || 'clt';
+  if (regime !== 'clt' && regime !== 'servidor') return null;
+  var months = Math.min(12, Math.max(0, Math.round(opts.thirdMonths === undefined || opts.thirdMonths === '' ? 12 : Number(opts.thirdMonths) || 0)));
+  var total = money(monthlyBase(opts) * months / 12), first = money(total / 2);
+  var inss = socialOn(opts, total, T), irrf = irrfMonthly({gross: total, pension: inss, dependents: opts.dependents}, T);
+  var second = money(total - first - inss - irrf), net = money(total - inss - irrf);
+  return {months: months, total: total, first: first, inss: inss, irrf: irrf, second: second, net: net, fgts: regime === 'clt' ? money(total * T.fgts) : 0,
+    lines: [{id: 'total', label: '13º bruto (' + months + '/12)', amount: total, kind: 'base'},
+      {id: 'inss', label: regime === 'clt' ? 'INSS (sobre o 13º inteiro)' : 'Previdência do servidor', amount: inss, kind: 'minus'},
+      {id: 'irrf', label: 'Imposto de renda (sobre o 13º)', amount: irrf, kind: 'minus'}].filter(function(l){ return l.kind === 'base' || l.amount > 0; })};
+}
+
+// Férias (CLT e servidor): dias gozados × (salário + média de extras) ÷ 30, mais o terço constitucional; INSS e imposto de
+// renda incidem sobre isso. Vender 10 dias (abono pecuniário) soma o valor desses dias + 1/3, sem desconto algum, e deixa no
+// máximo 20 dias para gozar. Estimativa isolada do salário do mês: o imposto real pode mudar com o que se recebe junto.
+// opts: {regime, gross, varAvg, vacDays, vacSell, dependents, rpps}.
+export function vacation(opts, tables){
+  var T = tables || TABLES, regime = opts.regime || 'clt';
+  if (regime !== 'clt' && regime !== 'servidor') return null;
+  var base = monthlyBase(opts), sell = !!opts.vacSell;
+  var days = Math.min(sell ? 20 : 30, Math.max(0, Math.round(opts.vacDays === undefined || opts.vacDays === '' ? 30 : Number(opts.vacDays) || 0)));
+  var pay = money(base / 30 * days), third = money(pay / 3), taxable = money(pay + third);
+  var abono = sell ? money(base / 30 * 10) : 0, abonoThird = sell ? money(abono / 3) : 0;
+  var inss = socialOn(opts, taxable, T), irrf = irrfMonthly({gross: taxable, pension: inss, dependents: opts.dependents}, T);
+  var net = money(taxable - inss - irrf + abono + abonoThird);
+  var lines = [{id: 'pay', label: 'Férias (' + days + ' dias)', amount: pay, kind: 'base'}, {id: 'third', label: '1/3 constitucional', amount: third, kind: 'plus'}];
+  if (sell){ lines.push({id: 'abono', label: 'Abono pecuniário (10 dias vendidos)', amount: abono, kind: 'plus'}); lines.push({id: 'abono3', label: '1/3 do abono', amount: abonoThird, kind: 'plus'}); }
+  if (inss > 0) lines.push({id: 'inss', label: regime === 'clt' ? 'INSS' : 'Previdência do servidor', amount: inss, kind: 'minus'});
+  if (irrf > 0) lines.push({id: 'irrf', label: 'Imposto de renda', amount: irrf, kind: 'minus'});
+  return {days: days, pay: pay, third: third, abono: abono + abonoThird, taxable: taxable, inss: inss, irrf: irrf, net: net, fgts: regime === 'clt' ? money(taxable * T.fgts) : 0, lines: lines};
+}
+
 export var REGIMES = [
   {id: 'clt', label: 'Empregado com carteira assinada (CLT)'},
   {id: 'servidor', label: 'Servidor público'},
