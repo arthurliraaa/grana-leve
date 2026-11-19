@@ -4,13 +4,19 @@ import * as L from './lib.js';
 L.run(async ({page}) => {
   await L.signup(page);
   const net = () => L.text(page, '#scResult');
+  const openSecs = () => page.$$eval('.sc-sec', els => els.forEach(e => { e.open = true; }));
 
   L.section('Previstas');
   await L.tab(page, 'lancamentos');
   await page.$eval('#forecastToggle', e => e.click()).catch(() => {}); await L.sleep(200);
   await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
   L.ok(/Calcular o salário líquido/.test(await L.modalTitle(page)), 'em Previstas há “Calcular o líquido do salário”');
+  L.ok(await page.$$eval('.sc-sec', els => els.every(e => !e.open)), 'de início só o essencial: regime e salário bruto (o resto fica em partes recolhidas)');
   await page.type('#scGross', '3.000'); await L.sleep(250);
+  L.ok(/Líquido estimado: R\$\s?2\.751,40/.test(await L.text(page, '#scHeadline')), 'o líquido aparece logo abaixo do salário bruto, sem rolar (R$ 2.751,40)');
+  const sums = await page.$$eval('[data-sum]', els => els.map(e => e.textContent).join(' '));
+  L.ok(/\(nenhum\)/.test(sums) && /44 h por semana/.test(sums), 'cada parte recolhida resume o que tem dentro no título');
+  await openSecs();
   let r = await net();
   L.ok(/INSS\s*− R\$\s?248,60/.test(r) && /Líquido estimado\s*R\$\s?2\.751,40/.test(r), 'CLT de R$ 3.000: INSS de 248,60 e líquido de 2.751,40 (imposto de renda zerado)');
   L.ok(/FGTS que a empresa deposita \(8%\).*R\$\s?240,00/.test(r) && /Confira no seu holerite/.test(await L.text(page, '#modalRoot')), 'mostra o FGTS que a empresa deposita (8% = R$ 240,00, fora do líquido) e avisa que é estimativa');
@@ -62,7 +68,7 @@ L.run(async ({page}) => {
   L.ok(/R\$\s?1,00 por dia\. Este mês, com 20 dias: R\$\s?20,00/.test(await L.text(page, '#scDiscList .sc-disc-row:nth-child(2) .sc-d-calc')), 'R$ 21 em 21 dias = R$ 1 por dia; num mês de 20 dias o desconto é R$ 20');
   L.ok(/Vale-transporte \(20 dias de uso\)\s*− R\$\s?20,00/.test(await net()), 'o resultado usa o valor do mês');
   await L.closeModal(page);
-  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
+  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300); await openSecs();
   L.ok(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-d-mode', e => e.value) === 'perday' && await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-charged', e => e.value) === '21' && await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-ref', e => e.value) === '21', 'o que foi cobrado fica guardado: no mês seguinte já vem preenchido');
   const nd = Number(await page.$eval('#scDiscList .sc-disc-row:nth-child(2) .sc-p-days', e => e.value));
   L.ok(nd >= 19 && nd <= 23, 'e os dias de uso do mês novo vêm com os dias úteis do mês (' + nd + '), então o valor acompanha o mês');
@@ -127,13 +133,13 @@ L.run(async ({page}) => {
   L.ok(Number(await page.$eval('#fcAmount', e => e.value)) === 2811.4, '“Usar o líquido fixo” preenche o valor de Previstas (2.811,40: vale-transporte de 3% e auxílio home office)');
 
   L.section('Lembra do jeito de trabalhar');
-  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
+  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300); await openSecs();
   L.ok(await page.$eval('#scRegime', e => e.value) === 'clt' && await page.$eval('#scDiscList .sc-d-value', e => e.value) === '3', 'o jeito de trabalhar e os descontos ficam salvos para a próxima vez');
   L.ok(/^3\.?000/.test(await page.$eval('#scGross', e => e.value)), 'o salário bruto também já vem preenchido');
   await L.closeModal(page);
 
   L.section('Usar o 13º');
-  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300);
+  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(300); await openSecs();
   await page.$eval('.sc-extra summary', e => e.click()); await L.sleep(200);
   await page.$eval('[data-use=third1]', e => e.click()); await L.sleep(400);
   L.ok(Number(await page.$eval('#fcAmount', e => e.value)) === 1500, '“Usar a 1ª parcela” preenche metade do 13º (R$ 1.500,00)');

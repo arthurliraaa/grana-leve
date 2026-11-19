@@ -5,7 +5,7 @@
  * líquido DESTE MÊS. Abre de “Previstas”, do simulador (ganho) e do formulário de ganho; “Usar” preenche o valor.
  * As contas ficam em js/domain/salary.js.
  */
-import {fmtMoney} from '../domain/money.js';
+import {fmtMoney, money} from '../domain/money.js';
 import {netSalary, thirteenth, vacation, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
@@ -58,27 +58,30 @@ function bodyHtml(){
     '<div class="field"><label for="scRegime">Como você trabalha</label><select id="scRegime" name="regime">' + optionsHtml(REGIMES, p.regime || 'clt') + '</select></div>' +
     '<div class="sc-grid">' +
       '<div class="field"><label for="scGross" id="scGrossLbl">Salário bruto</label><span class="money-input"><span>R$</span><input id="scGross" name="gross" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
-      '<div class="field" data-for="clt,servidor"><label for="scWeek">Jornada por semana</label><select id="scWeek" name="week">' + optionsHtml([{id: '44', label: '44 horas'}, {id: '40', label: '40 horas'}, {id: '36', label: '36 horas'}, {id: '30', label: '30 horas'}], String(p.weeklyHours || 44)) + '</select></div>' +
-      '<div class="field" data-for="clt,servidor"><label for="scDep">Dependentes (imposto de renda)</label><input id="scDep" name="dep" type="number" min="0" max="10" step="1" placeholder="0" value="' + (p.dependents || '') + '"></div>' +
       '<div class="field" data-for="servidor"><label for="scRpps">Previdência do servidor (%)</label><input id="scRpps" name="rpps" type="number" min="0" max="25" step="0.5" value="' + (p.rpps === undefined ? 14 : p.rpps) + '"></div>' +
       '<div class="field" data-for="mei"><label for="scMei">Sua atividade</label><select id="scMei" name="mei">' + optionsHtml([{id: 'services', label: 'Serviços'}, {id: 'commerce', label: 'Comércio ou indústria'}, {id: 'both', label: 'Comércio e serviços'}], p.meiKind || 'services') + '</select></div>' +
       '<div class="field" data-for="autonomo"><label for="scInss">INSS</label><select id="scInss" name="inss">' + optionsHtml([{id: 'normal', label: 'Contribuo (20%, até o teto)'}, {id: 'simplificado', label: 'Plano simplificado (11% do salário mínimo)'}, {id: 'none', label: 'Não contribuo'}], p.inssKind || 'normal') + '</select></div>' +
       '<div class="field" data-for="pj"><label for="scSimples">Imposto do Simples (%)</label><input id="scSimples" name="simples" type="number" min="0" max="35" step="0.5" value="' + (p.simplesRate === undefined ? 6 : p.simplesRate) + '"></div>' +
       '<div class="field" data-for="outro"><label for="scOther">Desconto (%)</label><input id="scOther" name="otherpct" type="number" min="0" max="60" step="0.5" value="' + (p.otherPct || 0) + '"></div>' +
     '</div>' +
-    '<fieldset class="sc-disc"><legend>Ganhos além do salário <span class="opt">(opcional)</span></legend><div id="scBonusList" class="sc-list">' + bonuses.map(function(b){ return rowHtml('bonus', b); }).join('') + '</div>' +
+    '<p class="sc-headline" id="scHeadline" aria-live="polite"></p>' +
+    '<details class="sc-sec" data-sec="work" data-for="clt,servidor"><summary>Jornada e dependentes <span class="opt" data-sum="work"></span></summary><div class="sc-sec-body"><div class="sc-grid">' +
+      '<div class="field" data-for="clt,servidor"><label for="scWeek">Jornada por semana</label><select id="scWeek" name="week">' + optionsHtml([{id: '44', label: '44 horas'}, {id: '40', label: '40 horas'}, {id: '36', label: '36 horas'}, {id: '30', label: '30 horas'}], String(p.weeklyHours || 44)) + '</select></div>' +
+      '<div class="field" data-for="clt,servidor"><label for="scDep">Dependentes (imposto de renda)</label><input id="scDep" name="dep" type="number" min="0" max="10" step="1" placeholder="0" value="' + (p.dependents || '') + '"></div>' +
+    '</div></div></details>' +
+    '<details class="sc-sec" data-sec="bonus"><summary>Ganhos além do salário <span class="opt" data-sum="bonus"></span></summary><div class="sc-sec-body"><div id="scBonusList" class="sc-list">' + bonuses.map(function(b){ return rowHtml('bonus', b); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-bonus>+ Adicionar ganho</button>' +
-      '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão em dinheiro pagam; a bonificação recebida em vales ou cartão benefício não tem desconto. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></fieldset>' +
-    '<fieldset class="sc-disc"><legend>Descontos do contracheque <span class="opt">(opcional)</span></legend><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
+      '<p class="field-hint">Auxílio home office, ajuda de custo, bonificação, comissão… Ajuda de custo e auxílios não pagam INSS nem imposto de renda; bonificação e comissão em dinheiro pagam; a bonificação recebida em vales ou cartão benefício não tem desconto. Ajuste em “Paga imposto” se na sua empresa for diferente.</p></div></details>' +
+    '<details class="sc-sec" data-sec="disc"><summary>Descontos do contracheque <span class="opt" data-sum="disc"></span></summary><div class="sc-sec-body"><div id="scDiscList" class="sc-list">' + discs.map(function(d){ return rowHtml('disc', d); }).join('') + '</div>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-add-disc>+ Adicionar desconto</button>' +
-      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição há duas formas de acompanhar o mês: “por dias do mês” (você informa quanto foi cobrado e em quantos dias de uso; nos meses seguintes o valor se ajusta aos dias úteis, que você pode corrigir por causa de feriados) ou “pelo benefício” (passagem por dia × dias de uso, ou o valor do vale). O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo. Tudo o que você informar fica guardado e já vem preenchido nos próximos meses: é só ajustar o que mudou.</p></fieldset>' +
-    '<fieldset class="sc-ot" data-for="clt,servidor"><legend>Horas extras, sobreaviso e repouso <span class="opt">(variam todo mês, não entram no fixo)</span></legend>' +
+      '<p class="field-hint">Cada empresa desconta de um jeito (o vale-transporte, por exemplo, costuma ser bem menos que 6%): informe o valor em R$ ou em %. No vale-transporte e no vale-refeição há duas formas de acompanhar o mês: “por dias do mês” (você informa quanto foi cobrado e em quantos dias de uso; nos meses seguintes o valor se ajusta aos dias úteis, que você pode corrigir por causa de feriados) ou “pelo benefício” (passagem por dia × dias de uso, ou o valor do vale). O que muda de mês para mês, marque “varia todo mês”: só entra no líquido do mês, não no fixo. Tudo o que você informar fica guardado e já vem preenchido nos próximos meses: é só ajustar o que mudou.</p></div></details>' +
+    '<details class="sc-sec" data-sec="ot" data-for="clt,servidor"><summary>Horas extras, sobreaviso e repouso <span class="opt" data-sum="ot"></span></summary><div class="sc-sec-body"><p class="field-hint">Variam todo mês: entram só no líquido do mês, não no fixo.</p>' +
       '<div class="sc-grid"><div class="field"><label for="scH50">Horas a 50% (dias úteis)</label><input id="scH50" name="h50" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
       '<div class="field"><label for="scH100">Horas a 100% (domingos e feriados)</label><input id="scH100" name="h100" type="number" min="0" max="120" step="0.5" placeholder="0"></div>' +
       '<div class="field"><label for="scSa">Horas de sobreaviso (1/3 da hora normal)</label><input id="scSa" name="sa" type="number" min="0" max="400" step="1" placeholder="0"></div>' +
       '<div class="field"><label for="scWork">Dias de trabalho no mês</label><input id="scWork" name="work" type="number" min="1" max="31" step="1" placeholder="25"></div>' +
       '<div class="field"><label for="scRest">Domingos e feriados (repouso)</label><input id="scRest" name="rest" type="number" min="0" max="12" step="1" placeholder="5"></div></div>' +
-      '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o repouso semanal remunerado (DSR) sobre as horas extras</label></fieldset>' +
+      '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o repouso semanal remunerado (DSR) sobre as horas extras</label></div></details>' +
     '<details class="sc-extra" data-for="clt,servidor"><summary>13º salário e férias <span class="opt" id="scExtraSum"></span></summary><div class="sc-extra-body">' +
       '<div class="sc-grid"><div class="field"><label for="scTM">Meses trabalhados no ano (13º)</label><input id="scTM" name="tm" type="number" min="0" max="12" step="1" placeholder="12"></div>' +
       '<div class="field"><label for="scVA">Média mensal de extras e adicionais</label><span class="money-input"><span>R$</span><input id="scVA" name="va" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00"></span></div>' +
@@ -171,6 +174,24 @@ function extraHtml(t, v){
     '<p class="tx-meta">Estimativas à parte do salário do mês: o 13º é tributado sozinho (INSS e imposto só na 2ª parcela) e as férias têm o terço constitucional; o imposto real das férias pode mudar com o que se recebe no mesmo mês.</p>';
 }
 
+// Resumo de cada parte recolhida (o título mostra o que há dentro) e a manchete com o líquido, sempre à vista.
+function sectionSummaries(o, res){
+  var discTotal = money(res.lines.filter(function(l){ return l.id.indexOf('d:') === 0; }).reduce(function(t, l){ return t + l.amount; }, 0));
+  var ot = [];
+  if (o.h50 || o.h100) ot.push((o.h50 + o.h100) + ' h extras');
+  if (o.sobreaviso) ot.push(o.sobreaviso + ' h de sobreaviso');
+  return {
+    work: '(' + o.weeklyHours + ' h por semana · ' + (o.dependents || 'sem') + (o.dependents === 1 ? ' dependente)' : o.dependents ? ' dependentes)' : ' dependentes)'),
+    bonus: o.bonuses.length ? '(' + o.bonuses.length + ' · ' + fmtMoney(res.bonuses) + ')' : '(nenhum)',
+    disc: o.discounts.length ? '(' + o.discounts.length + ' · ' + fmtMoney(discTotal) + ')' : '(nenhum)',
+    ot: ot.length ? '(' + ot.join(' · ') + ')' : '(nenhuma)'
+  };
+}
+function headlineHtml(res){
+  if (!(res.gross > 0)) return 'Informe o salário bruto para ver o líquido.';
+  return (res.hasVariable ? 'Líquido deste mês: ' : 'Líquido estimado: ') + '<strong>' + fmtMoney(res.net) + '</strong>' + (res.hasVariable ? ' · fixo todo mês: <strong>' + fmtMoney(res.fixedNet) + '</strong>' : '');
+}
+
 // O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela
 // só fechar a calculadora. Os dias de uso do vale-transporte não ficam: mudam todo mês.
 function saveProfile(o){
@@ -197,6 +218,12 @@ export async function openSalaryCalculator(config){
     onOpen: function(modal, close){
       var form = qs('form', modal) || modal, saved = profile();
       if (saved.gross > 0) qs('#scGross', modal).value = saved.gross;
+      // Só o essencial aparece de início (regime e salário bruto, com o líquido logo abaixo). As partes recolhidas abrem sozinhas
+      // quando já têm conteúdo guardado, e na confirmação mensal abrem as que mudam de mês para mês.
+      qsa('.sc-sec', modal).forEach(function(sec){
+        var name = sec.getAttribute('data-sec');
+        sec.open = (name === 'disc' && (saved.discounts || []).length > 0) || (name === 'bonus' && (saved.bonuses || []).length > 0) || (!!config.confirm && (name === 'disc' || name === 'bonus' || name === 'ot'));
+      });
       function sync(){
         var o = readOpts(form);
         qsa('[data-for]', modal).forEach(function(el){ el.hidden = el.getAttribute('data-for').split(',').indexOf(o.regime) < 0; });
@@ -211,6 +238,9 @@ export async function openSalaryCalculator(config){
         form._extra = {third: t13, vac: vac};
         qs('#scExtraRes', modal).innerHTML = extraHtml(t13, vac);
         qs('#scExtraSum', modal).textContent = t13 && vac ? '(13º ' + fmtMoney(t13.net) + ' · férias ' + fmtMoney(vac.net) + ')' : '';
+        var sums = sectionSummaries(o, res);
+        qsa('[data-sum]', modal).forEach(function(el){ el.textContent = sums[el.getAttribute('data-sum')] || ''; });
+        qs('#scHeadline', modal).innerHTML = headlineHtml(res);
         saveProfile(o);
       }
       modal.addEventListener('input', sync);

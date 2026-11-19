@@ -2124,3 +2124,12 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sc-extra-body h5{ margin:6px 0 0; font-size:.95rem; }
 .sc-vs{ align-self:end; padding-bottom:10px; }
 .sc-extra[hidden]{ display:none; }
+
+/* Calculadora: só o essencial à vista, o resto em partes recolhidas com resumo no título */
+.sc-sec{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; }
+.sc-sec > summary{ font-weight:600; cursor:pointer; }
+.sc-sec[hidden]{ display:none; }
+.sc-sec-body{ display:grid; gap:10px; margin-top:10px; min-width:0; }
+.sc-headline{ margin:0; padding:10px 12px; border-radius:12px; background: var(--brand-tint); color: var(--brand-strong); font-size:1rem; }
+.sc-headline strong{ font-family:"Outfit", system-ui, sans-serif; font-size:1.15rem; }
+.sc-sec > summary .opt, .sc-extra > summary .opt{ font-weight:400; }

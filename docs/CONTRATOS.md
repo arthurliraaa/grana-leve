@@ -191,7 +191,9 @@ registra o ganho com o líquido do mês. Ao abrir o app (`askSalaryIfDue`) pergu
 em Previstas leva ao mesmo popup. Mudança do salário/líquido vale do mês atual (ou do próximo, se o atual já foi recebido).
 O simulador usa `savedSalary().fixedNet` como salário de costume enquanto não há 2 meses de salário lançado.
 
-A tela (`js/ui/salary-calc.js`) abre de “Previstas”, do simulador (ganho) e do formulário de ganho, e guarda o jeito de
+A tela (`js/ui/salary-calc.js`) mostra de início só o essencial (regime e salário bruto, com o líquido logo abaixo em `#scHeadline`);
+jornada e dependentes, ganhos, descontos, horas extras e 13º/férias ficam em partes recolhidas (`.sc-sec`) com o resumo no título,
+que abrem sozinhas quando já há conteúdo guardado e, na confirmação mensal, as que variam. A tela abre de “Previstas”, do simulador (ganho) e do formulário de ganho, e guarda o jeito de
 trabalhar, o salário bruto, os descontos e os ganhos nas preferências (`workProfile`, gravado a cada alteração, mesmo se
 a calculadora for só fechada), para já virem preenchidos no mês seguinte (menos os dias de uso do vale-transporte). “Usar o líquido fixo” preenche `fixedNet`; “Usar o líquido
 deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em Previstas).
