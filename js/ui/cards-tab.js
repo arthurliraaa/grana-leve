@@ -107,8 +107,8 @@ export async function cardReport(cardId){
       }).join('') + '</div>';
     wireTooltips(qs('#crBody', modal), '.inv-seg, .report-bar');
   }
-  function pdf(){
-    if (!pdfReady()) return;
+  async function pdf(){
+    if (!(await pdfReady())) return;
     var d = data();
     var w = pdfWriter('Relatório do cartão ' + c.name, labelOf(periods, st.period) + '  ·  ' + labelOf(cats, st.cat) + '  ·  ' + labelOf(WHO, st.who));
     w.section('Por fatura');

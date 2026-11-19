@@ -32,6 +32,7 @@ import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {wireSimulator, renderSimulator} from './simulator.js';
 import {wireSalaryCalc} from './salary-calc.js';
 import {wireSalaryPlan, askSalaryIfDue} from './salary-plan.js';
+import {preloadPdfLibWhenIdle} from './pdf.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -355,6 +356,7 @@ export async function enterApp(profileHint){
   }
   // O salário previsto já deveria ter caído? Pergunta para confirmar os valores do mês.
   askSalaryIfDue();
+  preloadPdfLibWhenIdle();
 }
 
 export function logout(){

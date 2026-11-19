@@ -1,4 +1,4 @@
-// Geração de PDF (jsPDF, carregado do CDN) e visualização dentro do app.
+// Geração de PDF (jsPDF, baixado do CDN só quando é preciso) e visualização dentro do app.
 import {escapeHtml, saveFile, toast} from './dom.js';
 import {openModal} from './modal.js';
 
@@ -79,7 +79,36 @@ export async function showPdf(doc, filename, title){
     onClose: function(){ setTimeout(function(){ URL.revokeObjectURL(url); }, 60000); }
   });
 }
-export function pdfReady(){
-  if (!window.jspdf || !window.jspdf.jsPDF){ toast('Não foi possível carregar o gerador de PDF agora. Verifique a internet.'); return false; }
-  return true;
+// O jsPDF pesa centenas de KB e quase ninguém gera PDF na hora que abre o app: baixa na primeira vez que é preciso (com a
+// verificação de integridade) e, em silêncio, quando o app fica parado com internet, para já estar guardado para o uso sem rede.
+var JSPDF = {
+  src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js',
+  integrity: 'sha512-plOdviVmws4Y3JAvbnpfKb2hVxKM1lCwsi3vmElYRj+tiDLffZ4FVUj5a8vyKJ9pIgl8JCAHEJ4D1iUKBecswg=='
+};
+var jspdfLoading = null;
+function hasPdfLib(){ return !!(window.jspdf && window.jspdf.jsPDF); }
+export function loadPdfLib(){
+  if (hasPdfLib()) return Promise.resolve(true);
+  if (jspdfLoading) return jspdfLoading;
+  jspdfLoading = new Promise(function(resolve){
+    var s = document.createElement('script');
+    s.src = JSPDF.src; s.integrity = JSPDF.integrity; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer';
+    s.onload = function(){ resolve(hasPdfLib()); };
+    s.onerror = function(){ jspdfLoading = null; s.remove(); resolve(false); };
+    document.head.appendChild(s);
+  });
+  return jspdfLoading;
+}
+export async function pdfReady(){
+  if (hasPdfLib()) return true;
+  var slow = setTimeout(function(){ toast('Preparando o PDF…'); }, 500);
+  var ok = await loadPdfLib();
+  clearTimeout(slow);
+  if (!ok) toast('Não foi possível carregar o gerador de PDF agora. Verifique a internet.');
+  return ok;
+}
+// Baixa o gerador quando o app fica um tempo parado e há internet (só uma vez por abertura).
+export function preloadPdfLibWhenIdle(){
+  if (hasPdfLib() || jspdfLoading || navigator.onLine === false) return;
+  setTimeout(function(){ if (navigator.onLine !== false) loadPdfLib(); }, 8000);
 }

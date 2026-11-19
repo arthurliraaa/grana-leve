@@ -41,8 +41,8 @@ export function invoicePdfButtonsHtml(){
     '<button type="button" class="btn btn-primary btn-pdf" data-allinv-pdf="1">' + icon('calendar') + 'PDF do mês que vem</button></div>';
 }
 
-export function generateInvoicePdf(cardId, key){
-  if (!pdfReady()) return;
+export async function generateInvoicePdf(cardId, key){
+  if (!(await pdfReady())) return;
   var c = findById(State.cards, cardId);
   var dates = invoiceDates(key, c), P = invoiceParts(c, key);
   var w = pdfWriter('Fatura ' + c.name + ' · ' + invoiceLabel(key, c), (State.session ? State.session.name : '') + '  ·  Fecha ' + formatDateFull(dates.closing) + '  ·  Vence ' + formatDateFull(dates.due));
@@ -70,8 +70,8 @@ export function generateInvoicePdf(cardId, key){
 
 // PDF com as faturas de TODOS os cartões que vencem em um mês (offset 0 = este mês, 1 = mês que vem):
 // uma parte por cartão, o resumo somando tudo (minha parte e de outras pessoas) e o que sobra nas contas.
-export function generateAllInvoicesPdf(offset){
-  if (!pdfReady()) return;
+export async function generateAllInvoicesPdf(offset){
+  if (!(await pdfReady())) return;
   var mk = monthBounds(offset || 0), found = [];
   State.cards.forEach(function(c){
     var base = Cards.invoiceKeyFor(mk.key + '-15', c);
@@ -117,8 +117,8 @@ export function generateAllInvoicesPdf(offset){
 
 export function pct1(n){ return (Math.round(n*10)/10).toString().replace('.',','); }
 
-export function generateMonthlyReport(){
-  if (!pdfReady()) return;
+export async function generateMonthlyReport(){
+  if (!(await pdfReady())) return;
   var cur = monthBounds(0), prev = monthBounds(-1);
   var curT = monthTotals(cur.key), prevT = monthTotals(prev.key);
   var curCats = expenseCategoryTotals(cur.key), prevCats = expenseCategoryTotals(prev.key);

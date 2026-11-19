@@ -16,5 +16,5 @@ test('o service worker guarda todos os módulos (senão o app não abre sem inte
   const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
   const shell = JSON.parse(sw.match(/var SHELL = (\[[\s\S]*?\]);/)[1].replace(/'/g, '"'));
   for (const f of jsFiles('js')) assert.ok(shell.includes(f), f + ' falta na lista SHELL do sw.js');
-  for (const f of shell) if (f.startsWith('js/')) assert.ok(statSync(join(ROOT, f)).isFile(), f + ' está no SHELL mas não existe');
+  for (const f of shell) if (f !== './') assert.ok(statSync(join(ROOT, f)).isFile(), f + ' está no SHELL mas não existe');
 });

@@ -16,6 +16,7 @@ export async function buildSite(){
 
   const common = {absWorkingDir: ROOT, minify: true, legalComments: 'none', metafile: true, write: true, logLevel: 'warning'};
   const js = await build({...common, entryPoints: {app: 'js/app.js'}, bundle: true, format: 'esm', target: 'es2020', outdir: 'dist/js', entryNames: '[name]-[hash]'});
+  // As fontes ficam em fonts/ (copiadas abaixo); o CSS (sem bundle) só aponta para elas com ../fonts/.
   const css = await build({...common, entryPoints: {style: 'css/style.css'}, outdir: 'dist/css', entryNames: '[name]-[hash]'});
   const only = meta => Object.keys(meta.outputs).filter(f => !f.endsWith('.map'))[0].replace(/^dist\//, '');
   const jsFile = only(js.metafile), cssFile = only(css.metafile);
@@ -30,12 +31,13 @@ export async function buildSite(){
   // Arquivos que vão como estão.
   cpSync(join(ROOT, 'manifest.webmanifest'), join(DIST, 'manifest.webmanifest'));
   cpSync(join(ROOT, 'icons'), join(DIST, 'icons'), {recursive: true});
+  cpSync(join(ROOT, 'fonts'), join(DIST, 'fonts'), {recursive: true});
   mkdirSync(join(DIST, 'js/vendor'), {recursive: true});
   cpSync(join(ROOT, 'js/vendor'), join(DIST, 'js/vendor'), {recursive: true});
 
   // Service worker: guarda só o que existe na versão publicada; o nome do cache muda com o conteúdo.
   let sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
-  const shell = ['./', 'index.html', cssFile, 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', jsFile, 'js/vendor/supabase.umd.js'];
+  const shell = ['./', 'index.html', cssFile, 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'fonts/outfit-latin.woff2', 'fonts/ibm-plex-sans-latin.woff2', jsFile, 'js/vendor/supabase.umd.js'];
   const version = (jsFile.match(/-([A-Z0-9]+)\.js$/) || [])[1] + (cssFile.match(/-([A-Z0-9]+)\.css$/) || [])[1];
   if (!/var SHELL = \[[\s\S]*?\];/.test(sw) || !/var CACHE = '[^']*';/.test(sw)) throw new Error('sw.js mudou: ajuste tools/build.js');
   sw = sw.replace(/var SHELL = \[[\s\S]*?\];/, 'var SHELL = ' + JSON.stringify(shell).replace(/"/g, "'") + ';').replace(/var CACHE = '[^']*';/, "var CACHE = 'grana-leve-" + version + "';");

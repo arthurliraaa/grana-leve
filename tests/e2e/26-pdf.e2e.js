@@ -3,14 +3,18 @@ import * as L from './lib.js';
 
 L.run(async ({page}) => {
   await L.signup(page);
-  const ok = await page.waitForFunction(() => window.jspdf && window.jspdf.jsPDF, {timeout: 15000}).then(() => true).catch(() => false);
-  if (!ok){ console.log('Pulado: sem internet para baixar o jsPDF do CDN.'); return; }
-  L.ok(await page.evaluate(() => window.jspdf.jsPDF.version) === '4.2.1', 'carrega o jsPDF 4.2.1 (integridade conferida pelo navegador)');
+  // O jsPDF não pesa na abertura do app: só é baixado (com a integridade conferida) quando se pede o primeiro PDF.
+  L.ok(await page.evaluate(() => !window.jspdf), 'o gerador de PDF não é baixado na abertura do app');
+  L.ok(await page.evaluate(() => !document.querySelector('link[href*="fonts.googleapis"]') && [...document.fonts].some(f => f.family.includes('Outfit'))), 'as fontes vêm do próprio site (sem Google Fonts)');
   await L.addCard(page, 'Inter', 3000, 5, 12);
   const d = await L.db(page);
   await L.addTx(page, {amount: 120, pay: 'card:' + d.cards[0].id, desc: 'Mercado', category: 'alimentacao'});
   await L.tab(page, 'cartoes');
-  await L.menuAction(page, '[data-inv-pdf]'); await L.sleep(800);
+  await L.menuAction(page, '[data-inv-pdf]');
+  const ok = await page.waitForFunction(() => window.jspdf && window.jspdf.jsPDF, {timeout: 15000}).then(() => true).catch(() => false);
+  if (!ok){ console.log('Pulado: sem internet para baixar o jsPDF do CDN.'); return; }
+  L.ok(await page.evaluate(() => window.jspdf.jsPDF.version) === '4.2.1', 'baixa o jsPDF 4.2.1 na primeira vez que se pede um PDF (integridade conferida pelo navegador)');
+  await L.sleep(800);
   L.ok(/Fatura Inter/.test(await L.modalTitle(page)) && await page.$('#modalRoot iframe, #modalRoot embed, #modalRoot object, #modalRoot a[download]') !== null, 'fatura em PDF gerada e mostrada');
   await L.closeModal(page);
   // PDF de todos os cartões: a fatura da compra vence em dezembro (mês que vem) ou neste mês, conforme o dia.

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; frame-src blob: https://challenges.cloudflare.com; connect-src 'self' https://aapixkwfdktevqpopmnv.supabase.co https://api.bcb.gov.br https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; frame-src blob: https://challenges.cloudflare.com; connect-src 'self' https://aapixkwfdktevqpopmnv.supabase.co https://api.bcb.gov.br https://cdnjs.cloudflare.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="description" content="Grana Leve: controle financeiro pessoal simples para jovens e famílias.">
   <meta property="og:type" content="website">
@@ -22,8 +22,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0e6b5c">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="preload" href="fonts/outfit-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/ibm-plex-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -819,9 +819,8 @@
   <button class="bn-item" type="button" id="moreBtn" aria-haspopup="dialog"><svg class="ico" aria-hidden="true"><use href="#i-grid"/></svg><span>Mais</span></button>
 </nav>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js" integrity="sha512-plOdviVmws4Y3JAvbnpfKb2hVxKM1lCwsi3vmElYRj+tiDLffZ4FVUj5a8vyKJ9pIgl8JCAHEJ4D1iUKBecswg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <!-- supabase-js 2.117.3 (MIT), copiado para js/vendor para não depender de CDN externo -->
-<script src="js/vendor/supabase.umd.js"></script>
+<script defer src="js/vendor/supabase.umd.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

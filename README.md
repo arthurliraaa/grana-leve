@@ -126,7 +126,10 @@ O site é publicado no **Vercel** a cada push na `main`. O `vercel.json` manda r
 e publicar `dist/`. O build (`tools/build.js`) junta os mais de 60 módulos em **um** JavaScript e
 **um** CSS minificados, com o hash no nome (cache longo e imutável); o `index.html` nunca fica
 em cache. A tela inicial passou de 75 para 10 requisições. O código-fonte não muda: o que roda no
-desenvolvimento e nos testes é o mesmo, só empacotado. Detalhes e a configuração do Supabase estão
+desenvolvimento e nos testes é o mesmo, só empacotado. As fontes (Outfit e IBM Plex Sans, só latin) ficam em
+`fonts/` (sem Google Fonts: mais rápido, funciona offline e não envia o IP a terceiros) e o gerador de PDF (jsPDF)
+só é baixado do CDN, com verificação de integridade, na primeira vez que se pede um PDF (ou em silêncio, quando o app
+fica parado com internet). Detalhes e a configuração do Supabase estão
 em [`docs/publicar.md`](docs/publicar.md).
 
 ## Segurança e privacidade
