@@ -21,6 +21,7 @@ import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
 import {DASH_MAX, DASH_MIN, dashMonth, dashboardFigures, installmentProgress, monthProjection, plannedTotal, projectCats, spendFigures, upcomingCommitments} from './dash-data.js';
 import {openAllBanksDetail, openAllInvoicesDetail, openBankDetail, openCategoryDetail, openCompareDetail, openInvoiceDetail} from './dash-details.js';
 import {renderBarChart, renderCreditDebit, renderDonut, renderInvoiceSplit} from './dash-charts.js';
+import {renderSalaryCard, confirmSalary} from './salary-plan.js';
 export * from './dash-data.js';
 export * from './dash-details.js';
 export * from './dash-charts.js';
@@ -57,6 +58,8 @@ export function renderForecasts(){
 export async function receiveForecast(id, date){
   var f = findById(State.forecasts, id);
   if (!f) return;
+  // O salário previsto com regra própria passa pela confirmação com os valores do mês (extras, descontos).
+  if (f.salary && f.salary.rule){ var key0 = monthKeyOf(date), occ0 = forecastOccurrences(key0).filter(function(o){ return o.f.id === f.id; })[0]; if (occ0){ await confirmSalary({f: f, occ: occ0, key: key0}); return; } }
   var r = await askAmount({title:'Registrar recebimento', message:'Confirme quanto entrou de “' + f.description + '”. O valor vai para os seus ganhos.', value: f.amount, submitLabel:'Registrar', extraHtml: accountSelectHtml('askAcc', 'acc', 'Entrou em')});
   if (!r) return;
   var key = monthKeyOf(date);
@@ -357,6 +360,7 @@ export function renderDashboard(){
   renderSummary();
   renderStatTiles();
   renderForecasts();
+  renderSalaryCard();
   renderDashNav();
   renderDonut();
   renderBarChart();

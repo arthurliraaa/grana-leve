@@ -162,6 +162,27 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 //   O vale-transporte não é fixo em 6%: cada empresa desconta um valor, por isso é um desconto editável em R$ ou %.
 //   Hora extra só em clt e servidor.
 ```
+## Plano do salário (`js/domain/salary-plan.js`)
+O salário previsto todo mês é uma previsão de entrada (`forecasts`) com o campo `salary`; as datas e os valores de cada mês
+saem de `forecastOccurrences`. Contas puras, sem feriados (a pessoa corrige a data ao confirmar).
+```js
+// forecast.salary = {rule, steps: [{from: 'AAAA-MM', gross, net}], months: {'AAAA-MM': {gross, net, extras, discounts, fgts, date}}}
+// rule: {type: 'day', day} | {type: 'workday', n, saturday}   (sábado conta como dia útil: Súmula 381 do TST; domingo nunca)
+nthWorkday(ano, mês0a11, n, sábado) -> dia do mês
+payDate(rule, 'AAAA-MM') -> 'AAAA-MM-DD'      // dia fixo cai no último dia do mês curto
+ruleLabel(rule) -> 'no 5º dia útil' | 'todo dia 15'
+stepFor(plan, key) / amountFor(plan, key, fallback)   // o último passo cujo "a partir de" já chegou (reajustes)
+withStep(plan, key, gross, net) -> plan   // novo passo só se bruto ou líquido fixo mudaram
+raises(plan) -> [{from, before, after, pct, net}]     // só quando o BRUTO muda
+evolution(plan) -> [{key, gross, net, extras, netChange, grossChange, raise}]
+```
+Tela (`js/ui/salary-plan.js`): cartão no Início (`#salaryCard`: convida a prever, pergunta “já caiu?” ou mostra o próximo),
+popup “Meu salário” (regra, recalcular, evolução, parar de prever) e a confirmação mensal, que abre a calculadora com os
+valores guardados (`openSalaryCalculator({confirm: true})`) para acrescentar sobreaviso, extras e descontos do mês e
+registra o ganho com o líquido do mês. Ao abrir o app (`askSalaryIfDue`) pergunta uma vez por dia (`salaryAskedOn`); “Recebi”
+em Previstas leva ao mesmo popup. Mudança do salário/líquido vale do mês atual (ou do próximo, se o atual já foi recebido).
+O simulador usa `savedSalary().fixedNet` como salário de costume enquanto não há 2 meses de salário lançado.
+
 A tela (`js/ui/salary-calc.js`) abre de “Previstas”, do simulador (ganho) e do formulário de ganho, e guarda o jeito de
 trabalhar, o salário bruto, os descontos e os ganhos nas preferências (`workProfile`, gravado a cada alteração, mesmo se
 a calculadora for só fechada), para já virem preenchidos no mês seguinte (menos os dias de uso do vale-transporte). “Usar o líquido fixo” preenche `fixedNet`; “Usar o líquido

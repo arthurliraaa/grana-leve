@@ -2101,3 +2101,17 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 @media (max-width: 520px){ .sc-d-ben{ grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 420px){ .sc-disc-row{ grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 520px){ .sc-grid{ grid-template-columns: minmax(0, 1fr); } }
+
+/* Meu salário: cartão no Início e popup */
+.salary-card{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 16px; padding:12px 14px; margin-bottom:12px; background: var(--brand-tint); border:1px solid color-mix(in srgb, var(--brand) 30%, transparent); color: var(--brand-strong); }
+.salary-card[hidden]{ display:none; }
+.salary-card-text{ flex:1 1 260px; min-width:0; font-size:.92rem; line-height:1.45; }
+.sc-confirm{ display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px 12px; margin-top:12px; }
+.sc-confirm-intro{ margin:0 0 8px; }
+.sp-rule{ gap:8px; }
+.check input.sp-n, .sp-n{ width:68px; height:auto; display:inline-block; margin:0 4px; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); }
+.sp-sat{ margin-left:22px; }
+.sp-raises{ margin:0 0 10px; padding-left:18px; display:grid; gap:4px; font-size:.9rem; }
+.sp-evo td, .sp-evo th{ padding:6px 8px; }
+.sp-remove{ color: var(--critical); justify-self:start; font-size:.86rem; }
+@media (max-width: 520px){ .sc-confirm{ grid-template-columns: minmax(0, 1fr); } }

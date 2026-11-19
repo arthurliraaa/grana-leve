@@ -121,6 +121,14 @@ Um lançamento é um ganho ou um gasto com valor, data e categoria.
   líquido do mês em que acontecem. O FGTS (8% da remuneração, só CLT) é depositado pela empresa: aparece
   como informação e nunca entra no líquido. As tabelas são de 2026 e precisam ser conferidas todo ano.
 
+- **Meu salário (previsão mensal)**: o líquido fixo calculado vira uma previsão de entrada que se repete todo mês, no dia
+  escolhido (dia do mês ou enésimo dia útil; o sábado conta, o domingo não, e feriados não são conhecidos). Quando a
+  data chega, o app pergunta “já caiu?” e abre a calculadora com os valores guardados para acrescentar o que variou no
+  mês (sobreaviso, horas extras, ganhos, parte usada do plano de saúde); o ganho é registrado com o líquido do mês.
+  Mudanças do salário bruto são guardadas como reajuste, valem a partir do mês indicado (nunca mudam o que já foi
+  recebido) e a evolução mostra, mês a mês, o bruto, o líquido recebido e a variação. No simulador, o líquido
+  calculado serve de salário de costume enquanto não há 2 meses de salário lançado.
+
 ## Compras parceladas
 
 - Só compras no cartão são parceladas (até 24x). Cada parcela é um lançamento, uma por

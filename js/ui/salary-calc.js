@@ -149,10 +149,22 @@ function saveProfile(o){
     discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses});
 }
 
-// Abre a calculadora. Devolve {net, kind: 'fixed'|'month', regime} ou null se a pessoa fechar.
-export async function openSalaryCalculator(){
+// O que foi guardado da calculadora (salário, descontos, ganhos): {gross, fixedNet} ou null se ainda não calculou.
+export function savedSalary(){
+  var p = profile();
+  if (!(Number(p.gross) > 0)) return null;
+  var res = netSalary(Object.assign({}, p, {h50: 0, h100: 0, sobreaviso: 0}));
+  return {gross: res.gross, fixedNet: res.fixedNet, regime: p.regime || 'clt'};
+}
+
+// Abre a calculadora. Devolve {net, kind: 'fixed'|'month', regime, res, opts} ou null se a pessoa fechar.
+// opts.confirm: modo “o salário caiu?”: o botão principal registra o líquido DESTE MÊS (com o que variou) e opts.extraHtml
+// (conta, data) entra depois do resultado; o retorno traz accountId e date.
+export async function openSalaryCalculator(config){
+  config = config || {};
   var r = await openModal({
-    title: 'Calcular o salário líquido', wide: true, submitLabel: 'Usar o líquido fixo (todo mês)', cancelLabel: 'Fechar', body: '<div class="sc-body">' + bodyHtml() + '</div>',
+    title: config.title || 'Calcular o salário líquido', wide: true, submitLabel: config.submitLabel || 'Usar o líquido fixo (todo mês)', cancelLabel: config.cancelLabel || 'Fechar',
+    body: (config.introHtml || '') + '<div class="sc-body">' + bodyHtml() + '</div>' + (config.extraHtml || ''),
     onOpen: function(modal, close){
       var form = qs('form', modal) || modal, saved = profile();
       if (saved.gross > 0) qs('#scGross', modal).value = saved.gross;
@@ -164,7 +176,7 @@ export async function openSalaryCalculator(){
         qsa('.sc-disc-row', modal).forEach(function(row){ applyRow(row, gross); });
         var res = netSalary(o);
         qs('#scResult', modal).innerHTML = resultHtml(res, o.regime);
-        qs('[data-use=month]', modal).hidden = !res.hasVariable;
+        qs('[data-use=month]', modal).hidden = config.confirm || !res.hasVariable;
         form._res = res; form._opts = o;
         saveProfile(o);
       }
@@ -185,19 +197,20 @@ export async function openSalaryCalculator(){
         var del = e.target.closest('.sc-d-del');
         if (del){ del.closest('.sc-disc-row').remove(); sync(); }
       });
-      qs('[data-use=month]', modal).addEventListener('click', function(){ if (form._res) close({net: form._res.net, kind: 'month', opts: form._opts}); });
+      qs('[data-use=month]', modal).addEventListener('click', function(){ if (form._res) close({net: form._res.net, kind: 'month', res: form._res, opts: form._opts}); });
       sync();
     },
     onSubmit: function(form){
       var res = form._res || netSalary(readOpts(form));
       if (!(res.gross > 0)) return {error: 'Informe o salário bruto.'};
-      return {net: res.fixedNet, kind: 'fixed', opts: form._opts || readOpts(form)};
+      if (config.confirm) return {net: res.net, kind: 'month', res: res, opts: form._opts || readOpts(form), accountId: form.acc ? (form.acc.value || null) : null, date: form.caiuDate ? form.caiuDate.value : ''};
+      return {net: res.fixedNet, kind: 'fixed', res: res, opts: form._opts || readOpts(form)};
     }
   });
   if (!r || r === true) return null;
   var o = r.opts;
   saveProfile(o);
-  return {net: r.net, kind: r.kind, regime: o.regime};
+  return {net: r.net, kind: r.kind, regime: o.regime, res: r.res, opts: o, accountId: r.accountId, date: r.date};
 }
 
 // Botões data-salary-calc="idDoCampo": abre a calculadora e preenche o campo com o líquido escolhido.

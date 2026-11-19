@@ -29,6 +29,9 @@ de pagar as faturas.
   pensão…, em R$ ou %) e horas extras de 50% e 100% com o repouso. Só o salário
   e os descontos fixos valem todo mês; extras e descontos que variam entram só no mês. É estimativa, com as
   tabelas de 2026.
+- **Meu salário**: o líquido calculado vira uma previsão que se repete todo mês, no dia escolhido (por exemplo, o 5º dia
+  útil ou todo dia 15). Quando a data chega, o app pergunta “já caiu?” para confirmar os valores do mês, com
+  sobreaviso, extras e descontos como a parte usada do plano de saúde, e guarda a evolução e os reajustes.
 - **Simular** (guia em Ganhos e gastos): “se eu comprar, financiar ou assumir isso, como ficam as minhas
   contas?”. Compra à vista, no cartão (com fechamento e vencimento), com o dinheiro de uma meta, ganho,
   empréstimo e gasto fixo; mostra o saldo mês a mês (considera o salário de costume) e permite “Registrar

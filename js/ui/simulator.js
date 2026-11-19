@@ -19,6 +19,7 @@ import {applyPayment, paymentOptions} from './tx-list.js';
 import {offGoalWarningHtml, goalMove} from './planning-tab.js';
 import {renderAll, showTab} from './shell.js';
 import {saveTransactions} from './tx-edit.js';
+import {savedSalary} from './salary-calc.js';
 
 var KINDS = [{id: 'compra', label: 'Compra'}, {id: 'ganho', label: 'Ganho'}, {id: 'emprestimo', label: 'Empréstimo ou financiamento'}, {id: 'fixo', label: 'Gasto fixo mensal'}];
 var HORIZONS = [3, 6, 12];
@@ -44,7 +45,16 @@ function salaryAverage(){
     var v = sumMoney(txForMonth(shiftMonthKey(cur, -i)).filter(function(t){ return t.type === 'income' && isPersonal(t) && !t.refund && t.category === 'salario'; }), function(t){ return Number(t.amount) || 0; });
     if (v > 0) vals.push(v);
   }
-  return vals.length >= 2 ? money(sum(vals, function(v){ return v; }) / vals.length) : 0;
+  if (vals.length >= 2) return money(sum(vals, function(v){ return v; }) / vals.length);
+  // Ainda sem 2 meses de salário lançado: vale o líquido que a pessoa calculou (e guardou) na calculadora do salário.
+  var calc = savedSalary();
+  return calc ? money(calc.fixedNet) : 0;
+}
+// De onde vem o salário de costume: da média dos meses lançados ou do líquido calculado.
+function salarySource(){
+  var cur = monthBounds(0).key, n = 0;
+  for (var i = 1; i <= 3; i++){ if (txForMonth(shiftMonthKey(cur, -i)).some(function(t){ return t.type === 'income' && isPersonal(t) && !t.refund && t.category === 'salario'; })) n++; }
+  return n >= 2 ? 'average' : 'calc';
 }
 // Já assumido para cada mês (do atual em diante): o que sai e o que está previsto entrar. Com useSalary, entra também o
 // salário de costume nos meses em que ainda não há salário previsto nem recebido.
@@ -107,7 +117,7 @@ function formHtml(actions){
     '</div>' +
     '<div class="sim-hz"><span>Olhar os próximos</span>' + HORIZONS.map(function(h){ return '<label class="chip-radio"><input type="radio" name="hz" value="' + h + '"' + (h === 6 ? ' checked' : '') + '><span>' + h + ' meses</span></label>'; }).join('') + '</div>' +
     '<label class="check sim-sal"><input type="checkbox" name="carry"> Somar o que sobra (ou falta) de um mês no seguinte</label>' +
-    (salaryAverage() > 0 ? '<label class="check sim-sal"><input type="checkbox" name="usesal" checked> Considerar o meu salário nos próximos meses (cerca de ' + fmtMoney(salaryAverage()) + ' por mês, a média dos últimos meses)</label>' : '') +
+    (salaryAverage() > 0 ? '<label class="check sim-sal"><input type="checkbox" name="usesal" checked> Considerar o meu salário nos próximos meses (cerca de ' + fmtMoney(salaryAverage()) + ' por mês, ' + (salarySource() === 'calc' ? 'o líquido que você calculou na calculadora do salário' : 'a média dos últimos meses') + ')</label>' : '') +
     (actions || '') + '</div><div id="simResult" class="sim-result" aria-live="polite"></div></div>';
 }
 
@@ -208,7 +218,7 @@ function compute(s){
   var cash = State.accounts.length ? totalAccountsBalance() : 0;
   var base = baselineMonths(s.hz, s.usesal);
   s.rows = projectCash(cash, base, adds, s.inflowNow, s.carry);
-  if (s.usesal && base.some(function(b){ return b.sal > 0; })) notes.push('Considerei o seu salário de cerca de ' + fmtMoney(salaryAverage()) + ' por mês (média dos últimos meses) nos meses em que ele ainda não está lançado nem previsto. Desmarque a opção acima para ver sem ele.');
+  if (s.usesal && base.some(function(b){ return b.sal > 0; })) notes.push('Considerei o seu salário de cerca de ' + fmtMoney(salaryAverage()) + ' por mês (' + (salarySource() === 'calc' ? 'o líquido que você calculou na calculadora do salário' : 'média dos últimos meses') + ') nos meses em que ele ainda não está lançado nem previsto. Desmarque a opção acima para ver sem ele.');
   s.cash = cash;
   return s;
 }
