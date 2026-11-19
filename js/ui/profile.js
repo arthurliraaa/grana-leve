@@ -66,6 +66,7 @@ export function renderProfile(){
       '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" id="pfResearchBtn">Ver termo e mudar</button></div>') +
 
     card('pfT6', 'shield', 'Seus dados e segurança',
+      '<div class="pref-row"><span>Sair da conta neste aparelho. Seus dados continuam salvos.</span><button class="btn btn-ghost btn-sm" type="button" id="pfLogout">Sair da conta</button></div>' +
       '<div class="pref-row"><span>Backup, onde os dados ficam e importação.</span><button class="btn btn-ghost btn-sm" type="button" id="pfData">Seus dados e backup</button></div>' +
       (online() ? '<div class="pref-row"><span>Esqueceu a conta aberta em outro aparelho? Encerre todas as sessões, inclusive esta.</span><button class="btn btn-ghost btn-sm" type="button" id="pfSignOutAll">Sair de todos os aparelhos</button></div>' : '') +
       (st.profileCreatedAt ? '<p class="tx-meta">Conta criada em ' + formatDateFull(toDateKey(new Date(st.profileCreatedAt))) + '.</p>' : '')) +
@@ -159,6 +160,7 @@ export function initProfile(context){
     var id = e.target.closest('button') && e.target.closest('button').id;
     if (id === 'pfResetConfirm'){ setPref('skipConfirm', {}); renderProfile(); toast('As confirmações voltaram a aparecer.'); }
     if (id === 'pfResearchBtn') ctx.openResearch();
+    if (id === 'pfLogout') ctx.logout();
     if (id === 'pfData') ctx.openData();
     if (id === 'pfDelete') ctx.deleteAccount();
     if (id === 'pfClear') ctx.clearData();
