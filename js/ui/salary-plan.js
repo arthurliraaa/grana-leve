@@ -14,36 +14,41 @@ import {openModal, confirmAction} from './modal.js';
 import {State, k, forecastOccurrences, sortTransactions} from './state.js';
 import {accountSelectHtml, renderTransactionsTab} from './tx-list.js';
 import {renderDashboard} from './home-tab.js';
-import {openSalaryCalculator, savedSalary, getWorkProfile, setWorkProfile} from './salary-calc.js';
+import {openSalaryCalculator, savedSalary, activeSalary, getWorkProfile, setWorkProfile, getJobs, activeJobId, jobName, useJob} from './salary-calc.js';
+import {DEFAULT_JOB_ID} from '../domain/jobs.js';
 
-export function salaryForecast(){ return State.forecasts.filter(function(f){ return f.salary && f.salary.rule; })[0] || null; }
+// Cada emprego pode ter a sua previsão de salário (f.salary.jobId; as antigas, sem jobId, são do primeiro emprego).
+export function salaryForecasts(){ return State.forecasts.filter(function(f){ return f.salary && f.salary.rule; }); }
+function jobIdOf(f){ return f.salary.jobId || DEFAULT_JOB_ID; }
+export function salaryForecast(jobId){ var id = jobId || activeJobId(); return salaryForecasts().filter(function(f){ return jobIdOf(f) === id; })[0] || null; }
+function labelOf(f){ return salaryForecasts().length > 1 ? (f.salary.jobName || jobName(jobIdOf(f)) || f.description) : ''; }
 
 // O perfil da calculadora vive no aparelho (preferências), mas a previsão do salário sincroniza com a conta: ela leva uma
 // cópia do perfil (plan.profile). Em outro aparelho, ou depois de limpar o navegador, a cópia mais nova volta para as preferências.
 export function hydrateSalaryProfile(){
-  var f = salaryForecast(), remote = f && f.salary.profile;
-  if (!remote || !(Number(remote.gross) > 0)) return;
-  var local = getWorkProfile();
-  if (!(Number(local.gross) > 0) || (Number(remote.updatedAt) || 0) > (Number(local.updatedAt) || 0)) setWorkProfile(remote);
+  salaryForecasts().forEach(function(f){
+    var remote = f.salary.profile;
+    if (!remote || !(Number(remote.gross) > 0)) return;
+    var id = jobIdOf(f), local = getWorkProfile(id);
+    if (!(Number(local.gross) > 0) || (Number(remote.updatedAt) || 0) > (Number(local.updatedAt) || 0)) setWorkProfile(remote, id, f.salary.jobName);
+  });
 }
-function withProfile(plan){ return Object.assign({}, plan, {profile: getWorkProfile()}); }
+function withProfile(plan, jobId){ return Object.assign({}, plan, {jobId: jobId, jobName: jobName(jobId), profile: getWorkProfile(jobId)}); }
 
-// Próximo salário a confirmar: o mês mais antigo (anterior ou atual) cuja data já chegou e que ainda não foi recebido.
+// Próximo salário a confirmar (de qualquer emprego): o mês mais antigo (anterior ou atual) cuja data já chegou e que ainda não foi recebido.
 export function salaryDue(){
-  var f = salaryForecast();
-  if (!f) return null;
   var cur = monthBounds(0).key, today = todayKey(), found = null;
-  [shiftMonthKey(cur, -1), cur].forEach(function(key){
-    if (found || key < monthKeyOf(f.date)) return;
-    var occ = forecastOccurrences(key).filter(function(o){ return o.f.id === f.id; })[0];
-    if (occ && occ.received === undefined && occ.date <= today) found = {f: f, occ: occ, key: key};
+  salaryForecasts().forEach(function(f){
+    [shiftMonthKey(cur, -1), cur].forEach(function(key){
+      if (key < monthKeyOf(f.date)) return;
+      var occ = forecastOccurrences(key).filter(function(o){ return o.f.id === f.id; })[0];
+      if (occ && occ.received === undefined && occ.date <= today && (!found || occ.date < found.occ.date)) found = {f: f, occ: occ, key: key};
+    });
   });
   return found;
 }
-// Próximo salário (já com a data): o do mês atual, se ainda não caiu, ou o do mês que vem.
-function salaryNext(){
-  var f = salaryForecast();
-  if (!f) return null;
+// Próximo salário de uma previsão (já com a data): o do mês atual, se ainda não caiu, ou o do mês que vem.
+function salaryNext(f){
   var cur = monthBounds(0).key, occ = forecastOccurrences(cur).filter(function(o){ return o.f.id === f.id; })[0];
   if (occ && occ.received === undefined) return {f: f, occ: occ};
   var nxt = forecastOccurrences(shiftMonthKey(cur, 1)).filter(function(o){ return o.f.id === f.id; })[0];
@@ -60,7 +65,7 @@ async function registerSalary(due, res){
   var r = res.res, received = Object.assign({}, f.received || {}); received[key] = res.net;
   var plan = Object.assign({}, f.salary, {months: Object.assign({}, f.salary.months || {})});
   plan.months[key] = {gross: r.gross, net: res.net, extras: money(r.extras + r.bonuses), discounts: r.discounts, fgts: r.fgts || 0, date: date};
-  var before = f.salary.steps || [], next = withProfile(withStep(plan, key, r.gross, r.fixedNet));
+  var before = f.salary.steps || [], next = withProfile(withStep(plan, key, r.gross, r.fixedNet), jobIdOf(f));
   await Store.update(k(), 'forecasts', f.id, {received: received, salary: next});
   f.received = received; f.salary = next;
   renderDashboard(); renderTransactionsTab();
@@ -74,8 +79,9 @@ export async function confirmSalary(due){
   due = due || salaryDue();
   if (!due) return false;
   var today = todayKey(), f = due.f, key = due.key || monthKeyOf(due.occ.date);
+  useJob(jobIdOf(f));   // a calculadora abre com o perfil do emprego desta previsão
   var res = await openSalaryCalculator({
-    confirm: true, title: 'O salário de ' + monthLabelOf(key) + ' caiu?', submitLabel: 'Caiu: registrar', cancelLabel: 'Ainda não caiu',
+    confirm: true, title: 'O salário de ' + monthLabelOf(key) + (labelOf(f) ? ' (' + labelOf(f) + ')' : '') + ' caiu?', submitLabel: 'Caiu: registrar', cancelLabel: 'Ainda não caiu',
     introHtml: '<p class="field-hint sc-confirm-intro">Previsto ' + ruleLabel(f.salary.rule) + ' (' + formatDateFull(due.occ.date) + '). Confira os valores deste mês: acrescente sobreaviso, horas extras ou ganhos, e ajuste descontos que mudaram, como a parte usada do plano de saúde.</p>',
     extraHtml: '<div class="sc-confirm">' + accountSelectHtml('scAcc', 'acc', 'Entrou em') +
       '<div class="field"><label for="scCaiu">Dia em que caiu</label><input id="scCaiu" name="caiuDate" type="date" min="1900-01-01" max="3000-12-31" value="' + (due.occ.date > today ? today : due.occ.date) + '"></div></div>'
@@ -83,6 +89,17 @@ export async function confirmSalary(due){
   if (!res){ setPref('salaryAskedOn', today); renderDashboard(); return false; }
   await registerSalary(due, res);
   return true;
+}
+// Do botão “Já caiu” do cartão (cada previsão tem o seu).
+export function confirmSalaryById(forecastId){
+  var due = null, d = salaryDue();
+  if (d && (!forecastId || d.f.id === forecastId)) due = d;
+  else if (forecastId){
+    var f = State.forecasts.filter(function(x){ return x.id === forecastId; })[0], cur = monthBounds(0).key;
+    var occ = f && forecastOccurrences(cur).filter(function(o){ return o.f.id === f.id; })[0];
+    if (occ) due = {f: f, occ: occ, key: cur};
+  }
+  return confirmSalary(due || undefined);
 }
 // Ao abrir o app: se o salário deveria ter caído e ainda não foi confirmado, pergunta (uma vez por dia).
 export function askSalaryIfDue(){
@@ -97,16 +114,19 @@ export function renderSalaryCard(){
   var el = document.getElementById('salaryCard');
   if (!el) return;
   hydrateSalaryProfile();
-  var plan = salaryForecast(), calc = savedSalary(), due = salaryDue(), html = '';
+  var plans = salaryForecasts(), calc = savedSalary(), due = salaryDue(), html = '';
   if (due){
-    html = '<div class="salary-card-text"><strong>Seu salário deveria ter caído ' + (due.occ.date === todayKey() ? 'hoje' : 'em ' + formatDateBr(due.occ.date)) + '.</strong> Previsto ' + fmtMoney(due.occ.f.amount) + '. Já caiu? Confirme os valores do mês, com o que variou.</div>' +
-      '<div class="card-actions"><button type="button" class="btn btn-primary btn-sm" data-salary-confirm>Já caiu</button><button type="button" class="btn btn-ghost btn-sm" data-salary-open>Meu salário</button></div>';
-  } else if (plan){
-    var nx = salaryNext();
-    html = '<div class="salary-card-text"><strong>Meu salário</strong>' + (nx ? ' · próximo ' + ruleLabel(plan.salary.rule) + ': ' + formatDateFull(nx.occ.date) + ', ' + fmtMoney(nx.occ.f.amount) : '') + '</div>' +
-      '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-salary-open>Ver evolução e ajustar</button></div>';
+    var who = labelOf(due.f);
+    html = '<div class="salary-card-text"><strong>Seu salário' + (who ? ' (' + escapeHtml(who) + ')' : '') + ' deveria ter caído ' + (due.occ.date === todayKey() ? 'hoje' : 'em ' + formatDateBr(due.occ.date)) + '.</strong> Previsto ' + fmtMoney(due.occ.f.amount) + '. Já caiu? Confirme os valores do mês, com o que variou.</div>' +
+      '<div class="card-actions"><button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(due.f.id) + '">Já caiu</button><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(due.f)) + '">Meu salário</button></div>';
+  } else if (plans.length){
+    html = '<div class="salary-card-text"><strong>' + (plans.length > 1 ? 'Meus salários' : 'Meu salário') + '</strong>' + plans.map(function(f){
+      var nx = salaryNext(f), who = labelOf(f);
+      return '<span class="salary-line">' + (who ? escapeHtml(who) + ': ' : '') + (nx ? 'próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date) + ' · ' + fmtMoney(nx.occ.f.amount) : 'sem próximo salário previsto') + '</span>';
+    }).join('') + '</div>' +
+      '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(plans[0])) + '">Ver evolução e ajustar</button></div>';
   } else if (calc){
-    html = '<div class="salary-card-text"><strong>Você calculou o seu salário líquido: ' + fmtMoney(calc.fixedNet) + ' por mês.</strong> Quer que ele apareça como previsão todo mês, com o dia em que cai?</div>' +
+    html = '<div class="salary-card-text"><strong>Você calculou o seu salário líquido: ' + fmtMoney(calc.fixedNet) + ' por mês' + (calc.count > 1 ? ' (' + calc.count + ' empregos somados)' : '') + '.</strong> Quer que ele apareça como previsão todo mês, com o dia em que cai?</div>' +
       '<div class="card-actions"><button type="button" class="btn btn-primary btn-sm" data-salary-open>Prever meu salário</button></div>';
   }
   el.hidden = !html;
@@ -138,15 +158,18 @@ function readRule(form){
   return {type: 'workday', n: Math.min(23, Math.max(1, Math.floor(Number(form.n.value) || 1))), saturday: !!form.sat.checked};
 }
 
-export async function openSalaryPlan(presetRule){
+// jobId: de qual emprego (padrão: o ativo da calculadora). Com mais de um emprego, o seletor troca o emprego e reabre a tela.
+export async function openSalaryPlan(presetRule, jobId){
   hydrateSalaryProfile();
-  var f = salaryForecast(), calc = savedSalary();
-  var calcHtml = function(c){ return c ? '<p><strong>Salário bruto ' + fmtMoney(c.gross) + '</strong> · líquido fixo estimado <strong>' + fmtMoney(c.fixedNet) + '</strong> por mês.</p>' : '<p class="field-hint">Antes, calcule o seu líquido: ele é o valor que vai aparecer como previsão todo mês.</p>'; };
+  if (jobId && jobId !== activeJobId()) useJob(jobId);
+  var f = salaryForecast(), calc = activeSalary(), jobs = getJobs(), multi = jobs.list.length > 1, myJob = activeJobId();
+  var calcHtml = function(c){ return c ? '<p><strong>Salário bruto ' + fmtMoney(c.gross) + '</strong> · líquido fixo estimado <strong>' + fmtMoney(c.fixedNet) + '</strong> por mês.</p>' : '<p class="field-hint">Antes, calcule o líquido: ele é o valor que vai aparecer como previsão todo mês.</p>'; };
+  var jobSel = multi ? '<div class="field"><label for="spJob">Emprego</label><select id="spJob">' + jobs.list.map(function(j){ return '<option value="' + escapeHtml(j.id) + '"' + (j.id === myJob ? ' selected' : '') + '>' + escapeHtml(j.name) + '</option>'; }).join('') + '</select></div>' : '';
   var r = await openModal({
-    title: 'Meu salário', wide: true, submitLabel: f ? 'Salvar alterações' : 'Prever meu salário todo mês', cancelLabel: 'Fechar',
-    body: '<div class="sc-body"><div id="spCalc">' + calcHtml(calc) + '<button type="button" class="btn btn-ghost btn-sm" data-sp-calc>' + (calc ? 'Recalcular o líquido' : 'Calcular o líquido do salário') + '</button></div>' +
+    title: multi ? 'Meu salário · ' + jobName(myJob) : 'Meu salário', wide: true, submitLabel: f ? 'Salvar alterações' : 'Prever meu salário todo mês', cancelLabel: 'Fechar',
+    body: '<div class="sc-body">' + jobSel + '<div id="spCalc">' + calcHtml(calc) + '<button type="button" class="btn btn-ghost btn-sm" data-sp-calc>' + (calc ? 'Recalcular o líquido' : 'Calcular o líquido do salário') + '</button></div>' +
       ruleHtml(presetRule || (f && f.salary.rule)) +
-      (f ? '<section><h4>Evolução do salário</h4>' + evolutionHtml(f.salary) + '</section><button type="button" class="linklike sp-remove" data-sp-remove>Parar de prever o salário</button>' : '') + '</div>',
+      (f ? '<section><h4>Evolução do salário</h4>' + evolutionHtml(f.salary) + '</section><button type="button" class="linklike sp-remove" data-sp-remove>Parar de prever este salário</button>' : '') + '</div>',
     onOpen: function(modal, close){
       var form = qs('form', modal);
       modal.addEventListener('click', function(e){
@@ -154,31 +177,34 @@ export async function openSalaryPlan(presetRule){
         if (e.target.closest('[data-sp-calc]')) close({again: true, rule: readRule(form)});
         if (e.target.closest('[data-sp-remove]')) close({remove: true});
       });
+      modal.addEventListener('change', function(e){ if (e.target.id === 'spJob') close({job: e.target.value, rule: readRule(form)}); });
     },
     onSubmit: function(form){
-      if (!savedSalary()) return {error: 'Calcule o líquido do salário primeiro.'};
+      if (!activeSalary()) return {error: 'Calcule o líquido do salário primeiro.'};
       return {rule: readRule(form)};
     }
   });
   if (!r || r === true) return;
-  if (r.again){ await openSalaryCalculator({title: 'Calcular o salário líquido', submitLabel: 'Usar o líquido fixo (todo mês)'}); return openSalaryPlan(r.rule); }
+  if (r.job){ useJob(r.job); return openSalaryPlan(); }
+  if (r.again){ await openSalaryCalculator({title: 'Calcular o salário líquido', submitLabel: 'Usar o líquido fixo (todo mês)'}); return openSalaryPlan(r.rule, activeJobId()); }
   if (r.remove){
-    if (!(await confirmAction({title: 'Parar de prever o salário?', message: 'A previsão do salário some dos próximos meses. Os salários já registrados continuam nos seus ganhos, mas a evolução guardada nesta previsão deixa de aparecer.', confirmLabel: 'Parar'}))) return openSalaryPlan();
+    if (!(await confirmAction({title: 'Parar de prever este salário?', message: 'A previsão do salário some dos próximos meses. Os salários já registrados continuam nos seus ganhos, mas a evolução guardada nesta previsão deixa de aparecer.', confirmLabel: 'Parar'}))) return openSalaryPlan();
     await Store.remove(k(), 'forecasts', f.id);
     State.forecasts = State.forecasts.filter(function(x){ return x.id !== f.id; });
     renderDashboard(); toast('Previsão do salário removida.');
     return;
   }
-  var c = savedSalary(), cur = monthBounds(0).key;
+  var c = activeSalary(), cur = monthBounds(0).key, jid = activeJobId();
   if (f){
     // Mudou o salário ou o líquido: vale a partir deste mês, ou do próximo se o deste mês já foi recebido (o recebido não muda).
     var from = f.received && f.received[cur] !== undefined ? shiftMonthKey(cur, 1) : cur;
-    var plan = withProfile(withStep(Object.assign({}, f.salary, {rule: r.rule}), from, c.gross, c.fixedNet));
+    var plan = withProfile(withStep(Object.assign({}, f.salary, {rule: r.rule}), from, c.gross, c.fixedNet), jid);
     await Store.update(k(), 'forecasts', f.id, {salary: plan, date: payDate(r.rule, monthKeyOf(f.date))});
     f.salary = plan; f.date = payDate(r.rule, monthKeyOf(f.date));
   } else {
-    var doc = {description: 'Salário', amount: c.fixedNet, date: payDate(r.rule, cur), recurring: true, category: 'salario', received: {}, createdAt: Date.now(),
-      salary: {rule: r.rule, steps: [{from: cur, gross: c.gross, net: c.fixedNet}], months: {}, profile: getWorkProfile()}};
+    var many = getJobs().list.length > 1;
+    var doc = {description: many ? 'Salário · ' + jobName(jid) : 'Salário', amount: c.fixedNet, date: payDate(r.rule, cur), recurring: true, category: 'salario', received: {}, createdAt: Date.now(),
+      salary: {rule: r.rule, steps: [{from: cur, gross: c.gross, net: c.fixedNet}], months: {}, jobId: jid, jobName: jobName(jid), profile: getWorkProfile(jid)}};
     var saved = await Store.add(k(), 'forecasts', doc);
     State.forecasts.push(saved);
   }

@@ -2316,3 +2316,14 @@ button.is-busy::after{ content:""; position:absolute; left:50%; top:50%; width:1
 @media (max-width: 899px){ .gr-corner{ right:6px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); } .gr-corner-box{ width:60px; } }
 body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hidden])) .gr-corner{ display:none; }
 @media (prefers-reduced-motion: reduce){ .gr-corner.gr-enter .gr-corner-box, .gr-corner-bubble.gr-pop, .gr-corner-btn:hover .gr-svg{ animation:none; } }
+
+/* Mais de um emprego */
+.sc-jobbar{ display:grid; gap:6px; min-width:0; }
+.sc-job-add, .sc-job-del{ justify-self:start; font-size:.88rem; }
+.sc-job-del{ color: var(--critical); }
+.sc-jobs-sum{ display:grid; gap:6px; padding:12px 14px; border-radius:12px; background: var(--surface-2); border:1px solid var(--border); font-size:.92rem; }
+.sc-jobs-sum[hidden]{ display:none; }
+.sc-jobs-sum ul{ list-style:none; margin:0; padding:0; display:grid; gap:4px; }
+.sc-jobs-sum li, .sc-jobs-total{ display:flex; justify-content:space-between; gap:12px; }
+.sc-jobs-total{ border-top:1px solid var(--border); padding-top:6px; font-weight:700; }
+.sc-jobs-sum .tx-meta{ margin:2px 0 0; }

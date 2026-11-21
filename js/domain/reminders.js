@@ -28,11 +28,13 @@ export function buildReminders(ctx){
   function add(r){ if (r.date >= today && r.date <= last) out.push(Object.assign({hour: DEFAULT_HOUR, url: './#/inicio'}, r)); }
 
   if (kinds.salary){
-    (ctx.forecasts || []).filter(function(f){ return f.salary && f.salary.rule; }).forEach(function(f){
+    var plans = (ctx.forecasts || []).filter(function(f){ return f.salary && f.salary.rule; });
+    plans.forEach(function(f){
       keys.forEach(function(key){
         forecastOccurrences([f], key).forEach(function(o){
           if (o.received !== undefined) return;
-          add({key: 'salary:' + f.id + ':' + o.date, kind: 'salary', date: o.date, title: 'Seu salário', body: 'Hoje é o dia previsto para o salário cair. Já caiu? Toque para confirmar.', url: './#/inicio'});
+          var who = plans.length > 1 && f.salary.jobName ? ' (' + f.salary.jobName + ')' : '';
+          add({key: 'salary:' + f.id + ':' + o.date, kind: 'salary', date: o.date, title: 'Seu salário', body: 'Hoje é o dia previsto para o salário' + who + ' cair. Já caiu? Toque para confirmar.', url: './#/inicio'});
         });
       });
     });

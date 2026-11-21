@@ -42,7 +42,7 @@ L.run(async ({page}) => {
   L.ok(f && f.received['2026-11'] === month && f.salary.months['2026-11'].gross === 3000 && f.salary.steps.length === 1, 'a previsão ficou como recebida e o mês entrou na evolução');
 
   L.section('Próximo salário');
-  L.ok(/próximo no 5º dia útil: 05\/12\/2026/.test(await L.text(page, '#salaryCard')), 'o Início mostra o próximo salário (05/12/2026)');
+  L.ok(/próximo no 5º dia útil · 05\/12\/2026/.test(await L.text(page, '#salaryCard')), 'o Início mostra o próximo salário (05/12/2026)');
   L.ok(await page.$eval('#salaryCard', e => !/Já caiu/.test(e.textContent)), 'não pergunta de novo: já foi confirmado');
 
   L.section('Reajuste e evolução');
@@ -60,7 +60,7 @@ L.run(async ({page}) => {
   await L.closeModal(page);
 
   L.section('Outro aparelho');
-  await page.evaluate(key => { const k = 'granaleve_prefs_' + key; const cur = JSON.parse(localStorage.getItem(k) || '{}'); delete cur.workProfile; localStorage.setItem(k, JSON.stringify(cur)); }, email.toLowerCase());
+  await page.evaluate(key => { const k = 'granaleve_prefs_' + key; const cur = JSON.parse(localStorage.getItem(k) || '{}'); delete cur.workProfile; delete cur.workJobs; localStorage.setItem(k, JSON.stringify(cur)); }, email.toLowerCase());
   await L.reload(page); await L.sleep(300);
   await page.$eval('[data-salary-open]', e => e.click()); await L.sleep(300);
   L.ok(/Salário bruto R\$\s?3\.300,00/.test(await L.text(page, '#spCalc')), 'sem o perfil neste aparelho, ele volta da previsão (que sincroniza com a conta): salário bruto de R$ 3.300,00');

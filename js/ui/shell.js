@@ -858,8 +858,9 @@ function wireLazyEntries(){
     if (e.target.closest('#importStmtBtn')) withPart('statement', function(m){ m.openStatementImport(); });
     var calc = e.target.closest('[data-salary-calc]');
     if (calc) withPart('salary', function(m){ m.runSalaryCalcButton(calc); });
-    if (e.target.closest('[data-salary-open]')) withPart('salary', function(m){ m.openSalaryPlan(); });
-    else if (e.target.closest('[data-salary-confirm]')) withPart('salary', function(m){ m.confirmSalary(); });
+    var sOpen = e.target.closest('[data-salary-open]'), sConf = e.target.closest('[data-salary-confirm]');
+    if (sOpen){ var jid = sOpen.getAttribute('data-salary-open') || ''; withPart('salary', function(m){ m.openSalaryPlan(null, jid); }); }
+    else if (sConf){ var fid = sConf.getAttribute('data-salary-confirm') || ''; withPart('salary', function(m){ m.confirmSalaryById(fid); }); }
     // Qualquer botão com data-sim-open leva para a guia Simular.
     if (e.target.closest('[data-sim-open]')) showTab('simular');
   });

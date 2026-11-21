@@ -59,3 +59,13 @@ test('só rotas do próprio app são aceitas como destino', () => {
   assert.equal(safeAppUrl('./#/../x'), './#/inicio');
   assert.equal(safeAppUrl(undefined), './#/inicio');
 });
+
+test('mais de um emprego: um lembrete por previsão, com o nome do emprego', () => {
+  const b = Object.assign({}, salary, {id: 'f2', description: 'Salário · Escola', salary: {rule: {type: 'day', day: 10}, steps: [{from: '2026-11', gross: 2000, net: 1844.31}], months: {}, jobId: 'j2', jobName: 'Escola'}});
+  const a = Object.assign({}, salary, {salary: Object.assign({}, salary.salary, {jobId: 'j1', jobName: 'Emprego principal'})});
+  const r = buildReminders({today: '2026-12-01', kinds: {salary: true}, forecasts: [a, b]});
+  assert.deepEqual(r.map(x => x.key), ['salary:f1:2026-12-05', 'salary:f2:2026-12-10']);
+  assert.match(r[1].body, /\(Escola\)/);
+  assert.match(r[0].body, /\(Emprego principal\)/);
+  assert.ok(!/\(/.test(buildReminders({today: '2026-12-01', kinds: {salary: true}, forecasts: [salary]})[0].body), 'com um só, sem o nome');
+});

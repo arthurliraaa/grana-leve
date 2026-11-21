@@ -227,6 +227,14 @@ e avisa que o PDF é aproximado. PDF: `js/ui/pdf-read.js` baixa o pdf.js 3.11.17
 `fetch(..., {integrity})` no worker (que roda como blob: a CSP tem `worker-src 'self' blob:`), `isEvalSupported: false` (CVE-2024-4367) e
 pede a senha se o PDF tiver. Atualizar o pdf.js exige novos hashes SRI (cdnjs: api.cdnjs.com/libraries/pdf.js/VERSÃO?fields=sri).
 
+## Mais de um emprego (`js/domain/jobs.js`)
+`prefs.workJobs = {list: [{id, name, profile}], active}`; quem só tinha o perfil único (`prefs.workProfile`) vira o “Emprego principal” (`migrateJobs`).
+`js/ui/salary-calc.js`: o perfil ativo é o que a calculadora edita (`getWorkProfile(jobId?)`, `setWorkProfile(p, jobId?, nome?)`, `useJob`, `createJob`);
+`savedSalary()` devolve o TOTAL dos empregos (o simulador e o convite do Início usam) e `activeSalary()` só o do ativo. Trocar/adicionar/remover emprego fecha
+e reabre a calculadora (`{jobAction}`); cada emprego é calculado à parte (INSS tem teto somando tudo e o IR se acerta na declaração: estimativa).
+Cada emprego pode ter a sua previsão de salário: `forecast.salary.jobId` (as antigas, sem jobId, são do primeiro) e `jobName`; `salaryForecasts()`,
+`salaryForecast(jobId)`, `confirmSalaryById(id)`, o cartão do Início lista uma linha por previsão e os lembretes (push) levam o nome do emprego.
+
 ## Plano do salário (`js/domain/salary-plan.js`)
 O salário previsto todo mês é uma previsão de entrada (`forecasts`) com o campo `salary`; as datas e os valores de cada mês
 saem de `forecastOccurrences`. Contas puras, sem feriados (a pessoa corrige a data ao confirmar).

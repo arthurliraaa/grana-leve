@@ -6,20 +6,36 @@
  * As contas ficam em js/domain/salary.js.
  */
 import {fmtMoney, money} from '../domain/money.js';
+import {migrateJobs, activeJob, addJob, removeJob, setActive, renameJob, setProfile, ensureJob, jobById, summarizeJobs, MAX_JOBS} from '../domain/jobs.js';
 import {netSalary, thirteenth, vacation, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
-import {openModal} from './modal.js';
+import {openModal, confirmAction} from './modal.js';
 import {renderSalaryNotice} from './home-tab.js';
 
 var GROSS_LABEL = {clt: 'Salário bruto (o da carteira)', servidor: 'Salário bruto', mei: 'Quanto você fatura por mês', autonomo: 'Quanto você recebe por mês',
   pj: 'Quanto a empresa fatura por mês', estagio: 'Valor da bolsa', outro: 'Valor bruto por mês'};
 
-function profile(){ return getPrefs().workProfile || {}; }
+/* ---------- Empregos: cada um com o seu perfil (domain/jobs.js); preferências guardam a lista ---------- */
+function jobsState(){ return migrateJobs(getPrefs()); }
+function saveJobs(s){ setPref('workJobs', s); setPref('workProfile', activeJob(s).profile); }   // workProfile: cópia do ativo, para quem ainda lê o formato antigo
+function profile(){ return activeJob(jobsState()).profile || {}; }
 // O perfil (salário, descontos, ganhos) também viaja dentro da previsão do salário, para aparecer em outro aparelho:
-// quem sincroniza chama estas duas funções (ver salary-plan.js).
-export function getWorkProfile(){ return profile(); }
-export function setWorkProfile(p){ setPref('workProfile', p); }
+// quem sincroniza chama estas funções (ver salary-plan.js). jobId: de qual emprego (padrão: o ativo).
+export function getWorkProfile(jobId){ var s = jobsState(), j = jobId ? jobById(s, jobId) : activeJob(s); return j ? j.profile || {} : {}; }
+export function setWorkProfile(p, jobId, name){
+  var s = jobsState();
+  if (jobId) s = ensureJob(s, jobId, name);
+  saveJobs(setProfile(s, jobId || s.active, p));
+}
+export function getJobs(){ return jobsState(); }
+export function activeJobId(){ return jobsState().active; }
+export function jobName(jobId){ var j = jobById(jobsState(), jobId); return j ? j.name : ''; }
+export function useJob(id){ saveJobs(setActive(jobsState(), id)); }
+export function createJob(name){ var s = addJob(jobsState(), name || ''); saveJobs(s); return s.active; }
+function netOfProfile(p){ var r = netSalary(Object.assign({}, p, {h50: 0, h100: 0, sobreaviso: 0})); return {gross: r.gross, fixedNet: r.fixedNet}; }
+// Todos os empregos: [{id, name, gross, fixedNet}] e os totais.
+export function jobsSummary(){ return summarizeJobs(jobsState(), netOfProfile); }
 function num(v){ var n = Number(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')); return isFinite(n) ? n : 0; }
 function typesOf(kind){ return kind === 'bonus' ? BONUS_TYPES : DISCOUNT_TYPES; }
 function metaOf(kind, id){ return typesOf(kind).filter(function(t){ return t.id === id; })[0] || {}; }
@@ -53,9 +69,20 @@ function rowHtml(kind, d){
     (bonus ? '<label class="check sc-d-taxl"><input class="sc-d-tax" type="checkbox"' + (taxable ? ' checked' : '') + '> Paga imposto</label>' : '') +
     '<button type="button" class="linklike sc-d-del" aria-label="Remover">Remover</button></div></div>';
 }
-function bodyHtml(){
+// Barra de empregos: com um só, um link para adicionar outro; com mais, o seletor, o nome e remover. (Na confirmação mensal não aparece.)
+function jobBarHtml(){
+  var st = jobsState(), multi = st.list.length > 1;
+  if (!multi) return '<div class="sc-jobbar"><button type="button" class="linklike sc-job-add" data-job-add>+ Tenho mais de um emprego</button></div>';
+  var opts = st.list.map(function(j){ return '<option value="' + escapeHtml(j.id) + '"' + (j.id === st.active ? ' selected' : '') + '>' + escapeHtml(j.name) + '</option>'; }).join('') +
+    (st.list.length < MAX_JOBS ? '<option value="__new">＋ Adicionar outro emprego</option>' : '');
+  return '<div class="sc-jobbar"><div class="sc-grid"><div class="field"><label for="scJob">Emprego</label><select id="scJob">' + opts + '</select></div>' +
+    '<div class="field"><label for="scJobName">Nome deste emprego</label><input id="scJobName" type="text" maxlength="40" autocomplete="off" value="' + escapeHtml(activeJob(st).name) + '"></div></div>' +
+    '<button type="button" class="linklike sc-job-del" data-job-del>Remover este emprego</button></div>';
+}
+function bodyHtml(config){
   var p = profile(), discs = (p.discounts && p.discounts.length ? p.discounts : []), bonuses = (p.bonuses && p.bonuses.length ? p.bonuses : []);
   return '<p class="field-hint">Estimativa com as tabelas de ' + TABLES.year + '. Confira no seu holerite: pode ter adicionais, convenção coletiva e outros descontos.</p>' +
+    (config && config.confirm ? '' : jobBarHtml()) +
     '<div class="field"><label for="scRegime">Como você trabalha</label><select id="scRegime" name="regime">' + optionsHtml(REGIMES, p.regime || 'clt') + '</select></div>' +
     '<div class="sc-grid">' +
       '<div class="field"><label for="scGross" id="scGrossLbl">Salário bruto</label><span class="money-input"><span>R$</span><input id="scGross" name="gross" type="text" data-money autocomplete="off" inputmode="decimal"></span></div>' +
@@ -66,6 +93,7 @@ function bodyHtml(){
       '<div class="field" data-for="outro"><label for="scOther">Desconto (%)</label><input id="scOther" name="otherpct" type="number" min="0" max="60" step="0.5" value="' + (p.otherPct || 0) + '"></div>' +
     '</div>' +
     '<p class="sc-headline" id="scHeadline" aria-live="polite"></p>' +
+    '<div class="sc-jobs-sum" id="scJobsSum" hidden></div>' +
     '<details class="sc-sec" data-sec="work" data-for="clt,servidor"><summary>Jornada e dependentes <span class="opt" data-sum="work"></span></summary><div class="sc-sec-body"><div class="sc-grid">' +
       '<div class="field" data-for="clt,servidor"><label for="scWeek">Jornada por semana</label><select id="scWeek" name="week">' + optionsHtml([{id: '44', label: '44 horas'}, {id: '40', label: '40 horas'}, {id: '36', label: '36 horas'}, {id: '30', label: '30 horas'}], String(p.weeklyHours || 44)) + '</select></div>' +
       '<div class="field" data-for="clt,servidor"><label for="scDep">Dependentes (imposto de renda)</label><input id="scDep" name="dep" type="number" min="0" max="10" step="1" placeholder="0" value="' + (p.dependents || '') + '"></div>' +
@@ -91,7 +119,7 @@ function bodyHtml(){
       '<p class="field-hint">Horas extras, adicionais e comissões entram no 13º e nas férias pela média do ano: informe a média mensal.</p>' +
       '<div id="scExtraRes"></div></div></details>' +
     '<div id="scResult" class="sc-result" aria-live="polite"></div>' +
-    '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="month" hidden>Usar o líquido deste mês (só uma vez)</button></div>';
+    '<div class="sc-use"><button type="button" class="btn btn-ghost btn-sm" data-use="jobs" hidden>Usar o total dos empregos</button><button type="button" class="btn btn-ghost btn-sm" data-use="month" hidden>Usar o líquido deste mês (só uma vez)</button></div>';
 }
 function readRows(form, kind){
   return qsa('.sc-disc-row[data-kind="' + kind + '"]', form).map(function(row){
@@ -196,26 +224,51 @@ function headlineHtml(res){
 // O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela
 // só fechar a calculadora. Os dias de uso do vale-transporte não ficam: mudam todo mês.
 function saveProfile(o){
-  setPref('workProfile', {updatedAt: Date.now(), regime: o.regime, gross: Number(o.gross) || 0, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct,
-    discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses});
+  var st = jobsState();
+  saveJobs(setProfile(st, st.active, {updatedAt: Date.now(), regime: o.regime, gross: Number(o.gross) || 0, weeklyHours: o.weeklyHours, dependents: o.dependents, rpps: o.rpps, meiKind: o.meiKind, inssKind: o.inssKind, simplesRate: o.simplesRate, otherPct: o.otherPct,
+    discounts: o.discounts.map(function(d){ var c = Object.assign({}, d); delete c.days; return c; }), bonuses: o.bonuses}));
 }
 
 // O que foi guardado da calculadora (salário, descontos, ganhos): {gross, fixedNet} ou null se ainda não calculou.
+// O que a pessoa calculou: o total de todos os empregos (o simulador e o convite do Início usam este) ou null se ainda não calculou.
 export function savedSalary(){
+  var sum = jobsSummary();
+  if (!(sum.fixedNet > 0)) return null;
+  return {gross: sum.gross, fixedNet: sum.fixedNet, regime: profile().regime || 'clt', jobs: sum.rows, count: sum.count};
+}
+// O emprego ativo (o que está na calculadora): para criar a previsão do salário dele.
+export function activeSalary(){
   var p = profile();
   if (!(Number(p.gross) > 0)) return null;
-  var res = netSalary(Object.assign({}, p, {h50: 0, h100: 0, sobreaviso: 0}));
-  return {gross: res.gross, fixedNet: res.fixedNet, regime: p.regime || 'clt'};
+  var r = netOfProfile(p);
+  return {gross: r.gross, fixedNet: r.fixedNet, regime: p.regime || 'clt'};
 }
 
 // Abre a calculadora. Devolve {net, kind: 'fixed'|'month', regime, res, opts} ou null se a pessoa fechar.
 // opts.confirm: modo “o salário caiu?”: o botão principal registra o líquido DESTE MÊS (com o que variou) e opts.extraHtml
 // (conta, data) entra depois do resultado; o retorno traz accountId e date.
+// Abre a calculadora. Trocar, adicionar ou remover emprego fecha e reabre com o emprego certo (o que foi digitado já está guardado).
 export async function openSalaryCalculator(config){
+  var res = null;
+  for (var guard = 0; guard < 25; guard++){
+    res = await openCalculatorOnce(config || {});
+    if (!res || !res.jobAction) break;
+    var a = res.jobAction;
+    if (a.type === 'switch') useJob(a.id);
+    else if (a.type === 'new') createJob('');
+    else if (a.type === 'del'){
+      var st = jobsState();
+      if (await confirmAction({title: 'Remover este emprego?', message: 'Remove “' + activeJob(st).name + '” da calculadora (salário, descontos e ganhos dele). Se ele tem previsão de salário, a previsão continua em Meu salário e pode ser parada lá.', confirmLabel: 'Remover'})) saveJobs(removeJob(st, st.active));
+    }
+  }
+  renderSalaryNotice();
+  return res && res.jobAction ? null : res;
+}
+async function openCalculatorOnce(config){
   config = config || {};
   var r = await openModal({
     title: config.title || 'Calcular o salário líquido', wide: true, submitLabel: config.submitLabel || 'Usar o líquido fixo (todo mês)', cancelLabel: config.cancelLabel || 'Fechar',
-    body: (config.introHtml || '') + '<div class="sc-body">' + bodyHtml() + '</div>' + (config.extraHtml || ''),
+    body: (config.introHtml || '') + '<div class="sc-body">' + bodyHtml(config) + '</div>' + (config.extraHtml || ''),
     onOpen: function(modal, close){
       var form = qs('form', modal) || modal, saved = profile();
       if (saved.gross > 0) qs('#scGross', modal).value = saved.gross;
@@ -243,9 +296,25 @@ export async function openSalaryCalculator(config){
         qsa('[data-sum]', modal).forEach(function(el){ el.textContent = sums[el.getAttribute('data-sum')] || ''; });
         qs('#scHeadline', modal).innerHTML = headlineHtml(res);
         saveProfile(o);
+        // Com mais de um emprego: o líquido fixo de cada um e o total (calculados à parte, como cada empresa desconta).
+        var st = jobsState(), box = qs('#scJobsSum', modal), sum = jobsSummary();
+        box.hidden = config.confirm || st.list.length < 2 || sum.count < 1;
+        if (!box.hidden) box.innerHTML = '<strong>Todos os empregos</strong><ul>' + sum.rows.map(function(r){ return '<li><span>' + escapeHtml(r.name) + '</span><b class="tabular">' + (r.fixedNet > 0 ? fmtMoney(r.fixedNet) : 'ainda não calculado') + '</b></li>'; }).join('') +
+          '</ul><div class="sc-jobs-total"><span>Líquido fixo somado</span><b class="tabular">' + fmtMoney(sum.fixedNet) + '</b></div>' +
+          '<p class="tx-meta">Cada emprego é calculado à parte, como cada empresa desconta. O INSS tem teto somando todos os empregos e o imposto de renda final se acerta na declaração: é uma estimativa.</p>';
+        qs('[data-use=jobs]', modal).hidden = config.confirm || st.list.length < 2 || sum.count < 2;
       }
-      modal.addEventListener('input', sync);
+      modal.addEventListener('input', function(e){
+        if (e.target.id === 'scJobName'){
+          var st0 = jobsState(); saveJobs(renameJob(st0, st0.active, e.target.value));
+          var opt = qs('#scJob option:checked', modal); if (opt) opt.textContent = activeJob(jobsState()).name;   // o nome no seletor acompanha
+          sync(); return;
+        }
+        sync();
+      });
       modal.addEventListener('change', function(e){
+        // Trocar de emprego (ou adicionar outro) fecha e reabre a calculadora com o emprego escolhido; o que foi digitado já está guardado.
+        if (e.target.id === 'scJob'){ close({jobAction: e.target.value === '__new' ? {type: 'new'} : {type: 'switch', id: e.target.value}}); return; }
         // Ao trocar o tipo do desconto, “varia todo mês” acompanha o costume daquele tipo (adiantamento varia; plano de saúde não).
         if (e.target.classList.contains('sc-d-type')){
           var row = e.target.closest('.sc-disc-row'), meta = metaOf(row.getAttribute('data-kind'), e.target.value);
@@ -257,10 +326,13 @@ export async function openSalaryCalculator(config){
       });
       modal.addEventListener('click', function(e){
         if (e.target.closest('[data-add-disc]')){ qs('#scDiscList', modal).insertAdjacentHTML('beforeend', rowHtml('disc')); sync(); }
+        if (e.target.closest('[data-job-add]')){ close({jobAction: {type: 'new'}}); return; }
+        if (e.target.closest('[data-job-del]')){ close({jobAction: {type: 'del'}}); return; }
         if (e.target.closest('[data-add-bonus]')){ qs('#scBonusList', modal).insertAdjacentHTML('beforeend', rowHtml('bonus')); sync(); }
         var del = e.target.closest('.sc-d-del');
         if (del){ del.closest('.sc-disc-row').remove(); sync(); }
       });
+      qs('[data-use=jobs]', modal).addEventListener('click', function(){ if (form._res) close({net: jobsSummary().fixedNet, kind: 'fixed', res: form._res, opts: form._opts}); });
       qs('[data-use=month]', modal).addEventListener('click', function(){ if (form._res) close({net: form._res.net, kind: 'month', res: form._res, opts: form._opts}); });
       // Usar o valor de uma parcela do 13º ou das férias (cada um vale uma vez só).
       modal.addEventListener('click', function(e){
@@ -277,8 +349,7 @@ export async function openSalaryCalculator(config){
       return {net: res.fixedNet, kind: 'fixed', res: res, opts: form._opts || readOpts(form)};
     }
   });
-  // O que a pessoa informou já vale para o convite do Início (“Prever meu salário”), mesmo se ela só fechar a calculadora.
-  renderSalaryNotice();
+  if (r && r.jobAction) return {jobAction: r.jobAction};
   if (!r || r === true) return null;
   var o = r.opts;
   saveProfile(o);
