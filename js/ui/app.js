@@ -44,7 +44,7 @@ import {wirePlanning} from './planning-tab.js';
 import {wirePwa} from './pwa.js';
 import {pushAction, pushCardHtml} from './push.js';
 import {openWhatsNew} from './whats-new.js';
-import {renderLanding, wireMascot} from './mascot.js';
+import {renderLanding, wireMascot, syncCorner} from './mascot.js';
 import {wireBusyGuard} from './busy.js';
 import {hideSplash, firstLoadMin} from './splash.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
@@ -61,6 +61,7 @@ wireTheme();
 wireShell();
 wireMascot();
 renderLanding();
+syncCorner();
 wireAuth();
 wireHome();
 wireTransactions();
@@ -82,7 +83,7 @@ initProfile({
     if (Store.mode !== 'supabase') saveSession(State.session);
     renderAll();
   },
-  themePref: themePref, setThemePref: setThemePref, pushCardHtml: pushCardHtml, pushAction: pushAction, openWhatsNew: openWhatsNew,
+  themePref: themePref, setThemePref: setThemePref, pushCardHtml: pushCardHtml, pushAction: pushAction, openWhatsNew: openWhatsNew, syncCorner: syncCorner,
   openResearch: researchModal, researchStatus: researchStatusHtml,
   openData: dataModal, clearData: clearDataModal, openFeedback: openFeedback, deleteAccount: deleteMyAccount, logout: logout, siteUrl: siteUrl,
   forgotPassword: forgotPassword, confirmEmailTypo: confirmEmailTypo

@@ -2,6 +2,7 @@
 import * as L from './lib.js';
 
 L.run(async ({page}) => {
+  await page.evaluateOnNewDocument(() => { localStorage.setItem('granaleve_grana', 'on'); });   // liga o Grana do cantinho
   const askLanding = async q => { await page.type('#meetGrana .gr-form input', q); await page.keyboard.press('Enter'); await L.sleep(1700); };
   const lastBot = () => page.$$eval('#meetGrana .gr-msg.bot p', ps => ps.filter(p => !p.closest('.gr-typing')).pop().textContent);
 
@@ -33,7 +34,7 @@ L.run(async ({page}) => {
 
   L.section('Início (com conta): conta nova e vazia');
   await L.signup(page);
-  L.ok(await page.$eval('#granaStrip', e => !e.hidden) && (await L.text(page, '#granaSay')).length > 10, 'o Grana aparece no Início com uma fala');
+  L.ok(await page.$eval('#granaCorner', e => !e.hidden) && await page.$eval('#granaCorner .gr-svg', e => !!e), 'o Grana aparece no cantinho da tela, dentro do app');
   L.ok(await page.$eval('#newsCard', e => e.hidden), 'conta nova não vê o cartão de novidades (para ela tudo é novo)');
 
   L.section('Início (com conta): quem já usa');
@@ -41,7 +42,7 @@ L.run(async ({page}) => {
   await L.reload(page); await L.sleep(500);
   await L.tab(page, 'dashboard'); await L.sleep(300);
   L.ok(await page.$eval('#newsCard', e => !e.hidden && /Novidades:/.test(e.textContent)), 'quem já usa vê o cartão de novidades no Início');
-  await page.click('#granaStrip .gr-small'); await L.sleep(900);
+  await page.click('#granaCorner .gr-corner-btn'); await L.sleep(900);
   L.ok(/Converse com o Grana/.test(await L.modalTitle(page)), 'tocar no mascote abre a conversa');
   await page.type('#modalRoot .gr-form input', 'como importo o extrato do banco'); await page.keyboard.press('Enter'); await L.sleep(1700);
   L.ok(/Importar extrato/.test(await L.text(page, '#modalRoot .gr-msg.bot:last-child')) && !!(await page.$('#modalRoot [data-gr-go="lancamentos"]')), 'responde para quem tem conta, com o botão que leva à tela certa');

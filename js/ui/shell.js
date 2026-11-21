@@ -33,6 +33,7 @@ import {preloadPdfLibWhenIdle} from './pdf.js';
 import {disablePush, maybeSyncPush, pushActive, wirePushResync} from './push.js';
 import {maybeWhatsNew} from './whats-new.js';
 import {showSplash, hideSplash} from './splash.js';
+import {syncCorner} from './mascot.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, siteUrl, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -256,6 +257,7 @@ export function showTab(name){
   if (changed && name !== 'admin') track('abriu:' + ROUTES[name], null, 30 * 60000);
   if (name === 'admin') withPart('admin', function(m){ m.renderAdmin(); });
   if (name === 'perfil') renderProfile();
+  syncCorner();   // o Grana do cantinho acompanha a tela (dicas de cada uma)
   if (changed) window.scrollTo(0, 0);
 }
 
@@ -347,6 +349,7 @@ async function enterAppFlow(profileHint){
   State.navReady = false;
   showTab(tabFromHash() || 'dashboard');
   State.navReady = true;
+  syncCorner();
   hideSplash(700);   // app pronto: a tela de carregamento sai (se não houve pressa, depois de ~0,7 s para a animação ser vista)
   // Contas fixas cujo dia chegou entram sozinhas em Ganhos e gastos.
   if (await runAutoBills()) renderAll();
@@ -377,6 +380,7 @@ export function logout(){
   finishLogout();
 }
 function finishLogout(){
+  setTimeout(syncCorner, 0);
   if (Store.mode === 'supabase' && State.session) Store.signOut();
   clearSession();
   State.session = null;

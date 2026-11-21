@@ -56,6 +56,7 @@ export function renderProfile(){
 
     card('pfT4', 'sun', 'Preferências',
       '<fieldset class="radio-group"><legend>Tema</legend>' + themeOpt('system', 'Automático (igual ao aparelho)') + themeOpt('light', 'Claro') + themeOpt('dark', 'Escuro') + '</fieldset>' +
+      '<label class="check"><input type="checkbox" id="pfCorner"' + (getPrefs().cornerOff ? '' : ' checked') + '> Mostrar o Grana no cantinho da tela (animado, com dicas e para tirar dúvidas)</label>' +
       '<label class="check"><input type="checkbox" id="pfWelcome"' + (getPrefs().quickEntryOff ? '' : ' checked') + '> Perguntar se tive gastos ou ganhos ao entrar na conta (só logo depois do login)</label>' +
       '<div class="pref-row"><span>Tutorial de primeiros passos: as partes principais e por onde começar.</span><button class="btn btn-ghost btn-sm" type="button" data-tutorial>Ver o tutorial</button></div>' +
       '<div class="pref-row"><span>Confirmações que você pediu para não mostrar mais: <strong>' + skipped + '</strong></span>' +
@@ -158,6 +159,7 @@ export function initProfile(context){
   panel.addEventListener('change', async function(e){
     if (e.target.getAttribute('data-push-kind')){ await ctx.pushAction(e.target); return; }
     if (e.target.name === 'pfTheme') ctx.setThemePref(e.target.value, e.target);
+    if (e.target.id === 'pfCorner'){ setPref('cornerOff', !e.target.checked); ctx.syncCorner(); toast(e.target.checked ? 'O Grana voltou para o cantinho.' : 'O Grana foi para o descanso.'); }
     if (e.target.id === 'pfWelcome'){ setPref('quickEntryOff', !e.target.checked); toast(e.target.checked ? 'A pergunta ao entrar está ligada.' : 'A pergunta ao entrar está desligada.'); }
   });
   panel.addEventListener('click', async function(e){

@@ -15,7 +15,7 @@ import {getPrefs, setPref} from '../data/session.js';
 import {qs, escapeHtml, icon, optionsHtml, toast} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {generateMonthlyReport, invoicePdfButtonsHtml} from './reports.js';
-import {renderGranaStrip, renderNewsCard} from './mascot.js';
+import {renderNewsCard} from './mascot.js';
 import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab, withPart} from './shell.js';
 import {State, URGENCY_MARK, accountBalance, catBadge, catLabel, expenseCats, forecastOccurrences, k, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
 import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
@@ -371,7 +371,6 @@ export function renderDashboard(){
   renderStatTiles();
   renderForecasts();
   renderSalaryNotice();
-  renderGranaStrip();
   renderNewsCard();
   renderDashNav();
   renderDonut();

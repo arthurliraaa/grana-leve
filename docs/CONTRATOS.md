@@ -175,7 +175,10 @@ compara com cada assunto da base `KB` por similaridade (TF-IDF + cosseno), toler
 em vez de chutar. Para ensinar algo novo ao Grana, acrescente (ou edite) um assunto em `KB` com várias formas de perguntar (`q`) e as
 respostas `visitor` (sem conta) e `member` (com conta, com o botão `go`); `tests/unit/mascot.test.js` tem 50+ perguntas de exemplo.
 `js/ui/mascot.js` (sempre carregado: desenho SVG com humores idle/happy/think/wave, animações, dicas do Início, cartão de novidades) e
-`js/ui/mascot-chat.js` (a conversa, sob demanda). Página inicial: `#meetGrana` e `#landingNews`; Início: `#granaStrip` e `#newsCard`.
+`js/ui/mascot-chat.js` (a conversa, sob demanda). Página inicial: `#meetGrana` (o Grana grande) e `#landingNews`; Início: `#newsCard`. **O Grana do cantinho** (`#granaCorner`, em toda tela): pequeno, animado, solta uma dica por tela
+(`TIPS_BY_TAB`) a cada ~45–75 s, abre a conversa ao toque e tem “×” para descansar (`prefs.cornerOff`; Perfil → Preferências chama de volta); na página
+inicial só aparece quando o Grana grande sai da tela; some com pop-up, tutorial ou login abertos. `syncCorner()` (chamado por `showTab`, ao entrar e ao sair).
+localStorage `granaleve_grana = 'off'` o esconde (os testes ligam o desligado por padrão em `tests/e2e/lib.js`).
 `js/domain/changelog.js`: `CHANGELOG` (novidades, a mais nova no TOPO, id = data). **Ao entregar algo que a pessoa vai notar, acrescente uma
 entrada nova no topo**: ela aparece numa janela na primeira abertura depois da atualização (`js/ui/whats-new.js`, uma vez; conta nova e
 vazia não vê), no cartão do Início (até fechar) e na página inicial. Em Perfil dá para rever.

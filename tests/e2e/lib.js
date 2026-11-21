@@ -40,6 +40,8 @@ export async function launch(){
   await page.evaluateOnNewDocument(() => { document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '.toast.toast-action{pointer-events:none !important}'; document.head.appendChild(st); }); });
   // O tutorial de primeiro uso fica desligado nos testes (o teste dele liga de volta).
   await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_tutorial')) localStorage.setItem('granaleve_tutorial', 'off'); } catch(e){} });
+  // O Grana do cantinho (flutua sobre a tela e solta dicas) também fica desligado nos testes, para não cobrir botões (o teste dele liga de volta).
+  await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_grana')) localStorage.setItem('granaleve_grana', 'off'); } catch(e){} });
   // As novidades de atualização também ficam desligadas nos testes (o teste delas liga de volta).
   await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_whatsnew')) localStorage.setItem('granaleve_whatsnew', 'off'); } catch(e){} });
   await page.setViewport({width: 1280, height: 900});

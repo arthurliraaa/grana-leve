@@ -7,7 +7,8 @@
  */
 import {CHANGELOG} from '../domain/changelog.js';
 import {formatDateFull} from '../domain/dates.js';
-import {escapeHtml, icon} from './dom.js';
+import {getPrefs, setPref} from '../data/session.js';
+import {escapeHtml, icon, toast} from './dom.js';
 import {State} from './state.js';
 import {mascotSvg, nextId} from './mascot-art.js';
 export {mascotSvg};
@@ -68,6 +69,7 @@ export function renderLanding(){
     meet.setAttribute('data-ready', '1');
     meet.querySelector('[data-gr-stage]').innerHTML = '<div class="gr-speech" id="grSpeech" aria-live="polite">Oi! Toque em mim 👋</div><button type="button" class="gr-big" data-gr-poke aria-label="Fazer carinho no Grana">' + mascotSvg('wave') + '</button>';
     meet.querySelector('[data-gr-chatbox]').innerHTML = chatHtml(false);
+    watchLandingBig();
   }
   var news = document.getElementById('landingNews'), rel = CHANGELOG[0];
   if (news && rel){
@@ -76,49 +78,78 @@ export function renderLanding(){
   }
 }
 
-/* ---------- Início (com conta) ---------- */
-var LINES = [
-  {text: 'Sabia que dá para importar o extrato do banco? O OFX ou o CSV são os mais exatos.', topic: 'importar'},
-  {text: 'Quer ver como fica o mês antes de comprar? Experimente a guia Simular.', topic: 'simular'},
-  {text: 'Calcule o seu salário líquido em “Previstas”: tem 13º e férias.', topic: 'salario'},
-  {text: 'Defina limites por categoria e eu aviso quando chegar perto.', topic: 'planejar'},
-  {text: 'Dá para juntar dinheiro sem valor final: crie uma meta.', topic: 'metas'},
-  {text: 'Tem alguma dúvida? Toque em mim e pergunte.', topic: ''}
-];
-var lineIdx = 0, rotateT = 0;
-var greeted = false;
+/* ---------- O Grana no cantinho de toda tela ---------- */
+// Dicas por tela (as de quem já tem conta). Cada uma abre a explicação do assunto ao toque.
+var TIPS_BY_TAB = {
+  dashboard: [{text: 'Toque nos cartões do resumo para ver os detalhes do mês.', topic: 'relatorios'}, {text: 'Calcule o seu salário líquido em “Previstas”: tem 13º e férias.', topic: 'salario'}],
+  lancamentos: [{text: 'Dá para importar o extrato do banco: o OFX ou o CSV são os mais exatos.', topic: 'importar'}, {text: 'Escreva “gastei 30 no mercado” e eu entendo.', topic: 'lancar'}, {text: 'Antes de uma compra grande, experimente a guia Simular.', topic: 'simular'}],
+  cartoes: [{text: 'Com o fechamento e o vencimento, eu separo cada compra na fatura certa.', topic: 'cartoes'}, {text: 'Cadastre mais de um banco: o saldo de cada conta aparece aqui.', topic: 'contas'}],
+  limites: [{text: 'Defina limites por categoria e eu aviso quando chegar perto.', topic: 'planejar'}],
+  metas: [{text: 'Dá para juntar dinheiro sem valor final: crie uma meta sem alvo.', topic: 'metas'}],
+  compromissos: [{text: 'Dívidas e quem te deve ficam aqui, com parcelas e histórico.', topic: 'dividas'}],
+  conselhos: [{text: 'Os conselhos usam só os seus gastos, sem julgamento.', topic: 'conselhos'}],
+  perfil: [{text: 'Aqui você faz backup e vê onde ficam os seus dados.', topic: 'dados'}],
+  _: [{text: 'Qualquer dúvida sobre o app, é só tocar em mim.', topic: ''}]
+};
+var LANDING_TIPS = [{text: 'Quer saber o que o app faz? Pergunte para mim!', topic: ''}, {text: 'Dá para importar o extrato do banco, calcular o salário líquido e muito mais.', topic: 'importar'}];
+var cornerEl = null, tipT = 0, hideT = 0, tipIdx = 0, greetedCorner = false;
+// localStorage granaleve_grana = 'off' esconde o Grana do cantinho (testes); a pessoa escolhe em Perfil (prefs.cornerOff).
+function cornerOff(){ var off = false; try { off = localStorage.getItem('granaleve_grana') === 'off'; } catch(e){} return off || !!getPrefs().cornerOff; }
 function firstName(){ return State.session && State.session.name ? State.session.name.split(' ')[0] : ''; }
-function currentLine(){
-  if (!greeted && firstName()){ greeted = true; return {text: 'Oi, ' + firstName() + '! Que bom te ver por aqui 💚 Toque em mim se tiver dúvidas.', topic: ''}; }
-  if (!State.accounts.length && !State.cards.length) return {text: 'Vamos começar? Cadastre o seu banco e eu ajudo a montar o resto.', topic: 'comecar'};
-  return LINES[lineIdx % LINES.length];
-}
-function say(){
-  var el = document.getElementById('granaSay'); if (!el) return;
-  var l = currentLine(); el.textContent = l.text; el.setAttribute('data-topic', l.topic || '');
-}
-export function renderGranaStrip(){
-  var el = document.getElementById('granaStrip');
-  if (!el) return;
-  if (!State.session){ el.hidden = true; return; }
-  if (!el.getAttribute('data-ready')){
-    el.setAttribute('data-ready', '1');
-    el.innerHTML = '<button type="button" class="gr-small" data-gr-open aria-label="Conversar com o Grana">' + mascotSvg('wave') + '</button>' +
-      '<div class="gr-says"><p class="gr-bubble" id="granaSay" data-gr-open role="button" tabindex="0"></p>' +
-      '<div class="gr-actions"><button type="button" class="btn btn-ghost btn-sm" data-gr-open>Perguntar ao Grana</button></div></div>';
-    el.querySelector('.gr-bubble').addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openGrana(this.getAttribute('data-topic')); } });
-    var svg = el.querySelector('.gr-svg');
-    setTimeout(function(){ setMood(svg, 'idle'); }, 2600);
-    clearInterval(rotateT);
-    rotateT = setInterval(function(){ if (document.hidden || !document.getElementById('granaSay')) return; lineIdx++; var b = document.getElementById('granaSay'); b.classList.add('gr-swap'); setTimeout(function(){ say(); b.classList.remove('gr-swap'); }, 220); }, 14000);
-  }
-  el.hidden = false;
-  say();
+function tipsNow(){ return State.session ? (TIPS_BY_TAB[State.activeTab] || TIPS_BY_TAB._) : LANDING_TIPS; }
+function modalOpenNow(){ var r = document.getElementById('modalRoot'); return (r && !r.hidden) || document.body.classList.contains('tut-open') || !!document.getElementById('splash'); }
+
+function ensureCorner(){
+  if (cornerEl) return cornerEl;
+  cornerEl = document.createElement('div');
+  cornerEl.id = 'granaCorner'; cornerEl.className = 'gr-corner'; cornerEl.hidden = true;
+  cornerEl.innerHTML = '<div class="gr-corner-bubble" id="granaCornerBubble" role="status" hidden></div>' +
+    '<div class="gr-corner-box"><button type="button" class="gr-corner-hide" data-gr-hide aria-label="Esconder o Grana" title="Esconder o Grana">×</button>' +
+    '<button type="button" class="gr-corner-btn" data-gr-corner aria-label="Conversar com o Grana">' + mascotSvg('idle') + '</button></div>';
+  document.body.appendChild(cornerEl);
   bindEyes();
+  return cornerEl;
+}
+function bubble(text, topic, ms){
+  var b = document.getElementById('granaCornerBubble'); if (!b || !cornerEl || cornerEl.hidden) return;
+  b.innerHTML = '<span>' + escapeHtml(text) + '</span><button type="button" class="gr-corner-x" data-gr-bubble-close aria-label="Fechar a dica">×</button>';
+  b.setAttribute('data-topic', topic || ''); b.hidden = false; b.classList.remove('gr-pop'); void b.offsetWidth; b.classList.add('gr-pop');
+  var svg = cornerEl.querySelector('.gr-svg'); setMood(svg, 'wave');
+  clearTimeout(hideT);
+  hideT = setTimeout(function(){ b.hidden = true; setMood(svg, 'idle'); }, ms || 7500);
+}
+function scheduleTip(first){
+  clearTimeout(tipT);
+  tipT = setTimeout(function(){
+    if (cornerEl && !cornerEl.hidden && !document.hidden && !modalOpenNow()){
+      var list = tipsNow(), tip;
+      if (!greetedCorner && State.session && firstName()){ greetedCorner = true; tip = {text: 'Oi, ' + firstName() + '! Qualquer dúvida é só tocar em mim 💚', topic: ''}; }
+      else tip = list[tipIdx++ % list.length];
+      bubble(tip.text, tip.topic);
+    }
+    scheduleTip(false);
+  }, first ? 4500 : 45000 + Math.random() * 30000);
+}
+// Mostra ou esconde o Grana do cantinho conforme a situação (página inicial, conta, preferência). Chamar quando algo disso mudar.
+export function syncCorner(){
+  var show = !cornerOff() && !!document.getElementById('viewApp');
+  var landingBig = document.getElementById('meetGrana');
+  if (!State.session && landingBig && landingBig._inView) show = false;   // na página inicial, o Grana grande já está à vista
+  if (!show){ if (cornerEl){ cornerEl.hidden = true; var b0 = document.getElementById('granaCornerBubble'); if (b0) b0.hidden = true; } clearTimeout(tipT); return; }
+  var first = !cornerEl || cornerEl.hidden;
+  ensureCorner().hidden = false;
+  if (first){ cornerEl.classList.remove('gr-enter'); void cornerEl.offsetWidth; cornerEl.classList.add('gr-enter'); scheduleTip(true); }
 }
 export function openGrana(topic){
-  var svg = document.querySelector('#granaStrip .gr-svg'); setMood(svg, 'happy', 1800); jump(document.querySelector('#granaStrip .gr-small'));
-  withPart('mascotChat', function(m){ m.openChatModal({topic: topic || '', member: true}); });
+  var svg = cornerEl && cornerEl.querySelector('.gr-svg'); setMood(svg, 'happy', 1800); jump(cornerEl && cornerEl.querySelector('.gr-corner-btn'));
+  var b = document.getElementById('granaCornerBubble'); if (b) b.hidden = true;
+  withPart('mascotChat', function(m){ m.openChatModal({topic: topic || '', member: !!State.session}); });
+}
+// Na página inicial o Grana do cantinho só aparece quando o grande sai da tela.
+function watchLandingBig(){
+  var big = document.getElementById('meetGrana');
+  if (!big || typeof IntersectionObserver !== 'function') return;
+  new IntersectionObserver(function(es){ big._inView = es[0].isIntersecting; syncCorner(); }, {threshold: 0.35}).observe(big);
 }
 
 /* ---------- cartão de novidades no Início ---------- */
@@ -144,8 +175,15 @@ export function wireMascot(){
       var sp = document.getElementById('grSpeech'); if (sp){ sp.textContent = lines[Math.floor(Math.random() * lines.length)]; sp.classList.add('on'); }
       return;
     }
-    var open = t.closest('[data-gr-open]');
-    if (open){ openGrana(open.id === 'granaSay' ? open.getAttribute('data-topic') : ''); return; }
+    if (t.closest('[data-gr-corner]')){ openGrana(''); return; }
+    var bub = t.closest('#granaCornerBubble');
+    if (bub){
+      if (t.closest('[data-gr-bubble-close]')){ bub.hidden = true; return; }
+      openGrana(bub.getAttribute('data-topic') || ''); return;
+    }
+    if (t.closest('[data-gr-hide]')){
+      setPref('cornerOff', true); syncCorner(); toast('O Grana foi para o descanso. Para chamar de volta: Perfil → Preferências.'); return;
+    }
     var chip = t.closest('[data-gr-chip]');
     if (chip){ var root = chip.closest('.gr-chat'); if (root) interact(root, {type: 'chip', value: chip.getAttribute('data-gr-chip')}); return; }
     if (t.closest('[data-news-close]')){ dismissNewsCard(); renderNewsCard(); return; }
