@@ -14,7 +14,7 @@ Deslize para conhecer algumas das possibilidades. Qual dessas funções faria ma
 
 > Antes de publicar, acrescente o link público do produto ou o @ correto, se houver.
 
-## Roteiro de vídeo vertical (20–25 s)
+## Roteiro de vídeo (aprox. 16 s)
 
 **Cena 1 · 0–3 s** — Texto na tela: “Anotar gasto não devia dar ansiedade.” Mostrar a capa do carrossel ou uma animação simples de anotações se organizando.
 
@@ -26,6 +26,6 @@ Deslize para conhecer algumas das possibilidades. Qual dessas funções faria ma
 
 **Cena 5 · 18–23 s** — Tela final com marca: “Grana Leve. Organize seu dinheiro no seu ritmo.” Acrescentar endereço/CTA real.
 
-### Nota para a gravação
+### Sobre o vídeo pronto
 
-As telas desenhadas no carrossel usam valores demonstrativos e são ilustrações, não capturas reais do app. Para o vídeo, grave a interface real com uma conta de demonstração e dados fictícios. Confirme também o texto sobre armazenamento e sincronização conforme a configuração atualmente publicada.
+O MP4 incluído dura cerca de 16 segundos, em formato 4:5, sem áudio. As telas e os valores são ilustrações baseadas nas funcionalidades reais do projeto; não são capturas ao vivo do app. Para publicar, você pode adicionar música pela própria rede social e substituir as ilustrações por gravações reais usando uma conta de demonstração. Confirme o endereço público do produto antes de acrescentá-lo ao CTA.
