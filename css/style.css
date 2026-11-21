@@ -2136,3 +2136,24 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .sc-headline{ margin:0; padding:10px 12px; border-radius:12px; background: var(--brand-tint); color: var(--brand-strong); font-size:1rem; }
 .sc-headline strong{ font-family:"Outfit", system-ui, sans-serif; font-size:1.15rem; }
 .sc-sec > summary .opt, .sc-extra > summary .opt{ font-weight:400; }
+
+/* Importar extrato */
+.is-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; }
+.is-list{ display:grid; max-height:50vh; overflow:auto; border:1px solid var(--border); border-radius: var(--radius); padding:0 10px; }
+.is-row{ display:grid; grid-template-columns: auto minmax(0, 1fr) minmax(130px, 190px) auto; gap:6px 10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); }
+.is-row:last-child{ border-bottom:none; }
+.is-ignored{ opacity:.6; }
+.is-desc{ overflow-wrap:anywhere; font-size:.92rem; }
+.is-cat{ min-width:0; width:100%; padding:6px 8px; border-radius:8px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); }
+.is-amt{ white-space:nowrap; text-align:right; }
+.is-amt.income{ color: var(--good); }
+.is-pick input{ width:18px; height:18px; accent-color: var(--brand); }
+.is-batches{ display:grid; gap:4px; margin-top:12px; }
+.is-batches h4{ margin:0 0 4px; font-size:.95rem; }
+@media (max-width: 620px){
+  .is-row{ grid-template-columns: auto minmax(0, 1fr) auto; }
+  .is-row .is-pick{ grid-area: 1 / 1; }
+  .is-row .is-main{ grid-area: 1 / 2; }
+  .is-row .is-amt{ grid-area: 1 / 3; align-self:start; }
+  .is-row .is-cat{ grid-area: 2 / 2 / 3 / 4; }
+}

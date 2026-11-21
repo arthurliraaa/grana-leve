@@ -32,6 +32,7 @@ import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {wireSimulator, renderSimulator} from './simulator.js';
 import {wireSalaryCalc} from './salary-calc.js';
 import {wireSalaryPlan, askSalaryIfDue} from './salary-plan.js';
+import {wireStatementImport} from './import-statement.js';
 import {preloadPdfLibWhenIdle} from './pdf.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
@@ -545,6 +546,7 @@ export function wireShell(){
   wireSimulator();
   wireSalaryCalc();
   wireSalaryPlan();
+  wireStatementImport();
   wireMobileMenus();
   /* ============ Event wiring ============ */
   document.getElementById('footerYear').textContent = new Date().getFullYear();

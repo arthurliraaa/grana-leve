@@ -168,6 +168,28 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 //   O vale-transporte não é fixo em 6%: cada empresa desconta um valor, por isso é um desconto editável em R$ ou %.
 //   Hora extra só em clt e servidor.
 ```
+## Importar extrato OFX e CSV (`js/domain/statement.js`)
+Lê o arquivo neste aparelho (nada é enviado), devolve itens padronizados e os rascunhos que a pessoa confere antes de gravar.
+```js
+decodeBytes(bytes) -> texto            // UTF-8; se não for, Windows-1252 (OFX antigo); tira o BOM
+parseAmountText(txt, dotIsDecimal) -> número | NaN   // "R$ 1.234,56", "(45,00)", "45,00-"; no OFX o ponto é decimal
+parseDateText(txt) -> 'AAAA-MM-DD' | ''              // 20261105, 05/11/2026, 05-11-26, 2026-11-05…
+parseOfx(text) -> {kind: 'bank'|'card'|'unknown', accountId, items, skipped}   // OFX 1.x (SGML) e 2.x (XML)
+parseCsv(text) -> {delimiter, rows}                  // ; , ou tab; aspas e "" escapadas; cabeçalho no meio do arquivo
+detectCsvLayout(rows) -> {header, map: {date, desc, amount, debit, credit}, invert, rows} | null
+csvItems(layout, map, invert) -> {items, skipped}    // invert: positivo é gasto (fatura de cartão estilo Nubank)
+// item = {id (FITID ou ''), date, amount (negativo = saiu dinheiro), name}
+buildDrafts(items, {accountId, isCard, existing, learned, validCategory}) -> rascunhos
+//   {key, externalId ('ofx:conta:FITID'), date, type, amount, description, category, dup: ''|'imported'|'similar', ignore, checked}
+//   imported = o mesmo FITID já foi importado; similar = lançamento manual do mesmo dia, tipo e valor (cobre no máximo um item);
+//   cartão: crédito (pagamento da fatura, estorno) não vira ganho (ignore)
+learnCategories(transactions) / descriptionKey(texto)  // categoria que a pessoa já usou para cada estabelecimento
+```
+Tela (`js/ui/import-statement.js`, botão “Importar extrato” em Ganhos e gastos): escolhe o arquivo e onde entram os
+lançamentos (conta ou cartão), ajusta as colunas do CSV, confere (marcar, trocar categoria) e importa. Cada lançamento
+grava `source: 'import'`, `externalId` (OFX) e `importBatch`; “Importações anteriores” desfaz uma importação inteira.
+Limites: 2 MB e 800 lançamentos por vez.
+
 ## Plano do salário (`js/domain/salary-plan.js`)
 O salário previsto todo mês é uma previsão de entrada (`forecasts`) com o campo `salary`; as datas e os valores de cada mês
 saem de `forecastOccurrences`. Contas puras, sem feriados (a pessoa corrige a data ao confirmar).
