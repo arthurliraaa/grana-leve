@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {decodeBytes, parseAmountText, parseDateText, parseOfx, parseCsv, detectCsvLayout, csvItems, buildDrafts, learnCategories, descriptionKey, summarize} from '../../js/domain/statement.js';
+import {decodeBytes, parseAmountText, parseDateText, parseOfx, parseCsv, detectCsvLayout, csvItems, buildDrafts, learnCategories, descriptionKey, summarize, parsePdfLines} from '../../js/domain/statement.js';
 
 const OFX_SGML = `OFXHEADER:100
 DATA:OFXSGML
@@ -182,4 +182,42 @@ test('itens repetidos dentro do arquivo: mesmo FITID só vale uma vez; mesma des
   assert.deepEqual(dupId.map(d => d.dup), ['', 'imported']);
   const noId = buildDrafts([{id: '', date: '2026-11-01', amount: -5, name: 'Café'}, {id: '', date: '2026-11-01', amount: -5, name: 'Café'}], {});
   assert.deepEqual(noId.map(d => d.dup), ['', ''], 'dois cafés iguais no mesmo dia são dois lançamentos');
+});
+
+test('PDF de fatura de cartão: linhas com data e valor, ano pelo vencimento, totais fora', () => {
+  const r = parsePdfLines([
+    'Fatura de janeiro  Vencimento 10/01/2027',
+    '20/12  PADARIA PAO QUENTE   R$ 18,90',
+    '22/12 UBER *TRIP 32,50',
+    '03 JAN MERCADO ESTRELA 03/10 1.120,00',
+    '05/01 PAGAMENTO RECEBIDO -500,00',
+    'Total da fatura 1.171,40',
+    'Pagamento mínimo 200,00',
+    '15/12 SEM VALOR NA LINHA'
+  ], {today: '2027-01-08'});
+  assert.equal(r.looksCard, true);
+  assert.equal(r.refDate, '2027-01-10');
+  assert.deepEqual(r.items.map(i => [i.date, i.amount, i.name]), [
+    ['2026-12-20', 18.9, 'PADARIA PAO QUENTE'],
+    ['2026-12-22', 32.5, 'UBER *TRIP'],
+    ['2027-01-03', 1120, 'MERCADO ESTRELA 03/10'],
+    ['2027-01-05', -500, 'PAGAMENTO RECEBIDO']
+  ]);
+  assert.equal(r.skipped, 0, 'totais e linhas sem data nem entram na conta; as de total com data seriam puladas');
+});
+
+test('PDF de extrato de conta: D e C marcam débito e crédito, a segunda coluna (saldo) é ignorada', () => {
+  const r = parsePdfLines([
+    'Extrato de conta corrente  Saldo anterior 1.320,00',
+    '05/11/2026 PIX ENVIADO JOAO 120,00 D 1.200,00 C',
+    '06/11/2026 CREDITO SALARIO 3.500,00 C 4.700,00 C',
+    '07/11/2026 SALDO DO DIA 4.700,00 C'
+  ], {today: '2026-11-30'});
+  assert.equal(r.looksCard, false);
+  assert.deepEqual(r.items.map(i => [i.date, i.amount]), [['2026-11-05', -120], ['2026-11-06', 3500]]);
+  assert.equal(r.skipped, 1, 'a linha de saldo do dia é pulada');
+});
+
+test('PDF: texto que não é extrato não vira lançamento', () => {
+  assert.equal(parsePdfLines(['Olá, tudo bem?', 'Reunião dia 10/11 às 14h'], {today: '2026-11-18'}).items.length, 0);
 });

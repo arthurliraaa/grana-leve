@@ -4,9 +4,10 @@
  * identificador, para poder ser desfeita. As contas ficam em domain/statement.js.
  */
 import {fmtMoney} from '../domain/money.js';
-import {formatDateBr, formatDateFull} from '../domain/dates.js';
+import {formatDateBr, formatDateFull, todayKey} from '../domain/dates.js';
 import {validateNewTransaction} from '../domain/validate.js';
-import {decodeBytes, parseOfx, parseCsv, detectCsvLayout, csvItems, buildDrafts, learnCategories, summarize, MAX_BYTES} from '../domain/statement.js';
+import {decodeBytes, parseOfx, parseCsv, detectCsvLayout, csvItems, parsePdfLines, buildDrafts, learnCategories, summarize, MAX_BYTES} from '../domain/statement.js';
+import {readPdfLines, MAX_PDF_BYTES} from './pdf-read.js';
 import {Store} from '../data/store.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast, toastAction} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
@@ -69,14 +70,16 @@ function toTx(d, dest, batch, n){
 }
 
 export async function openStatementImport(){
-  var st = {items: [], skipped: 0, accountId: '', layout: null, kind: '', name: '', drafts: []};
+  var st = {items: [], raw: null, skipped: 0, accountId: '', layout: null, kind: '', name: '', drafts: []};
   var dests = destOptions();
   var r = await openModal({
     title: 'Importar extrato', wide: true, submitLabel: '', cancelLabel: 'Fechar',
     body: '<div class="sc-body is-body">' +
       '<div id="isStep1">' +
-        '<p class="field-hint">Escolha o arquivo do extrato do seu banco (OFX ou CSV). Ele é lido só neste aparelho e não é enviado a lugar nenhum. Você confere tudo antes de importar.</p>' +
-        '<div class="field"><label for="isFile">Arquivo do extrato</label><input id="isFile" type="file" accept=".ofx,.qfx,.csv,.txt,text/csv,application/x-ofx"></div>' +
+        '<p class="field-hint">Escolha o arquivo do extrato ou da fatura. Ele é lido só neste aparelho e não é enviado a lugar nenhum. Você confere tudo antes de importar.</p>' +
+        '<div class="is-tip" role="note"><strong>Melhor: OFX ou CSV.</strong> Gere direto no app ou no site do banco (procure por “exportar extrato” ou “baixar OFX”): a leitura é exata. O PDF também funciona, mas a leitura é aproximada, porque cada banco monta a fatura de um jeito.</div>' +
+        '<div class="field"><label for="isFile">Arquivo (OFX, CSV ou PDF)</label><input id="isFile" type="file" accept=".ofx,.qfx,.csv,.txt,.pdf,text/csv,application/x-ofx,application/pdf"></div>' +
+        '<div class="field" id="isPassField" hidden><label for="isPass">Este PDF tem senha</label><div class="is-pass"><input id="isPass" type="password" autocomplete="off" placeholder="Senha do PDF"><button type="button" class="btn btn-ghost btn-sm" id="isPassBtn">Abrir</button></div></div>' +
         '<p class="form-error" id="isErr" role="alert"></p>' +
         '<div id="isInfo" class="tx-meta" aria-live="polite"></div>' +
         '<div class="field"><label for="isDest">Onde entram os lançamentos</label><select id="isDest">' + optionsHtml(dests, dests[0].id) + '</select></div>' +
@@ -85,12 +88,13 @@ export async function openStatementImport(){
           '<div class="field"><label for="isColDesc">Descrição</label><select id="isColDesc"></select></div>' +
           '<div class="field"><label for="isColAmount">Valor</label><select id="isColAmount"></select></div>' +
           '<div class="field"><label for="isColDebit">Débito (se separado)</label><select id="isColDebit"></select></div>' +
-          '<div class="field"><label for="isColCredit">Crédito (se separado)</label><select id="isColCredit"></select></div></div>' +
-          '<label class="check"><input type="checkbox" id="isInvert"> Valor positivo é gasto (fatura de cartão)</label></fieldset>' +
+          '<div class="field"><label for="isColCredit">Crédito (se separado)</label><select id="isColCredit"></select></div></div></fieldset>' +
+        '<label class="check" id="isInvertRow" hidden><input type="checkbox" id="isInvert"> Valor positivo é gasto (fatura de cartão)</label>' +
         '<div class="sc-use"><button type="button" class="btn btn-primary" id="isReview" disabled>Conferir lançamentos</button></div>' +
         batchesHtml() +
       '</div>' +
       '<div id="isStep2" hidden>' +
+        '<p class="is-tip is-warn" id="isPdfWarn" role="note" hidden><strong>Leitura aproximada do PDF.</strong> Confira datas, valores e se cada linha é gasto ou ganho antes de importar. Para mais precisão, use o OFX ou o CSV gerado no banco.</p>' +
         '<div class="is-head"><strong id="isTitle"></strong><span class="is-bulk"><button type="button" class="linklike" data-is-all="1">Marcar todos</button> · <button type="button" class="linklike" data-is-all="0">Desmarcar todos</button></span></div>' +
         '<p class="tx-meta" id="isSummary" aria-live="polite"></p>' +
         '<div class="is-list" id="isList"></div>' +
@@ -98,7 +102,21 @@ export async function openStatementImport(){
       '</div></div>',
     onOpen: function(modal, close){
       var fileEl = qs('#isFile', modal), err = qs('#isErr', modal), info = qs('#isInfo', modal), review = qs('#isReview', modal);
-      function fail(msg){ err.textContent = msg; st.items = []; review.disabled = true; info.textContent = ''; qs('#isMap', modal).hidden = true; }
+      function fail(msg){ err.textContent = msg; st.items = []; st.raw = null; review.disabled = true; info.textContent = ''; qs('#isMap', modal).hidden = true; qs('#isInvertRow', modal).hidden = true; qs('#isPassField', modal).hidden = true; }
+      function applyPdf(){
+        var inv = qs('#isInvert', modal).checked;
+        st.items = st.raw.map(function(i){ return {id: i.id, date: i.date, name: i.name, amount: inv ? -i.amount : i.amount}; });
+        review.disabled = !st.items.length;
+        info.textContent = 'PDF: ' + st.items.length + (st.items.length === 1 ? ' lançamento encontrado' : ' lançamentos encontrados') + (st.skipped ? ' (' + st.skipped + ' linhas de totais ou saldos ignoradas)' : '') + '. Leitura aproximada: você confere na próxima tela.';
+      }
+      function askPassword(reason){
+        return new Promise(function(resolve){
+          var field = qs('#isPassField', modal), input = qs('#isPass', modal), btn = qs('#isPassBtn', modal);
+          field.hidden = false; err.textContent = reason === 'wrong' ? 'Senha incorreta. Tente de novo.' : '';
+          input.value = ''; input.focus();
+          btn.onclick = function(){ field.hidden = true; resolve(input.value); };
+        });
+      }
       function readMap(){
         var v = function(id){ return Number(qs('#' + id, modal).value); };
         return {date: v('isColDate'), desc: v('isColDesc'), amount: v('isColAmount'), debit: v('isColDebit'), credit: v('isColCredit')};
@@ -113,8 +131,29 @@ export async function openStatementImport(){
         err.textContent = ''; var f = fileEl.files && fileEl.files[0];
         if (!f) return;
         if (f.size > MAX_BYTES) return fail('Arquivo grande demais (máximo de 2 MB). Exporte só um mês do extrato.');
-        var text = decodeBytes(new Uint8Array(await f.arrayBuffer()));
         st.name = f.name;
+        var bytes = new Uint8Array(await f.arrayBuffer());
+        if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46){
+          // PDF (começa com %PDF)
+          if (f.size > MAX_PDF_BYTES) return fail('PDF grande demais (máximo de 10 MB).');
+          info.textContent = 'Lendo o PDF…'; review.disabled = true; qs('#isMap', modal).hidden = true;
+          var pdf;
+          try { pdf = await readPdfLines(bytes, askPassword); }
+          catch(ex){
+            if (ex && ex.message === 'cancelled') return fail('Leitura cancelada.');
+            if (ex && ex.message === 'offline') return fail('Não foi possível carregar o leitor de PDF agora. Verifique a internet ou use o OFX ou o CSV do banco.');
+            return fail('Não consegui ler este PDF. Prefira o OFX ou o CSV gerado no banco.');
+          }
+          var parsed = parsePdfLines(pdf.lines, {today: todayKey()});
+          if (!parsed.items.length) return fail('Não encontrei lançamentos neste PDF. Se ele for uma imagem escaneada, não dá para ler: prefira o OFX ou o CSV gerado no banco.');
+          st.kind = 'pdf'; st.raw = parsed.items; st.skipped = parsed.skipped; st.accountId = ''; st.layout = null;
+          qs('#isInvertRow', modal).hidden = false; qs('#isInvert', modal).checked = parsed.looksCard;
+          if (parsed.looksCard){ var cardD = dests.filter(function(d){ return isCardDest(d.id); })[0]; if (cardD) qs('#isDest', modal).value = cardD.id; }
+          applyPdf();
+          return;
+        }
+        var text = decodeBytes(bytes);
+        qs('#isInvertRow', modal).hidden = true;
         if (isOfx(text)){
           var o = parseOfx(text);
           if (!o.items.length) return fail('Não encontrei lançamentos neste arquivo OFX.');
@@ -133,13 +172,14 @@ export async function openStatementImport(){
           [['isColDate', false, layout.map.date], ['isColDesc', true, layout.map.desc], ['isColAmount', true, layout.map.amount], ['isColDebit', true, layout.map.debit], ['isColCredit', true, layout.map.credit]].forEach(function(x){
             var sel = qs('#' + x[0], modal); sel.innerHTML = optionsHtml(colOptions(layout, x[1]), String(x[2]));
           });
-          qs('#isInvert', modal).checked = layout.invert;
+          qs('#isInvertRow', modal).hidden = false; qs('#isInvert', modal).checked = layout.invert;
           if (layout.invert){ var card = dests.filter(function(d){ return isCardDest(d.id); })[0]; if (card) qs('#isDest', modal).value = card.id; }
           qs('#isMap', modal).hidden = false;
           applyCsv();
         }
       });
       qs('#isMap', modal).addEventListener('change', applyCsv);
+      qs('#isInvert', modal).addEventListener('change', function(){ if (st.kind === 'pdf' && st.raw) applyPdf(); else if (st.kind === 'csv') applyCsv(); });
 
       function refresh(){
         var s = summarize(st.drafts), dupes = st.drafts.filter(function(d){ return d.dup; }).length;
@@ -154,6 +194,7 @@ export async function openStatementImport(){
           validCategory: function(type, id){ return (type === 'income' ? incomeCats() : expenseCats()).some(function(c){ return c.id === id; }); }});
         qs('#isTitle', modal).textContent = st.name + ' · ' + st.drafts.length + ' lançamentos';
         qs('#isList', modal).innerHTML = st.drafts.map(rowHtml).join('');
+        qs('#isPdfWarn', modal).hidden = st.kind !== 'pdf';
         qs('#isStep1', modal).hidden = true; qs('#isStep2', modal).hidden = false;
         refresh();
       });

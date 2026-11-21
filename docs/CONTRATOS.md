@@ -183,12 +183,18 @@ buildDrafts(items, {accountId, isCard, existing, learned, validCategory}) -> ras
 //   {key, externalId ('ofx:conta:FITID'), date, type, amount, description, category, dup: ''|'imported'|'similar', ignore, checked}
 //   imported = o mesmo FITID já foi importado; similar = lançamento manual do mesmo dia, tipo e valor (cobre no máximo um item);
 //   cartão: crédito (pagamento da fatura, estorno) não vira ganho (ignore)
+parsePdfLines(linhas, {today}) -> {items, skipped, looksCard, refDate}   // PDF já em texto, uma linha visual por item
+//   linha = data (dd/mm[/aaaa] ou "05 NOV") + descrição + valor; ano pelo vencimento; D/C, "-" e parênteses dão o sinal; totais e saldos
+//   ficam fora; com 2 valores na linha vale o primeiro (o segundo é saldo). Leitura APROXIMADA: sempre conferida na tela.
 learnCategories(transactions) / descriptionKey(texto)  // categoria que a pessoa já usou para cada estabelecimento
 ```
 Tela (`js/ui/import-statement.js`, botão “Importar extrato” em Ganhos e gastos): escolhe o arquivo e onde entram os
 lançamentos (conta ou cartão), ajusta as colunas do CSV, confere (marcar, trocar categoria) e importa. Cada lançamento
 grava `source: 'import'`, `externalId` (OFX) e `importBatch`; “Importações anteriores” desfaz uma importação inteira.
-Limites: 2 MB e 800 lançamentos por vez.
+Limites: 2 MB (OFX/CSV; 10 MB e 30 páginas no PDF) e 800 lançamentos por vez. A tela recomenda OFX ou CSV gerados no banco (leitura exata)
+e avisa que o PDF é aproximado. PDF: `js/ui/pdf-read.js` baixa o pdf.js 3.11.174 do cdnjs só ao escolher um PDF, com SRI no leitor e
+`fetch(..., {integrity})` no worker (que roda como blob: a CSP tem `worker-src 'self' blob:`), `isEvalSupported: false` (CVE-2024-4367) e
+pede a senha se o PDF tiver. Atualizar o pdf.js exige novos hashes SRI (cdnjs: api.cdnjs.com/libraries/pdf.js/VERSÃO?fields=sri).
 
 ## Plano do salário (`js/domain/salary-plan.js`)
 O salário previsto todo mês é uma previsão de entrada (`forecasts`) com o campo `salary`; as datas e os valores de cada mês

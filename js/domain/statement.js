@@ -253,3 +253,44 @@ export function summarize(drafts){
     expense: money(on.filter(function(d){ return d.type === 'expense'; }).reduce(function(s, d){ return s + d.amount; }, 0)),
     income: money(on.filter(function(d){ return d.type === 'income'; }).reduce(function(s, d){ return s + d.amount; }, 0))};
 }
+
+/* ---------- PDF (texto já extraído, uma linha por item da lista) ---------- */
+
+var MONTHS_ABBR = {jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12};
+var PDF_AMOUNT = /(-|\()?\s?(?:R\$\s?)?(\d{1,3}(?:\.\d{3})+|\d+),(\d{2})(\)|-)?(?:\s?([CD])(?![A-Za-zÀ-ÿ]))?/g;
+var PDF_SKIP = /saldo (anterior|final|do dia|dispon|em conta)|total (da |de )?(fatura|compras|a pagar|geral)|pagamento m[ií]nimo|limite (de|total|dispon)|encargos (futuros|financeiros)|valor total|resumo da fatura/i;
+
+function daysBetween(a, b){ return Math.round((Date.parse(a + 'T12:00:00Z') - Date.parse(b + 'T12:00:00Z')) / 86400000); }
+
+// Linhas de texto de uma fatura ou extrato em PDF → itens {id: '', date, amount, name}, com o valor como aparece (positivo se não
+// houver sinal; "-", parênteses e "D" viram negativo, "C" positivo). Quem decide se o positivo é gasto (fatura de cartão) é quem chama,
+// com looksCard como palpite. opts.today: 'AAAA-MM-DD' (para o ano, quando o PDF só tem dia e mês).
+// É uma leitura aproximada: cada banco desenha de um jeito. Por isso a pessoa sempre confere antes de gravar.
+export function parsePdfLines(lines, opts){
+  var today = (opts && opts.today) || '', all = lines.join('\n'), refDate = '', m, full = /(\d{2})[/.-](\d{2})[/.-](\d{4})/g;
+  while ((m = full.exec(all))){ var d0 = parseDateText(m[0]); if (d0 && d0 > refDate) refDate = d0; }
+  if (!refDate) refDate = today;
+  var looksCard = /fatura/i.test(all) && !/saldo anterior|extrato (de )?conta/i.test(all);
+  var items = [], skipped = 0;
+  function yearFor(day, month){
+    var y = Number(refDate.slice(0, 4)), cand = iso(y, month, day);
+    if (!realDate(y, month, day)) return '';
+    return daysBetween(cand, refDate) > 45 ? (realDate(y - 1, month, day) ? iso(y - 1, month, day) : '') : cand;
+  }
+  lines.forEach(function(raw){
+    var line = String(raw || '').replace(/\s+/g, ' ').trim(), date = '', rest = '', dm;
+    if ((dm = line.match(/^(\d{2}[/.-]\d{2}[/.-]\d{4})\s+(.*)$/))){ date = parseDateText(dm[1]); rest = dm[2]; }
+    else if ((dm = line.match(/^(\d{2})[/.-](\d{2})(?:[/.-](\d{2}))?\s+(.*)$/))){
+      date = dm[3] ? parseDateText(dm[1] + '/' + dm[2] + '/' + dm[3]) : yearFor(Number(dm[1]), Number(dm[2])); rest = dm[4];
+    } else if ((dm = line.match(/^(\d{1,2}) (jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*\.? (.*)$/i))){ date = yearFor(Number(dm[1]), MONTHS_ABBR[dm[2].toLowerCase()]); rest = dm[3]; }
+    if (!date || !rest) return;
+    PDF_AMOUNT.lastIndex = 0;
+    var found = [], a;
+    while ((a = PDF_AMOUNT.exec(rest))) found.push({index: a.index, neg: !!(a[1] === '-' || a[1] === '(' || a[4] === '-' || a[4] === ')' || a[5] === 'D'), pos: a[5] === 'C', value: Number(a[2].replace(/\./g, '') + '.' + a[3])});
+    if (!found.length) return;
+    var pick = found[0], desc = rest.slice(0, pick.index).replace(/\s*R\$\s*$/, '').trim();
+    if (!desc || /^[\d\s./-]+$/.test(desc) || PDF_SKIP.test(rest) || !(pick.value > 0)){ skipped++; return; }
+    items.push({id: '', date: date, amount: money(pick.neg && !pick.pos ? -pick.value : pick.value), name: desc.slice(0, 100)});
+  });
+  return {items: items, skipped: skipped, looksCard: looksCard, refDate: refDate};
+}

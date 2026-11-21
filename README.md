@@ -29,7 +29,7 @@ de pagar as faturas.
   pensão…, em R$ ou %) e horas extras de 50% e 100% com o repouso. Só o salário
   e os descontos fixos valem todo mês; extras e descontos que variam entram só no mês. É estimativa, com as
   tabelas de 2026.
-- **Importar extrato**: lê um OFX (conta ou cartão) ou CSV do banco neste aparelho, mostra os lançamentos com
+- **Importar extrato**: lê um OFX (conta ou cartão), um CSV ou, de forma aproximada, um PDF de fatura ou extrato, tudo neste aparelho (o OFX ou o CSV gerado no banco é o mais preciso), mostra os lançamentos com
   categoria sugerida e marca o que já existe, e grava na conta ou no cartão escolhido. Dá para desfazer a importação.
 - **Meu salário**: o líquido calculado vira uma previsão que se repete todo mês, no dia escolhido (por exemplo, o 5º dia
   útil ou todo dia 15). Quando a data chega, o app pergunta “já caiu?” para confirmar os valores do mês, com

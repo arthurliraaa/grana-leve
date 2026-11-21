@@ -20,6 +20,22 @@ const CSV_CARD = `date,category,title,amount
 2026-11-03,restaurante,Padaria Pão Quente,18.90
 2026-11-08,pagamento,Pagamento recebido,-500.00
 `;
+// PDF mínimo (só texto, Helvetica), com xref certo: uma linha por texto, de cima para baixo.
+function makePdf(lines){
+  const esc = t => t.replace(/[\\()]/g, m => '\\' + m);
+  const stream = 'BT /F1 11 Tf 14 TL 50 780 Td ' + lines.map(l => '(' + esc(l) + ') Tj T*').join(' ') + ' ET';
+  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
+  let out = '%PDF-1.4\n'; const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+  const x = out.length;
+  out += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') + 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + x + '\n%%EOF';
+  return out;
+}
+const pdfPath = join(dir, 'fatura.pdf'), pdfEmpty = join(dir, 'imagem.pdf');
+writeFileSync(pdfPath, makePdf(['Fatura Nubank  Vencimento 10/12/2026', '03/11 PADARIA PAO QUENTE R$ 18,90', '05/11 UBER *TRIP 32,50', '07/11 PAGAMENTO RECEBIDO -500,00', 'Total da fatura 51,40']), 'latin1');
+writeFileSync(pdfEmpty, makePdf(['Documento sem lancamentos']), 'latin1');
 const ofxPath = join(dir, 'extrato.ofx'), csvPath = join(dir, 'fatura.csv'), junkPath = join(dir, 'lixo.csv');
 writeFileSync(ofxPath, OFX, 'latin1'); writeFileSync(csvPath, CSV_CARD); writeFileSync(junkPath, 'isto não é um extrato\nnada de data aqui');
 
@@ -74,6 +90,28 @@ L.run(async ({page}) => {
   d = await L.db(page);
   const card = d.transactions.filter(t => t.source === 'import');
   L.ok(card.length === 1 && card[0].paymentMethod === 'cartao' && card[0].cardId === d.cards[0].id && card[0].amount === 18.9 && card[0].description === 'Padaria Pão Quente', 'a compra entrou no cartão, com o texto do banco como descrição');
+
+  L.section('PDF');
+  await open();
+  L.ok(/OFX ou CSV/.test(await L.text(page, '.is-tip')) && /exata/.test(await L.text(page, '.is-tip')) && /aproximada/.test(await L.text(page, '.is-tip')), 'avisa que o OFX ou o CSV gerado no banco é mais exato que o PDF');
+  await upload(pdfEmpty);
+  await page.waitForFunction(() => /Não encontrei lançamentos neste PDF|Não foi possível carregar/.test(document.getElementById('isErr').textContent), {timeout: 20000}).catch(() => {});
+  const pdfErr = await L.text(page, '#isErr');
+  if (/Não foi possível carregar o leitor/.test(pdfErr)){ console.log('Pulado (PDF): sem internet para baixar o pdf.js do CDN.'); }
+  else {
+    L.ok(/Não encontrei lançamentos neste PDF/.test(pdfErr) && /OFX ou o CSV/.test(pdfErr), 'PDF sem lançamentos explica e sugere o OFX ou o CSV do banco');
+    L.ok(await page.evaluate(() => !!window.pdfjsLib) && await page.evaluate(() => /^blob:/.test(window.pdfjsLib.GlobalWorkerOptions.workerSrc)), 'o leitor de PDF só é baixado ao escolher um PDF, e o worker vem verificado (blob)');
+    await upload(pdfPath);
+    await page.waitForFunction(() => /PDF: \d+ lançamentos? encontrados?/.test(document.getElementById('isInfo').textContent), {timeout: 20000}).catch(() => {});
+    L.ok(/PDF: 3 lançamentos encontrados.*Leitura aproximada/.test(await L.text(page, '#isInfo')), 'lê as linhas da fatura em PDF (3 lançamentos; o total fica de fora)');
+    L.ok((await page.$eval('#isDest', e => e.value)).startsWith('card:') && await page.$eval('#isInvert', e => e.checked), 'fatura: escolhe o cartão e entende o positivo como gasto');
+    await page.$eval('#isReview', e => e.click()); await L.sleep(250);
+    L.ok(!(await page.$eval('#isPdfWarn', e => e.hidden)) && /Leitura aproximada do PDF/.test(await L.text(page, '#isPdfWarn')) && /OFX/.test(await L.text(page, '#isPdfWarn')), 'na conferência repete o aviso de leitura aproximada');
+    L.ok(await page.$$eval('.is-row.is-ignored', r => r.length) === 1, 'o pagamento recebido (crédito) fica de fora');
+    await page.$eval('#isGo', e => e.click()); await L.sleep(600);
+    const pd = (await L.db(page)).transactions.filter(t => t.source === 'import' && t.description.includes('UBER'));
+    L.ok(pd.length === 1 && pd[0].amount === 32.5 && pd[0].date === '2026-11-05' && pd[0].paymentMethod === 'cartao', 'importou a compra do PDF no cartão, com o ano certo (2026)');
+  }
 
   L.section('Celular');
   await page.setViewport({width: 375, height: 800}); await L.sleep(150);

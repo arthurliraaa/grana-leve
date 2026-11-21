@@ -120,7 +120,7 @@ export var ONLINE_PAGES = {
     '<ul><li><strong>Banco de dados e login:</strong> Supabase, na região São Paulo (Brasil).</li>' +
       '<li><strong>Site:</strong> Vercel, que hospeda as páginas e registra dados técnicos de acesso (como o endereço IP) por segurança.</li>' +
       '<li><strong>E-mails da conta</strong> (confirmação, nova senha e avisos de segurança): enviados pelo Brevo, que recebe só o seu e-mail e o conteúdo da mensagem.</li>' +
-      '<li><strong>Arquivos públicos:</strong> o gerador de PDF (cdnjs/Cloudflare) é baixado desse serviço quando você gera o primeiro PDF, e ele vê o endereço IP de quem pede. As fontes das letras ficam no próprio site.</li>' +
+      '<li><strong>Arquivos públicos:</strong> o gerador de PDF e o leitor de PDF (cdnjs/Cloudflare) são baixados desse serviço, o primeiro quando você gera um PDF e o segundo quando escolhe um PDF para importar, e ele vê o endereço IP de quem pede. As fontes das letras ficam no próprio site.</li>' +
       (TURNSTILE_SITE_KEY ? '<li><strong>Proteção contra robôs:</strong> o cadastro e o “Esqueci minha senha” usam o Cloudflare Turnstile, que analisa dados técnicos do navegador.</li>' : '') +
       '</ul><p>Alguns desses serviços podem processar dados fora do Brasil, com as garantias previstas na LGPD (art. 33).</p>' +
     '<h4>Por quanto tempo</h4>' +

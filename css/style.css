@@ -2157,3 +2157,8 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
   .is-row .is-amt{ grid-area: 1 / 3; align-self:start; }
   .is-row .is-cat{ grid-area: 2 / 2 / 3 / 4; }
 }
+
+.is-tip{ margin:0; padding:10px 12px; border-radius:12px; background: var(--brand-tint); color: var(--brand-strong); font-size:.9rem; line-height:1.45; }
+.is-warn{ background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--text-primary); }
+.is-pass{ display:flex; gap:8px; }
+.is-pass input{ flex:1; min-width:0; }
