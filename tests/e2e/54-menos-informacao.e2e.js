@@ -57,7 +57,7 @@ L.run(async ({page}) => {
   L.section('Celular');
   await page.setViewport({width: 375, height: 800});
   await L.tab(page, 'lancamentos'); await L.sleep(150);
-  L.ok(await page.$eval('#txForm', el => getComputedStyle(el).display) === 'none' && await page.$eval('#fabAdd', el => el.getBoundingClientRect().width > 0), 'no celular, lança pelo botão + do menu de baixo (o formulário longo não ocupa a tela)');
+  L.ok(await page.$eval('#txForm', el => getComputedStyle(el).display) === 'none' && await page.$eval('.tx-mobile-open', el => getComputedStyle(el).display) !== 'none', 'no celular, lança pelo botão (o formulário longo não ocupa a tela)');
   L.ok(await L.noHorizontalScroll(page), 'cabe na tela');
   const mid = sel => page.$eval(sel, e => { const r = e.getBoundingClientRect(); return Math.abs((r.left + r.right) / 2 - innerWidth / 2) <= 3; });
   L.ok(await mid('#tab-lancamentos .month-switch'), 'o seletor de mês de Ganhos e gastos fica centralizado');

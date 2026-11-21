@@ -1,4 +1,4 @@
-// Celular mais simples: sem botão repetido em Ganhos e gastos e sem “Sair” solto no topo (fica em Perfil).
+// Celular mais simples: o lançamento fica à vista em Ganhos e gastos e não há “Sair” solto no topo (fica em Perfil).
 import * as L from './lib.js';
 
 L.run(async ({page}) => {
@@ -11,8 +11,11 @@ L.run(async ({page}) => {
   await page.setViewport({width: 390, height: 844, isMobile: true}); await L.sleep(200);
   L.ok(await page.$eval('#logoutBtn', e => e.getBoundingClientRect().width === 0), 'no celular o topo não tem “Sair” (evita sair sem querer)');
   await L.tab(page, 'lancamentos'); await L.sleep(200);
-  L.ok(await page.$eval('.tx-mobile-open', e => e.getBoundingClientRect().width === 0), 'em Ganhos e gastos não há um segundo botão de lançar (o + do menu de baixo faz isso)');
-  L.ok(!!(await page.$('#fabAdd')) && await page.$eval('#fabAdd', e => e.getBoundingClientRect().width > 0), 'o + do menu de baixo continua à vista');
+  L.ok(await page.$eval('.tx-mobile-open', e => e.getBoundingClientRect().width > 0 && /Lançar gasto ou ganho/.test(e.textContent)), 'em Ganhos e gastos o botão “Lançar gasto ou ganho” fica à vista na página');
+  L.ok(await page.$eval('#fabAdd', e => e.getBoundingClientRect().width > 0), 'e o + do menu de baixo também');
+  await page.$eval('.tx-mobile-open', e => e.click()); await L.sleep(300);
+  L.ok(await page.$eval('#modalRoot', e => !e.hidden), 'o botão da página abre o lançamento');
+  await L.closeModal(page);
   L.ok(await page.$eval('#forecastToggle', e => e.getBoundingClientRect().width > 0), 'Previstas continua na página');
 
   L.section('Sair pelo Perfil');

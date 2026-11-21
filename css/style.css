@@ -1733,9 +1733,9 @@ details.research-optin{ padding:0; gap:0; }
 /* Celular: o lançamento abre pelo botão (o mesmo popup do +), e a lista vem logo em seguida */
 .tx-mobile-open{ display:none; }
 @media (max-width: 620px){
-  /* O botão + do menu de baixo já abre o lançamento: sem segundo botão igual na página. */
+  /* O formulário longo abre pelo botão (o mesmo popup do + do menu de baixo); o botão com texto fica à vista na página. */
+  .tx-mobile-open{ display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:4px; }
   #txForm{ display:none; }
-  #tab-lanc > .card > .card-head > h3{ display:none; }
   /* Sair fica em Perfil (um toque sem querer no topo desconectava): o topo tem só o essencial. */
   #logoutBtn{ display:none; }
 }
