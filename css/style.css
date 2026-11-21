@@ -2289,3 +2289,20 @@ button.is-busy::after{ content:""; position:absolute; left:50%; top:50%; width:1
 .btn-ghost.is-busy::after, .linklike.is-busy::after{ border-color: color-mix(in srgb, var(--brand) 25%, transparent); border-top-color: var(--brand); }
 @keyframes busySpin{ to{ transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce){ button.is-busy::after{ animation-duration:1.6s; } }
+
+/* Tela de carregamento (js/ui/splash.js; o HTML já traz uma em #splash) */
+.splash{ position:fixed; inset:0; z-index:10000; display:grid; place-items:center; background: radial-gradient(circle at 28% 18%, color-mix(in srgb, var(--brand) 16%, var(--bg)), var(--bg) 62%);
+  transition: opacity .4s ease, transform .4s ease; animation: splashFailsafe 0s linear 15s forwards; }
+.splash.is-leaving{ opacity:0; transform: scale(1.05); pointer-events:none; }
+.splash-in{ display:grid; justify-items:center; gap:12px; text-align:center; padding:24px; }
+.splash-mascot{ width:min(150px, 42vw); animation: splashHop 1.15s cubic-bezier(.3,1.4,.5,1) infinite; transform-origin:50% 92%; }
+.splash-mascot .gr-bob, .splash-mascot .gr-shadow{ animation:none; }
+.splash-brand{ font:700 2rem Outfit, system-ui, sans-serif; letter-spacing:-.5px; color: var(--text-primary); }
+.splash-brand b{ color: var(--brand); }
+.splash-msg{ margin:0; color: var(--text-secondary); font-size:.95rem; }
+.splash-dots{ display:flex; gap:6px; margin-top:2px; }
+.splash-dots i{ width:8px; height:8px; border-radius:50%; background: var(--brand); animation: grDot 1s infinite ease-in-out; }
+.splash-dots i:nth-child(2){ animation-delay:.15s; } .splash-dots i:nth-child(3){ animation-delay:.3s; }
+@keyframes splashHop{ 0%,100%{ transform: translateY(0) scale(1,1); } 28%{ transform: translateY(0) scale(1.09,.91); } 55%{ transform: translateY(-20px) scale(.96,1.06); } 82%{ transform: translateY(0) scale(1.05,.95); } }
+@keyframes splashFailsafe{ to{ opacity:0; visibility:hidden; pointer-events:none; } }
+@media (prefers-reduced-motion: reduce){ .splash{ display:none !important; } }

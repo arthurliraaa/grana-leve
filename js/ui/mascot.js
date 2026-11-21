@@ -9,36 +9,13 @@ import {CHANGELOG} from '../domain/changelog.js';
 import {formatDateFull} from '../domain/dates.js';
 import {escapeHtml, icon} from './dom.js';
 import {State} from './state.js';
+import {mascotSvg, nextId} from './mascot-art.js';
+export {mascotSvg};
 import {withPart, showTab} from './shell.js';
 import {newsCardRelease, dismissNewsCard, openWhatsNew} from './whats-new.js';
 
-var uid = 0;
 var reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// O desenho. mood: idle | happy | think | wave (troca a boca e o bracinho por CSS).
-export function mascotSvg(mood){
-  var n = ++uid;
-  return '<svg class="gr-svg" viewBox="0 0 140 140" data-mood="' + (mood || 'idle') + '" aria-hidden="true" focusable="false">' +
-    '<defs><radialGradient id="grB' + n + '" cx="35%" cy="28%" r="85%"><stop offset="0" stop-color="#6ff0cf"/><stop offset=".5" stop-color="#2dc29b"/><stop offset="1" stop-color="#0c8a70"/></radialGradient>' +
-    '<radialGradient id="grL' + n + '" cx="30%" cy="30%" r="90%"><stop offset="0" stop-color="#8af5d6"/><stop offset="1" stop-color="#1c9d7c"/></radialGradient></defs>' +
-    '<ellipse class="gr-shadow" cx="70" cy="128" rx="34" ry="6"/>' +
-    '<g class="gr-bob">' +
-      '<g class="gr-leaf"><path d="M70 36 C66 22 54 16 44 18 C46 30 56 38 70 36Z" fill="url(#grL' + n + ')"/><path d="M70 36 C74 20 88 14 98 18 C96 31 84 39 70 36Z" fill="#1c9d7c"/><path d="M70 38 L70 30" stroke="#0c8a70" stroke-width="3" stroke-linecap="round"/></g>' +
-      '<g class="gr-feet"><ellipse cx="52" cy="122" rx="12" ry="7" fill="#0c8a70"/><ellipse cx="88" cy="122" rx="12" ry="7" fill="#0c8a70"/></g>' +
-      '<g class="gr-arm gr-arm-l"><circle cx="26" cy="88" r="9" fill="#27b894"/></g>' +
-      '<circle class="gr-body" cx="70" cy="80" r="46" fill="url(#grB' + n + ')"/>' +
-      '<ellipse cx="70" cy="94" rx="27" ry="22" fill="#e6fff7" opacity=".5"/>' +
-      '<g class="gr-arm gr-arm-r"><circle cx="114" cy="88" r="9" fill="#27b894"/></g>' +
-      '<g class="gr-face">' +
-        '<g class="gr-eye"><ellipse cx="52" cy="74" rx="9.5" ry="11.5" fill="#fff"/><circle class="gr-pupil" cx="53" cy="76" r="6" fill="#12332c"/><circle cx="55.5" cy="73" r="2.2" fill="#fff"/></g>' +
-        '<g class="gr-eye"><ellipse cx="88" cy="74" rx="9.5" ry="11.5" fill="#fff"/><circle class="gr-pupil" cx="87" cy="76" r="6" fill="#12332c"/><circle cx="89.5" cy="73" r="2.2" fill="#fff"/></g>' +
-        '<ellipse cx="40" cy="92" rx="7" ry="4.5" fill="#ff9fb2" opacity=".75"/><ellipse cx="100" cy="92" rx="7" ry="4.5" fill="#ff9fb2" opacity=".75"/>' +
-        '<path class="m-idle" d="M61 93 Q70 101 79 93" stroke="#12332c" stroke-width="3.2" fill="none" stroke-linecap="round"/>' +
-        '<g class="m-happy"><path d="M58 91 Q70 108 82 91 Z" fill="#12332c"/><path d="M64 99 Q70 104 76 99 Q70 96 64 99Z" fill="#ff7a93"/></g>' +
-        '<ellipse class="m-think" cx="70" cy="96" rx="4.2" ry="5.2" fill="#12332c"/>' +
-      '</g>' +
-    '</g></svg>';
-}
 function setMood(svg, mood, ms){
   if (!svg) return;
   svg.setAttribute('data-mood', mood);
@@ -73,12 +50,13 @@ function bindEyes(){
 
 /* ---------- conversa (carregada só ao conversar) ---------- */
 export function chatHtml(member){
+  var inId = nextId();
   var greet = member ? 'Oi' + (State.session && State.session.name ? ', ' + escapeHtml(State.session.name.split(' ')[0]) : '') + '! Eu sou o Grana 💚 Pergunte o que quiser sobre o app, do seu jeito.'
     : 'Oi! Eu sou o Grana 💚 Quer saber o que o app pode fazer? Pergunte do seu jeito ou escolha um assunto.';
   return '<div class="gr-chat" data-gr-chat="' + (member ? 'member' : 'visitor') + '">' +
     '<div class="gr-log" role="log" aria-live="polite" aria-label="Conversa com o Grana"><div class="gr-msg bot"><span class="gr-avatar">' + mascotSvg('happy') + '</span><p>' + greet + '</p></div></div>' +
     '<div class="gr-chips" data-gr-chips>' + ['Lançar gastos e ganhos', 'Importar extrato do banco', 'Salário líquido, 13º e férias', 'Metas e guardar dinheiro', 'Preço'].map(function(c){ return '<button type="button" class="gr-chip" data-gr-chip="' + escapeHtml(c) + '">' + escapeHtml(c) + '</button>'; }).join('') + '</div>' +
-    '<div class="gr-form" data-gr-form><label class="sr-only" for="grIn' + (++uid) + '">Sua pergunta para o Grana</label><input id="grIn' + uid + '" name="q" type="text" maxlength="200" autocomplete="off" placeholder="Pergunte ao Grana…" enterkeyhint="send"><button class="btn btn-primary" type="button" data-gr-send>Perguntar</button></div>' +
+    '<div class="gr-form" data-gr-form><label class="sr-only" for="grIn' + inId + '">Sua pergunta para o Grana</label><input id="grIn' + inId + '" name="q" type="text" maxlength="200" autocomplete="off" placeholder="Pergunte ao Grana…" enterkeyhint="send"><button class="btn btn-primary" type="button" data-gr-send>Perguntar</button></div>' +
     '<p class="gr-note">Eu respondo no seu aparelho: o que você escreve aqui não é enviado a lugar nenhum.</p></div>';
 }
 function interact(root, what){ withPart('mascotChat', function(m){ m.interact(root, what, {member: root.getAttribute('data-gr-chat') === 'member'}); }); }

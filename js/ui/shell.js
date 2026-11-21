@@ -32,6 +32,7 @@ import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {preloadPdfLibWhenIdle} from './pdf.js';
 import {disablePush, maybeSyncPush, pushActive, wirePushResync} from './push.js';
 import {maybeWhatsNew} from './whats-new.js';
+import {showSplash, hideSplash} from './splash.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, siteUrl, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -306,7 +307,13 @@ export function showAuthTab(name){
 }
 
 // profileHint: perfil já lido no login (evita ler de novo).
+// Entrar na conta: a tela de carregamento do Grana cobre a espera enquanto os dados chegam e some assim que o app está pronto.
 export async function enterApp(profileHint){
+  showSplash('Entrando na sua conta…');
+  try { await enterAppFlow(profileHint); }
+  finally { hideSplash(0); }
+}
+async function enterAppFlow(profileHint){
   setPrefsOwner(k());
   document.getElementById('txSort').value = TX_SORTS[getPrefs().txSort] ? getPrefs().txSort : 'recent';
   State.dashSec = DASH_SECTIONS.indexOf(getPrefs().dashSec) >= 0 ? getPrefs().dashSec : 'numeros';
@@ -340,6 +347,7 @@ export async function enterApp(profileHint){
   State.navReady = false;
   showTab(tabFromHash() || 'dashboard');
   State.navReady = true;
+  hideSplash(700);   // app pronto: a tela de carregamento sai (se não houve pressa, depois de ~0,7 s para a animação ser vista)
   // Contas fixas cujo dia chegou entram sozinhas em Ganhos e gastos.
   if (await runAutoBills()) renderAll();
   // Planejamento: categorias que já estavam perto do limite ou passaram avisam uma vez, num popup.

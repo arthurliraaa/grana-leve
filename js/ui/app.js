@@ -46,6 +46,7 @@ import {pushAction, pushCardHtml} from './push.js';
 import {openWhatsNew} from './whats-new.js';
 import {renderLanding, wireMascot} from './mascot.js';
 import {wireBusyGuard} from './busy.js';
+import {hideSplash, firstLoadMin} from './splash.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
 import {State, catLabel, catOptions, expenseCats, k} from './state.js';
 import {setThemePref, themePref, wireTheme} from './theme.js';
@@ -89,5 +90,7 @@ initProfile({
 
 export function start(){
   initLanding();
-  if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
+  // A tela de carregamento (do HTML) sai quando o app terminou de abrir, com ou sem erro.
+  var run = function(){ var done = function(){ hideSplash(firstLoadMin()); }; boot().then(done, done); };
+  if (document.readyState === 'loading'){ document.addEventListener('DOMContentLoaded', run); } else { run(); }
 }
