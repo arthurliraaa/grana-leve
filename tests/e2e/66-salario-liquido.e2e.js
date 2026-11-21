@@ -144,6 +144,12 @@ L.run(async ({page}) => {
   await page.$eval('[data-use=third1]', e => e.click()); await L.sleep(400);
   L.ok(Number(await page.$eval('#fcAmount', e => e.value)) === 1500, '“Usar a 1ª parcela” preenche metade do 13º (R$ 1.500,00)');
 
+  L.section('Início: convite para prever o salário');
+  await page.$eval('[data-salary-calc="fcAmount"]', e => e.click()); await L.sleep(500);
+  await L.closeModal(page); await L.sleep(300);
+  await L.tab(page, 'dashboard'); await L.sleep(700);
+  L.ok(!(await page.$eval('#salaryCard', e => e.hidden)) && /Prever meu salário/.test(await L.text(page, '#salaryCard')), 'depois de usar a calculadora, o Início já convida a prever o salário (sem recarregar)');
+
   L.section('Simulador e formulário de ganho');
   await page.$eval('#segbtn-simular', e => e.click()); await L.sleep(300);
   await page.click('input[name=kind][value=ganho]'); await L.sleep(150);

@@ -10,6 +10,7 @@ import {netSalary, thirteenth, vacation, discountAmount, workdaysInMonth, REGIME
 import {getPrefs, setPref} from '../data/session.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
 import {openModal} from './modal.js';
+import {renderSalaryNotice} from './home-tab.js';
 
 var GROSS_LABEL = {clt: 'Salário bruto (o da carteira)', servidor: 'Salário bruto', mei: 'Quanto você fatura por mês', autonomo: 'Quanto você recebe por mês',
   pj: 'Quanto a empresa fatura por mês', estagio: 'Valor da bolsa', outro: 'Valor bruto por mês'};
@@ -276,6 +277,8 @@ export async function openSalaryCalculator(config){
       return {net: res.fixedNet, kind: 'fixed', res: res, opts: form._opts || readOpts(form)};
     }
   });
+  // O que a pessoa informou já vale para o convite do Início (“Prever meu salário”), mesmo se ela só fechar a calculadora.
+  renderSalaryNotice();
   if (!r || r === true) return null;
   var o = r.opts;
   saveProfile(o);

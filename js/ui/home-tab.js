@@ -58,7 +58,7 @@ export function renderForecasts(){
 // Cartão do salário no Início. A parte do salário (calculadora, plano, 13º…) só é baixada quando há algo a mostrar:
 // um perfil calculado ou uma previsão de salário. Quem não usa isso nunca baixa.
 export function hasSalaryData(){ return !!getPrefs().workProfile || State.forecasts.some(function(f){ return f.salary && f.salary.rule; }); }
-function renderSalaryNotice(){
+export function renderSalaryNotice(){
   var el = document.getElementById('salaryCard');
   if (!el) return;
   if (!hasSalaryData()){ el.hidden = true; el.innerHTML = ''; return; }
