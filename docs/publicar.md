@@ -12,7 +12,7 @@ A publicação acontece em duas fases.
 ### Antes de publicar
 
 ```bash
-npm run check        # lint + testes de regras
+npm run check        # lint + tipos + testes de regras
 npm run test:e2e     # o app inteiro no Chrome
 ```
 

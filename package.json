@@ -7,9 +7,10 @@
   "scripts": {
     "dev": "serve -l 5500 .",
     "lint": "eslint js tests tools supabase",
+    "types": "tsc -p tsconfig.json",
     "test": "node --test \"tests/unit/*.test.js\"",
     "test:e2e": "node tests/e2e/run.js",
-    "check": "npm run lint && npm test",
+    "check": "npm run lint && npm run types && npm test",
     "sw:update": "node tools/update-sw.js",
     "test:db": "node supabase/tests/run.js",
     "build": "node tools/build.js",
@@ -21,7 +22,8 @@
     "eslint": "9.39.5",
     "globals": "17.13.0",
     "puppeteer-core": "25.13.0",
-    "serve": "14.2.6"
+    "serve": "14.2.6",
+    "typescript": "5.9.3"
   },
   "overrides": {
     "compression": "1.8.2"

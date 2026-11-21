@@ -15,6 +15,7 @@ export var BILL_FREQS = [
 
 // Valor do mês: o último valor definido até aquele mês (mudar o valor vale "a partir de").
 export function billAmountFor(b, key){
+  /** @type {any} */
   var best = null;
   (b.amounts || []).forEach(function(a){ if (a.from <= key && (!best || a.from >= best.from)) best = a; });
   return money(best ? best.amount : b.amount);

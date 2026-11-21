@@ -1,0 +1,16 @@
+{
+  // Checagem de tipos SEM mudar a linguagem: o código continua JavaScript. Só o domínio (js/domain: contas de dinheiro, datas,
+  // salário, extratos) é conferido, em modo básico (sem "strict"): pega erro de lógica sem exigir anotações em todo lugar.
+  // Rodar: npm run types   (também roda em npm run check)
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom"],
+    "skipLibCheck": true
+  },
+  "include": ["js/domain/**/*.js"]
+}

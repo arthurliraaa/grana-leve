@@ -158,6 +158,7 @@ function runNet(opts, tables, withVariable){
   // Ganhos extras: os que variam só entram no mês. Os tributáveis somam à base do INSS e do imposto; os demais só ao líquido.
   var bonusLines = [], taxableBonus = 0, freeBonus = 0;
   (opts.bonuses || []).filter(function(b){ return withVariable || !b.varies; }).forEach(function(b){
+    /** @type {any} */
     var meta = BONUS_TYPES.filter(function(t){ return t.id === b.type; })[0] || {}, v = bonusAmount(b, gross);
     if (!(v > 0)) return;
     var taxable = b.taxable === undefined ? meta.taxable !== false : !!b.taxable;
@@ -195,6 +196,7 @@ function runNet(opts, tables, withVariable){
   }
   // estágio e bolsa: sem descontos obrigatórios.
   chosen.forEach(function(d){
+    /** @type {any} */
     var meta = DISCOUNT_TYPES.filter(function(t){ return t.id === d.type; })[0] || {};
     minus('d:' + (d.type || 'outro'), (d.label || meta.label || 'Desconto') + (d.mode === 'pct' ? ' (' + (Number(d.value) || 0) + '%)' : d.mode === 'perday' ? ' (' + (d.days === undefined ? d.refDays : d.days) + ' dias de uso)' : d.mode === 'benefit' ? ' (' + (Number(d.pct) || 0) + '%' + (d.type === 'vt' ? ' do salário, até o valor do vale' : ' do benefício') + ')' : '') + (d.varies ? ' · varia' : ''), discountAmount(d, gross));
   });

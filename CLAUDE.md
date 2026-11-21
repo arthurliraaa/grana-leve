@@ -22,7 +22,7 @@ desenvolvimento. Detalhes do produto no [README.md](README.md); regras de dinhei
 - Mudou arquivo servido ao navegador → `npm run sw:update` (cache do service worker).
 
 ## Comandos
-- `npm run dev` (porta 5500) · `npm run check` (lint + unit) · `npm run test:e2e` · `npm run test:db`
+- `npm run dev` (porta 5500) · `npm run check` (lint + tipos do domínio + unit) · `npm run test:e2e` · `npm run test:db`
 - Antes de dar uma tarefa por pronta: `npm run check` verde e, se mexeu na interface, `npm run test:e2e`.
 - `npm run test:e2e` roda **vários arquivos ao mesmo tempo** (4 por padrão; `E2E_JOBS=1` para um por vez) e leva
   uns 2,5 minutos. O relógio dos testes é **fixo em 17/11/2026 às 12h** (e anda a partir daí), então o resultado

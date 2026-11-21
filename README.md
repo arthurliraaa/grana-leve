@@ -91,11 +91,12 @@ O app usa módulos ES; abrir o `index.html` direto do disco não funciona.
 
 ```bash
 npm run lint       # ESLint
+npm run types      # checagem de tipos (TypeScript só confere, o código segue JavaScript) em js/domain
 npm test           # regras (dinheiro, datas, faturas, saldos, parser, build): node:test
 npm run test:e2e   # o app inteiro no Chrome (puppeteer-core), 4 arquivos ao mesmo tempo (~2,5 min);
                    # relógio fixo em 17/11/2026; E2E_JOBS=1 (um por vez) e E2E_REALDATE=1 (data de hoje)
 npm run test:db    # migrações e regras de acesso do banco, num Postgres local (podman)
-npm run check      # lint + testes de regras
+npm run check      # lint + tipos + testes de regras
 E2E_ROOT=dist node tests/e2e/run.js 01 04   # testes no navegador contra a versão publicada
 ```
 
