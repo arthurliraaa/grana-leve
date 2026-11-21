@@ -264,3 +264,8 @@ que abrem sozinhas quando já há conteúdo guardado e, na confirmação mensal,
 trabalhar, o salário bruto, os descontos e os ganhos nas preferências (`workProfile`, gravado a cada alteração, mesmo se
 a calculadora for só fechada), para já virem preenchidos no mês seguinte (menos os dias de uso do vale-transporte). “Usar o líquido fixo” preenche `fixedNet`; “Usar o líquido
 deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em Previstas).
+
+## Gasto para outra pessoa / dividir no popup do + (`js/ui/tx-others.js`)
+- No celular (≤ 620 px) o formulário da aba fica escondido: o único formulário é o popup do **+**. Por isso o popup de **lançamento novo** (não a edição) tem “Pagou por alguém ou vai dividir?”, com os mesmos campos do formulário grande, mas ids com prefixo `m` (`mForOther`, `mSplit`, `mSplitRows`…) para os dois não se misturarem.
+- A gravação é uma só para os dois: `attachOthers` em `js/ui/tx-list.js` (cria os “A receber” ligados e marca cada parcela com `forOther` ou `split`). Mudou uma regra de terceiros? Mude lá, não nos formulários.
+- Teste: `tests/e2e/77-terceiros-celular.e2e.js` (375 px).

@@ -5,6 +5,9 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-23', title: 'Gasto para outra pessoa no celular', items: [
+    {title: 'Pagou por alguém ou dividiu? Agora no celular também', go: 'lancamentos', text: 'No “+” do celular, ao lançar um gasto, dá para marcar “Paguei por outra pessoa” ou “Dividir com outras pessoas”, como já era no computador. A parte dos outros vai para “Me devem”.'}
+  ]},
   {id: '2026-11-22', title: 'Mais de um emprego, o Grana no cantinho e mais segurança', items: [
     {title: 'Mais de um emprego', go: 'lancamentos', text: 'Na calculadora do salário, toque em “Tenho mais de um emprego”: cada um tem o seu cálculo (e a sua previsão do “já caiu?”) e o líquido fixo é somado.'},
     {title: 'O Grana em todas as telas', text: 'Ele fica no cantinho, animado, com dicas de cada tela e pronto para tirar dúvidas. Dá para mandá-lo descansar (×) e chamar de volta em Perfil.'},

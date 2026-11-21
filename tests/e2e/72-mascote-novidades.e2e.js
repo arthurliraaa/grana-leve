@@ -27,7 +27,7 @@ L.run(async ({page}) => {
   L.ok(/não é enviado a lugar nenhum/.test(await L.text(page, '#meetGrana .gr-note')), 'avisa que a conversa fica no aparelho');
   await page.$eval('[data-gr-poke]', e => e.click()); await L.sleep(200);
   L.ok(await page.$eval('[data-gr-poke] .gr-svg', e => e.getAttribute('data-mood')) === 'happy', 'tocar no mascote o deixa feliz (e ele fala)');
-  L.ok(/Novidades/.test(await L.text(page, '#landingNews')) && await page.$$eval('#landingNews .news-item', n => n.length) >= 2, 'a página inicial mostra as novidades do app');
+  L.ok(/Novidades/.test(await L.text(page, '#landingNews')) && await page.$$eval('#landingNews .news-item', n => n.length) >= 1, 'a página inicial mostra as novidades do app');
   await page.setViewport({width: 375, height: 800}); await L.sleep(200);
   L.ok(await L.noHorizontalScroll(page), 'cabe no celular');
   await page.setViewport({width: 1280, height: 900});

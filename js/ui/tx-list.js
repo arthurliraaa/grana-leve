@@ -177,13 +177,23 @@ export function syncTxFormVisibility(){
 }
 
 /* ---------- Dividir uma compra com outras pessoas ---------- */
+// Uma linha “pessoa + parte” da divisão (a mesma no formulário da aba e no popup do +).
+export function splitRowHtml(i){
+  return '<input class="sp-name" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Nome" aria-label="Nome da pessoa ' + i + '">' +
+    '<span class="money-input"><span class="sp-unit">R$</span><input class="sp-val" type="text" data-money autocomplete="off" inputmode="decimal" aria-label="Parte da pessoa ' + i + '"></span>' +
+    '<button type="button" class="tx-del" data-sp-del aria-label="Remover pessoa ' + i + '" title="Remover">' + icon('trash') + '</button>';
+}
+export function splitSummaryText(total, list, pct){
+  var sh = splitShares(total, list, pct);
+  return {neg: sh.mine < -0.004, text: !(total > 0) ? 'Informe o valor da compra para ver a sua parte.' :
+    sh.mine < -0.004 ? 'As partes passam do total (' + fmtMoney(total) + ').' :
+    'Sua parte: ' + fmtMoney(sh.mine) + ' de ' + fmtMoney(total) + (sh.people.length ? ' · ' + sh.people.map(function(p){ return (p.person || '?') + ' ' + fmtMoney(p.amount); }).join(' · ') : '')};
+}
 export function addSplitRow(){
   var wrap = document.getElementById('txSplitRows'), i = wrap.children.length + 1;
   var row = document.createElement('div');
   row.className = 'split-row';
-  row.innerHTML = '<input class="sp-name" type="text" list="peopleList" autocomplete="off" maxlength="60" placeholder="Nome" aria-label="Nome da pessoa ' + i + '">' +
-    '<span class="money-input"><span class="sp-unit">R$</span><input class="sp-val" type="text" data-money autocomplete="off" inputmode="decimal" aria-label="Parte da pessoa ' + i + '"></span>' +
-    '<button type="button" class="tx-del" data-sp-del aria-label="Remover pessoa ' + i + '" title="Remover">' + icon('trash') + '</button>';
+  row.innerHTML = splitRowHtml(i);
   wrap.appendChild(row);
   syncSplitUnits();
   return row;
@@ -201,12 +211,10 @@ export function readSplit(){
 export function updateSplitSummary(){
   var box = document.getElementById('txSplitBox');
   if (box.hidden) return;
-  var total = splitTotal(), sh = splitShares(total, readSplit(), splitPercent());
+  var r = splitSummaryText(splitTotal(), readSplit(), splitPercent());
   var el = document.getElementById('txSplitSummary');
-  el.classList.toggle('neg-text', sh.mine < -0.004);
-  el.textContent = !(total > 0) ? 'Informe o valor da compra para ver a sua parte.' :
-    sh.mine < -0.004 ? 'As partes passam do total (' + fmtMoney(total) + ').' :
-    'Sua parte: ' + fmtMoney(sh.mine) + ' de ' + fmtMoney(total) + (sh.people.length ? ' · ' + sh.people.map(function(p){ return (p.person || '?') + ' ' + fmtMoney(p.amount); }).join(' · ') : '');
+  el.classList.toggle('neg-text', r.neg);
+  el.textContent = r.text;
 }
 export function resetSplit(){ document.getElementById('txSplit').checked = false; document.getElementById('txSplitRows').innerHTML = ''; qs('input[name=txSplitMode][value=valor]').checked = true; }
 
@@ -225,6 +233,34 @@ export async function addLinkedReceivable(person, total, parts, tx, description,
   var saved = await Store.add(k(), 'receivables', r);
   State.receivables.push(saved);
   return saved;
+}
+
+// Liga as parcelas de um gasto a quem vai devolver (paguei por outra pessoa) ou divide a compra: cria os “A receber”
+// e marca cada parcela. o = {tx, parts, desc, forOther, splitList, pct, priorPaid}. Retorna {shares} ou {error}.
+export async function attachOthers(o){
+  var tx = o.tx, parts = o.parts, charged = sumMoney(parts, function(t){ return t.amount; }), label = o.desc || catLabel(tx.category, tx.type), shares = null;
+  if (o.splitList){
+    shares = splitShares(tx.amount, o.splitList, o.pct);
+    if (shares.mine < -0.004) return {error: 'As partes das outras pessoas passam do total da compra (' + fmtMoney(tx.amount) + ').'};
+    // Cada pessoa vira um "A receber" com a parte dela do que vai ser cobrado; só a sua parte é gasto seu.
+    var split = {total: tx.amount, mine: shares.mine, people: []};
+    for (var si = 0; si < shares.people.length; si++){
+      var sp = shares.people[si];
+      var sr = await addLinkedReceivable(sp.person, charged * sp.amount / tx.amount, parts, tx, label + ' (parte de ' + sp.person.split(' ')[0] + ')', o.priorPaid);
+      split.people.push({person: sp.person, receivableId: sr.id, amount: sp.amount});
+    }
+    parts.forEach(function(t){ t.split = split; });
+  }
+  if (o.forOther){
+    // O gasto fica ligado ao "A receber": não conta como gasto seu, e o que voltar é devolução, não ganho.
+    var recv = await addLinkedReceivable(o.forOther, charged, parts, tx, label, o.priorPaid);
+    parts.forEach(function(t){ t.forOther = {person: o.forOther, receivableId: recv.id}; });
+  }
+  return {shares: shares};
+}
+export function othersToast(type, tx, n, start, shares, forOther){
+  return (type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (start > 1 ? ' (a partir da ' + start + 'ª)' : '') : '') + ' registrado.' +
+    (shares ? ' Sua parte: ' + fmtMoney(shares.mine) + '; ' + shares.people.length + ' pessoa(s) em “A receber”.' : '') + (forOther ? ' ' + forOther + ' foi para “A receber”.' : '');
 }
 
 // Filtros de categoria e de conta/cartão específicos (as opções mudam com o cadastro).
@@ -569,29 +605,18 @@ export function wireTransactions(){
     if (n > 1 && ex.start > n){ toast('Todas as parcelas dessa compra já venceram. Confira a data da compra.'); return; }
     tx.amount = Tx.purchaseTotal(amount, n, ex.per);
     var parts = expandInstallments(tx, n, ex.start);
-    var charged = sumMoney(parts, function(t){ return t.amount; });
     var priorPaid = qs('input[name=txPrior]:checked') ? qs('input[name=txPrior]:checked').value === 'paid' : true;
     var shares = null;
-    if (splitList){
-      shares = splitShares(tx.amount, splitList, splitPercent());
-      if (shares.mine < -0.004){ toast('As partes das outras pessoas passam do total da compra (' + fmtMoney(tx.amount) + ').'); return; }
-      // Cada pessoa vira um "A receber" com a parte dela do que vai ser cobrado; só a sua parte é gasto seu.
-      var split = {total: tx.amount, mine: shares.mine, people: []};
-      for (var si = 0; si < shares.people.length; si++){
-        var sp = shares.people[si];
-        var sr = await addLinkedReceivable(sp.person, charged * sp.amount / tx.amount, parts, tx, (desc || catLabel(category, type)) + ' (parte de ' + sp.person.split(' ')[0] + ')', priorPaid);
-        split.people.push({person: sp.person, receivableId: sr.id, amount: sp.amount});
+    if (splitList || forOther){
+      var linked = await attachOthers({tx: tx, parts: parts, desc: desc, forOther: forOther, splitList: splitList, pct: splitPercent(), priorPaid: priorPaid});
+      if (linked.error){ toast(linked.error); return; }
+      shares = linked.shares;
+      if (splitList){ resetSplit(); syncTxFormVisibility(); }
+      if (forOther){
+        document.getElementById('txForOther').checked = false;
+        document.getElementById('txOtherName').value = '';
+        syncTxFormVisibility();
       }
-      parts.forEach(function(t){ t.split = split; });
-      resetSplit(); syncTxFormVisibility();
-    }
-    if (forOther){
-      // O gasto fica ligado ao "A receber": não conta como gasto seu, e o que voltar é devolução, não ganho.
-      var recv = await addLinkedReceivable(forOther, charged, parts, tx, desc || catLabel(category, type), priorPaid);
-      parts.forEach(function(t){ t.forOther = {person: forOther, receivableId: recv.id}; });
-      document.getElementById('txForOther').checked = false;
-      document.getElementById('txOtherName').value = '';
-      syncTxFormVisibility();
     }
     var savedParts = await saveTransactions(parts);
   document.getElementById('txForOtherField').open = false;
@@ -603,7 +628,7 @@ export function wireTransactions(){
     populateInstallSelect();
     renderAll();
     if (!shares && !forOther) savedToast(type, tx, n, ex.start, savedParts);
-    else toast((type === 'expense' ? 'Gasto' : 'Ganho') + ' de ' + fmtMoney(tx.amount) + (n > 1 ? ' em ' + n + 'x' + (ex.start > 1 ? ' (a partir da ' + ex.start + 'ª)' : '') : '') + ' registrado.' + (shares ? ' Sua parte: ' + fmtMoney(shares.mine) + '; ' + shares.people.length + ' pessoa(s) em “A receber”.' : '') + (forOther ? ' ' + forOther + ' foi para “A receber”.' : ''));
+    else toast(othersToast(type, tx, n, ex.start, shares, forOther));
   });
 
   document.getElementById('exportCsvBtn').addEventListener('click', async function(){

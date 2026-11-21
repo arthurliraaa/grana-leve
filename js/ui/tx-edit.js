@@ -21,7 +21,8 @@ import {openQuickEntry} from './chat.js';
 import {paymentLabel} from './home-tab.js';
 import {renderAll, showTab} from './shell.js';
 import {State, accountName, budgetLimit, catBadge, catLabel, catOptions, categoryNameProblem, categorySelectHtml, wireCategorySuggestion, expandInstallments, expenseCategoryTotals, expenseCats, incomeCats, installmentGroups, invoiceStatus, k, sortTransactions} from './state.js';
-import {accountSelectHtml, addCategory, applyPayment, cardIdOf, installExtrasHtml, installStepperHtml, installSummary, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
+import {accountSelectHtml, addCategory, applyPayment, attachOthers, cardIdOf, installExtrasHtml, installStepperHtml, installSummary, othersToast, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
+import {othersHtml, readOthers, wireOthers} from './tx-others.js';
 
 /* ---------- Popup de lançamento (botão + e edição) ---------- */
 export function txModalBody(t, isEdit){
@@ -40,6 +41,7 @@ export function txModalBody(t, isEdit){
     (inst ? '<p class="field-hint">Parcela ' + t.installment.n + ' de ' + t.installment.total + '. Categoria e descrição mudam em todas as parcelas; o valor muda só nesta (ex.: juros). Para mudar o total, o número de parcelas, o cartão ou a data, ou para dividir os valores igualmente de novo, use o botão abaixo.</p>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-m-group style="justify-self:start">' + icon('edit') + 'Editar a compra inteira</button>' : '') +
     (isEdit && t.type === 'expense' && !t.writeOff ? '<button type="button" class="btn btn-ghost btn-sm" data-m-reversal style="justify-self:start">' + icon('swap') + 'Registrar estorno</button>' : '') +
+    (isEdit ? '' : othersHtml()) +
     (isEdit ? '' : '<button type="button" class="linklike" data-m-chat style="justify-self:start">Prefere escrever? Lance pelo chat</button>');
 }
 
@@ -67,8 +69,18 @@ export async function openTxModal(t){
         if (instSel) qs('#mInstallHint', modal).textContent = installSummary(modal, 'mIx', clampInstall(instSel.value), money(qs('#mAmount', modal).value),
           qs('#mDate', modal).value, cardIdOf(paySel.value));
       }
+      // Pagou por alguém / dividir (só em lançamento novo): precisa do total e das parcelas já vencidas para o resumo.
+      var others = isEdit ? null : wireOthers(modal, {
+        isExpense: function(){ return mType === 'expense'; },
+        info: function(){
+          var onCard = mType === 'expense' && !!cardIdOf(paySel.value), n = onCard ? clampInstall(instSel.value) : 1;
+          var ex = readInstallExtras(modal, 'mIx', n, qs('#mDate', modal).value, cardIdOf(paySel.value));
+          return {n: n, start: ex.start, total: Tx.purchaseTotal(money(qs('#mAmount', modal).value), n, ex.per)};
+        }
+      });
       function sync(){
         var isExp = mType === 'expense';
+        if (others) others.sync();
         qs('#mPayField', modal).hidden = !isExp;
         if (qs('#mAccField', modal)) qs('#mAccField', modal).hidden = isExp;
         if (!instSel) return;
@@ -93,6 +105,7 @@ export async function openTxModal(t){
         syncNewCat(); sync();
       });
       qs('#mAmount', modal).addEventListener('input', fillInstall);
+      if (others) ['input', 'change'].forEach(function(ev){ modal.addEventListener(ev, function(e){ if (!e.target.closest('#mOthers')) others.sync(); }); });
       if (instSel){
         instSel.addEventListener('input', fillInstall);
         modal.addEventListener('change', function(e){ if (e.target.name === 'mIxMode' || e.target.id === 'mDate' || e.target.id === 'mPay') fillInstall(); });
@@ -128,9 +141,19 @@ export async function openTxModal(t){
       var ex = readInstallExtras(form, 'mIx', n, date, tx.cardId);
       if (n > 1 && ex.start > n) return {error: 'Todas as parcelas dessa compra já venceram. Confira a data da compra.'};
       tx.amount = Tx.purchaseTotal(amount, n, ex.per);
-      var savedNow = await saveTransactions(expandInstallments(tx, n, ex.start));
+      var parts = expandInstallments(tx, n, ex.start);
+      var o = mType === 'expense' ? readOthers(form) : {};
+      if (o.error) return o;
+      var shares = null;
+      if (o.forOther || o.splitList){
+        var linked = await attachOthers({tx: tx, parts: parts, desc: tx.description, forOther: o.forOther, splitList: o.splitList, pct: o.pct, priorPaid: o.priorPaid});
+        if (linked.error) return linked;
+        shares = linked.shares;
+      }
+      var savedNow = await saveTransactions(parts);
       renderAll();
-      savedToast(mType, tx, n, ex.start, savedNow);
+      if (shares || o.forOther) toast(othersToast(mType, tx, n, ex.start, shares, o.forOther));
+      else savedToast(mType, tx, n, ex.start, savedNow);
       return true;
     }
   });
