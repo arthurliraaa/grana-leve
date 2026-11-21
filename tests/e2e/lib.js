@@ -40,6 +40,8 @@ export async function launch(){
   await page.evaluateOnNewDocument(() => { document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '.toast.toast-action{pointer-events:none !important}'; document.head.appendChild(st); }); });
   // O tutorial de primeiro uso fica desligado nos testes (o teste dele liga de volta).
   await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_tutorial')) localStorage.setItem('granaleve_tutorial', 'off'); } catch(e){} });
+  // As novidades de atualização também ficam desligadas nos testes (o teste delas liga de volta).
+  await page.evaluateOnNewDocument(() => { try { if (!localStorage.getItem('granaleve_whatsnew')) localStorage.setItem('granaleve_whatsnew', 'off'); } catch(e){} });
   await page.setViewport({width: 1280, height: 900});
   // Sem animações nos testes (como quem pede menos movimento no sistema): o estado é verificado na hora.
   if (!process.env.E2E_MOTION) await page.emulateMediaFeatures([{name: 'prefers-reduced-motion', value: 'reduce'}]);

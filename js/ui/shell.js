@@ -31,6 +31,7 @@ import {TIPS, TIPS_GROW} from './constants.js';
 import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {preloadPdfLibWhenIdle} from './pdf.js';
 import {disablePush, maybeSyncPush, pushActive, wirePushResync} from './push.js';
+import {maybeWhatsNew} from './whats-new.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, siteUrl, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -356,6 +357,7 @@ export async function enterApp(profileHint){
   if (hasSalaryData()) withPart('salary', function(m){ m.askSalaryIfDue(); });
   preloadPdfLibWhenIdle();
   maybeSyncPush();
+  maybeWhatsNew();
 }
 
 export function logout(){
@@ -827,6 +829,7 @@ var PARTS = {
   },
   simulator: function(){ return import('./simulator.js').then(function(m){ m.wireSimulator(); return m; }); },
   statement: function(){ return import('./import-statement.js'); },
+  mascotChat: function(){ return import('./mascot-chat.js'); },
   salary: function(){ return import('./salary-plan.js').then(function(m){ return import('./salary-calc.js').then(function(c){ return Object.assign({}, m, c); }); }); }
 };
 var partLoads = {};

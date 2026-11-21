@@ -28,14 +28,24 @@ export function themePref(){
   try{ saved = localStorage.getItem(THEME_KEY); } catch(e){}
   return saved === 'dark' || saved === 'light' ? saved : 'system';
 }
-// Troca de tema com transição suave (para não ofuscar): o navegador cruza a tela antiga com a nova; sem esse recurso,
-// as cores esmaecem aos poucos; com “reduzir movimento” ligado, troca na hora.
-function smoothly(apply){
+// Centro de um elemento (de onde a troca de tema se espalha); sem elemento, o meio da tela.
+function centerOf(el){
+  if (el && el.getBoundingClientRect){ var r = el.getBoundingClientRect(); if (r.width || r.height) return {x: r.left + r.width / 2, y: r.top + r.height / 2}; }
+  return {x: window.innerWidth / 2, y: window.innerHeight / 2};
+}
+// Troca de tema com animação: o tema novo nasce do botão em que se tocou e se espalha em círculo por toda a tela (View Transitions).
+// Sem esse recurso do navegador, as cores esmaecem aos poucos; com “reduzir movimento” ligado, troca na hora.
+function smoothly(apply, originEl){
   var root = document.documentElement;
   if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ apply(); return; }
   if (document.startViewTransition){
+    var o = centerOf(originEl), radius = Math.hypot(Math.max(o.x, window.innerWidth - o.x), Math.max(o.y, window.innerHeight - o.y));
     root.classList.add('theme-vt');
     var t = document.startViewTransition(apply);
+    t.ready.then(function(){
+      root.animate({clipPath: ['circle(0px at ' + o.x + 'px ' + o.y + 'px)', 'circle(' + radius + 'px at ' + o.x + 'px ' + o.y + 'px)']},
+        {duration: 750, easing: 'cubic-bezier(.45,.05,.2,1)', pseudoElement: '::view-transition-new(root)'});
+    }, function(){});
     t.finished.then(function(){ root.classList.remove('theme-vt'); }, function(){ root.classList.remove('theme-vt'); });
     return;
   }
@@ -43,18 +53,22 @@ function smoothly(apply){
   apply();
   setTimeout(function(){ root.classList.remove('theme-fade'); }, 700);
 }
-export function setThemePref(v){
+export function setThemePref(v, originEl){
   try{ if (v === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, v); } catch(e){}
   smoothly(function(){
     if (v === 'system') document.documentElement.removeAttribute('data-theme');
     applyTheme(v === 'system' ? null : v);
     if (State.session) renderAll();
-  });
+  }, originEl);
 }
-export function toggleTheme(){
+export function toggleTheme(e){
   var next = currentTheme() === 'dark' ? 'light' : 'dark';
   try{ localStorage.setItem(THEME_KEY, next); } catch(e){}
-  smoothly(function(){ applyTheme(next); if (State.session) renderAll(); });
+  var btn = document.getElementById('themeToggle');
+  smoothly(function(){ applyTheme(next); if (State.session) renderAll(); }, btn);
+  // O ícone gira junto (sol e lua trocam de lugar).
+  btn.classList.remove('theme-spin'); void btn.offsetWidth; btn.classList.add('theme-spin');
+  setTimeout(function(){ btn.classList.remove('theme-spin'); }, 700);
 }
 
 // Aplica o tema salvo e liga o botão de tema.

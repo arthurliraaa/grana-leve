@@ -23,6 +23,7 @@ desenvolvimento. Detalhes do produto no [README.md](README.md); regras de dinhei
 
 ## Comandos
 - `npm run dev` (porta 5500) · `npm run check` (lint + tipos do domínio + unit) · `npm run test:e2e` · `npm run test:db`
+- Entregou algo que a pessoa vai notar? Acrescente uma entrada nova no TOPO de `js/domain/changelog.js` (aparece como novidade na 1ª abertura) e, se for assunto que o Grana (mascote) deve saber explicar, atualize `KB` em `js/domain/mascot.js`.
 - Antes de dar uma tarefa por pronta: `npm run check` verde e, se mexeu na interface, `npm run test:e2e`.
 - `npm run test:e2e` roda **vários arquivos ao mesmo tempo** (4 por padrão; `E2E_JOBS=1` para um por vez) e leva
   uns 2,5 minutos. O relógio dos testes é **fixo em 17/11/2026 às 12h** (e anda a partir daí), então o resultado

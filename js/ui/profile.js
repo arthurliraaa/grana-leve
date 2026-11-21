@@ -76,7 +76,8 @@ export function renderProfile(){
     card('pfT9', 'chat', 'Ajuda e sugestões',
       '<p class="card-sub">Ficou com dúvida, achou um problema ou tem uma ideia? Mande para a equipe do Grana Leve.</p>' +
       '<div class="card-actions"><button class="btn btn-primary btn-sm" type="button" id="pfHelp">Preciso de ajuda</button>' +
-        '<button class="btn btn-ghost btn-sm" type="button" id="pfIdea">Enviar sugestão de melhoria</button></div>') +
+        '<button class="btn btn-ghost btn-sm" type="button" id="pfIdea">Enviar sugestão de melhoria</button></div>' +
+      '<div class="pref-row"><span>O que mudou no app nas últimas atualizações.</span><button class="btn btn-ghost btn-sm" type="button" id="pfWhatsNew">Ver as novidades</button></div>') +
 
     card('pfT8', 'trash', 'Apagar dados',
       '<p class="card-sub">Quer recomeçar? Apague tudo o que anotou ou só uma parte (por exemplo, só os gastos ou só os cartões). A conta continua.</p>' +
@@ -156,7 +157,7 @@ export function initProfile(context){
   });
   panel.addEventListener('change', async function(e){
     if (e.target.getAttribute('data-push-kind')){ await ctx.pushAction(e.target); return; }
-    if (e.target.name === 'pfTheme') ctx.setThemePref(e.target.value);
+    if (e.target.name === 'pfTheme') ctx.setThemePref(e.target.value, e.target);
     if (e.target.id === 'pfWelcome'){ setPref('quickEntryOff', !e.target.checked); toast(e.target.checked ? 'A pergunta ao entrar está ligada.' : 'A pergunta ao entrar está desligada.'); }
   });
   panel.addEventListener('click', async function(e){
@@ -169,6 +170,7 @@ export function initProfile(context){
     if (id === 'pfDelete') ctx.deleteAccount();
     if (id === 'pfClear') ctx.clearData();
     if (id === 'pfForgot') ctx.forgotPassword(ctx.state().session.email);
+    if (id === 'pfWhatsNew') ctx.openWhatsNew();
     if (id === 'pfHelp') ctx.openFeedback('ajuda');
     if (id === 'pfIdea') ctx.openFeedback('melhoria');
     if (id === 'pfSignOutAll'){

@@ -29,6 +29,8 @@ de pagar as faturas.
   pensão…, em R$ ou %) e horas extras de 50% e 100% com o repouso. Só o salário
   e os descontos fixos valem todo mês; extras e descontos que variam entram só no mês. É estimativa, com as
   tabelas de 2026.
+- **Grana, o mascote**: tira dúvidas sobre o que o app faz entendendo o sentido da pergunta (sem enviar nada para fora), na página
+  inicial e no Início. **Novidades** de cada atualização aparecem uma vez na primeira abertura, no Início e na página inicial.
 - **Avisos no celular** (opcional, com conta online): aviso quando o salário deveria cair e um dia antes de vencer fatura ou conta
   fixa, sem valores. Precisa ligar o envio no Supabase uma vez: [`docs/avisos-push.md`](docs/avisos-push.md).
 - **Importar extrato**: lê um OFX (conta ou cartão), um CSV ou, de forma aproximada, um PDF de fatura ou extrato, tudo neste aparelho (o OFX ou o CSV gerado no banco é o mais preciso), mostra os lançamentos com

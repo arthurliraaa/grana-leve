@@ -1966,7 +1966,13 @@ details.purchase-notes[open] > summary{ margin-bottom:6px; }
 .tx-group > .tx-row{ margin:0 8px; }
 
 /* Trocar o tema claro/escuro: transição lenta e suave, sem clarão */
-html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(root){ animation-duration:.7s; animation-timing-function: ease-in-out; }
+/* A tela nova é revelada em círculo a partir do botão (a animação do clip-path está em js/ui/theme.js); sem cruzamento de cores. */
+html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
+html.theme-vt::view-transition-old(root){ z-index:1; }
+html.theme-vt::view-transition-new(root){ z-index:2; }
+#themeToggle.theme-spin .ico{ animation: themeSpin .7s cubic-bezier(.45,.05,.2,1); }
+@keyframes themeSpin{ from{ transform: rotate(-120deg) scale(.4); opacity:.2; } to{ transform: rotate(0) scale(1); opacity:1; } }
+@media (prefers-reduced-motion: reduce){ #themeToggle.theme-spin .ico{ animation:none; } }
 @media (prefers-reduced-motion: no-preference){
   html.theme-fade, html.theme-fade *, html.theme-fade *::before, html.theme-fade *::after{
     transition: background-color .6s ease-in-out, color .6s ease-in-out, border-color .6s ease-in-out, fill .6s ease-in-out, stroke .6s ease-in-out, box-shadow .6s ease-in-out !important;
@@ -2181,3 +2187,98 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .tx-file-tools .btn{ gap:6px; }
 .tx-file-tools .ico{ width:16px; height:16px; }
 @media (max-width: 620px){ .tx-file-tools{ width:100%; } .tx-file-tools .btn{ flex:1 1 0; justify-content:center; min-height:44px; } }
+
+/* Novidades do app */
+.wn-body{ display:grid; gap:18px; }
+.wn-rel h4{ margin:0 0 8px; display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 10px; }
+.wn-list{ list-style:none; margin:0; padding:0; display:grid; gap:12px; }
+.wn-list li{ display:grid; gap:4px; padding:12px 14px; border-radius:12px; background: var(--surface-2); border:1px solid var(--border); justify-items:start; }
+.wn-list p{ margin:0; font-size:.92rem; line-height:1.5; color: var(--text-secondary); }
+
+/* ===== Grana, o mascote ===== */
+.gr-svg{ width:100%; height:auto; display:block; overflow:visible; }
+.gr-svg .m-happy, .gr-svg .m-think{ display:none; }
+.gr-svg[data-mood=happy] .m-idle, .gr-svg[data-mood=think] .m-idle{ display:none; }
+.gr-svg[data-mood=happy] .m-happy{ display:block; }
+.gr-svg[data-mood=think] .m-think{ display:block; }
+.gr-shadow{ fill: rgba(0,0,0,.16); transform-origin:70px 128px; animation: grShadow 3.2s ease-in-out infinite; }
+.gr-bob{ animation: grBob 3.2s ease-in-out infinite; transform-origin:70px 120px; }
+.gr-leaf{ transform-origin:70px 38px; animation: grLeaf 4.4s ease-in-out infinite; }
+.gr-eye{ transform-box: fill-box; transform-origin:center; animation: grBlink 5s infinite; }
+.gr-eye + .gr-eye{ animation-delay:.04s; }
+.gr-pupil{ transform: translate(var(--px, 0px), var(--py, 0px)); transition: transform .12s ease-out; }
+.gr-arm{ transform-box: fill-box; transform-origin:center; }
+.gr-svg[data-mood=wave] .gr-arm-r{ animation: grWave .7s ease-in-out infinite alternate; transform-origin:100% 100%; }
+.gr-svg[data-mood=happy] .gr-arm{ animation: grCheer .5s ease-in-out infinite alternate; }
+.gr-jump .gr-svg{ animation: grJump .65s cubic-bezier(.3,1.6,.5,1); transform-origin:50% 90%; }
+@keyframes grBob{ 0%,100%{ transform: translateY(0) scale(1,1); } 50%{ transform: translateY(-5px) scale(.99,1.015); } }
+@keyframes grShadow{ 0%,100%{ transform: scaleX(1); opacity:1; } 50%{ transform: scaleX(.86); opacity:.7; } }
+@keyframes grLeaf{ 0%,100%{ transform: rotate(-4deg); } 50%{ transform: rotate(5deg); } }
+@keyframes grBlink{ 0%,94%,100%{ transform: scaleY(1); } 97%{ transform: scaleY(.08); } }
+@keyframes grWave{ from{ transform: rotate(0deg) translateY(0); } to{ transform: rotate(-28deg) translateY(-6px); } }
+@keyframes grCheer{ from{ transform: translateY(0); } to{ transform: translateY(-5px); } }
+@keyframes grJump{ 0%{ transform: translateY(0) scale(1,1); } 25%{ transform: translateY(0) scale(1.08,.9); } 55%{ transform: translateY(-22px) scale(.95,1.06); } 80%{ transform: translateY(0) scale(1.05,.94); } 100%{ transform: translateY(0) scale(1,1); } }
+@media (prefers-reduced-motion: reduce){ .gr-bob, .gr-leaf, .gr-eye, .gr-shadow, .gr-arm, .gr-jump .gr-svg{ animation:none !important; } .gr-pupil{ transition:none; } }
+
+/* Página inicial: o Grana grande e a conversa */
+.grana-meet{ display:grid; grid-template-columns: minmax(180px, 300px) minmax(0, 1fr); gap:28px 40px; align-items:center; padding-top:40px; padding-bottom:20px; }
+.grana-stage{ position:relative; display:grid; justify-items:center; padding-top:34px; }
+.gr-big{ width:min(260px, 62vw); border:none; background:none; padding:0; cursor:pointer; -webkit-tap-highlight-color: transparent; }
+.gr-big:focus-visible{ outline:3px solid var(--brand); border-radius:50%; }
+.gr-speech{ position:absolute; top:0; left:50%; transform: translateX(-50%); max-width:230px; text-align:center; padding:8px 14px; border-radius:16px; background: var(--surface); border:1px solid var(--border); box-shadow: var(--shadow-sm, 0 4px 14px rgba(0,0,0,.08)); font-size:.9rem; font-weight:600; }
+.gr-speech::after{ content:""; position:absolute; left:50%; bottom:-7px; width:12px; height:12px; background: var(--surface); border-right:1px solid var(--border); border-bottom:1px solid var(--border); transform: translateX(-50%) rotate(45deg); }
+.gr-speech.on{ animation: grPop .35s ease-out; }
+@keyframes grPop{ from{ transform: translateX(-50%) scale(.85); opacity:.3; } to{ transform: translateX(-50%) scale(1); opacity:1; } }
+.grana-talk h2{ margin:4px 0 6px; }
+.grana-chatbox{ padding:14px; margin-top:14px; }
+@media (max-width: 760px){ .grana-meet{ grid-template-columns: minmax(0, 1fr); } .grana-stage{ order:-1; } }
+
+/* Conversa */
+.gr-chat{ display:grid; gap:10px; min-width:0; }
+.gr-log{ display:grid; gap:10px; max-height:min(46vh, 380px); overflow:auto; padding:2px 2px 6px; align-content:start; }
+.gr-msg{ display:flex; gap:8px; align-items:flex-end; min-width:0; }
+.gr-msg p{ margin:0; padding:9px 12px; border-radius:16px; line-height:1.45; font-size:.93rem; overflow-wrap:anywhere; }
+.gr-msg.bot p{ background: var(--surface-2); border-bottom-left-radius:5px; }
+.gr-msg.me{ justify-content:flex-end; }
+.gr-msg.me p{ background: var(--brand); color: var(--on-brand); border-bottom-right-radius:5px; max-width:85%; }
+.gr-said{ display:grid; gap:8px; justify-items:start; min-width:0; }
+.gr-avatar{ flex:none; width:34px; height:34px; display:block; }
+.gr-typing p{ display:inline-flex; gap:4px; align-items:center; }
+.gr-typing i{ width:7px; height:7px; border-radius:50%; background: var(--text-muted); animation: grDot 1s infinite ease-in-out; }
+.gr-typing i:nth-child(2){ animation-delay:.15s; } .gr-typing i:nth-child(3){ animation-delay:.3s; }
+@keyframes grDot{ 0%,60%,100%{ transform: translateY(0); opacity:.5; } 30%{ transform: translateY(-4px); opacity:1; } }
+.gr-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.gr-chips[hidden]{ display:none; }
+.gr-chip{ border:1px solid color-mix(in srgb, var(--brand) 40%, var(--border)); background: var(--brand-tint); color: var(--brand-strong); border-radius:999px; padding:6px 12px; font:inherit; font-size:.85rem; font-weight:600; cursor:pointer; min-height:36px; }
+.gr-chip:hover{ background: color-mix(in srgb, var(--brand) 16%, var(--brand-tint)); }
+.gr-form{ display:flex; gap:8px; }
+.gr-form input{ flex:1; min-width:0; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); min-height:44px; font-size:16px; }
+.gr-form input:focus{ outline:2px solid var(--brand); outline-offset:0; }
+.gr-note{ margin:0; font-size:.78rem; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce){ .gr-typing i{ animation:none; } .gr-speech.on{ animation:none; } }
+
+/* Início: o Grana ao lado do resumo */
+.grana-strip{ display:flex; align-items:center; gap:14px; padding:10px 14px; margin-bottom:12px; border-radius:16px; background: var(--brand-tint); border:1px solid color-mix(in srgb, var(--brand) 28%, transparent); }
+.grana-strip[hidden]{ display:none; }
+.gr-small{ flex:none; width:84px; border:none; background:none; padding:0; cursor:pointer; -webkit-tap-highlight-color: transparent; }
+.gr-small:focus-visible{ outline:3px solid var(--brand); border-radius:50%; }
+.gr-says{ display:grid; gap:8px; min-width:0; justify-items:start; }
+.gr-bubble{ position:relative; margin:0; padding:10px 14px; border-radius:16px; background: var(--surface); border:1px solid var(--border); font-size:.93rem; line-height:1.45; cursor:pointer; transition: opacity .22s ease; }
+.gr-bubble::before{ content:""; position:absolute; left:-7px; top:18px; width:12px; height:12px; background: var(--surface); border-left:1px solid var(--border); border-bottom:1px solid var(--border); transform: rotate(45deg); }
+.gr-bubble.gr-swap{ opacity:0; }
+.gr-bubble:focus-visible{ outline:2px solid var(--brand); }
+@media (max-width: 520px){ .gr-small{ width:68px; } .gr-bubble{ font-size:.88rem; } }
+
+/* Novidades (Início e página inicial) */
+.news-card{ padding:14px 16px; margin-bottom:12px; display:grid; gap:10px; }
+.news-card[hidden]{ display:none; }
+.news-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.news-head .ico{ width:18px; height:18px; color: var(--brand); vertical-align:-3px; }
+.news-x{ border:none; background:none; font-size:1.5rem; line-height:1; color: var(--text-muted); cursor:pointer; padding:4px 10px; min-width:44px; min-height:44px; }
+.news-short{ margin:0; padding-left:20px; display:grid; gap:3px; font-size:.92rem; }
+.landing-news{ padding-top:24px; padding-bottom:12px; }
+.landing-news h2{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; margin:0 0 14px; }
+.news-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:14px; }
+.news-item{ padding:16px; border-radius:16px; background: var(--surface); border:1px solid var(--border); }
+.news-item h3{ margin:0 0 6px; font-size:1.02rem; }
+.news-item p{ margin:0; color: var(--text-secondary); font-size:.92rem; line-height:1.5; }

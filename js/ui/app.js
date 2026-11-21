@@ -43,6 +43,8 @@ import {initLanding} from './landing.js';
 import {wirePlanning} from './planning-tab.js';
 import {wirePwa} from './pwa.js';
 import {pushAction, pushCardHtml} from './push.js';
+import {openWhatsNew} from './whats-new.js';
+import {renderLanding, wireMascot} from './mascot.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
 import {State, catLabel, catOptions, expenseCats, k} from './state.js';
 import {setThemePref, themePref, wireTheme} from './theme.js';
@@ -54,6 +56,8 @@ installMoneyInputs();
 // Liga os eventos de cada área (cada função fica no módulo da área).
 wireTheme();
 wireShell();
+wireMascot();
+renderLanding();
 wireAuth();
 wireHome();
 wireTransactions();
@@ -75,7 +79,7 @@ initProfile({
     if (Store.mode !== 'supabase') saveSession(State.session);
     renderAll();
   },
-  themePref: themePref, setThemePref: setThemePref, pushCardHtml: pushCardHtml, pushAction: pushAction,
+  themePref: themePref, setThemePref: setThemePref, pushCardHtml: pushCardHtml, pushAction: pushAction, openWhatsNew: openWhatsNew,
   openResearch: researchModal, researchStatus: researchStatusHtml,
   openData: dataModal, clearData: clearDataModal, openFeedback: openFeedback, deleteAccount: deleteMyAccount, logout: logout, siteUrl: siteUrl,
   forgotPassword: forgotPassword, confirmEmailTypo: confirmEmailTypo

@@ -20,7 +20,7 @@ test('o build junta o app em um JavaScript e um CSS com hash (com partes sob dem
       assert.ok(/chunk-[A-Z0-9]+\.js$/.test(m[1]) && existsSync(join(r.dist, 'js', 'chunks', m[1].split('/').pop())) || existsSync(target), f + ' importa ' + m[1] + ', que precisa ser um chunk existente');
     }
   }
-  for (const nome of ['admin', 'simulator', 'import-statement', 'salary-plan']){
+  for (const nome of ['admin', 'simulator', 'import-statement', 'salary-plan', 'mascot-chat']){
     assert.ok(r.chunkFiles.some(f => f.startsWith('js/chunks/' + nome + '-')), nome + ' é uma parte sob demanda: vira arquivo próprio (se sumiu, algum módulo carregado de cara passou a importá-lo de forma estática; use withPart)');
   }
   const localRefs = [...html.matchAll(/(?:src|href)="((?!https?:|data:|#)[^"]+)"/g)].map(m => m[1]);

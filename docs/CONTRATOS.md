@@ -168,6 +168,18 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 //   O vale-transporte não é fixo em 6%: cada empresa desconta um valor, por isso é um desconto editável em R$ ou %.
 //   Hora extra só em clt e servidor.
 ```
+## Grana (mascote) e novidades
+`js/domain/mascot.js`: `ask(texto, {member})` → `{kind: 'answer'|'suggest'|'small'|'none', id, text, go, chips}`. Entende o SENTIDO da pergunta, no aparelho
+(nada é enviado): normaliza e reduz as palavras à raiz, agrupa palavras de mesmo sentido em conceitos (despesa/compra/paguei → GASTO),
+compara com cada assunto da base `KB` por similaridade (TF-IDF + cosseno), tolera erro de digitação e, se não tem segurança, sugere assuntos
+em vez de chutar. Para ensinar algo novo ao Grana, acrescente (ou edite) um assunto em `KB` com várias formas de perguntar (`q`) e as
+respostas `visitor` (sem conta) e `member` (com conta, com o botão `go`); `tests/unit/mascot.test.js` tem 50+ perguntas de exemplo.
+`js/ui/mascot.js` (sempre carregado: desenho SVG com humores idle/happy/think/wave, animações, dicas do Início, cartão de novidades) e
+`js/ui/mascot-chat.js` (a conversa, sob demanda). Página inicial: `#meetGrana` e `#landingNews`; Início: `#granaStrip` e `#newsCard`.
+`js/domain/changelog.js`: `CHANGELOG` (novidades, a mais nova no TOPO, id = data). **Ao entregar algo que a pessoa vai notar, acrescente uma
+entrada nova no topo**: ela aparece numa janela na primeira abertura depois da atualização (`js/ui/whats-new.js`, uma vez; conta nova e
+vazia não vê), no cartão do Início (até fechar) e na página inicial. Em Perfil dá para rever.
+
 ## Avisos no celular (Web Push)
 `js/domain/reminders.js`: `buildReminders({today, horizon, kinds: {salary, invoice, bill}, forecasts, cards, transactions, bills, paidOk})` →
 `[{key, kind, date, hour, title, body, url}]` (salário no dia previsto; fatura e conta fixa um dia antes, só se ainda há o que pagar;
@@ -179,7 +191,7 @@ textos sem valores; `safeAppUrl` só aceita `./#/rota`). `js/ui/push.js`: `enabl
 ## Partes carregadas sob demanda (`withPart`, em `js/ui/shell.js`)
 `withPart(nome, (módulo) => ...)` baixa uma parte pesada na primeira vez que ela é usada (import() dinâmico, uma vez só por parte) e
 avisa se não foi possível carregar. Partes: `admin` (aba Administração), `simulator` (guia Simular), `statement` (Importar extrato) e
-`salary` (calculadora, Meu salário, 13º e férias). A parte do salário só é pedida se `hasSalaryData()` (perfil calculado ou previsão de
+`salary` (calculadora, Meu salário, 13º e férias) e `mascotChat` (a conversa com o Grana). A parte do salário só é pedida se `hasSalaryData()` (perfil calculado ou previsão de
 salário) ou quando a pessoa toca num botão dela. Regra para novas partes: nenhum módulo carregado de cara pode importar a parte de forma
 estática (senão o build a traz de volta para o arquivo principal); use `withPart`. O build (`tools/build.js`, esbuild `splitting`) gera
 os chunks, pede o código compartilhado junto com o principal (`modulepreload`) e lista todos no service worker (offline).
