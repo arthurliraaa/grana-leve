@@ -28,14 +28,18 @@ de pagar as faturas.
   (auxílio home office, ajuda de custo, bonificação…) e descontos por tipo (vale-transporte, plano de saúde,
   pensão…, em R$ ou %) e horas extras de 50% e 100% com o repouso. Só o salário
   e os descontos fixos valem todo mês; extras e descontos que variam entram só no mês. É estimativa, com as
-  tabelas de 2026.
-- **Grana, o mascote**: tira dúvidas sobre o que o app faz entendendo o sentido da pergunta (sem enviar nada para fora), na página
-  inicial e no Início. **Novidades** de cada atualização aparecem uma vez na primeira abertura, no Início e na página inicial.
+  tabelas de 2026. **Mais de um emprego**: cada um tem nome, regime, descontos e ganhos próprios, e o líquido fixo de
+  todos é somado (“Usar o total dos empregos”). Cada emprego é calculado à parte, como cada empresa desconta; o teto do
+  INSS somando todos e o acerto do imposto de renda na declaração não são recalculados.
+- **Grana, o mascote**: fica no cantinho de todas as telas (inclusive antes do login), animado, com dicas da tela em que você
+  está, e tira dúvidas sobre o que o app faz entendendo o sentido da pergunta (sem enviar nada para fora). O “×” manda o Grana
+  descansar e, em Perfil, dá para chamá-lo de volta. **Novidades** de cada atualização aparecem uma vez na primeira abertura,
+  no Início e na página inicial.
 - **Avisos no celular** (opcional, com conta online): aviso quando o salário deveria cair e um dia antes de vencer fatura ou conta
   fixa, sem valores. Precisa ligar o envio no Supabase uma vez: [`docs/avisos-push.md`](docs/avisos-push.md).
 - **Importar extrato**: lê um OFX (conta ou cartão), um CSV ou, de forma aproximada, um PDF de fatura ou extrato, tudo neste aparelho (o OFX ou o CSV gerado no banco é o mais preciso), mostra os lançamentos com
   categoria sugerida e marca o que já existe, e grava na conta ou no cartão escolhido. Dá para desfazer a importação.
-- **Meu salário**: o líquido calculado vira uma previsão que se repete todo mês, no dia escolhido (por exemplo, o 5º dia
+- **Meu salário**: o líquido calculado vira uma previsão que se repete todo mês (uma por emprego), no dia escolhido (por exemplo, o 5º dia
   útil ou todo dia 15). Quando a data chega, o app pergunta “já caiu?” para confirmar os valores do mês, com
   sobreaviso, extras e descontos como a parte usada do plano de saúde, e guarda a evolução e os reajustes.
 - **Simular** (guia em Ganhos e gastos): “se eu comprar, financiar ou assumir isso, como ficam as minhas
@@ -61,8 +65,12 @@ do cartão ou da conta, mas só a sua parte é gasto seu. O app mostra sempre as
 cartões do Início, tabela por banco, gráficos, lista e “Contas e cartões”). “Seu” numa fatura é a
 sua parte dela, limitada ao que ainda falta pagar.
 
+**Sem gravar em dobro.** Se a internet estiver lenta e você tocar várias vezes em “Salvar”, só a primeira vale: enquanto uma
+gravação está em andamento o botão mostra “Salvando…” e os toques repetidos são ignorados.
+
 **Para quem está começando**: tutorial de primeiro uso (pode ser pulado ou revisto), guia “Como
-usar”, botão “Ajuda e sugestões” e modo claro/escuro. Os dados podem ser exportados em backup e a
+usar”, botão “Ajuda e sugestões” e modo claro/escuro (a troca de tema se espalha a partir do botão). Uma tela de carregamento rápida, com o Grana pulando,
+aparece ao abrir o app e ao entrar na conta (quem pede “reduzir movimento” não a vê). Os dados podem ser exportados em backup e a
 conta pode ser apagada pelo próprio app.
 
 ## Como funciona por dentro
@@ -112,19 +120,21 @@ de fumaça contra o `dist/` e a auditoria das dependências (`.github/workflows/
 ```
 index.html            telas (apresentação, login, app) e ícones SVG
 css/style.css         estilos e tema claro/escuro
-js/app.js             ponto de entrada
+js/app.js             ponto de entrada (js/ui/app.js liga tudo)
 js/domain/            regras puras: dinheiro, datas, lançamentos, parcelas, cartões e faturas,
                       contas, planejamento, metas, investimentos, a receber, parser…
 js/data/              Store (local/nuvem), Supabase, sessão e preferências, backup e migrações
 js/ui/                uma área por arquivo (Início, Ganhos e gastos, Cartões, Planejar, chat,
                       perfil, tutorial, painel adm…); shell.js liga a navegação e os eventos.
                       Início: home-tab.js + dash-data/dash-charts/dash-details; Conselhos: advice-tab.js;
-                      Simular: simulator.js
+                      Simular: simulator.js; Salário: salary-calc.js (calculadora) e salary-plan.js (previsão);
+                      Grana: mascot.js (cantinho), mascot-art.js (desenho), mascot-chat.js (conversa);
+                      splash.js (carregamento) e busy.js (trava de toque repetido)
 supabase/             migrações, testes das regras de acesso e modelos de e-mail
 tools/                build (esbuild) e atualização do service worker
 tests/unit/ e2e/      testes das regras e do navegador
 docs/                 regras financeiras e passo a passo de publicação
-materiais-divulgacao/ imagens e vídeo de divulgação (fora do site publicado)
+materiais-divulgacao/ posts, imagens, vídeos e os scripts que os geram (fora do site publicado)
 ```
 
 ## Publicação e desempenho
@@ -132,7 +142,7 @@ materiais-divulgacao/ imagens e vídeo de divulgação (fora do site publicado)
 O site é publicado no **Vercel** a cada push na `main`. O `vercel.json` manda rodar `npm run build`
 e publicar `dist/`. O build (`tools/build.js`) junta os mais de 60 módulos em um JavaScript principal e **um** CSS
 minificados, com o hash no nome (cache longo e imutável); o `index.html` nunca fica em cache. O que quase
-ninguém abre ao entrar (Administração, Simular, Importar extrato e a parte do salário) vira arquivos próprios
+ninguém abre ao entrar (Administração, Simular, Importar extrato, a parte do salário e a conversa com o Grana) vira arquivos próprios
 (`dist/js/chunks/`, carregados por `import()` na primeira vez: `withPart` em `js/ui/shell.js`), o que tira
 cerca de 17% do JavaScript da abertura. A tela inicial passou de 75 para cerca de 13 requisições. O código-fonte não muda: o que roda no
 desenvolvimento e nos testes é o mesmo, só empacotado. As fontes (Outfit e IBM Plex Sans, só latin) ficam em
