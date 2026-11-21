@@ -2162,3 +2162,14 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .is-warn{ background: color-mix(in srgb, var(--warning) 16%, transparent); color: var(--text-primary); }
 .is-pass{ display:flex; gap:8px; }
 .is-pass input{ flex:1; min-width:0; }
+
+/* Importar extrato: respiro entre os blocos e botão principal em destaque */
+#isStep1, #isStep2{ display:grid; gap:16px; }
+.is-body .field{ gap:8px; }
+.is-tip{ line-height:1.55; padding:14px 16px; }
+.is-body .sc-use{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:10px; margin-top:4px; }
+.is-body .sc-use .btn{ min-height:46px; }
+.is-body .sc-use .btn-primary{ flex:1 1 260px; min-height:52px; padding:0 28px; font-size:1.05rem; font-weight:700; box-shadow: 0 2px 10px color-mix(in srgb, var(--brand) 35%, transparent); }
+.is-body .sc-use .btn-primary:disabled{ box-shadow:none; }
+.is-batches{ margin-top:4px; padding-top:14px; border-top:1px solid var(--border); }
+@media (max-width: 620px){ .is-body .sc-use .btn-ghost{ flex:1 1 120px; } }
