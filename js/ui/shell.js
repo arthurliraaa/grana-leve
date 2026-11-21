@@ -541,14 +541,287 @@ function wireMobileMenus(){
       }});
   }, true);
 }
-export function wireShell(){
+// Cliques de Ganhos e gastos, do Início (detalhes, gráficos, backup) e das previsões de entrada. Devolve true quando tratou o clique.
+async function clickHome(t, e){
+    var el;
+    if ((el = t.closest('[data-edit-tx]'))){
+      var et = findById(State.transactions, el.getAttribute('data-edit-tx'));
+      if (et && isReversal(et)){ toast('Estornos não são editados: para corrigir, exclua este estorno e registre de novo pela compra.'); return true; }
+      if (et) openTxModal(et);
+      return true;
+    }
+    if ((el = t.closest('[data-sum-more]'))){
+      var n = el.getAttribute('data-sum-more');
+      State.sumOpen[n] = !State.sumOpen[n];
+      renderSummary();
+      qs('[data-sum-more="' + n + '"]').focus();
+      return true;
+    }
+    if (t.closest('[data-parcels-open]')){ openParcels(); return true; }
+    if ((el = t.closest('[data-go]'))){ e.preventDefault(); showTab(el.getAttribute('data-go')); return true; }
+    if (t.closest('#dashDetailsBtn')){
+      State.dashDetails = !State.dashDetails;
+      var btn = document.getElementById('dashDetailsBtn');
+      btn.setAttribute('aria-expanded', String(State.dashDetails));
+      btn.querySelector('span').textContent = State.dashDetails ? 'Esconder detalhes do mês' : 'Ver todos os detalhes do mês';
+      document.getElementById('dashDetails').hidden = !State.dashDetails;
+      if (State.dashDetails) renderBarChart();
+      return true;
+    }
+    if (t.closest('[data-backup-now]')){ exportBackup(); return true; }
+    if (t.closest('[data-backup-snooze]')){
+      setPref('backupSnoozeUntil', Date.now() + 7 * 86400000);
+      renderBackupBanner();
+      toast('Combinado, lembramos de novo em 7 dias.');
+      return true;
+    }
+    if ((el = t.closest('[data-del-tx]'))){
+      var id = el.getAttribute('data-del-tx');
+      var tx = findById(State.transactions, id);
+      if (!tx) return true;
+      var ok, ids = [id];
+      if (tx.installment) ids = State.transactions.filter(function(x){ return x.installment && x.installment.group === tx.installment.group; }).map(function(x){ return x.id; });
+      var parcelCount = ids.length;
+      // O que vai junto (A2-03, A4): adiantamentos da compra, estornos ligados, "A receber" que só existe
+      // por causa desta compra e as devoluções já registradas nele. Conta fixa lançada por este gasto fica pulada no mês (A2-06).
+      var linked = linkedToDelete(State.transactions, State.receivables, ids);
+      var billNote = billNamesOf(State.transactions.filter(function(x){ return ids.indexOf(x.id) >= 0 || linked.extraTxIds.indexOf(x.id) >= 0; })).map(function(n){ return ' A conta fixa “' + n + '” fica como não lançada neste mês.'; }).join('');
+      var extra = linkedMessage(linked);
+      if (tx.installment){
+        ok = await confirmAction({title: extra ? 'Excluir a compra e o que está ligado a ela?' : 'Excluir compra parcelada?', confirmLabel: extra ? 'Excluir tudo' : undefined,
+          message:'“' + tx.installment.baseDescription + '” foi parcelada em ' + tx.installment.total + 'x. Excluir apaga ' + (parcelCount === 1 ? 'a parcela' : 'as ' + parcelCount + ' parcelas') + ' desta compra.' + extra + billNote});
+      } else if (extra){
+        ok = await confirmAction({title:'Excluir a compra e o que está ligado a ela?', confirmLabel: 'Excluir tudo',
+          message:'Excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '.' + extra + billNote});
+      } else {
+        // Com conta fixa envolvida a pergunta sempre aparece (sem "Não perguntar novamente").
+        ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?' + billNote, skipKey: billNote ? undefined : 'deleteTx'});
+      }
+      if (!ok) return true;
+      var allIds = ids.concat(linked.extraTxIds);
+      var removedTx = State.transactions.filter(function(x){ return allIds.indexOf(x.id) >= 0; });
+      try {
+        // A3: pula a conta fixa antes de apagar; se algo falhar no meio, o pior caso é o mês pulado com o gasto ainda lá.
+        await skipBillsOf(removedTx);
+        await Store.removeMany(k(), 'transactions', allIds);
+        State.transactions = State.transactions.filter(function(x){ return allIds.indexOf(x.id) < 0; });
+        for (var ri = 0; ri < linked.receivables.length; ri++){
+          var lr = linked.receivables[ri];
+          await Store.remove(k(), 'receivables', lr.id);
+          State.receivables = State.receivables.filter(function(x){ return x.id !== lr.id; });
+          if (lr.sharedId) leaveShared(lr.sharedId);
+        }
+      } catch(err){
+        try { await loadAllData(); } catch(e2){ /* fica com o que está na tela */ }
+        renderAll();
+        toast('Não deu para excluir tudo. Confira e tente de novo.');
+        return true;
+      }
+      renderAll();
+      toast(extra ? 'Compra e itens ligados excluídos.' : 'Lançamento excluído.');
+      return true;
+    }
+    if (t.closest('[data-explain="devolver"]')){ explainReturn(); return true; }
+    if (t.closest('#txFilterBtn')){
+      var fp = document.getElementById('txFilterPanel'), fb = document.getElementById('txFilterBtn');
+      fp.hidden = !fp.hidden; fb.setAttribute('aria-expanded', String(!fp.hidden));
+      if (!fp.hidden) document.getElementById('txFilterType').focus();
+      return true;
+    }
+    if (t.closest('[data-first-tx]')){ document.getElementById('fabAdd').click(); return true; }
+    if (t.closest('[data-first-hide]')){ setPref('firstStepsOff', true); renderSummary(); return true; }
+    if ((el = t.closest('[data-dash-sec]'))){ setDashSection(el.getAttribute('data-dash-sec')); return true; }
+    if ((el = t.closest('[data-donut-style]'))){ setDonutStyle(el.getAttribute('data-donut-style')); return true; }
+    if ((el = t.closest('[data-donut-scope]'))){ setDonutScope(el.getAttribute('data-donut-scope')); return true; }
+    if ((el = t.closest('[data-view-toggle]'))){
+      var which = el.getAttribute('data-view-toggle');
+      if (which === 'donut'){ State.donutView = State.donutView === 'chart' ? 'table' : 'chart'; renderDonut(); }
+      else if (which === 'invsplit' || which === 'creditdebit'){ toggleDashView(which); }
+      else { State.barView = State.barView === 'chart' ? 'table' : 'chart'; renderBarChart(); }
+      return true;
+    }
+    if ((el = t.closest('[data-fc-receive]'))){ receiveForecast(el.getAttribute('data-fc-receive'), el.getAttribute('data-fc-date')); return true; }
+    if ((el = t.closest('[data-fc-del]'))){
+      var f = findById(State.forecasts, el.getAttribute('data-fc-del'));
+      if (!(await confirmAction({title:'Excluir previsão?', message:'Excluir a previsão “' + f.description + '”' + (f.recurring ? ' de todos os meses' : '') + '? Os ganhos já registrados continuam.'}))) return true;
+      await Store.remove(k(), 'forecasts', f.id);
+      State.forecasts = State.forecasts.filter(function(x){ return x.id !== f.id; });
+      renderDashboard();
+      return true;
+    }
+    return false;
+}
+
+// Cliques de Contas e cartões: faturas, contas, transferências, cartões e vales. Devolve true quando tratou o clique.
+async function clickWallet(t, e){
+    var el;
+    if ((el = t.closest('[data-inv-shift]'))){
+      var cid = el.getAttribute('data-inv-shift');
+      State.invoiceOffsets[cid] = (State.invoiceOffsets[cid] || 0) + Number(el.getAttribute('data-dir'));
+      renderCards();
+      return true;
+    }
+    if ((el = t.closest('[data-inv-pdf]'))){ generateInvoicePdf(el.getAttribute('data-inv-pdf'), el.getAttribute('data-key')); return true; }
+    if ((el = t.closest('[data-allinv-pdf]'))){ generateAllInvoicesPdf(Number(el.getAttribute('data-allinv-pdf'))); return true; }
+    if ((el = t.closest('[data-inv-paid]'))){ toggleInvoicePaid(el.getAttribute('data-inv-paid'), el.getAttribute('data-key')); return true; }
+    if ((el = t.closest('[data-invadv-undo]'))){ undoInvoiceAdvance(el.getAttribute('data-invadv-undo')); return true; }
+    // Contas bancárias
+    if ((el = t.closest('[data-acc-transfer]'))){ openTransfer(el.getAttribute('data-acc-transfer')); return true; }
+    if ((el = t.closest('[data-adjust-undo]'))){ undoBalanceAdjust(el.getAttribute('data-adjust-undo')); return true; }
+    if ((el = t.closest('[data-acc-edit]'))){ editAccount(el.getAttribute('data-acc-edit')); return true; }
+    if ((el = t.closest('[data-acc-del]'))){
+      var ac = findById(State.accounts, el.getAttribute('data-acc-del'));
+      if (!(await confirmAction({title:'Excluir conta?', message:'Excluir a conta “' + ac.name + '”? Os ganhos e gastos ligados a ela continuam nos seus lançamentos, sem conta.'}))) return true;
+      await Store.remove(k(), 'accounts', ac.id);
+      State.accounts = State.accounts.filter(function(x){ return x.id !== ac.id; });
+      renderAll();
+      return true;
+    }
+    if ((el = t.closest('[data-transfer-del]'))){
+      var tr = findById(State.transfers, el.getAttribute('data-transfer-del'));
+      if (!tr || !(await confirmAction({title:'Excluir transferência?', message:'Excluir a transferência de ' + fmtMoney(tr.amount) + ' de ' + accountName(tr.fromId) + ' para ' + accountName(tr.toId) + '? O saldo das duas contas volta ao que era.'}))) return true;
+      await Store.remove(k(), 'transfers', tr.id);
+      State.transfers = State.transfers.filter(function(x){ return x.id !== tr.id; });
+      renderAccounts(); renderStatTiles();
+      toast('Transferência excluída.');
+      return true;
+    }
+    if ((el = t.closest('[data-card-edit]'))){ editCard(el.getAttribute('data-card-edit')); return true; }
+    if ((el = t.closest('[data-card-report]'))){ cardReport(el.getAttribute('data-card-report')); return true; }
+    if ((el = t.closest('[data-adv-group]'))){ advanceInstallments(el.getAttribute('data-adv-group')); return true; }
+    if ((el = t.closest('[data-voucher-edit]'))){ editVoucher(el.getAttribute('data-voucher-edit')); return true; }
+    if ((el = t.closest('[data-voucher-del]'))){
+      var vd = findById(State.vouchers, el.getAttribute('data-voucher-del'));
+      if (!(await confirmAction({title:'Excluir vale?', message:'Excluir o vale “' + vd.name + '”? Os gastos feitos com ele continuam nos seus lançamentos.'}))) return true;
+      await Store.remove(k(), 'vouchers', vd.id);
+      State.vouchers = State.vouchers.filter(function(x){ return x.id !== vd.id; });
+      renderAll();
+      return true;
+    }
+    if ((el = t.closest('[data-card-del]'))){
+      var c = findById(State.cards, el.getAttribute('data-card-del'));
+      if (!(await confirmAction({title:'Excluir cartão?', message:'Excluir o cartão “' + c.name + '”? As compras feitas nele continuam nos seus gastos.'}))) return true;
+      await Store.remove(k(), 'cards', c.id);
+      State.cards = State.cards.filter(function(x){ return x.id !== c.id; });
+      renderAll();
+      return true;
+    }
+    return false;
+}
+
+// Cliques de Conexões. Devolve true quando tratou o clique.
+async function clickConnections(t, e){
+    var el;
+    if ((el = t.closest('[data-conn]'))){
+      var conn = el.getAttribute('data-conn');
+      if (conn === 'chat') openQuickEntry(false);
+      if (conn === 'metas') showTab('metas');
+      if (conn === 'wa-remove'){ setPref('waOptin', null); renderConnections(); }
+      if (conn === 'install' && State.installPrompt){
+        State.installPrompt.prompt();
+        State.installPrompt.userChoice.then(function(){ State.installPrompt = null; if (State.session) renderConnections(); });
+      }
+      return true;
+    }
+    return false;
+}
+
+// Cliques de Metas. Devolve true quando tratou o clique.
+async function clickGoals(t, e){
+    var el;
+    if ((el = t.closest('[data-goal-filter]'))){ State.goalFilter = el.getAttribute('data-goal-filter'); renderGoals(); return true; }
+    if ((el = t.closest('[data-goal-edit]'))){ editGoal(el.getAttribute('data-goal-edit')); return true; }
+    if ((el = t.closest('[data-goal-del]'))){
+      var g = findById(State.goals, el.getAttribute('data-goal-del'));
+      if (!(await confirmAction({title:'Excluir meta?', message:'Tem certeza que deseja excluir a meta “' + g.name + '”? Ela vai para “Excluídas” e pode ser restaurada.'}))) return true;
+      g.deletedAt = Date.now();
+      await Store.update(k(), 'goals', g.id, {deletedAt: g.deletedAt});
+      renderGoals(); renderDashboard();
+      return true;
+    }
+    if ((el = t.closest('[data-goal-restore]'))){
+      var gr = findById(State.goals, el.getAttribute('data-goal-restore'));
+      gr.deletedAt = null;
+      await Store.update(k(), 'goals', gr.id, {deletedAt: null});
+      renderGoals(); renderDashboard();
+      toast('Meta restaurada.');
+      return true;
+    }
+    if ((el = t.closest('[data-goal-purge]'))){
+      var gp = findById(State.goals, el.getAttribute('data-goal-purge'));
+      if (!(await confirmAction({title:'Apagar de vez?', message:'A meta “' + gp.name + '” será apagada permanentemente.'}))) return true;
+      await Store.remove(k(), 'goals', gp.id);
+      State.goals = State.goals.filter(function(x){ return x.id !== gp.id; });
+      renderGoals();
+      return true;
+    }
+    return false;
+}
+
+// Cliques de Compromissos (dívidas e a receber) e atalhos gerais (ajuda, tutorial, copiar Pix). Devolve true quando tratou o clique.
+async function clickCommitments(t, e){
+    var el;
+    if ((el = t.closest('[data-debt-pay]'))){ payDebt(el.getAttribute('data-debt-pay')); return true; }
+    if ((el = t.closest('[data-debt-edit]'))){ editDebt(el.getAttribute('data-debt-edit')); return true; }
+    if ((el = t.closest('[data-recv-edit]'))){ editReceivable(el.getAttribute('data-recv-edit')); return true; }
+    if ((el = t.closest('[data-debt-del]'))){
+      var d = findById(State.debts, el.getAttribute('data-debt-del'));
+      if (!(await confirmAction({title:'Excluir dívida?', message:'Tem certeza que deseja excluir a dívida “' + d.name + '”?'}))) return true;
+      await Store.remove(k(), 'debts', d.id);
+      State.debts = State.debts.filter(function(x){ return x.id !== d.id; });
+      if (d.shared && d.shared.sid) leaveShared(d.shared.sid);   // sai da cobrança compartilhada
+      renderDebts(); renderDashboard();
+      return true;
+    }
+    // A receber
+    if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return true; }
+    if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return true; }
+    if ((el = t.closest('[data-recv-share]'))){ shareRecv(el.getAttribute('data-recv-share')); return true; }
+    if (t.closest('[data-help]')){ openFeedback('ajuda'); return true; }
+    if (t.closest('[data-tutorial]')){
+      var mx = document.querySelector('#modalRoot:not([hidden]) .modal-x'); if (mx) mx.click();
+      setTimeout(startTutorial, 150); return true;
+    }
+    if ((el = t.closest('[data-shared-pending]'))){ openPendingFor(el.getAttribute('data-shared-pending')); return true; }
+    if ((el = t.closest('[data-copy-pix]'))){
+      var pixKey = el.getAttribute('data-copy-pix');
+      if (navigator.clipboard) navigator.clipboard.writeText(pixKey).then(function(){ toast('Chave Pix copiada.'); }, function(){ toast('Não foi possível copiar.'); });
+      return true;
+    }
+    if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return true; }
+    if ((el = t.closest('[data-recv-get-all]'))){ receiveAll(el.getAttribute('data-recv-get-all')); return true; }
+    if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return true; }
+    if ((el = t.closest('[data-jump]'))){ document.getElementById(el.getAttribute('data-jump')).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); return true; }
+    if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return true; }
+    if ((el = t.closest('[data-recv-sync]'))){ syncReceivable(el.getAttribute('data-recv-sync')); return true; }
+    if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return true; }
+    if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return true; }
+    if ((el = t.closest('[data-recv-del]'))){
+      var r = findById(State.receivables, el.getAttribute('data-recv-del'));
+      if (!(await confirmAction({title:'Excluir?', message:'Tem certeza que deseja excluir o valor a receber de ' + r.person + '?' +
+        (r.sharedWith ? ' A cobrança compartilhada também deixa de existir para ' + r.person.split(' ')[0] + '.' : '')}))) return true;
+      await Store.remove(k(), 'receivables', r.id);
+      if (r.sharedId) leaveShared(r.sharedId);
+      State.receivables = State.receivables.filter(function(x){ return x.id !== r.id; });
+      renderReceivables(); renderDashboard();
+      return true;
+    }
+    return false;
+}
+
+// Módulos de cada área que ligam os próprios eventos.
+function wireFeatureModules(){
+
   wireAdvice();
   wireSimulator();
   wireSalaryCalc();
   wireSalaryPlan();
   wireStatementImport();
   wireMobileMenus();
-  /* ============ Event wiring ============ */
+}
+
+// Rodapé, Escape (fecha menus e a janela de entrar), contadores de caracteres e redimensionamento.
+function wireKeysAndResize(){
   document.getElementById('footerYear').textContent = new Date().getFullYear();
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape'){
@@ -561,6 +834,10 @@ export function wireShell(){
 
   var resizeTimer;
   window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(function(){ if (State.dashDetails && State.activeTab === 'dashboard') renderBarChart(); }, 200); });
+}
+
+// Cliques do documento: o que é de cada área está em clickHome, clickWallet, clickConnections, clickGoals e clickCommitments.
+function wireClicks(){
   document.addEventListener('click', async function(e){
     var t = e.target;
     // No celular, as listas recolhíveis dos cartões abrem numa janela, mais fácil de ler que dentro do cartão.
@@ -581,251 +858,16 @@ export function wireShell(){
     if ((el = t.closest('[data-info]'))){ showInfo(el.getAttribute('data-info')); return; }
     if (!State.session) return;
     if (t.closest('#modalRoot')) return;
-
-    if ((el = t.closest('[data-edit-tx]'))){
-      var et = findById(State.transactions, el.getAttribute('data-edit-tx'));
-      if (et && isReversal(et)){ toast('Estornos não são editados: para corrigir, exclua este estorno e registre de novo pela compra.'); return; }
-      if (et) openTxModal(et);
-      return;
-    }
-    if ((el = t.closest('[data-sum-more]'))){
-      var n = el.getAttribute('data-sum-more');
-      State.sumOpen[n] = !State.sumOpen[n];
-      renderSummary();
-      qs('[data-sum-more="' + n + '"]').focus();
-      return;
-    }
-    if (t.closest('[data-parcels-open]')){ openParcels(); return; }
-    if ((el = t.closest('[data-go]'))){ e.preventDefault(); showTab(el.getAttribute('data-go')); return; }
-    if (t.closest('#dashDetailsBtn')){
-      State.dashDetails = !State.dashDetails;
-      var btn = document.getElementById('dashDetailsBtn');
-      btn.setAttribute('aria-expanded', String(State.dashDetails));
-      btn.querySelector('span').textContent = State.dashDetails ? 'Esconder detalhes do mês' : 'Ver todos os detalhes do mês';
-      document.getElementById('dashDetails').hidden = !State.dashDetails;
-      if (State.dashDetails) renderBarChart();
-      return;
-    }
-    if (t.closest('[data-backup-now]')){ exportBackup(); return; }
-    if (t.closest('[data-backup-snooze]')){
-      setPref('backupSnoozeUntil', Date.now() + 7 * 86400000);
-      renderBackupBanner();
-      toast('Combinado, lembramos de novo em 7 dias.');
-      return;
-    }
-    if ((el = t.closest('[data-del-tx]'))){
-      var id = el.getAttribute('data-del-tx');
-      var tx = findById(State.transactions, id);
-      if (!tx) return;
-      var ok, ids = [id];
-      if (tx.installment) ids = State.transactions.filter(function(x){ return x.installment && x.installment.group === tx.installment.group; }).map(function(x){ return x.id; });
-      var parcelCount = ids.length;
-      // O que vai junto (A2-03, A4): adiantamentos da compra, estornos ligados, "A receber" que só existe
-      // por causa desta compra e as devoluções já registradas nele. Conta fixa lançada por este gasto fica pulada no mês (A2-06).
-      var linked = linkedToDelete(State.transactions, State.receivables, ids);
-      var billNote = billNamesOf(State.transactions.filter(function(x){ return ids.indexOf(x.id) >= 0 || linked.extraTxIds.indexOf(x.id) >= 0; })).map(function(n){ return ' A conta fixa “' + n + '” fica como não lançada neste mês.'; }).join('');
-      var extra = linkedMessage(linked);
-      if (tx.installment){
-        ok = await confirmAction({title: extra ? 'Excluir a compra e o que está ligado a ela?' : 'Excluir compra parcelada?', confirmLabel: extra ? 'Excluir tudo' : undefined,
-          message:'“' + tx.installment.baseDescription + '” foi parcelada em ' + tx.installment.total + 'x. Excluir apaga ' + (parcelCount === 1 ? 'a parcela' : 'as ' + parcelCount + ' parcelas') + ' desta compra.' + extra + billNote});
-      } else if (extra){
-        ok = await confirmAction({title:'Excluir a compra e o que está ligado a ela?', confirmLabel: 'Excluir tudo',
-          message:'Excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '.' + extra + billNote});
-      } else {
-        // Com conta fixa envolvida a pergunta sempre aparece (sem "Não perguntar novamente").
-        ok = await confirmAction({title:'Excluir lançamento?', message:'Tem certeza que deseja excluir “' + (tx.description || catLabel(tx.category, tx.type, tx.categoryLabel)) + '” de ' + fmtMoney(tx.amount) + '?' + billNote, skipKey: billNote ? undefined : 'deleteTx'});
-      }
-      if (!ok) return;
-      var allIds = ids.concat(linked.extraTxIds);
-      var removedTx = State.transactions.filter(function(x){ return allIds.indexOf(x.id) >= 0; });
-      try {
-        // A3: pula a conta fixa antes de apagar; se algo falhar no meio, o pior caso é o mês pulado com o gasto ainda lá.
-        await skipBillsOf(removedTx);
-        await Store.removeMany(k(), 'transactions', allIds);
-        State.transactions = State.transactions.filter(function(x){ return allIds.indexOf(x.id) < 0; });
-        for (var ri = 0; ri < linked.receivables.length; ri++){
-          var lr = linked.receivables[ri];
-          await Store.remove(k(), 'receivables', lr.id);
-          State.receivables = State.receivables.filter(function(x){ return x.id !== lr.id; });
-          if (lr.sharedId) leaveShared(lr.sharedId);
-        }
-      } catch(err){
-        try { await loadAllData(); } catch(e2){ /* fica com o que está na tela */ }
-        renderAll();
-        toast('Não deu para excluir tudo. Confira e tente de novo.');
-        return;
-      }
-      renderAll();
-      toast(extra ? 'Compra e itens ligados excluídos.' : 'Lançamento excluído.');
-      return;
-    }
-    if (t.closest('[data-explain="devolver"]')){ explainReturn(); return; }
-    if (t.closest('#txFilterBtn')){
-      var fp = document.getElementById('txFilterPanel'), fb = document.getElementById('txFilterBtn');
-      fp.hidden = !fp.hidden; fb.setAttribute('aria-expanded', String(!fp.hidden));
-      if (!fp.hidden) document.getElementById('txFilterType').focus();
-      return;
-    }
-    if (t.closest('[data-first-tx]')){ document.getElementById('fabAdd').click(); return; }
-    if (t.closest('[data-first-hide]')){ setPref('firstStepsOff', true); renderSummary(); return; }
-    if ((el = t.closest('[data-dash-sec]'))){ setDashSection(el.getAttribute('data-dash-sec')); return; }
-    if ((el = t.closest('[data-donut-style]'))){ setDonutStyle(el.getAttribute('data-donut-style')); return; }
-    if ((el = t.closest('[data-donut-scope]'))){ setDonutScope(el.getAttribute('data-donut-scope')); return; }
-    if ((el = t.closest('[data-view-toggle]'))){
-      var which = el.getAttribute('data-view-toggle');
-      if (which === 'donut'){ State.donutView = State.donutView === 'chart' ? 'table' : 'chart'; renderDonut(); }
-      else if (which === 'invsplit' || which === 'creditdebit'){ toggleDashView(which); }
-      else { State.barView = State.barView === 'chart' ? 'table' : 'chart'; renderBarChart(); }
-      return;
-    }
-    if ((el = t.closest('[data-fc-receive]'))){ receiveForecast(el.getAttribute('data-fc-receive'), el.getAttribute('data-fc-date')); return; }
-    if ((el = t.closest('[data-fc-del]'))){
-      var f = findById(State.forecasts, el.getAttribute('data-fc-del'));
-      if (!(await confirmAction({title:'Excluir previsão?', message:'Excluir a previsão “' + f.description + '”' + (f.recurring ? ' de todos os meses' : '') + '? Os ganhos já registrados continuam.'}))) return;
-      await Store.remove(k(), 'forecasts', f.id);
-      State.forecasts = State.forecasts.filter(function(x){ return x.id !== f.id; });
-      renderDashboard();
-      return;
-    }
-    // Cartões
-    if ((el = t.closest('[data-inv-shift]'))){
-      var cid = el.getAttribute('data-inv-shift');
-      State.invoiceOffsets[cid] = (State.invoiceOffsets[cid] || 0) + Number(el.getAttribute('data-dir'));
-      renderCards();
-      return;
-    }
-    if ((el = t.closest('[data-inv-pdf]'))){ generateInvoicePdf(el.getAttribute('data-inv-pdf'), el.getAttribute('data-key')); return; }
-    if ((el = t.closest('[data-allinv-pdf]'))){ generateAllInvoicesPdf(Number(el.getAttribute('data-allinv-pdf'))); return; }
-    if ((el = t.closest('[data-inv-paid]'))){ toggleInvoicePaid(el.getAttribute('data-inv-paid'), el.getAttribute('data-key')); return; }
-    if ((el = t.closest('[data-invadv-undo]'))){ undoInvoiceAdvance(el.getAttribute('data-invadv-undo')); return; }
-    // Contas bancárias
-    if ((el = t.closest('[data-acc-transfer]'))){ openTransfer(el.getAttribute('data-acc-transfer')); return; }
-    if ((el = t.closest('[data-adjust-undo]'))){ undoBalanceAdjust(el.getAttribute('data-adjust-undo')); return; }
-    if ((el = t.closest('[data-acc-edit]'))){ editAccount(el.getAttribute('data-acc-edit')); return; }
-    if ((el = t.closest('[data-acc-del]'))){
-      var ac = findById(State.accounts, el.getAttribute('data-acc-del'));
-      if (!(await confirmAction({title:'Excluir conta?', message:'Excluir a conta “' + ac.name + '”? Os ganhos e gastos ligados a ela continuam nos seus lançamentos, sem conta.'}))) return;
-      await Store.remove(k(), 'accounts', ac.id);
-      State.accounts = State.accounts.filter(function(x){ return x.id !== ac.id; });
-      renderAll();
-      return;
-    }
-    if ((el = t.closest('[data-transfer-del]'))){
-      var tr = findById(State.transfers, el.getAttribute('data-transfer-del'));
-      if (!tr || !(await confirmAction({title:'Excluir transferência?', message:'Excluir a transferência de ' + fmtMoney(tr.amount) + ' de ' + accountName(tr.fromId) + ' para ' + accountName(tr.toId) + '? O saldo das duas contas volta ao que era.'}))) return;
-      await Store.remove(k(), 'transfers', tr.id);
-      State.transfers = State.transfers.filter(function(x){ return x.id !== tr.id; });
-      renderAccounts(); renderStatTiles();
-      toast('Transferência excluída.');
-      return;
-    }
-    if ((el = t.closest('[data-card-edit]'))){ editCard(el.getAttribute('data-card-edit')); return; }
-    if ((el = t.closest('[data-card-report]'))){ cardReport(el.getAttribute('data-card-report')); return; }
-    if ((el = t.closest('[data-adv-group]'))){ advanceInstallments(el.getAttribute('data-adv-group')); return; }
-    if ((el = t.closest('[data-voucher-edit]'))){ editVoucher(el.getAttribute('data-voucher-edit')); return; }
-    if ((el = t.closest('[data-voucher-del]'))){
-      var vd = findById(State.vouchers, el.getAttribute('data-voucher-del'));
-      if (!(await confirmAction({title:'Excluir vale?', message:'Excluir o vale “' + vd.name + '”? Os gastos feitos com ele continuam nos seus lançamentos.'}))) return;
-      await Store.remove(k(), 'vouchers', vd.id);
-      State.vouchers = State.vouchers.filter(function(x){ return x.id !== vd.id; });
-      renderAll();
-      return;
-    }
-    if ((el = t.closest('[data-card-del]'))){
-      var c = findById(State.cards, el.getAttribute('data-card-del'));
-      if (!(await confirmAction({title:'Excluir cartão?', message:'Excluir o cartão “' + c.name + '”? As compras feitas nele continuam nos seus gastos.'}))) return;
-      await Store.remove(k(), 'cards', c.id);
-      State.cards = State.cards.filter(function(x){ return x.id !== c.id; });
-      renderAll();
-      return;
-    }
-    // Conexões
-    if ((el = t.closest('[data-conn]'))){
-      var conn = el.getAttribute('data-conn');
-      if (conn === 'chat') openQuickEntry(false);
-      if (conn === 'metas') showTab('metas');
-      if (conn === 'wa-remove'){ setPref('waOptin', null); renderConnections(); }
-      if (conn === 'install' && State.installPrompt){
-        State.installPrompt.prompt();
-        State.installPrompt.userChoice.then(function(){ State.installPrompt = null; if (State.session) renderConnections(); });
-      }
-      return;
-    }
-    // Metas
-    if ((el = t.closest('[data-goal-filter]'))){ State.goalFilter = el.getAttribute('data-goal-filter'); renderGoals(); return; }
-    if ((el = t.closest('[data-goal-edit]'))){ editGoal(el.getAttribute('data-goal-edit')); return; }
-    if ((el = t.closest('[data-goal-del]'))){
-      var g = findById(State.goals, el.getAttribute('data-goal-del'));
-      if (!(await confirmAction({title:'Excluir meta?', message:'Tem certeza que deseja excluir a meta “' + g.name + '”? Ela vai para “Excluídas” e pode ser restaurada.'}))) return;
-      g.deletedAt = Date.now();
-      await Store.update(k(), 'goals', g.id, {deletedAt: g.deletedAt});
-      renderGoals(); renderDashboard();
-      return;
-    }
-    if ((el = t.closest('[data-goal-restore]'))){
-      var gr = findById(State.goals, el.getAttribute('data-goal-restore'));
-      gr.deletedAt = null;
-      await Store.update(k(), 'goals', gr.id, {deletedAt: null});
-      renderGoals(); renderDashboard();
-      toast('Meta restaurada.');
-      return;
-    }
-    if ((el = t.closest('[data-goal-purge]'))){
-      var gp = findById(State.goals, el.getAttribute('data-goal-purge'));
-      if (!(await confirmAction({title:'Apagar de vez?', message:'A meta “' + gp.name + '” será apagada permanentemente.'}))) return;
-      await Store.remove(k(), 'goals', gp.id);
-      State.goals = State.goals.filter(function(x){ return x.id !== gp.id; });
-      renderGoals();
-      return;
-    }
-    // Dívidas
-    if ((el = t.closest('[data-debt-pay]'))){ payDebt(el.getAttribute('data-debt-pay')); return; }
-    if ((el = t.closest('[data-debt-edit]'))){ editDebt(el.getAttribute('data-debt-edit')); return; }
-    if ((el = t.closest('[data-recv-edit]'))){ editReceivable(el.getAttribute('data-recv-edit')); return; }
-    if ((el = t.closest('[data-debt-del]'))){
-      var d = findById(State.debts, el.getAttribute('data-debt-del'));
-      if (!(await confirmAction({title:'Excluir dívida?', message:'Tem certeza que deseja excluir a dívida “' + d.name + '”?'}))) return;
-      await Store.remove(k(), 'debts', d.id);
-      State.debts = State.debts.filter(function(x){ return x.id !== d.id; });
-      if (d.shared && d.shared.sid) leaveShared(d.shared.sid);   // sai da cobrança compartilhada
-      renderDebts(); renderDashboard();
-      return;
-    }
-    // A receber
-    if ((el = t.closest('[data-recv-get]'))){ receiveReceivable(el.getAttribute('data-recv-get')); return; }
-    if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return; }
-    if ((el = t.closest('[data-recv-share]'))){ shareRecv(el.getAttribute('data-recv-share')); return; }
-    if (t.closest('[data-help]')){ openFeedback('ajuda'); return; }
-    if (t.closest('[data-tutorial]')){
-      var mx = document.querySelector('#modalRoot:not([hidden]) .modal-x'); if (mx) mx.click();
-      setTimeout(startTutorial, 150); return;
-    }
-    if ((el = t.closest('[data-shared-pending]'))){ openPendingFor(el.getAttribute('data-shared-pending')); return; }
-    if ((el = t.closest('[data-copy-pix]'))){
-      var pixKey = el.getAttribute('data-copy-pix');
-      if (navigator.clipboard) navigator.clipboard.writeText(pixKey).then(function(){ toast('Chave Pix copiada.'); }, function(){ toast('Não foi possível copiar.'); });
-      return;
-    }
-    if ((el = t.closest('[data-pay-undo]'))){ undoPayment(el.getAttribute('data-pay-undo')); return; }
-    if ((el = t.closest('[data-recv-get-all]'))){ receiveAll(el.getAttribute('data-recv-get-all')); return; }
-    if ((el = t.closest('[data-recv-charge-all]'))){ chargePerson(el.getAttribute('data-recv-charge-all')); return; }
-    if ((el = t.closest('[data-jump]'))){ document.getElementById(el.getAttribute('data-jump')).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'}); return; }
-    if ((el = t.closest('[data-recv-link]'))){ linkReceivable(el.getAttribute('data-recv-link')); return; }
-    if ((el = t.closest('[data-recv-sync]'))){ syncReceivable(el.getAttribute('data-recv-sync')); return; }
-    if ((el = t.closest('[data-recv-forgive]'))){ forgiveReceivable(el.getAttribute('data-recv-forgive')); return; }
-    if ((el = t.closest('[data-goto]'))){ showTab(el.getAttribute('data-goto')); return; }
-    if ((el = t.closest('[data-recv-del]'))){
-      var r = findById(State.receivables, el.getAttribute('data-recv-del'));
-      if (!(await confirmAction({title:'Excluir?', message:'Tem certeza que deseja excluir o valor a receber de ' + r.person + '?' +
-        (r.sharedWith ? ' A cobrança compartilhada também deixa de existir para ' + r.person.split(' ')[0] + '.' : '')}))) return;
-      await Store.remove(k(), 'receivables', r.id);
-      if (r.sharedId) leaveShared(r.sharedId);
-      State.receivables = State.receivables.filter(function(x){ return x.id !== r.id; });
-      renderReceivables(); renderDashboard();
-      return;
-    }
+    if (await clickHome(t, e)) return;
+    if (await clickWallet(t, e)) return;
+    if (await clickConnections(t, e)) return;
+    if (await clickGoals(t, e)) return;
+    if (await clickCommitments(t, e)) return;
   });
+}
 
+// Formulários que ficam dentro de cartões (aviso do WhatsApp, guardar valor em uma meta).
+function wireForms(){
   // Guardar valor em uma meta (formulário dentro do card).
   document.addEventListener('submit', function(e){
     if (e.target.id !== 'waOptinForm') return;
@@ -848,10 +890,10 @@ export function wireShell(){
     renderStatTiles();
     toast(g.targetAmount > 0 && g.currentAmount >= g.targetAmount ? 'Meta “' + g.name + '” concluída! Parabéns!' : 'Você guardou mais ' + fmtMoney(amount) + ' na meta “' + g.name + '”.');
   });
+}
 
-  document.getElementById('brandHome').addEventListener('click', function(){
-    if (State.session) { showView('viewApp'); showTab('dashboard'); } else { showView('viewLanding'); }
-  });
+// Estado da conexão: falha de rede vira aviso; ao voltar a internet, recarrega os dados do servidor.
+function wireConnectionState(){
   // Qualquer falha de rede que escapar vira um aviso, em vez de travar a tela em silêncio.
   window.addEventListener('unhandledrejection', function(e){
     if (Store.mode !== 'supabase') return;
@@ -863,6 +905,13 @@ export function wireShell(){
     syncOnlineState();
     if (Store.mode !== 'supabase' || !State.session) return;
     try { await loadAllData(); renderAll(); toast('Conexão de volta. Seus dados foram atualizados.'); } catch(e){ /* tenta de novo no próximo evento */ }
+  });
+}
+
+// Navegação: logo, endereço (#/rota), menus laterais e de baixo, “Mais” e as abas com setas.
+function wireNavigation(){
+  document.getElementById('brandHome').addEventListener('click', function(){
+    if (State.session) { showView('viewApp'); showTab('dashboard'); } else { showView('viewLanding'); }
   });
   window.addEventListener('hashchange', syncFromAddress);
   window.addEventListener('popstate', syncFromAddress);
@@ -894,4 +943,13 @@ export function wireShell(){
       document.getElementById('segbtn-' + next).focus();
     });
   });
+}
+
+export function wireShell(){
+  wireFeatureModules();
+  wireKeysAndResize();
+  wireClicks();
+  wireForms();
+  wireConnectionState();
+  wireNavigation();
 }
