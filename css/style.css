@@ -2173,3 +2173,11 @@ html.theme-vt::view-transition-old(root), html.theme-vt::view-transition-new(roo
 .is-body .sc-use .btn-primary:disabled{ box-shadow:none; }
 .is-batches{ margin-top:4px; padding-top:14px; border-top:1px solid var(--border); }
 @media (max-width: 620px){ .is-body .sc-use .btn-ghost{ flex:1 1 120px; } }
+
+/* Importar extrato e Baixar CSV: botões de verdade, não links */
+.btn-soft{ background: var(--brand-tint); color: var(--brand-strong); border-color: color-mix(in srgb, var(--brand) 40%, transparent); font-weight:700; }
+.btn-soft:hover{ background: color-mix(in srgb, var(--brand) 18%, var(--brand-tint)); }
+.tx-file-tools{ flex-wrap:wrap; gap:8px; }
+.tx-file-tools .btn{ gap:6px; }
+.tx-file-tools .ico{ width:16px; height:16px; }
+@media (max-width: 620px){ .tx-file-tools{ width:100%; } .tx-file-tools .btn{ flex:1 1 0; justify-content:center; min-height:44px; } }
