@@ -168,6 +168,14 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 //   O vale-transporte não é fixo em 6%: cada empresa desconta um valor, por isso é um desconto editável em R$ ou %.
 //   Hora extra só em clt e servidor.
 ```
+## Avisos no celular (Web Push)
+`js/domain/reminders.js`: `buildReminders({today, horizon, kinds: {salary, invoice, bill}, forecasts, cards, transactions, bills, paidOk})` →
+`[{key, kind, date, hour, title, body, url}]` (salário no dia previsto; fatura e conta fixa um dia antes, só se ainda há o que pagar;
+textos sem valores; `safeAppUrl` só aceita `./#/rota`). `js/ui/push.js`: `enablePush`, `disablePush(quiet, keepPref)`, `syncReminders`,
+`maybeSyncPush` (ao abrir o app e ao voltar a ele), cartão em Perfil. Store (supabase): `pushSaveSubscription(sub)`,
+`pushRemoveSubscription(endpoint)`, `pushSyncReminders(lista)`. Banco: `push_subscriptions` (gravação só por `save_push_subscription`) e
+`push_reminders` (RLS própria, no máximo 200 pendentes, até 45 dias). Envio: `supabase/functions/send-push`. Tudo em `docs/avisos-push.md`.
+
 ## Partes carregadas sob demanda (`withPart`, em `js/ui/shell.js`)
 `withPart(nome, (módulo) => ...)` baixa uma parte pesada na primeira vez que ela é usada (import() dinâmico, uma vez só por parte) e
 avisa se não foi possível carregar. Partes: `admin` (aba Administração), `simulator` (guia Simular), `statement` (Importar extrato) e

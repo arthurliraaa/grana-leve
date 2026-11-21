@@ -65,6 +65,8 @@ export function renderProfile(){
       '<p class="card-sub" id="pfResearch">' + ctx.researchStatus() + '</p>' +
       '<div class="card-actions"><button class="btn btn-ghost btn-sm" type="button" id="pfResearchBtn">Ver termo e mudar</button></div>') +
 
+    card('pfT10', 'phone', 'Avisos no celular', ctx.pushCardHtml()) +
+
     card('pfT6', 'shield', 'Seus dados e segurança',
       '<div class="pref-row"><span>Sair da conta neste aparelho. Seus dados continuam salvos.</span><button class="btn btn-ghost btn-sm" type="button" id="pfLogout">Sair da conta</button></div>' +
       '<div class="pref-row"><span>Backup, onde os dados ficam e importação.</span><button class="btn btn-ghost btn-sm" type="button" id="pfData">Seus dados e backup</button></div>' +
@@ -152,12 +154,14 @@ export function initProfile(context){
     if (e.target.id === 'pfEmailForm') changeEmail(e);
     if (e.target.id === 'pfPassForm') changePassword(e);
   });
-  panel.addEventListener('change', function(e){
+  panel.addEventListener('change', async function(e){
+    if (e.target.getAttribute('data-push-kind')){ await ctx.pushAction(e.target); return; }
     if (e.target.name === 'pfTheme') ctx.setThemePref(e.target.value);
     if (e.target.id === 'pfWelcome'){ setPref('quickEntryOff', !e.target.checked); toast(e.target.checked ? 'A pergunta ao entrar está ligada.' : 'A pergunta ao entrar está desligada.'); }
   });
   panel.addEventListener('click', async function(e){
     var id = e.target.closest('button') && e.target.closest('button').id;
+    if (id === 'pfPushOn' || id === 'pfPushOff'){ await ctx.pushAction(e.target); renderProfile(); return; }
     if (id === 'pfResetConfirm'){ setPref('skipConfirm', {}); renderProfile(); toast('As confirmações voltaram a aparecer.'); }
     if (id === 'pfResearchBtn') ctx.openResearch();
     if (id === 'pfLogout') ctx.logout();

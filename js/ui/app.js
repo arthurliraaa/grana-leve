@@ -42,6 +42,7 @@ import {installMoneyInputs} from './money-input.js';
 import {initLanding} from './landing.js';
 import {wirePlanning} from './planning-tab.js';
 import {wirePwa} from './pwa.js';
+import {pushAction, pushCardHtml} from './push.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
 import {State, catLabel, catOptions, expenseCats, k} from './state.js';
 import {setThemePref, themePref, wireTheme} from './theme.js';
@@ -74,7 +75,7 @@ initProfile({
     if (Store.mode !== 'supabase') saveSession(State.session);
     renderAll();
   },
-  themePref: themePref, setThemePref: setThemePref,
+  themePref: themePref, setThemePref: setThemePref, pushCardHtml: pushCardHtml, pushAction: pushAction,
   openResearch: researchModal, researchStatus: researchStatusHtml,
   openData: dataModal, clearData: clearDataModal, openFeedback: openFeedback, deleteAccount: deleteMyAccount, logout: logout, siteUrl: siteUrl,
   forgotPassword: forgotPassword, confirmEmailTypo: confirmEmailTypo

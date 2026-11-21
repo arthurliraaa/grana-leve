@@ -30,6 +30,7 @@ import {renderConnections, renderLearn} from './learn-tab.js';
 import {TIPS, TIPS_GROW} from './constants.js';
 import {renderAdvice, wireAdvice} from './advice-tab.js';
 import {preloadPdfLibWhenIdle} from './pdf.js';
+import {disablePush, maybeSyncPush, pushActive, wirePushResync} from './push.js';
 import {dataModal, showInfo} from './my-data.js';
 import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, siteUrl, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
@@ -354,9 +355,18 @@ export async function enterApp(profileHint){
   // O salário previsto já deveria ter caído? Pergunta para confirmar os valores do mês.
   if (hasSalaryData()) withPart('salary', function(m){ m.askSalaryIfDue(); });
   preloadPdfLibWhenIdle();
+  maybeSyncPush();
 }
 
 export function logout(){
+  // Com avisos ligados, o aparelho deixa de receber os desta conta antes de sair (até 3 s; sem internet sai do mesmo jeito).
+  if (pushActive()){
+    Promise.race([disablePush(true, true), new Promise(function(r){ setTimeout(r, 3000); })]).then(finishLogout, finishLogout);
+    return;
+  }
+  finishLogout();
+}
+function finishLogout(){
   if (Store.mode === 'supabase' && State.session) Store.signOut();
   clearSession();
   State.session = null;
@@ -845,6 +855,7 @@ function wireFeatureModules(){
 
   wireAdvice();
   wireLazyEntries();
+  wirePushResync();
   wireMobileMenus();
 }
 

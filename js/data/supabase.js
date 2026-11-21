@@ -138,6 +138,22 @@ export function createSupabaseStore(client, collections){
     },
     async deleteUser(){ check(await client.rpc('delete_my_account')); studyCode = undefined; await client.auth.signOut(); },
 
+    /* ---------- Avisos no celular (Web Push; ver docs/avisos-push.md) ---------- */
+    // sub: PushSubscription.toJSON() = {endpoint, keys: {p256dh, auth}}. A função do banco cuida de aparelho que muda de conta.
+    async pushSaveSubscription(sub){
+      check(await client.rpc('save_push_subscription', {p_endpoint: sub.endpoint, p_p256dh: sub.keys.p256dh, p_auth: sub.keys.auth}));
+    },
+    async pushRemoveSubscription(endpoint){ check(await client.from('push_subscriptions').delete().eq('endpoint', endpoint)); },
+    // Alinha os lembretes ainda não enviados com a lista desejada [{dedupe_key, kind, fire_at, title, body, url}]: o que não vale mais
+    // (fatura paga, conta paga…) é apagado e o resto é gravado ou atualizado pela chave. O que já foi enviado não é mexido.
+    async pushSyncReminders(list){
+      var pending = check(await client.from('push_reminders').select('id, dedupe_key').is('sent_at', null));
+      var want = {}; list.forEach(function(r){ want[r.dedupe_key] = true; });
+      var drop = pending.filter(function(r){ return !want[r.dedupe_key]; }).map(function(r){ return r.id; });
+      if (drop.length) check(await client.from('push_reminders').delete().in('id', drop));
+      if (list.length) check(await client.from('push_reminders').upsert(list, {onConflict: 'user_id,dedupe_key'}));
+    },
+
     /* ---------- Dados do app ---------- */
     // Uma consulta traz tudo; list() usa o que já veio.
     async listAll(){
