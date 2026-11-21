@@ -2282,3 +2282,10 @@ html.theme-vt::view-transition-new(root){ z-index:2; }
 .news-item{ padding:16px; border-radius:16px; background: var(--surface); border:1px solid var(--border); }
 .news-item h3{ margin:0 0 6px; font-size:1.02rem; }
 .news-item p{ margin:0; color: var(--text-secondary); font-size:.92rem; line-height:1.5; }
+
+/* Botão salvando: o toque repetido é ignorado (js/ui/busy.js) */
+button.is-busy{ position:relative; color:transparent !important; cursor:progress; pointer-events:none; }
+button.is-busy::after{ content:""; position:absolute; left:50%; top:50%; width:18px; height:18px; margin:-9px 0 0 -9px; border-radius:50%; border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; animation: busySpin .7s linear infinite; }
+.btn-ghost.is-busy::after, .linklike.is-busy::after{ border-color: color-mix(in srgb, var(--brand) 25%, transparent); border-top-color: var(--brand); }
+@keyframes busySpin{ to{ transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce){ button.is-busy::after{ animation-duration:1.6s; } }

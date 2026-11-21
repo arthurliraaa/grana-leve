@@ -45,6 +45,7 @@ import {wirePwa} from './pwa.js';
 import {pushAction, pushCardHtml} from './push.js';
 import {openWhatsNew} from './whats-new.js';
 import {renderLanding, wireMascot} from './mascot.js';
+import {wireBusyGuard} from './busy.js';
 import {boot, logout, renderAll, wireShell} from './shell.js';
 import {State, catLabel, catOptions, expenseCats, k} from './state.js';
 import {setThemePref, themePref, wireTheme} from './theme.js';
@@ -54,6 +55,7 @@ import {applyPayment, paymentOptions, wireTransactions} from './tx-list.js';
 // Campos de dinheiro entendem "1.500,00" (antes de ligar os eventos das áreas).
 installMoneyInputs();
 // Liga os eventos de cada área (cada função fica no módulo da área).
+wireBusyGuard();
 wireTheme();
 wireShell();
 wireMascot();

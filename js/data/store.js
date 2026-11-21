@@ -11,7 +11,25 @@ import {SCHEMA_VERSION, migrateData} from './migrations.js';
 
 export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers','bills'];
 
+// Quantas gravações (add, update, remove…) estão em andamento agora. js/ui/busy.js usa isto para não deixar um toque repetido gravar de novo
+// enquanto a primeira gravação ainda não terminou (internet lenta).
+export function trackWrites(store){
+  ['add', 'addMany', 'put', 'update', 'updateMany', 'remove', 'removeMany'].forEach(function(name){
+    var fn = store[name];
+    if (typeof fn !== 'function' || fn.__tracked) return;
+    var wrapped = async function(){
+      store.inflight = (store.inflight || 0) + 1;
+      try { return await fn.apply(this, arguments); }
+      finally { store.inflight--; }
+    };
+    wrapped.__tracked = true;
+    store[name] = wrapped;
+  });
+  return store;
+}
+
 export var Store = {
+  inflight: 0,
   mode: 'local',
   db: null,
   LOCAL_KEY: 'granaleve_local_db_v1',
@@ -38,6 +56,7 @@ export var Store = {
         auth: {flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}
       });
       Object.assign(this, createSupabaseStore(client, COLLECTIONS));
+      trackWrites(this);
       return;
     }
     this.mode = 'local';
@@ -194,3 +213,4 @@ export var Store = {
     this._writeLocal(data);
   }
 };
+trackWrites(Store);
