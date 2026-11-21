@@ -233,7 +233,3 @@ export async function openStatementImport(){
   renderAll();
   toastAction(saved.length + (saved.length === 1 ? ' lançamento importado.' : ' lançamentos importados.') + (r.skipped ? ' ' + r.skipped + ' ignorados por dados inválidos.' : ''), 'Desfazer', function(){ undoBatch(r.batch); });
 }
-
-export function wireStatementImport(){
-  document.addEventListener('click', function(e){ if (e.target.closest('#importStmtBtn')) openStatementImport(); });
-}

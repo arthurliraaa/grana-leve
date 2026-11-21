@@ -28,7 +28,6 @@
  *
  * Cada área exporta uma função wireX() com os seus eventos; aqui elas são chamadas em ordem.
  */
-import {initAdmin} from './admin.js';
 import {initProfile} from './profile.js';
 import {initBills} from './bills.js';
 import {openFeedback} from './feedback.js';
@@ -36,9 +35,7 @@ import {Store} from '../data/store.js';
 import {saveSession} from '../data/session.js';
 import {wireWallet} from './accounts-tab.js';
 import {wireCommitments} from './commitments-tab.js';
-import {TIPS, TIPS_GROW} from './constants.js';
 import {wireHome} from './home-tab.js';
-import {renderLearn} from './learn-tab.js';
 import {clearDataModal, dataModal, deleteMyAccount, researchModal, researchStatusHtml} from './my-data.js';
 import {confirmEmailTypo, forgotPassword, siteUrl, wireAuth} from './online.js';
 import {installMoneyInputs} from './money-input.js';
@@ -64,7 +61,6 @@ wirePlanning();
 wireCommitments();
 wirePwa();
 
-initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn, siteUrl: siteUrl});
 initBills({
   state: function(){ return State; }, k: k, paymentOptions: paymentOptions, applyPayment: applyPayment,
   catOptions: function(){ return catOptions(expenseCats()); }, catLabel: function(id){ return catLabel(id, 'expense'); }, renderAll: renderAll,

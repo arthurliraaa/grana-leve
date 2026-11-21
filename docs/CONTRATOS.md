@@ -168,6 +168,14 @@ netSalary({regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, depen
 //   O vale-transporte não é fixo em 6%: cada empresa desconta um valor, por isso é um desconto editável em R$ ou %.
 //   Hora extra só em clt e servidor.
 ```
+## Partes carregadas sob demanda (`withPart`, em `js/ui/shell.js`)
+`withPart(nome, (módulo) => ...)` baixa uma parte pesada na primeira vez que ela é usada (import() dinâmico, uma vez só por parte) e
+avisa se não foi possível carregar. Partes: `admin` (aba Administração), `simulator` (guia Simular), `statement` (Importar extrato) e
+`salary` (calculadora, Meu salário, 13º e férias). A parte do salário só é pedida se `hasSalaryData()` (perfil calculado ou previsão de
+salário) ou quando a pessoa toca num botão dela. Regra para novas partes: nenhum módulo carregado de cara pode importar a parte de forma
+estática (senão o build a traz de volta para o arquivo principal); use `withPart`. O build (`tools/build.js`, esbuild `splitting`) gera
+os chunks, pede o código compartilhado junto com o principal (`modulepreload`) e lista todos no service worker (offline).
+
 ## Importar extrato OFX e CSV (`js/domain/statement.js`)
 Lê o arquivo neste aparelho (nada é enviado), devolve itens padronizados e os rascunhos que a pessoa confere antes de gravar.
 ```js

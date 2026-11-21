@@ -186,10 +186,3 @@ export async function openSalaryPlan(presetRule){
   toast('Salário previsto ' + ruleLabel(r.rule) + '.');
   askSalaryIfDue();
 }
-
-export function wireSalaryPlan(){
-  document.addEventListener('click', function(e){
-    if (e.target.closest('[data-salary-open]')) openSalaryPlan();
-    else if (e.target.closest('[data-salary-confirm]')) confirmSalary();
-  });
-}

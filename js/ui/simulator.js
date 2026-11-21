@@ -377,6 +377,4 @@ export function wireSimulator(){
     form.addEventListener('submit', submitSimulator);
     form.addEventListener('click', function(e){ if (e.target.closest('#simClear')) renderSimulator(); });
   }
-  // Qualquer botão com data-sim-open leva para a guia Simular.
-  document.addEventListener('click', function(e){ if (e.target.closest('[data-sim-open]')) showTab('simular'); });
 }

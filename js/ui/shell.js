@@ -8,7 +8,6 @@ import {money, fmtMoney, sumMoney} from '../domain/money.js';
 import {findById} from '../domain/util.js';
 import {isReversal, linkedToDelete} from '../domain/transactions.js';
 
-import {renderAdmin} from './admin.js';
 import {renderProfile} from './profile.js';
 import {renderBills, fillBillForm, resetBillsView, runAutoBills, skipBillsOf, billNamesOf} from './bills.js';
 import {Store, COLLECTIONS} from '../data/store.js';
@@ -26,16 +25,13 @@ import {maybeTutorial, startTutorial} from './tutorial.js';
 import {leaveShared, openPendingFor, syncShared} from './shared-sync.js';
 import {acceptPendingCharge, capturePendingCharge} from './share-charge.js';
 import {chargePerson, chargeReceivable, editDebt, editReceivable, shareRecv, forgiveReceivable, linkReceivable, payDebt, receiveAll, receiveReceivable, renderDebts, renderReceivables, undoPayment, syncReceivable} from './commitments-tab.js';
-import {explainReturn, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
+import {explainReturn, hasSalaryData, openParcels, receiveForecast, renderBarChart, renderDashboard, renderDonut, renderStatTiles, renderSummary, setDashSection, DASH_SECTIONS, setDonutScope, setDonutStyle, toggleDashView} from './home-tab.js';
 import {renderConnections, renderLearn} from './learn-tab.js';
+import {TIPS, TIPS_GROW} from './constants.js';
 import {renderAdvice, wireAdvice} from './advice-tab.js';
-import {wireSimulator, renderSimulator} from './simulator.js';
-import {wireSalaryCalc} from './salary-calc.js';
-import {wireSalaryPlan, askSalaryIfDue} from './salary-plan.js';
-import {wireStatementImport} from './import-statement.js';
 import {preloadPdfLibWhenIdle} from './pdf.js';
 import {dataModal, showInfo} from './my-data.js';
-import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, syncGoogleButton, track} from './online.js';
+import {cameFromGoogle, cleanAuthParams, handleEmailLink, linkDoneModal, linkProblemModal, newPasswordModal, offerLocalImport, startOnlineSession, siteUrl, syncGoogleButton, track} from './online.js';
 import {editGoal, goalMove, renderBudgets, renderGoals} from './planning-tab.js';
 import {generateInvoicePdf, generateAllInvoicesPdf} from './reports.js';
 import {State, accountName, catLabel, k, sortTransactions} from './state.js';
@@ -230,7 +226,7 @@ export function showSubTab(parent, sub){
     b.tabIndex = on ? 0 : -1;
   });
   subsOf(parent).forEach(function(k){ document.getElementById('tab-' + k).hidden = k !== sub; });
-  if (sub === 'simular') renderSimulator();   // sempre com os dados de agora (contas, cartões, metas)
+  if (sub === 'simular') withPart('simulator', function(m){ m.renderSimulator(); });   // sempre com os dados de agora (contas, cartões, metas)
 }
 // name pode ser uma área (TABS) ou uma parte dela (SUBTABS: 'dividas', 'receber', 'lanc', 'fixas').
 export function showTab(name){
@@ -255,7 +251,7 @@ export function showTab(name){
     if (State.navReady) history.pushState(null, '', route); else history.replaceState(null, '', route);
   }
   if (changed && name !== 'admin') track('abriu:' + ROUTES[name], null, 30 * 60000);
-  if (name === 'admin') renderAdmin();
+  if (name === 'admin') withPart('admin', function(m){ m.renderAdmin(); });
   if (name === 'perfil') renderProfile();
   if (changed) window.scrollTo(0, 0);
 }
@@ -356,7 +352,7 @@ export async function enterApp(profileHint){
     if (!tut) maybeWelcome();
   }
   // O salário previsto já deveria ter caído? Pergunta para confirmar os valores do mês.
-  askSalaryIfDue();
+  if (hasSalaryData()) withPart('salary', function(m){ m.askSalaryIfDue(); });
   preloadPdfLibWhenIdle();
 }
 
@@ -809,14 +805,46 @@ async function clickCommitments(t, e){
     return false;
 }
 
+/* ---------- Partes carregadas só quando alguém as abre ---------- */
+// Administração, Simular e Importar extrato pesam e quase ninguém os abre ao entrar: o build os separa em arquivos próprios
+// (import() dinâmico) e cada um só é baixado na primeira vez. Quem usa o app sem internet já os tem guardados (service worker).
+var PARTS = {
+  admin: function(){
+    return import('./admin.js').then(function(m){
+      m.initAdmin({state: function(){ return State; }, defaults: {tip: TIPS, tip_grow: TIPS_GROW}, onContentChange: renderLearn, siteUrl: siteUrl});
+      return m;
+    });
+  },
+  simulator: function(){ return import('./simulator.js').then(function(m){ m.wireSimulator(); return m; }); },
+  statement: function(){ return import('./import-statement.js'); },
+  salary: function(){ return import('./salary-plan.js').then(function(m){ return import('./salary-calc.js').then(function(c){ return Object.assign({}, m, c); }); }); }
+};
+var partLoads = {};
+export function withPart(name, run){
+  var load = partLoads[name] = partLoads[name] || PARTS[name]();
+  load.then(run, function(){
+    delete partLoads[name];
+    toast('Não foi possível carregar esta parte agora. Verifique a internet e tente de novo.');
+  });
+}
+// Entradas que ficam sempre ligadas e só carregam a parte pesada quando usadas.
+function wireLazyEntries(){
+  document.addEventListener('click', function(e){
+    if (e.target.closest('#importStmtBtn')) withPart('statement', function(m){ m.openStatementImport(); });
+    var calc = e.target.closest('[data-salary-calc]');
+    if (calc) withPart('salary', function(m){ m.runSalaryCalcButton(calc); });
+    if (e.target.closest('[data-salary-open]')) withPart('salary', function(m){ m.openSalaryPlan(); });
+    else if (e.target.closest('[data-salary-confirm]')) withPart('salary', function(m){ m.confirmSalary(); });
+    // Qualquer botão com data-sim-open leva para a guia Simular.
+    if (e.target.closest('[data-sim-open]')) showTab('simular');
+  });
+}
+
 // Módulos de cada área que ligam os próprios eventos.
 function wireFeatureModules(){
 
   wireAdvice();
-  wireSimulator();
-  wireSalaryCalc();
-  wireSalaryPlan();
-  wireStatementImport();
+  wireLazyEntries();
   wireMobileMenus();
 }
 

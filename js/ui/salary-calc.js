@@ -282,22 +282,19 @@ export async function openSalaryCalculator(config){
   return {net: r.net, kind: r.kind, regime: o.regime, res: r.res, opts: o, accountId: r.accountId, date: r.date};
 }
 
-// Botões data-salary-calc="idDoCampo": abre a calculadora e preenche o campo com o líquido escolhido.
-export function wireSalaryCalc(){
-  document.addEventListener('click', async function(e){
-    var b = e.target.closest('[data-salary-calc]');
-    if (!b) return;
-    var id = b.getAttribute('data-salary-calc'), field = document.getElementById(id);
-    var res = await openSalaryCalculator();
-    if (res && field){
-      field.value = res.net;
-      field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true}));
-      field.focus();
-      // Valor do mês (com extras): vale só uma vez; em “Previstas” o “Repete todo mês” sai marcado para não repetir o que varia.
-      if (res.kind !== 'fixed'){
-        var rec = id === 'fcAmount' ? document.getElementById('fcRecurring') : null;
-        if (rec && rec.checked){ rec.checked = false; toast('Esse valor vale só para um mês (extras, ganhos, descontos que variam, 13º ou férias), então deixei “Repete todo mês” desmarcado.'); }
-      }
+// Botão data-salary-calc="idDoCampo" (chamado por js/ui/shell.js quando alguém toca nele): abre a calculadora e preenche o campo
+// com o líquido escolhido.
+export async function runSalaryCalcButton(b){
+  var id = b.getAttribute('data-salary-calc'), field = document.getElementById(id);
+  var res = await openSalaryCalculator();
+  if (res && field){
+    field.value = res.net;
+    field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true}));
+    field.focus();
+    // Valor do mês (com extras): vale só uma vez; em “Previstas” o “Repete todo mês” sai marcado para não repetir o que varia.
+    if (res.kind !== 'fixed'){
+      var rec = id === 'fcAmount' ? document.getElementById('fcRecurring') : null;
+      if (rec && rec.checked){ rec.checked = false; toast('Esse valor vale só para um mês (extras, ganhos, descontos que variam, 13º ou férias), então deixei “Repete todo mês” desmarcado.'); }
     }
-  });
+  }
 }

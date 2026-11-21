@@ -126,9 +126,11 @@ materiais-divulgacao/ imagens e vídeo de divulgação (fora do site publicado)
 ## Publicação e desempenho
 
 O site é publicado no **Vercel** a cada push na `main`. O `vercel.json` manda rodar `npm run build`
-e publicar `dist/`. O build (`tools/build.js`) junta os mais de 60 módulos em **um** JavaScript e
-**um** CSS minificados, com o hash no nome (cache longo e imutável); o `index.html` nunca fica
-em cache. A tela inicial passou de 75 para 10 requisições. O código-fonte não muda: o que roda no
+e publicar `dist/`. O build (`tools/build.js`) junta os mais de 60 módulos em um JavaScript principal e **um** CSS
+minificados, com o hash no nome (cache longo e imutável); o `index.html` nunca fica em cache. O que quase
+ninguém abre ao entrar (Administração, Simular, Importar extrato e a parte do salário) vira arquivos próprios
+(`dist/js/chunks/`, carregados por `import()` na primeira vez: `withPart` em `js/ui/shell.js`), o que tira
+cerca de 17% do JavaScript da abertura. A tela inicial passou de 75 para cerca de 13 requisições. O código-fonte não muda: o que roda no
 desenvolvimento e nos testes é o mesmo, só empacotado. As fontes (Outfit e IBM Plex Sans, só latin) ficam em
 `fonts/` (sem Google Fonts: mais rápido, funciona offline e não envia o IP a terceiros) e o gerador de PDF (jsPDF)
 só é baixado do CDN, com verificação de integridade, na primeira vez que se pede um PDF (ou em silêncio, quando o app

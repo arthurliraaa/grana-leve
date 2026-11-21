@@ -15,13 +15,12 @@ import {getPrefs, setPref} from '../data/session.js';
 import {qs, escapeHtml, icon, optionsHtml, toast} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {generateMonthlyReport, invoicePdfButtonsHtml} from './reports.js';
-import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab} from './shell.js';
+import {deltaBadge, renderBackupBanner, routeOf, setForecastOpen, showTab, withPart} from './shell.js';
 import {State, URGENCY_MARK, accountBalance, catBadge, catLabel, expenseCats, forecastOccurrences, k, sortTransactions, totalAccountsBalance, voucherOf} from './state.js';
 import {accountSelectHtml, fold, renderTransactionsTab} from './tx-list.js';
 import {DASH_MAX, DASH_MIN, dashMonth, dashboardFigures, installmentProgress, monthProjection, plannedTotal, projectCats, spendFigures, upcomingCommitments} from './dash-data.js';
 import {openAllBanksDetail, openAllInvoicesDetail, openBankDetail, openCategoryDetail, openCompareDetail, openInvoiceDetail} from './dash-details.js';
 import {renderBarChart, renderCreditDebit, renderDonut, renderInvoiceSplit} from './dash-charts.js';
-import {renderSalaryCard, confirmSalary} from './salary-plan.js';
 export * from './dash-data.js';
 export * from './dash-details.js';
 export * from './dash-charts.js';
@@ -55,11 +54,21 @@ export function renderForecasts(){
   }).join('');
 }
 
+// Cartão do salário no Início. A parte do salário (calculadora, plano, 13º…) só é baixada quando há algo a mostrar:
+// um perfil calculado ou uma previsão de salário. Quem não usa isso nunca baixa.
+export function hasSalaryData(){ return !!getPrefs().workProfile || State.forecasts.some(function(f){ return f.salary && f.salary.rule; }); }
+function renderSalaryNotice(){
+  var el = document.getElementById('salaryCard');
+  if (!el) return;
+  if (!hasSalaryData()){ el.hidden = true; el.innerHTML = ''; return; }
+  withPart('salary', function(m){ m.renderSalaryCard(); });
+}
+
 export async function receiveForecast(id, date){
   var f = findById(State.forecasts, id);
   if (!f) return;
   // O salário previsto com regra própria passa pela confirmação com os valores do mês (extras, descontos).
-  if (f.salary && f.salary.rule){ var key0 = monthKeyOf(date), occ0 = forecastOccurrences(key0).filter(function(o){ return o.f.id === f.id; })[0]; if (occ0){ await confirmSalary({f: f, occ: occ0, key: key0}); return; } }
+  if (f.salary && f.salary.rule){ var key0 = monthKeyOf(date), occ0 = forecastOccurrences(key0).filter(function(o){ return o.f.id === f.id; })[0]; if (occ0){ withPart('salary', function(m){ m.confirmSalary({f: f, occ: occ0, key: key0}); }); return; } }
   var r = await askAmount({title:'Registrar recebimento', message:'Confirme quanto entrou de “' + f.description + '”. O valor vai para os seus ganhos.', value: f.amount, submitLabel:'Registrar', extraHtml: accountSelectHtml('askAcc', 'acc', 'Entrou em')});
   if (!r) return;
   var key = monthKeyOf(date);
@@ -360,7 +369,7 @@ export function renderDashboard(){
   renderSummary();
   renderStatTiles();
   renderForecasts();
-  renderSalaryCard();
+  renderSalaryNotice();
   renderDashNav();
   renderDonut();
   renderBarChart();
