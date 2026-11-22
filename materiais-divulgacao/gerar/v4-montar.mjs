@@ -1,4 +1,4 @@
-// Junta os fundos e as gravações de tela no vídeo das novidades (4:5, 1080×1350, sem áudio).
+// Junta os fundos e as gravações de tela no vídeo das novidades (4:5, 1080×1350, com trilha simples).
 import {spawnSync} from 'node:child_process';
 import {mkdirSync} from 'node:fs';
 const aqui = new URL('./', import.meta.url).pathname;
@@ -29,5 +29,11 @@ for (let i = 1; i < cenas.length; i++){
   filtro += `${anterior}[${i}:v]xfade=transition=fade:duration=${FADE}:offset=${off}${saidaNome};`;
   anterior = saidaNome; acumulado += cenas[i][1] - FADE;
 }
-ff([...entradas, '-filter_complex', filtro.slice(0, -1), '-map', '[v]', '-r', FPS, '-c:v', 'libopenh264', '-b:v', '9M', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', saida + 'video-grana-leve-novidades.mp4']);
+ff([...entradas, '-filter_complex', filtro.slice(0, -1), '-map', '[v]', '-r', FPS, '-c:v', 'libopenh264', '-b:v', '9M', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', tmp + 'mudo.mp4']);
+// Trilha simples, sem voz (v4-audio.py: sintetizada ali mesmo, sem direitos de terceiros). SEM_AUDIO=1 gera o vídeo mudo.
+if (process.env.SEM_AUDIO){ ff(['-i', tmp + 'mudo.mp4', '-c', 'copy', '-movflags', '+faststart', saida + 'video-grana-leve-novidades.mp4']); }
+else {
+  const py = spawnSync('python3', [aqui + 'v4-audio.py', acumulado.toFixed(2), tmp + 'trilha.wav'], {encoding: 'utf8'}); if (py.status) throw new Error(py.stderr);
+  ff(['-i', tmp + 'mudo.mp4', '-i', tmp + 'trilha.wav', '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'loudnorm=I=-20:TP=-2:LRA=7', '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-shortest', '-movflags', '+faststart', saida + 'video-grana-leve-novidades.mp4']);
+}
 console.log('vídeo pronto: ' + acumulado.toFixed(1) + ' s');

@@ -9,14 +9,14 @@ lançados) são inventados. Os avisos no celular (Web Push) **ficaram de fora** 
 
 | Arquivo | Para quê |
 | --- | --- |
-| `video-grana-leve-novidades.mp4` | Vídeo de ~76 s (4:5, 1080 × 1350, sem áudio, com legenda na tela) |
+| `video-grana-leve-novidades.mp4` | Vídeo de ~76 s (4:5, 1080 × 1350, com legenda na tela e uma trilha instrumental simples, sem voz, em volume baixo) |
 | `capa.png` | Imagem de capa/miniatura para o post |
 
 Para refazer: `node materiais-divulgacao/gerar/v4-slides.mjs`, `node materiais-divulgacao/gerar/v4-gravar.mjs` (use
 `SO=importar,salario` para regravar só alguns trechos; os trechos dependem uns dos outros, então na dúvida regrave tudo) e
 `node materiais-divulgacao/gerar/v4-montar.mjs`. Precisam de Chrome e ffmpeg. O arquivo `gerar/numeros-v4.json` guarda a contagem
 de testes do último quadro (1.566 verificações de tela + 214 de regras + 127 do banco = 1.907; o vídeo diz “mais de 1.900”).
-A `capa.png` é o primeiro quadro do vídeo.
+A trilha é sintetizada em `gerar/v4-audio.py` (pad, harpa e baixo em Dó maior, feitos no próprio script, sem direitos de terceiros) e entra na montagem; `SEM_AUDIO=1 node materiais-divulgacao/gerar/v4-montar.mjs` gera a versão muda. Precisa de Python 3 com numpy. A `capa.png` é o primeiro quadro do vídeo.
 
 ## Post para o LinkedIn
 
@@ -81,6 +81,7 @@ A `capa.png` é o primeiro quadro do vídeo.
 - Texto alternativo do vídeo/capa: “Vídeo do app Grana Leve mostrando o mascote Grana no cantinho da tela e respondendo dúvidas, a
   importação de um extrato do banco, o cálculo do salário líquido de mais de um emprego com 13º e férias e a troca para o modo
   escuro se espalhando a partir do botão”.
+- Muita gente assiste sem som: a legenda na tela conta a história sozinha, e a trilha é só um fundo. Se quiser narração, grave a sua voz (ou me diga o texto) e eu a coloco por cima.
 - Marque a faculdade/orientador, se fizer sentido (e se eles concordarem).
 - Os valores das telas são fictícios (conta de demonstração). Se alguém perguntar, diga isso.
 - Se alguém perguntar sobre o mascote: ele conhece bem o que o app faz e, quando não sabe, diz e oferece falar com a equipe; não é
