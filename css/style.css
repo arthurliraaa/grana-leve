@@ -759,6 +759,8 @@ button:focus-visible, select:focus-visible, summary:focus-visible, .chip:focus-v
 a.sum-row-link{ color:inherit; text-decoration:none; border-radius:8px; margin-inline:-6px; padding-inline:6px; }
 a.sum-row-link:hover, a.sum-row-link:focus-visible{ background: var(--surface-2); }
 /* Início: situação do mês numa frase e parcelas em andamento. */
+.home-hero{ display:grid; gap:10px; margin-bottom:14px; }
+.home-hero .month-status{ margin:0; }
 .month-status{ margin:-6px 0 14px; color: var(--text-secondary); font-size:.92rem; line-height:1.5; }
 .month-status strong{ color: var(--text-primary); }
 .month-status strong.neg-text{ color: var(--critical); }

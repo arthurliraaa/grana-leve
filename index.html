@@ -271,11 +271,13 @@
 
       <!-- Painel -->
       <div id="tab-dashboard" class="tab-panel" tabindex="-1">
-        <div class="page-head">
-          <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span id="greeting">Olá</span></h2>
-          <span class="month-lbl" id="monthLabel"></span>
+        <div class="card home-hero">
+          <div class="page-head">
+            <h2 class="page-title"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg><span id="greeting">Olá</span></h2>
+            <span class="month-lbl" id="monthLabel"></span>
+          </div>
+          <p class="month-status" id="monthStatus" aria-live="polite"></p>
         </div>
-        <p class="month-status" id="monthStatus" aria-live="polite"></p>
         <div class="card news-card" id="newsCard" hidden></div>
         <div class="backup-banner" id="backupBanner" role="status" hidden></div>
         <div class="first-steps" id="firstSteps" hidden></div>
@@ -478,7 +480,7 @@
                 <strong id="txMonthLabel">—</strong>
                 <button type="button" id="nextMonth" aria-label="Próximo mês"><svg class="ico"><use href="#i-chevron-right"/></svg></button>
               </div>
-              <div class="card-head-tools tx-file-tools"><button class="btn btn-soft btn-sm" type="button" id="importStmtBtn"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg>Importar extrato</button><button class="btn btn-ghost btn-sm" type="button" id="exportCsvBtn"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>Baixar CSV</button></div>
+              <div class="card-head-tools tx-file-tools"><button class="btn btn-soft btn-sm" type="button" id="importStmtBtn"><svg class="ico" aria-hidden="true"><use href="#i-upload"/></svg>Importar extrato</button><button class="btn btn-soft btn-sm" type="button" id="exportCsvBtn"><svg class="ico" aria-hidden="true"><use href="#i-download"/></svg>Baixar CSV</button></div>
             </div>
             <div class="segmented tx-views" role="group" aria-label="Como ver os lançamentos">
               <button type="button" data-txview="list" aria-pressed="true" class="active">Lista</button>
