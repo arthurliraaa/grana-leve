@@ -37,7 +37,8 @@ export async function montarDemo(page){
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('granaleve_backend', 'local'); });
   await page.evaluate((key) => localStorage.setItem('granaleve_prefs_' + key, JSON.stringify({quickEntryOff: true, backupSnoozeUntil: Date.now() + 9e11})), email);
   await page.goto(L.BASE, {waitUntil: 'domcontentloaded'});
-  await page.waitForSelector('[data-action="go-signup"]');
+  await page.waitForSelector('[data-action="go-signup"]', {visible: true});
+  await page.waitForFunction(() => !document.getElementById('splash'), {timeout: 15000}).catch(() => {});   // a tela de carregamento sai sozinha
   await page.click('[data-action="go-signup"]');
   await page.type('#signupName', 'Marina Souza'); await page.type('#signupEmail', email); await page.type('#signupPassword', 'senha@123');
   await L.acceptTerms(page);
