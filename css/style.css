@@ -2203,7 +2203,7 @@ html.theme-vt::view-transition-new(root){ z-index:2; }
 .gr-svg[data-mood=happy] .m-idle, .gr-svg[data-mood=think] .m-idle{ display:none; }
 .gr-svg[data-mood=happy] .m-happy{ display:block; }
 .gr-svg[data-mood=think] .m-think{ display:block; }
-.gr-shadow{ fill: rgba(0,0,0,.16); transform-origin:70px 128px; animation: grShadow 3.2s ease-in-out infinite; }
+.gr-shadow{ fill: rgba(0,0,0,.10); transform-origin:70px 128px; animation: grShadow 3.2s ease-in-out infinite; }
 .gr-bob{ animation: grBob 3.2s ease-in-out infinite; transform-origin:70px 120px; }
 .gr-leaf{ transform-origin:70px 38px; animation: grLeaf 4.4s ease-in-out infinite; }
 .gr-eye{ transform-box: fill-box; transform-origin:center; animation: grBlink 5s infinite; }
