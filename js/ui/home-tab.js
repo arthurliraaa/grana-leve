@@ -12,7 +12,7 @@ import {statusForPct} from '../domain/budgets.js';
 import {recvDueByMonth, recvRemaining} from '../domain/receivables.js';
 import {Store} from '../data/store.js';
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, escapeHtml, icon, optionsHtml, toast} from './dom.js';
+import {qs, escapeHtml, icon, optionsHtml, toast, autoFocus} from './dom.js';
 import {openModal, askAmount} from './modal.js';
 import {generateMonthlyReport, invoicePdfButtonsHtml} from './reports.js';
 import {renderNewsCard} from './mascot.js';
@@ -498,7 +498,7 @@ export function wireHome(){
   document.getElementById('forecastToggle').addEventListener('click', function(){
     var open = document.getElementById('forecastPanel').hidden;
     setForecastOpen(open);
-    if (open) document.getElementById('fcDesc').focus();
+    if (open) autoFocus(document.getElementById('fcDesc'));
   });
   document.getElementById('barPeriod').addEventListener('change', function(e){ State.barMonths = Number(e.target.value); renderBarChart(); });
   document.getElementById('dashPrev').addEventListener('click', function(){ setDashOffset((State.dashOffset || 0) - 1); });

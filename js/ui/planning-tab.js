@@ -16,7 +16,7 @@ import {getPrefs, setPref} from '../data/session.js';
 import {urgencyOf, byUrgency} from '../domain/urgency.js';
 
 import {Store} from '../data/store.js';
-import {qs, qsa, escapeHtml, optionsHtml, icon, toast} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, icon, toast, autoFocus} from './dom.js';
 import {askAmount, openModal} from './modal.js';
 import {moreMenu} from './commitments-tab.js';
 import {renderDashboard, txRowHtml, compactMoney} from './home-tab.js';
@@ -576,7 +576,7 @@ export function wirePlanning(){
   document.getElementById('budgetNext').addEventListener('click', function(){ if (State.budgetMonthOffset < 1){ State.budgetMonthOffset++; renderBudgets(); } });
   document.getElementById('budgetNewCat').addEventListener('click', async function(){
     var id = await createCategory('expense');
-    if (id){ State.budgetNewCats.push(id); populateCategorySelect(document.getElementById('txCategory').value); renderBudgets(); var inp = qs('[data-budget-cat="' + id + '"]'); if (inp) inp.focus(); }
+    if (id){ State.budgetNewCats.push(id); populateCategorySelect(document.getElementById('txCategory').value); renderBudgets(); autoFocus(qs('[data-budget-cat="' + id + '"]')); }
   });
   document.getElementById('budgetManageCats').addEventListener('click', manageCategories);
   document.getElementById('goalGrid').addEventListener('click', function(e){

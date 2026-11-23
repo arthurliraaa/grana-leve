@@ -13,7 +13,7 @@ import {Store} from '../data/store.js';
 import {validateNewTransaction} from '../domain/validate.js';
 
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, escapeHtml, optionsHtml, icon} from './dom.js';
+import {qs, escapeHtml, optionsHtml, icon, autoFocus} from './dom.js';
 import {openModal} from './modal.js';
 import {paymentLabel} from './home-tab.js';
 import {track} from './online.js';
@@ -142,7 +142,7 @@ export async function openQuickEntry(welcome){
   function redraw(pid, focusSel){
     var el = previewEl(pid);
     el.innerHTML = previewHtml(pid, previews[pid].drafts);
-    if (focusSel){ var f = qs(focusSel, el); if (f) f.focus(); }
+    if (focusSel){ var f = qs(focusSel, el); if (f) autoFocus(f); }
   }
   function handle(text){
     say('me', escapeHtml(text));
@@ -181,7 +181,7 @@ export async function openQuickEntry(welcome){
     renderAll();
     el.innerHTML = 'Anotei:<ul class="chat-list">' + saved.map(function(t){ return '<li data-chat-tx="' + escapeHtml(t.id) + '">' + describeSaved(t) + '</li>'; }).join('') + '</ul>' +
       '<span class="chat-hint">Mais alguma coisa? Quando terminar, é só fechar.</span>';
-    qs('#chatInput', rootEl).focus();
+    autoFocus(qs('#chatInput', rootEl));
   }
   await openModal({
     title: welcome ? 'Antes de começar…' : 'Chat de lançamento',
@@ -212,8 +212,8 @@ export async function openQuickEntry(welcome){
       root.addEventListener('click', async function(e){
         var b;
         if ((b = e.target.closest('[data-chip-send]'))){ handle(b.getAttribute('data-chip-send')); return; }
-        if (e.target.closest('[data-chat-form]')){ close(null); showTab('lancamentos'); document.getElementById('txAmount').focus(); return; }
-        if ((b = e.target.closest('[data-chip]'))){ var inp = qs('#chatInput', root); inp.value = b.getAttribute('data-chip'); inp.focus(); return; }
+        if (e.target.closest('[data-chat-form]')){ close(null); showTab('lancamentos'); autoFocus(document.getElementById('txAmount')); return; }
+        if ((b = e.target.closest('[data-chip]'))){ var inp = qs('#chatInput', root); inp.value = b.getAttribute('data-chip'); autoFocus(inp); return; }
         var box = e.target.closest('[data-preview]');
         if (box){
           var pid = box.getAttribute('data-preview');
@@ -221,7 +221,7 @@ export async function openQuickEntry(welcome){
           if (e.target.closest('[data-preview-discard]')){
             previews[pid].state = 'discarded';
             box.innerHTML = '<span class="chat-hint">Descartado. Nada foi salvo.</span>';
-            qs('#chatInput', root).focus();
+            autoFocus(qs('#chatInput', root));
             return;
           }
           var del = e.target.closest('[data-draft-del]');
@@ -271,7 +271,7 @@ export async function openQuickEntry(welcome){
       var text = form.msg.value.trim();
       form.msg.value = '';
       if (text) handle(text);
-      form.msg.focus();
+      autoFocus(form.msg);
       return {keepOpen: true};
     }
   });

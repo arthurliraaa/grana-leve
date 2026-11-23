@@ -9,7 +9,7 @@ import {validateNewTransaction} from '../domain/validate.js';
 import {decodeBytes, parseOfx, parseCsv, detectCsvLayout, csvItems, parsePdfLines, buildDrafts, learnCategories, summarize, MAX_BYTES} from '../domain/statement.js';
 import {readPdfLines, MAX_PDF_BYTES} from './pdf-read.js';
 import {Store} from '../data/store.js';
-import {qs, qsa, escapeHtml, optionsHtml, toast, toastAction} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, toast, toastAction, autoFocus} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {State, k, catLabel, catOptions, expenseCats, incomeCats} from './state.js';
 import {paymentOptions, applyPayment} from './tx-list.js';
@@ -113,7 +113,7 @@ export async function openStatementImport(){
         return new Promise(function(resolve){
           var field = qs('#isPassField', modal), input = qs('#isPass', modal), btn = qs('#isPassBtn', modal);
           field.hidden = false; err.textContent = reason === 'wrong' ? 'Senha incorreta. Tente de novo.' : '';
-          input.value = ''; input.focus();
+          input.value = ''; autoFocus(input);
           btn.onclick = function(){ field.hidden = true; resolve(input.value); };
         });
       }

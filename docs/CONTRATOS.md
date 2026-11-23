@@ -269,3 +269,11 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - No celular (≤ 620 px) o formulário da aba fica escondido: o único formulário é o popup do **+**. Por isso o popup de **lançamento novo** (não a edição) tem “Pagou por alguém ou vai dividir?”, com os mesmos campos do formulário grande, mas ids com prefixo `m` (`mForOther`, `mSplit`, `mSplitRows`…) para os dois não se misturarem.
 - A gravação é uma só para os dois: `attachOthers` em `js/ui/tx-list.js` (cria os “A receber” ligados e marca cada parcela com `forOther` ou `split`). Mudou uma regra de terceiros? Mude lá, não nos formulários.
 - Teste: `tests/e2e/77-terceiros-celular.e2e.js` (375 px).
+
+## 13º à parte, “já recebi este mês” e celular sem teclado automático
+- **13º** (`registerThirteenth`, `js/ui/salary-plan.js`): botão “Registrar o 13º salário” em Meu salário (e no cartão do Início de outubro a dezembro). Abre a calculadora já na parte do 13º, sem “salvar o salário”; a pessoa toca na parcela, confirma valor, dia e conta e vira um ganho “13º salário · 1ª/2ª parcela” na categoria **Outros** (de propósito: a categoria Salário alimenta o “salário de costume” do simulador). Não depende da previsão do salário nem do “já caiu?”.
+- **Já recebi este mês**: a caixa “O salário deste mês eu já recebi” em Meu salário (e “Pular este mês” no cartão) marca `forecast.received[mês]` sem lançar nada nos ganhos: não pergunta, não conta no mês e a previsão segue do mês seguinte.
+- **Teclado no celular**: `autoFocus` / `touchLayout` em `js/ui/dom.js`. Em tela estreita ou de toque (`max-width: 620px` ou `pointer: coarse`) nada recebe foco sozinho; o popup foca a própria janela. Só foque campo por conta própria com `autoFocus`.
+- **Entrar/criar conta** é uma folha no celular e fecha arrastando para baixo (`enableSwipeClose`, `js/ui/modal.js`, agora exportada).
+- **“É salário? Calcular o líquido”** também está no popup do + (ganho): `salaryIntoPopup` fecha o popup, abre a calculadora e reabre o lançamento com o valor.
+- Testes: `tests/e2e/78-decimo-terceiro-pular.e2e.js` e `79-celular-teclado-e-arrastar.e2e.js`.

@@ -4,7 +4,7 @@
  * A gravação (os “A receber” ligados ao gasto) é a mesma: attachOthers, em tx-list.js.
  */
 import {money, fmtMoney} from '../domain/money.js';
-import {qs, qsa} from './dom.js';
+import {qs, qsa, autoFocus} from './dom.js';
 import {splitRowHtml, splitSummaryText} from './tx-list.js';
 
 export function othersHtml(){
@@ -77,10 +77,10 @@ export function wireOthers(modal, ctx){
   forOther.addEventListener('change', function(){
     if (forOther.checked){ split.checked = false; rows.innerHTML = ''; }
     sync();
-    if (forOther.checked) qs('#mOtherName', modal).focus();
+    if (forOther.checked) autoFocus(qs('#mOtherName', modal));
   });
   split.addEventListener('change', function(){ if (split.checked) forOther.checked = false; sync(); });
-  qs('#mSplitAdd', modal).addEventListener('click', function(){ qs('.sp-name', addRow()).focus(); summary(); });
+  qs('#mSplitAdd', modal).addEventListener('click', function(){ autoFocus(qs('.sp-name', addRow())); summary(); });
   qs('#mSplitEqual', modal).addEventListener('click', function(){
     var rs = qsa('.split-row', rows);
     if (!rs.length) return;

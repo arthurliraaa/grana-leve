@@ -15,8 +15,8 @@ import {buildBackup} from '../data/backup.js';
 import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../data/session.js';
 
 import {captchaEnabled, getCaptchaToken, mountCaptcha} from './captcha.js';
-import {qs, qsa, escapeHtml, icon, saveFile, toast} from './dom.js';
-import {openModal, confirmAction, attachCounters} from './modal.js';
+import {qs, qsa, escapeHtml, icon, saveFile, toast, autoFocus} from './dom.js';
+import {openModal, confirmAction, attachCounters, enableSwipeClose} from './modal.js';
 import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid, undoBalanceAdjust, undoInvoiceAdvance} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
@@ -75,9 +75,11 @@ export function showView(name){
 
 // Janela de entrar / criar conta sobre a página inicial: fecha no X, no fundo ou com Esc, e o resto
 // da página fica inerte enquanto ela está aberta (o Tab não sai dela).
-var authBehind = [], authReturn = null;
+var authBehind = [], authReturn = null, authSwipeWired = false;
 export function openAuth(tab){
   var box = document.getElementById('viewAuth');
+  // No celular a janela é uma folha que sobe de baixo: arrastar para baixo fecha (como no X). Liga uma vez só.
+  if (!authSwipeWired){ authSwipeWired = true; enableSwipeClose(box.querySelector('.auth-card'), null, function(){ closeAuth(); }, function(){ return box.hidden; }, box); }
   if (box.hidden){
     authReturn = document.activeElement;
     document.getElementById('viewLanding').hidden = false;
@@ -91,13 +93,14 @@ export function openAuth(tab){
   showAuthTab(tab || 'login');
   syncGoogleButton();
   var first = qs(tab === 'signup' ? '#signupName' : '#loginEmail');
-  if (first) first.focus();
+  autoFocus(first);
 }
 // quiet: fechada pelo próprio app (ex.: entrou na conta), sem devolver o foco.
 export function closeAuth(quiet){
   var box = document.getElementById('viewAuth');
   if (box.hidden) return;
   box.hidden = true;
+  var card = box.querySelector('.auth-card'); if (card){ card.style.transform = ''; card.style.transition = ''; card.style.animation = ''; }   // desfaz o arrasto
   document.body.classList.remove('auth-open');
   authBehind.forEach(function(el){ el.removeAttribute('inert'); });
   authBehind = [];
@@ -858,6 +861,9 @@ function wireLazyEntries(){
     if (e.target.closest('#importStmtBtn')) withPart('statement', function(m){ m.openStatementImport(); });
     var calc = e.target.closest('[data-salary-calc]');
     if (calc) withPart('salary', function(m){ m.runSalaryCalcButton(calc); });
+    var sSkip = e.target.closest('[data-salary-skip]'), s13 = e.target.closest('[data-salary-13]');
+    if (sSkip){ var sid = sSkip.getAttribute('data-salary-skip') || ''; withPart('salary', function(m){ m.skipSalaryById(sid); }); return; }
+    if (s13){ withPart('salary', function(m){ m.registerThirteenth(); }); return; }
     var sOpen = e.target.closest('[data-salary-open]'), sConf = e.target.closest('[data-salary-confirm]');
     if (sOpen){ var jid = sOpen.getAttribute('data-salary-open') || ''; withPart('salary', function(m){ m.openSalaryPlan(null, jid); }); }
     else if (sConf){ var fid = sConf.getAttribute('data-salary-confirm') || ''; withPart('salary', function(m){ m.confirmSalaryById(fid); }); }

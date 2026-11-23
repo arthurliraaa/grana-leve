@@ -9,7 +9,7 @@ import {fmtMoney, money} from '../domain/money.js';
 import {migrateJobs, activeJob, addJob, removeJob, setActive, renameJob, setProfile, ensureJob, jobById, summarizeJobs, MAX_JOBS} from '../domain/jobs.js';
 import {netSalary, thirteenth, vacation, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, qsa, escapeHtml, optionsHtml, toast} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, toast, autoFocus} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {renderSalaryNotice} from './home-tab.js';
 
@@ -267,7 +267,7 @@ export async function openSalaryCalculator(config){
 async function openCalculatorOnce(config){
   config = config || {};
   var r = await openModal({
-    title: config.title || 'Calcular o salário líquido', wide: true, submitLabel: config.submitLabel || 'Usar o líquido fixo (todo mês)', cancelLabel: config.cancelLabel || 'Fechar',
+    title: config.title || 'Calcular o salário líquido', wide: true, submitLabel: config.noSubmit ? null : (config.submitLabel || 'Usar o líquido fixo (todo mês)'), cancelLabel: config.cancelLabel || 'Fechar',
     body: (config.introHtml || '') + '<div class="sc-body">' + bodyHtml(config) + '</div>' + (config.extraHtml || ''),
     onOpen: function(modal, close){
       var form = qs('form', modal) || modal, saved = profile();
@@ -278,6 +278,7 @@ async function openCalculatorOnce(config){
         var name = sec.getAttribute('data-sec');
         sec.open = (name === 'disc' && (saved.discounts || []).length > 0) || (name === 'bonus' && (saved.bonuses || []).length > 0) || (!!config.confirm && (name === 'disc' || name === 'bonus' || name === 'ot'));
       });
+      if (config.open13){ var ex13 = qs('.sc-extra', modal); if (ex13) ex13.open = true; }   // “Registrar o 13º”: já abre na parte do 13º
       function sync(){
         var o = readOpts(form);
         qsa('[data-for]', modal).forEach(function(el){ el.hidden = el.getAttribute('data-for').split(',').indexOf(o.regime) < 0; });
@@ -364,7 +365,7 @@ export async function runSalaryCalcButton(b){
   if (res && field){
     field.value = res.net;
     field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true}));
-    field.focus();
+    autoFocus(field);
     // Valor do mês (com extras): vale só uma vez; em “Previstas” o “Repete todo mês” sai marcado para não repetir o que varia.
     if (res.kind !== 'fixed'){
       var rec = id === 'fcAmount' ? document.getElementById('fcRecurring') : null;

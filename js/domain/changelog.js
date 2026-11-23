@@ -5,6 +5,11 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-24', title: '13º à parte, pular o salário do mês e celular mais leve', items: [
+    {title: '13º salário antes do salário do mês', go: 'dashboard', text: 'Em “Meu salário” há um botão só para o 13º: escolha a 1ª ou a 2ª parcela, confirme o valor e o dia, e ele entra nos ganhos sem depender do salário do mês.'},
+    {title: 'Já recebi o salário deste mês', go: 'dashboard', text: 'Ao prever o salário, marque que o deste mês você já recebeu: ele não é perguntado nem contado, e vale só a partir do mês que vem. Também dá para “Pular este mês” no cartão do Início.'},
+    {title: 'No celular', text: 'O teclado não abre mais sozinho ao abrir um popup: toque no campo quando quiser. Entrar e criar conta também fecham arrastando para baixo, e o “+” ganhou “É salário? Calcular o líquido”.'}
+  ]},
   {id: '2026-11-23', title: 'Gasto para outra pessoa no celular', items: [
     {title: 'Pagou por alguém ou dividiu? Agora no celular também', go: 'lancamentos', text: 'No “+” do celular, ao lançar um gasto, dá para marcar “Paguei por outra pessoa” ou “Dividir com outras pessoas”, como já era no computador. A parte dos outros vai para “Me devem”.'}
   ]},

@@ -18,7 +18,7 @@ import {monthGridHtml, dayEventsHtml, yearHtml} from './calendar.js';
 import {Store} from '../data/store.js';
 
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, qsa, csvCell, optionsHtml, icon, saveFile, toast, escapeHtml} from './dom.js';
+import {qs, qsa, csvCell, optionsHtml, icon, saveFile, toast, escapeHtml, autoFocus} from './dom.js';
 import {openModal} from './modal.js';
 import {PAYMENT_LABELS} from './constants.js';
 import {paymentLabel, txRowHtml} from './home-tab.js';
@@ -505,7 +505,7 @@ export function wireTransactions(){
   document.addEventListener('change', function(e){
     if (e.target.matches && e.target.matches('.stepper input')){ e.target.value = clampInstall(e.target.value); e.target.dispatchEvent(new Event('input', {bubbles:true})); }
   });
-  document.getElementById('txSplitAdd').addEventListener('click', function(){ qs('.sp-name', addSplitRow()).focus(); updateSplitSummary(); });
+  document.getElementById('txSplitAdd').addEventListener('click', function(){ autoFocus(qs('.sp-name', addSplitRow())); updateSplitSummary(); });
   document.getElementById('txSplitEqual').addEventListener('click', function(){
     var rows = qsa('#txSplitRows .split-row'), total = splitTotal();
     if (!rows.length) return;

@@ -186,6 +186,13 @@ input, select{ font: inherit; }
 .auth-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:-4px; }
 .auth-head h2{ font-size:1.08rem; }
 .auth-head .modal-x{ margin-right:-8px; }
+.auth-card .sheet-grip{ display:none; }
+/* Celular: entrar/criar conta é uma folha que sobe de baixo (arrastar para baixo fecha), como os outros popups. */
+@media (max-width: 620px){
+  .auth-wrap{ place-items:end center; padding-block:0; }
+  .auth-card{ max-width:none; border-radius:22px 22px 0 0; border-bottom:none; padding:6px 18px calc(22px + env(safe-area-inset-bottom, 0px)); touch-action: pan-y; }
+  .auth-card .sheet-grip{ display:block; width:42px; height:5px; border-radius:999px; background: var(--border); margin:2px auto 4px; }
+}
 body.auth-open{ overflow:hidden; }
 /* Entrar com o Google (botão branco com o “G”, como pede a marca). */
 .oauth-box{ display:grid; gap:10px; }
@@ -2086,6 +2093,8 @@ html.theme-vt::view-transition-new(root){ z-index:2; }
 .sc-table tr.plus td:last-child{ color: var(--good); }
 .sc-table tr.info td{ color: var(--text-secondary); font-size:.9rem; border-top:1px dashed var(--border); }
 .sc-table tr.net td{ border-top:2px solid var(--border); font-size:1.05rem; }
+.sp-13{ display:grid; gap:8px; }
+.sp-skip{ margin-top:4px; }
 .sc-use{ display:flex; justify-content:flex-end; }
 .sc-disc{ border:1px solid var(--border); border-radius: var(--radius); padding:10px 12px; display:grid; gap:10px; min-width:0; }
 .sc-disc legend{ font-weight:600; padding:0 6px; }

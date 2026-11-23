@@ -22,6 +22,10 @@ export function inkOn(color){
   var L = 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2];
   return 1.05 / (L + 0.05) >= (L + 0.05) / 0.057 ? "#ffffff" : "#141414";   // 0,057 = luminância de #141414 + 0,05
 }
+// Celular (tela estreita ou toque): o teclado NÃO deve abrir sozinho ao abrir um popup ou um campo; a pessoa toca no campo quando quiser.
+export function touchLayout(){ return typeof matchMedia === 'function' && matchMedia('(max-width: 620px), (pointer: coarse)').matches; }
+// Foco automático (ninguém tocou no campo): só no computador. No celular não faz nada.
+export function autoFocus(el){ if (el && !touchLayout()) el.focus(); }
 export function qs(sel, root){ return (root||document).querySelector(sel); }
 export function qsa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
 

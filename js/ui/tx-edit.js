@@ -15,11 +15,11 @@ import {Store} from '../data/store.js';
 import {budgetAlerts, alertPercent} from '../domain/budgets.js';
 import {getPrefs, setPref} from '../data/session.js';
 
-import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast, toastAction} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, icon, resolveVar, toast, toastAction, autoFocus} from './dom.js';
 import {openModal} from './modal.js';
 import {openQuickEntry} from './chat.js';
 import {paymentLabel} from './home-tab.js';
-import {renderAll, showTab} from './shell.js';
+import {renderAll, showTab, withPart} from './shell.js';
 import {State, accountName, budgetLimit, catBadge, catLabel, catOptions, categoryNameProblem, categorySelectHtml, wireCategorySuggestion, expandInstallments, expenseCategoryTotals, expenseCats, incomeCats, installmentGroups, invoiceStatus, k, sortTransactions} from './state.js';
 import {accountSelectHtml, addCategory, applyPayment, attachOthers, cardIdOf, installExtrasHtml, installStepperHtml, installSummary, othersToast, paymentOptions, paymentValue, populateCategorySelect, readInstallExtras} from './tx-list.js';
 import {othersHtml, readOthers, wireOthers} from './tx-others.js';
@@ -30,7 +30,8 @@ export function txModalBody(t, isEdit){
   var type = t.type || 'expense';
   function typeBtn(id, label){ return '<button type="button" data-type="' + id + '"' + (type === id ? ' class="active"' : '') + (inst ? ' disabled' : '') + '>' + label + '</button>'; }
   return '<div class="type-toggle" id="mType" role="group" aria-label="Tipo de lançamento">' + typeBtn('expense', 'Gasto') + typeBtn('income', 'Ganho') + '</div>' +
-    '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (t.amount || '') + '"></span></div>' +
+    '<div class="field"><label for="mAmount">' + (inst ? 'Valor da parcela' : 'Valor') + '</label><span class="money-input"><span>R$</span><input id="mAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + (t.amount || '') + '"></span>' +
+      (isEdit ? '' : '<button type="button" class="linklike sal-link" id="mSalaryLink" data-m-salary hidden>É salário? Calcular o líquido</button>') + '</div>' +
     '<div class="field"><label for="mCategory">Categoria</label><select id="mCategory" name="category"></select><span class="field-hint" id="mCatHint" hidden></span></div>' +
     '<div class="field" id="mNewCatField" hidden><label for="mNewCat">Nome da nova categoria</label><input id="mNewCat" name="newCat" type="text" maxlength="30" placeholder="Ex: Pets, Academia"></div>' +
     '<div class="field"><label for="mDate">Data</label><input id="mDate" name="date" type="date" min="1900-01-01" max="3000-12-31" value="' + escapeHtml(t.date || todayKey()) + '"' + (inst ? ' disabled' : '') + '></div>' +
@@ -81,6 +82,7 @@ export async function openTxModal(t){
       function sync(){
         var isExp = mType === 'expense';
         if (others) others.sync();
+        if (qs('#mSalaryLink', modal)) qs('#mSalaryLink', modal).hidden = isExp;   // ganho: calcular o líquido do salário (como no formulário da aba)
         qs('#mPayField', modal).hidden = !isExp;
         if (qs('#mAccField', modal)) qs('#mAccField', modal).hidden = isExp;
         if (!instSel) return;
@@ -111,6 +113,13 @@ export async function openTxModal(t){
         modal.addEventListener('change', function(e){ if (e.target.name === 'mIxMode' || e.target.id === 'mDate' || e.target.id === 'mPay') fillInstall(); });
         qs('#mDate', modal).addEventListener('input', fillInstall);
       }
+      var salBtn = qs('[data-m-salary]', modal);
+      if (salBtn) salBtn.addEventListener('click', function(){
+        // Só um popup por vez: fecha este, abre a calculadora e reabre o lançamento com o valor escolhido.
+        var draft = {type: 'income', amount: money(qs('#mAmount', modal).value) || '', date: qs('#mDate', modal).value, description: qs('#mDesc', modal).value, category: catSel.value};
+        close(null);
+        withPart('salary', function(m){ m.salaryIntoPopup(draft); });
+      });
       var revBtn = qs('[data-m-reversal]', modal);
       if (revBtn) revBtn.addEventListener('click', function(){ close(null); reverseTx(t.id); });
       var grp = qs('[data-m-group]', modal);
@@ -374,7 +383,7 @@ export async function manageCategories(){
       function redraw(focusSel){
         body.innerHTML = bodyHtml();
         var f = focusSel && qs(focusSel, body);
-        if (f){ f.focus(); if (f.select) f.select(); }
+        if (f){ autoFocus(f); if (f.select && document.activeElement === f) f.select(); }
       }
       function setLook(patch){
         Object.assign(editing, patch);

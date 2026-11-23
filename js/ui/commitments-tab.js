@@ -16,7 +16,7 @@ import {DEFAULT_URGENCY, urgencyOf, byUrgency} from '../domain/urgency.js';
 import {Store} from '../data/store.js';
 
 import {getPrefs, setPref} from '../data/session.js';
-import {qs, qsa, escapeHtml, optionsHtml, labelOf, icon, toast, toastAction} from './dom.js';
+import {qs, qsa, escapeHtml, optionsHtml, labelOf, icon, toast, toastAction, autoFocus} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {DEBT_KINDS, RECV_KINDS} from './constants.js';
 import {paymentLabel, renderDashboard} from './home-tab.js';
@@ -566,7 +566,7 @@ export async function receiveReceivable(id){
         if (e.target.name === 'mode'){
           var other = e.target.value === 'outro';
           qs('#rcvOtherField', modal).hidden = !other;
-          if (other) qs('#rcvOther', modal).focus();
+          if (other) autoFocus(qs('#rcvOther', modal));
         }
         effect();
       });

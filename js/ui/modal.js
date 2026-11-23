@@ -1,5 +1,5 @@
 // Popups (modal), confirmação de exclusão, pedido de valor e contador de caracteres.
-import {qsa, escapeHtml} from './dom.js';
+import {qsa, escapeHtml, touchLayout} from './dom.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {money, fmtMoney} from '../domain/money.js';
 
@@ -67,20 +67,23 @@ export function openModal(opts){
     if (opts.onOpen) opts.onOpen(root.querySelector('.modal'), close);
     // Em confirmações de exclusão o foco começa no “Cancelar”, para um Enter acidental não apagar nada.
     var first = opts.danger ? form.querySelector('.modal-actions [data-modal-close]') : form.querySelector('input:not([type=checkbox]), select, textarea, button[type=submit]');
-    if (first) first.focus();
+    // No celular o foco vai para a própria janela (o teclado não abre sozinho); no computador, para o primeiro campo.
+    if (touchLayout()){ var win = root.querySelector('.modal'); if (win){ win.setAttribute('tabindex', '-1'); win.focus({preventScroll: true}); } }
+    else if (first) first.focus();
   });
 }
 
 // Arrastar a folha para baixo (pelo topo, ou pelo conteúdo quando ele já está no começo) fecha a janela; soltar antes
 // de 110 px (ou sem impulso) devolve a folha ao lugar. Se a janela impedir o fechamento, ela também volta.
-function enableSwipeClose(sheet, backdrop, requestClose, isDone){
-  var scroller = sheet.querySelector('form.modal-body'), startY = null, startT = 0, dy = 0, dragging = false;
+// scroller (opcional): o que rola dentro da folha (padrão: o corpo do popup). A folha de entrar/criar conta usa o fundo inteiro.
+export function enableSwipeClose(sheet, backdrop, requestClose, isDone, scrollerEl){
+  var scroller = scrollerEl || sheet.querySelector('form.modal-body'), startY = null, startT = 0, dy = 0, dragging = false;
   function reset(){
     sheet.style.transition = 'transform .2s ease'; sheet.style.transform = '';
     if (backdrop) backdrop.style.opacity = '';
   }
   sheet.addEventListener('touchstart', function(e){
-    var fromTop = !!e.target.closest('.modal-head, .sheet-grip'), atTop = !scroller || scroller.scrollTop <= 0;
+    var fromTop = !!e.target.closest('.modal-head, .sheet-grip, .auth-head'), atTop = !scroller || scroller.scrollTop <= 0;
     if (!(fromTop || atTop) || e.touches.length !== 1){ startY = null; return; }
     startY = e.touches[0].clientY; startT = Date.now(); dy = 0; dragging = false;
   }, {passive: true});
@@ -145,7 +148,7 @@ export async function askAmount(opts){
       var v = money(form.amount.value);
       if (!(v > 0)) return {error:'Informe um valor maior que zero.'};
       if (opts.max && v > opts.max + 0.001) return {error:'O valor não pode passar de ' + fmtMoney(opts.max) + '.'};
-      return {amount: v, extra: !!(form.extra && form.extra.checked), accountId: form.acc ? (form.acc.value || null) : null};
+      return {amount: v, extra: !!(form.extra && form.extra.checked), accountId: form.acc ? (form.acc.value || null) : null, date: form.askdate ? form.askdate.value : ''};
     }
   });
   return r && r.amount ? r : null;

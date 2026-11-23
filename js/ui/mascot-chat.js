@@ -3,7 +3,7 @@
  * O entendimento das perguntas está em domain/mascot.js e roda inteiro no aparelho.
  */
 import {ask, topicAnswer, topicIdByLabel} from '../domain/mascot.js';
-import {escapeHtml} from './dom.js';
+import {escapeHtml, autoFocus} from './dom.js';
 import {openModal} from './modal.js';
 import {chatHtml, mascotSvg} from './mascot.js';
 
@@ -48,7 +48,7 @@ export function openChatModal(opts){
     onOpen: function(modal){
       var root = modal.querySelector('.gr-chat');
       if (opts.topic) interact(root, {type: 'topic', value: opts.topic}, {member: !!opts.member});
-      var input = root.querySelector('input'); if (input) input.focus();
+      autoFocus(root.querySelector('input'));
     }
   });
 }

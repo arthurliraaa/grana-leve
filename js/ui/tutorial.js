@@ -3,7 +3,7 @@
  * seguindo (Próximo / Voltar). Abre sozinho só em conta vazia, uma vez; depois, em “Perfil e conta”,
  * no “Mais” do celular e na janela de ajuda. localStorage granaleve_tutorial = 'off' desliga (testes).
  */
-import {qsa} from './dom.js';
+import {qsa, autoFocus} from './dom.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {State} from './state.js';
 import {showTab} from './shell.js';
@@ -65,7 +65,7 @@ export function startTutorial(){
       root.remove(); root = null;
       setPref('tutorialDone', true);
       if (prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus();
-      if (finishAction === 'start'){ showTab('cartoes'); setTimeout(function(){ var f = document.getElementById('accName'); if (f) f.focus(); }, 250); }
+      if (finishAction === 'start'){ showTab('cartoes'); setTimeout(function(){ autoFocus(document.getElementById('accName')); }, 250); }
       resolve(finishAction || 'done');
     }
     function stepOf(){ return TUTORIAL_STEPS[i]; }
