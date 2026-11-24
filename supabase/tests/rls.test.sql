@@ -47,6 +47,8 @@ select t.ok(t.fails($$insert into public.user_data (user_id, collection, id, doc
 select t.ok(t.fails($$insert into public.user_data (collection, id, doc) values ('senhas', 'x', '{}')$$), 'coleção desconhecida é recusada');
 insert into public.user_data (collection, id, doc) values ('bills', 'b1', '{"name":"Luz","amount":120}');
 select t.ok(true, 'contas fixas (bills) são aceitas depois da migração');
+insert into public.user_data (collection, id, doc) values ('settings', 'prefs', '{"values":{"workJobs":{"list":[]}},"at":{"workJobs":1}}');
+select t.ok((select count(*) from public.user_data where collection = 'settings') = 1, 'as configurações (settings) são aceitas e ficam com a própria pessoa');
 select t.ok(t.fails($$update public.profiles set role = 'admin' where id = auth.uid()$$), 'não vira admin sozinha');
 select t.ok(t.fails($$update public.profiles set blocked = false where id = auth.uid()$$), 'não mexe no próprio bloqueio');
 update public.profiles set name = 'Ana Lima' where id = auth.uid();
@@ -291,6 +293,9 @@ select t.ok((select count(*) from public.push_reminders) = 1, 'Ana agenda um lem
 select t.ok((select user_id = auth.uid() from public.push_reminders), 'user_id preenchido sozinho');
 select t.ok(t.fails($$insert into public.push_reminders (dedupe_key, kind, fire_at, title, body) values ('invoice:c1:2026-12', 'invoice', now() + interval '3 days', 'x', 'y')$$), 'a mesma chave não repete');
 select t.ok(t.fails($$insert into public.push_reminders (dedupe_key, kind, fire_at, title, body, url) values ('k2', 'bill', now() + interval '1 day', 'x', 'y', 'https://golpe.exemplo.com')$$), 'endereço de fora do app é recusado');
+insert into public.push_reminders (dedupe_key, kind, fire_at, title, body) values ('custom:a:2026-12-05', 'custom', now() + interval '2 days', 'Lançar os gastos', 'Hora de anotar os seus gastos.'), ('custom:b:2026-12-07', 'statement', now() + interval '4 days', 'Importar o extrato', 'Que tal importar o extrato?');
+select t.ok((select count(*) from public.push_reminders where kind in ('custom', 'statement')) = 2, 'avisos programados pela pessoa (custom e statement) são aceitos');
+delete from public.push_reminders where kind in ('custom', 'statement');
 select t.ok(t.fails($$insert into public.push_reminders (dedupe_key, kind, fire_at, title, body) values ('k3', 'golpe', now() + interval '1 day', 'x', 'y')$$), 'tipo desconhecido é recusado');
 select t.ok(t.fails($$insert into public.push_reminders (dedupe_key, kind, fire_at, title, body) values ('k4', 'bill', now() + interval '90 days', 'x', 'y')$$), 'lembrete a mais de 45 dias é recusado');
 select t.ok(t.fails($$insert into public.push_reminders (dedupe_key, kind, fire_at, title, body) values ('k5', 'bill', now() + interval '1 day', repeat('a', 81), 'y')$$), 'título longo demais é recusado');

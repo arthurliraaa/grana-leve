@@ -213,16 +213,20 @@ function monthlyBase(opts){ return money(Math.max(0, Number(opts.gross) || 0) + 
 // 13º salário (CLT e servidor): bruto = (salário + média mensal de extras) × meses trabalhados no ano ÷ 12. A 1ª parcela (até
 // 30/11) é metade do bruto, sem descontos; o INSS e o imposto de renda saem só da 2ª (até 20/12), calculados sobre o 13º
 // inteiro, à parte do salário (tributação exclusiva, com a redução da Lei 15.270/2025 sobre o próprio 13º).
-// opts: {regime, gross, varAvg, thirdMonths, dependents, rpps}. Devolve null fora de CLT e servidor.
+// opts: {regime, gross, varAvg, thirdMonths, thirdValue, dependents, rpps}. Devolve null fora de CLT e servidor.
+// thirdValue (opcional): o valor BRUTO do 13º que a pessoa já sabe. Vale no lugar da conta pelos meses e pela média de extras (quem não sabe a média
+// de horas extras e adicionais informa o valor); INSS e imposto saem dele do mesmo jeito.
 export function thirteenth(opts, tables){
   var T = tables || TABLES, regime = opts.regime || 'clt';
   if (regime !== 'clt' && regime !== 'servidor') return null;
   var months = Math.min(12, Math.max(0, Math.round(opts.thirdMonths === undefined || opts.thirdMonths === '' ? 12 : Number(opts.thirdMonths) || 0)));
-  var total = money(monthlyBase(opts) * months / 12), first = money(total / 2);
+  var given = money(Math.max(0, Number(opts.thirdValue) || 0)), byValue = given > 0;
+  var total = byValue ? given : money(monthlyBase(opts) * months / 12), first = money(total / 2);
   var inss = socialOn(opts, total, T), irrf = irrfMonthly({gross: total, pension: inss, dependents: opts.dependents}, T);
   var second = money(total - first - inss - irrf), net = money(total - inss - irrf);
   return {months: months, total: total, first: first, inss: inss, irrf: irrf, second: second, net: net, fgts: regime === 'clt' ? money(total * T.fgts) : 0,
-    lines: [{id: 'total', label: '13º bruto (' + months + '/12)', amount: total, kind: 'base'},
+    byValue: byValue,
+    lines: [{id: 'total', label: byValue ? '13º bruto (valor informado)' : '13º bruto (' + months + '/12)', amount: total, kind: 'base'},
       {id: 'inss', label: regime === 'clt' ? 'INSS (sobre o 13º inteiro)' : 'Previdência do servidor', amount: inss, kind: 'minus'},
       {id: 'irrf', label: 'Imposto de renda (sobre o 13º)', amount: irrf, kind: 'minus'}].filter(function(l){ return l.kind === 'base' || l.amount > 0; })};
 }

@@ -9,6 +9,7 @@ import {fmtMoney, money} from '../domain/money.js';
 import {migrateJobs, activeJob, addJob, removeJob, setActive, renameJob, setProfile, ensureJob, jobById, summarizeJobs, MAX_JOBS} from '../domain/jobs.js';
 import {netSalary, thirteenth, vacation, discountAmount, workdaysInMonth, REGIMES, TABLES, DISCOUNT_TYPES, BONUS_TYPES} from '../domain/salary.js';
 import {getPrefs, setPref} from '../data/session.js';
+import {markSynced} from './synced-prefs.js';
 import {qs, qsa, escapeHtml, optionsHtml, toast, autoFocus} from './dom.js';
 import {openModal, confirmAction} from './modal.js';
 import {renderSalaryNotice} from './home-tab.js';
@@ -18,7 +19,7 @@ var GROSS_LABEL = {clt: 'Salário bruto (o da carteira)', servidor: 'Salário br
 
 /* ---------- Empregos: cada um com o seu perfil (domain/jobs.js); preferências guardam a lista ---------- */
 function jobsState(){ return migrateJobs(getPrefs()); }
-function saveJobs(s){ setPref('workJobs', s); setPref('workProfile', activeJob(s).profile); }   // workProfile: cópia do ativo, para quem ainda lê o formato antigo
+function saveJobs(s){ setPref('workJobs', s); setPref('workProfile', activeJob(s).profile); markSynced('workJobs'); }   // workProfile: cópia do ativo, para quem ainda lê o formato antigo
 function profile(){ return activeJob(jobsState()).profile || {}; }
 // O perfil (salário, descontos, ganhos) também viaja dentro da previsão do salário, para aparecer em outro aparelho:
 // quem sincroniza chama estas funções (ver salary-plan.js). jobId: de qual emprego (padrão: o ativo).
@@ -112,6 +113,8 @@ function bodyHtml(config){
       '<div class="field"><label for="scRest">Domingos e feriados (repouso)</label><input id="scRest" name="rest" type="number" min="0" max="12" step="1" placeholder="5"></div></div>' +
       '<label class="check"><input type="checkbox" name="dsr" checked> Incluir o repouso semanal remunerado (DSR) sobre as horas extras</label></div></details>' +
     '<details class="sc-extra" data-for="clt,servidor"><summary>13º salário e férias <span class="opt" id="scExtraSum"></span></summary><div class="sc-extra-body">' +
+      '<div class="field"><label for="scTV">Já sabe o valor do 13º? <span class="opt">(bruto, opcional)</span></label><span class="money-input"><span>R$</span><input id="scTV" name="tv" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00"></span>' +
+        '<span class="field-hint">Não sabe a média de horas extras e adicionais? Informe aqui o valor do 13º inteiro (as duas parcelas somadas, antes dos descontos): ele vale no lugar do cálculo pelos meses e pela média abaixo.</span></div>' +
       '<div class="sc-grid"><div class="field"><label for="scTM">Meses trabalhados no ano (13º)</label><input id="scTM" name="tm" type="number" min="0" max="12" step="1" placeholder="12"></div>' +
       '<div class="field"><label for="scVA">Média mensal de extras e adicionais</label><span class="money-input"><span>R$</span><input id="scVA" name="va" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="0,00"></span></div>' +
       '<div class="field"><label for="scVD">Dias de férias</label><input id="scVD" name="vd" type="number" min="1" max="30" step="1" placeholder="30"></div>' +
@@ -169,7 +172,7 @@ function readOpts(form){
   var v = function(n){ return form.elements[n] ? form.elements[n].value : ''; };
   return {regime: v('regime') || 'clt', gross: v('gross'), weeklyHours: Number(v('week')) || 44, dependents: Number(v('dep')) || 0,
     rpps: v('rpps') === '' ? 14 : Number(v('rpps')), meiKind: v('mei'), inssKind: v('inss'), simplesRate: v('simples') === '' ? 6 : Number(v('simples')), otherPct: Number(v('otherpct')) || 0,
-    discounts: readRows(form, 'disc'), bonuses: readRows(form, 'bonus'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, sobreaviso: Number(v('sa')) || 0, varAvg: Number(v('va')) || 0, thirdMonths: v('tm') === '' ? undefined : Number(v('tm')), vacDays: v('vd') === '' ? undefined : Number(v('vd')), vacSell: !!(form.elements.vs && form.elements.vs.checked), workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
+    discounts: readRows(form, 'disc'), bonuses: readRows(form, 'bonus'), h50: Number(v('h50')) || 0, h100: Number(v('h100')) || 0, sobreaviso: Number(v('sa')) || 0, varAvg: Number(v('va')) || 0, thirdValue: Number(v('tv')) || 0, thirdMonths: v('tm') === '' ? undefined : Number(v('tm')), vacDays: v('vd') === '' ? undefined : Number(v('vd')), vacSell: !!(form.elements.vs && form.elements.vs.checked), workDays: Number(v('work')) || 0, restDays: v('rest') === '' ? undefined : Number(v('rest')),
     dsr: !!(form.elements.dsr && form.elements.dsr.checked)};
 }
 function resultHtml(r, regime){

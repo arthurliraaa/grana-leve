@@ -143,6 +143,7 @@ export var State = {
   receivables: [],
   forecasts: [],
   bills: [],
+  settings: [],         // configurações que acompanham a pessoa entre aparelhos (js/ui/synced-prefs.js)
   categories: [],
   vouchers: [],
   accounts: [],         // contas bancárias, com o saldo informado no cadastro

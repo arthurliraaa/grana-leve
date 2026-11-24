@@ -157,7 +157,8 @@ export function initProfile(context){
     if (e.target.id === 'pfPassForm') changePassword(e);
   });
   panel.addEventListener('change', async function(e){
-    if (e.target.getAttribute('data-push-kind')){ await ctx.pushAction(e.target); return; }
+    var t = e.target;
+    if (t.hasAttribute('data-push-kind') || t.hasAttribute('data-push-lead') || t.hasAttribute('data-push-hour') || t.hasAttribute('data-rem-toggle')){ await ctx.pushAction(t); if (t.hasAttribute('data-push-kind') || t.hasAttribute('data-rem-toggle')) renderProfile(); return; }
     if (e.target.name === 'pfTheme') ctx.setThemePref(e.target.value, e.target);
     if (e.target.id === 'pfCorner'){ setPref('cornerOff', !e.target.checked); ctx.syncCorner(); toast(e.target.checked ? 'O Grana voltou para o cantinho.' : 'O Grana foi para o descanso.'); }
     if (e.target.id === 'pfWelcome'){ setPref('quickEntryOff', !e.target.checked); toast(e.target.checked ? 'A pergunta ao entrar está ligada.' : 'A pergunta ao entrar está desligada.'); }
@@ -165,6 +166,7 @@ export function initProfile(context){
   panel.addEventListener('click', async function(e){
     var id = e.target.closest('button') && e.target.closest('button').id;
     if (id === 'pfPushOn' || id === 'pfPushOff'){ await ctx.pushAction(e.target); renderProfile(); return; }
+    if (e.target.closest('[data-rem-add], [data-rem-edit], [data-rem-del]')){ await ctx.pushAction(e.target); renderProfile(); return; }
     if (id === 'pfResetConfirm'){ setPref('skipConfirm', {}); renderProfile(); toast('As confirmações voltaram a aparecer.'); }
     if (id === 'pfResearchBtn') ctx.openResearch();
     if (id === 'pfLogout') ctx.logout();

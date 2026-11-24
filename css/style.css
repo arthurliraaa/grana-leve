@@ -2338,3 +2338,14 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .sc-jobs-sum li, .sc-jobs-total{ display:flex; justify-content:space-between; gap:12px; }
 .sc-jobs-total{ border-top:1px solid var(--border); padding-top:6px; font-weight:700; }
 .sc-jobs-sum .tx-meta{ margin:2px 0 0; }
+
+/* Avisos programáveis (Perfil): linhas com o tipo e a antecedência, lista dos avisos próprios */
+.rem-h{ margin:14px 0 6px; font-size:.95rem; }
+.rem-kinds{ display:grid; gap:8px; }
+.rem-row{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; }
+.rem-row select, .rem-lead select{ padding:10px 12px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); min-height:44px; box-sizing:border-box; font-size:16px; }
+.rem-list{ list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.rem-item{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background: var(--surface); }
+.rem-item .check span{ display:grid; gap:2px; }
+.rem-item small{ color: var(--text-secondary); }
+.rem-actions{ display:flex; gap:6px; }

@@ -9,7 +9,7 @@ import {validateRecord} from '../domain/validate.js';
 import {money} from '../domain/money.js';
 
 var COLLECTION_NAMES = {transactions:'lançamentos', budgets:'planejamento', goals:'metas', debts:'dívidas', cards:'cartões',
-  receivables:'a receber', forecasts:'previsões', categories:'categorias', vouchers:'vales', accounts:'contas', transfers:'transferências', bills:'contas fixas'};
+  receivables:'a receber', forecasts:'previsões', categories:'categorias', vouchers:'vales', accounts:'contas', transfers:'transferências', bills:'contas fixas', settings:'configurações'};
 // Preferências que não fazem sentido levar para outro aparelho.
 var LOCAL_ONLY_PREFS = ['lastWelcome', 'backupSnoozeUntil'];
 

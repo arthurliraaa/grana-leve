@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildReminders, addDaysKey, safeAppUrl} from '../../js/domain/reminders.js';
+import {buildReminders, addDaysKey, safeAppUrl, normalizeRules, customWhen, MAX_CUSTOM} from '../../js/domain/reminders.js';
 
 const salary = {id: 'f1', description: 'Salário', amount: 2751.4, date: '2026-11-06', recurring: true, received: {},
   salary: {rule: {type: 'workday', n: 5, saturday: true}, steps: [{from: '2026-11', gross: 3000, net: 2751.4}], months: {}}};
@@ -68,4 +68,44 @@ test('mais de um emprego: um lembrete por previsão, com o nome do emprego', () 
   assert.match(r[1].body, /\(Escola\)/);
   assert.match(r[0].body, /\(Emprego principal\)/);
   assert.ok(!/\(/.test(buildReminders({today: '2026-12-01', kinds: {salary: true}, forecasts: [salary]})[0].body), 'com um só, sem o nome');
+});
+
+test('avisos programáveis: antecedência, hora e avisos próprios (mensal, semanal e uma vez)', () => {
+  const base = {today: '2026-12-10', horizon: 10, kinds: {bill: true}, bills: [bill], hour: 8, lead: {bill: 3}};
+  const r = buildReminders(base).filter(x => x.kind === 'bill');
+  assert.ok(r.length >= 1, 'a conta aparece');
+  assert.equal(r[0].date, '2026-12-17', 'avisa 3 dias antes do vencimento (20/12)');
+  assert.equal(r[0].hour, 8, 'na hora escolhida');
+  assert.match(r[0].body, /vence em 3 dias/);
+
+  const custom = [
+    {id: 'a', type: 'expense', repeat: 'monthly', day: 31, hour: 20},
+    {id: 'b', type: 'statement', repeat: 'weekly', weekday: 1, hour: 18},
+    {id: 'c', type: 'custom', title: 'Pagar a escola', repeat: 'once', date: '2026-11-28', hour: 8},
+    {id: 'd', type: 'expense', repeat: 'monthly', day: 25, hour: 9, enabled: false}
+  ];
+  const list = buildReminders({today: '2026-11-24', horizon: 10, custom});
+  const by = id => list.find(x => x.key.startsWith('custom:' + id + ':'));
+  assert.equal(by('a').date, '2026-11-30', 'dia 31 num mês de 30 dias cai no último dia');
+  assert.equal(by('a').title, 'Lançar os gastos');
+  assert.equal(by('b').date, '2026-11-30', 'toda segunda-feira (30/11 é segunda)');
+  assert.equal(by('b').kind, 'statement');
+  assert.equal(by('c').title, 'Pagar a escola', 'o texto é o da pessoa');
+  assert.equal(by('c').hour, 8);
+  assert.equal(by('d'), undefined, 'desligado não agenda');
+  assert.ok(list.every(r => !/R\$|\d+,\d{2}/.test(r.body)), 'nenhum valor em reais nos textos');
+});
+
+test('regras dos avisos: limites e formato antigo', () => {
+  const r = normalizeRules({lead: {invoice: 99, bill: -2}, hour: 30, custom: [{id: 'x', type: 'custom', repeat: 'once', date: 'ontem'}, {id: 'y', type: 'custom', title: 'ok', repeat: 'monthly', day: 99}]}, {salary: false});
+  assert.equal(r.lead.invoice, 7, 'antecedência máxima de 7 dias');
+  assert.equal(r.lead.bill, 0);
+  assert.equal(r.hour, 23);
+  assert.equal(r.kinds.salary, false, 'a escolha antiga dos tipos é respeitada');
+  assert.equal(r.custom.length, 1, 'aviso sem data válida é descartado');
+  assert.equal(r.custom[0].day, 31, 'dia do mês entre 1 e 31');
+  const many = normalizeRules({custom: Array.from({length: 30}, (_, i) => ({id: 'i' + i, type: 'expense', repeat: 'monthly', day: 1}))});
+  assert.equal(many.custom.length, MAX_CUSTOM, 'no máximo 10 avisos próprios');
+  assert.equal(customWhen({repeat: 'monthly', day: 5, hour: 9}), 'todo dia 5 às 9h');
+  assert.equal(customWhen({repeat: 'weekly', weekday: 1, hour: 18}), 'toda segunda-feira às 18h');
 });

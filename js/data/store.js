@@ -9,7 +9,7 @@ import {createSupabaseStore} from './supabase.js';
 import {SUPABASE_URL, SUPABASE_ANON_KEY, BACKEND_OVERRIDE_KEY} from '../config.js';
 import {SCHEMA_VERSION, migrateData} from './migrations.js';
 
-export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers','bills'];
+export var COLLECTIONS = ['transactions','budgets','goals','debts','cards','receivables','forecasts','categories','vouchers','accounts','transfers','bills','settings'];
 
 // Quantas gravações (add, update, remove…) estão em andamento agora. js/ui/busy.js usa isto para não deixar um toque repetido gravar de novo
 // enquanto a primeira gravação ainda não terminou (internet lenta).

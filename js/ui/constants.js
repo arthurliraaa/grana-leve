@@ -111,7 +111,7 @@ export var ONLINE_PAGES = {
     '<ul><li><strong>Conta:</strong> nome, e-mail e senha. A senha é protegida pelo serviço de login: ninguém consegue lê-la, nem a administração do app.</li>' +
       '<li><strong>Entrar com o Google:</strong> o Google nos informa só o seu nome, e-mail e foto de perfil; não temos acesso à sua senha do Google, aos seus e-mails nem a outros dados da conta.</li>' +
       '<li><strong>O que você registra:</strong> lançamentos, contas, cartões, metas, dívidas, valores a receber (com o nome e, se você informar, o WhatsApp de quem te deve), compras divididas, contas fixas, histórico de pagamentos, previsões, planejamento e categorias.</li>' +
-      '<li><strong>Neste aparelho:</strong> preferências como o tema e os avisos ficam só no seu navegador.</li></ul>' +
+      '<li><strong>Neste aparelho:</strong> preferências como o tema ficam só no seu navegador. O que você preenche na calculadora do salário (empregos, descontos e ganhos) e as regras dos seus avisos ficam na sua conta, para aparecerem no celular e no computador.</li></ul>' +
     '<h4>Para que usamos</h4>' +
     '<p>Só para o app funcionar para você (LGPD, art. 7º, V: execução do serviço que você pediu). Não vendemos, não usamos para propaganda e não compartilhamos seus dados.</p>' +
     '<h4>Quem pode ver</h4>' +

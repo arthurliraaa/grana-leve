@@ -277,3 +277,10 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - **Entrar/criar conta** é uma folha no celular e fecha arrastando para baixo (`enableSwipeClose`, `js/ui/modal.js`, agora exportada).
 - **“É salário? Calcular o líquido”** também está no popup do + (ganho): `salaryIntoPopup` fecha o popup, abre a calculadora e reabre o lançamento com o valor.
 - Testes: `tests/e2e/78-decimo-terceiro-pular.e2e.js` e `79-celular-teclado-e-arrastar.e2e.js`.
+
+## Configurações que acompanham a conta e avisos programáveis
+- **Sincronização de preferências** (`js/ui/synced-prefs.js`, regra pura em `js/domain/synced-prefs.js`): só `workJobs` (os empregos da calculadora do salário) e `reminderRules` (regras dos avisos) viajam com a conta, num documento `prefs` da coleção `settings`
+  (`{values, at}`; vale o mais recente por item, nada é apagado). Chega no `loadAllData` (`pullSyncedPrefs`) e sobe 0,8 s depois de cada mudança (`markSynced`). Em modo local ou sem a migração `20261124…`, continua só no aparelho. Para sincronizar outra preferência, acrescente o nome em `SYNCED_PREFS` e chame `markSynced` ao gravá-la.
+- **13º por valor**: `opts.thirdValue` em `thirteenth()` (`js/domain/salary.js`): o valor bruto informado vale no lugar dos meses e da média de extras; INSS e imposto saem dele. Campo “Já sabe o valor do 13º?” na calculadora (não é guardado no perfil, como os meses e a média).
+- **Avisos programáveis** (`js/domain/reminders.js`, tela em `js/ui/push.js`): `normalizeRules` → `{kinds, lead (0 a 7 dias por tipo), hour, custom (até 10)}`. Aviso próprio: `type` (`expense` lançar gastos, `statement` importar extrato, `custom` texto livre), `repeat` (`monthly` dia 1–31, `weekly` dia da semana, `once` data) e `hour`. Textos nunca levam valores em reais; o título do aviso `custom` é da pessoa (vai ao servidor, a tela avisa). Tipos aceitos no banco: `salary, invoice, bill, custom, statement`.
+- Testes: `tests/unit/reminders.test.js`, `synced-prefs.test.js`, `salario.test.js`, `tests/e2e/80-avisos-programaveis-e-13-valor.e2e.js` e `supabase/tests/rls.test.sql`.

@@ -158,6 +158,17 @@ test('13º salário: 1ª parcela sem descontos, INSS e imposto só na 2ª, tribu
   assert.equal(thirteenth({regime: 'mei', gross: 3000}), null, 'só CLT e servidor');
 });
 
+test('13º por valor: quem não sabe a média de extras informa o valor bruto e ele vale no lugar da conta', () => {
+  const t = thirteenth({regime: 'clt', gross: 3000, thirdValue: 4000, varAvg: 500, thirdMonths: 6});
+  assert.equal(t.total, 4000, 'o valor informado vence os meses e a média');
+  assert.equal(t.first, 2000, 'metade na 1ª parcela, sem descontos');
+  assert.equal(t.byValue, true);
+  assert.equal(t.inss, 368.6, 'o INSS sai do valor informado (tabela 2026: 121,58 + 115,37 + 131,66)');
+  assert.equal(thirteenth({regime: 'clt', gross: 3000, thirdValue: 0}).total, 3000, 'valor zero ou vazio: volta ao cálculo normal');
+  assert.equal(thirteenth({regime: 'clt', gross: 3000}).byValue, false);
+  assert.match(t.lines[0].label, /valor informado/);
+});
+
 test('férias: dias gozados + 1/3, abono pecuniário isento e FGTS sobre o que é salário', () => {
   const v = vacation({regime: 'clt', gross: 3000});
   assert.equal(v.days, 30);

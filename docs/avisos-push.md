@@ -1,6 +1,10 @@
 # Avisos no celular (Web Push)
 
-O app avisa no celular quando o **salário deveria cair** e **um dia antes** de vencer uma **fatura de cartão** ou uma **conta fixa**.
+O app avisa no celular quando o **salário deveria cair** e antes de vencer uma **fatura de cartão** ou uma **conta fixa**, e nos dias que a
+própria pessoa **programar**. Em **Perfil → Avisos no celular** ela escolhe: quais tipos receber (liga/desliga cada um), **quantos dias antes**
+avisar (no dia ou de 1 a 7 dias antes), o **horário** dos avisos e **avisos próprios**: “lançar os gastos”, “importar o extrato” ou um lembrete
+com o texto dela, repetindo todo mês (dia 1 a 31), toda semana (dia da semana) ou uma vez (data); no máximo 10. Essas regras acompanham a conta
+entre aparelhos (coleção `settings`, ver `js/ui/synced-prefs.js`); só “ligado neste aparelho” é de cada aparelho.
 Os avisos nunca trazem valores em reais ("A fatura do Nubank vence amanhã."). Só funcionam com conta online (Supabase): os lembretes
 ficam no servidor, que os dispara na hora.
 
@@ -17,7 +21,9 @@ Ao sair da conta o aparelho deixa de receber os avisos dela (a escolha fica guar
 o aparelho e os lembretes pendentes. Excluir a conta apaga tudo (cascata no banco).
 
 ## Ligar (uma vez, por quem administra o Supabase)
-1. **Migração:** aplique `supabase/migrations/20261115000000_avisos_push.sql` (SQL Editor ou `supabase db push`).
+1. **Migrações:** aplique, em ordem, `supabase/migrations/20261115000000_avisos_push.sql` e `supabase/migrations/20261124000000_configuracoes_e_avisos_programaveis.sql`
+   (SQL Editor ou `supabase db push`). A segunda libera os avisos programados (tipos `custom` e `statement`) e a coleção `settings`, que também faz a
+   calculadora do salário e as regras dos avisos acompanharem a conta entre celular e computador (sem ela, ficam só no aparelho onde foram preenchidas).
 2. **Chaves VAPID** (o par que identifica o seu servidor): `npx web-push generate-vapid-keys`. Guarde a privada só nos segredos.
 3. **Segredos da função** (`supabase secrets set ...`):
    ```
@@ -59,6 +65,7 @@ o aparelho e os lembretes pendentes. Excluir a conta apaga tudo (cascata no banc
 - **Trocar as chaves VAPID** invalida todos os aparelhos: cada pessoa precisa desligar e ligar de novo.
 - **Privacidade (LGPD):** é um uso novo de dados, ligado só por escolha da pessoa. O texto da política (`js/ui/constants.js`) já
   explica que o endereço de avisos e os lembretes (sem valores) ficam na conta e passam pelo serviço do navegador (Google, Apple ou Mozilla).
+- **Texto dos avisos próprios:** o título que a pessoa escreve vai para o servidor para o aviso chegar (a tela avisa para não colocar valores nem dados sensíveis).
 - **Limites no banco:** 10 aparelhos por pessoa, 200 lembretes pendentes, nada marcado para mais de 45 dias à frente.
 - **Não foi testado de ponta a ponta no desenvolvimento:** o envio real depende dos passos acima. O que tem teste automático: as regras do
   banco (`npm run test:db`), a escolha dos lembretes, o tratamento do aviso no service worker e as chamadas ao Supabase.

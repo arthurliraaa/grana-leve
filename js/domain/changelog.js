@@ -5,6 +5,11 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-25', title: 'Seu salário no celular, 13º por valor e avisos programáveis', items: [
+    {title: 'O que você preencheu no computador aparece no celular', go: 'lancamentos', text: 'Os empregos da calculadora do salário (salário, descontos e ganhos) agora acompanham a sua conta: preencha uma vez e use nos dois aparelhos.'},
+    {title: '13º pelo valor', go: 'lancamentos', text: 'Não sabe a média de horas extras e adicionais? Na calculadora, informe o valor do 13º: ele vale no lugar do cálculo e os descontos saem dele.'},
+    {title: 'Avisos que você programa', go: 'perfil', text: 'Em Perfil, escolha o que avisar, quantos dias antes e a que horas, e programe os seus: “lançar os gastos” todo dia 5, “importar o extrato” toda segunda, ou um lembrete com o seu texto. Eles valem quando os avisos estiverem ligados.'}
+  ]},
   {id: '2026-11-24', title: '13º à parte, pular o salário do mês e celular mais leve', items: [
     {title: '13º salário antes do salário do mês', go: 'dashboard', text: 'Em “Meu salário” há um botão só para o 13º: escolha a 1ª ou a 2ª parcela, confirme o valor e o dia, e ele entra nos ganhos sem depender do salário do mês.'},
     {title: 'Já recebi o salário deste mês', go: 'dashboard', text: 'Ao prever o salário, marque que o deste mês você já recebeu: ele não é perguntado nem contado, e vale só a partir do mês que vem. Também dá para “Pular este mês” no cartão do Início.'},

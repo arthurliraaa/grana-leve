@@ -9,6 +9,7 @@ import {findById} from '../domain/util.js';
 import {isReversal, linkedToDelete} from '../domain/transactions.js';
 
 import {renderProfile} from './profile.js';
+import {pullSyncedPrefs} from './synced-prefs.js';
 import {renderBills, fillBillForm, resetBillsView, runAutoBills, skipBillsOf, billNamesOf} from './bills.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup} from '../data/backup.js';
@@ -157,6 +158,8 @@ export async function loadAllData(){
   State.accounts = byName.accounts;
   State.transfers = byName.transfers;
   State.bills = byName.bills || [];
+  State.settings = byName.settings || [];
+  pullSyncedPrefs(State.settings);
   resetBillsView();
 }
 
