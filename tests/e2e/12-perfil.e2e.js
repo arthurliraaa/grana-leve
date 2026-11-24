@@ -19,6 +19,7 @@ L.run(async ({page}) => {
   await page.click('#pfNameForm button[type=submit]'); await L.sleep(100);
   L.ok(/Informe um nome/.test(await L.text(page, '#pfNameMsg')), 'nome vazio é recusado');
   await page.type('#pfName', 'Beatriz Souza');
+  await L.sleep(350);   // a trava de toque repetido (busy.js) ignora um segundo envio do mesmo formulário em menos de ~150 ms; uma pessoa leva mais que isso para corrigir
   await page.click('#pfNameForm button[type=submit]');
   await page.waitForFunction(() => /Olá,\s*Beatriz/.test((document.querySelector('#profileBtn') || {}).textContent || ''), {timeout: 6000}).catch(() => {});   // o tempo da gravação varia com a carga da máquina
   L.ok(/Olá,\s*Beatriz/.test(await L.text(page, '#profileBtn')) && await page.$eval('#profileBtn .avatar', el => el.textContent) === 'B', 'topo mostra o nome novo');
