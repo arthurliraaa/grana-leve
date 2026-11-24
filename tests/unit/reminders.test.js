@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildReminders, addDaysKey, safeAppUrl, normalizeRules, customWhen, MAX_CUSTOM} from '../../js/domain/reminders.js';
+import {buildReminders, addDaysKey, safeAppUrl, normalizeRules, customWhen, MAX_CUSTOM, whenLabel, sentHistory, unseenCount} from '../../js/domain/reminders.js';
 
 const salary = {id: 'f1', description: 'Salário', amount: 2751.4, date: '2026-11-06', recurring: true, received: {},
   salary: {rule: {type: 'workday', n: 5, saturday: true}, steps: [{from: '2026-11', gross: 3000, net: 2751.4}], months: {}}};
@@ -108,4 +108,23 @@ test('regras dos avisos: limites e formato antigo', () => {
   assert.equal(many.custom.length, MAX_CUSTOM, 'no máximo 10 avisos próprios');
   assert.equal(customWhen({repeat: 'monthly', day: 5, hour: 9}), 'todo dia 5 às 9h');
   assert.equal(customWhen({repeat: 'weekly', weekday: 1, hour: 18}), 'toda segunda-feira às 18h');
+});
+
+test('central de avisos: quando, histórico dos enviados e contagem dos não vistos', () => {
+  assert.equal(whenLabel('2026-11-24', 9, '2026-11-24'), 'hoje às 9h');
+  assert.equal(whenLabel('2026-11-25', 18, '2026-11-24'), 'amanhã às 18h');
+  assert.equal(whenLabel('2026-11-23', 8, '2026-11-24'), 'ontem às 8h');
+  assert.equal(whenLabel('2026-12-05', 9, '2026-11-24'), 'dia 05/12 às 9h');
+  const rows = [
+    {kind: 'salary', title: 'Seu salário', body: 'Já caiu?', url: './#/inicio', fire_at: '2026-11-20T12:00:00Z', sent_at: '2026-11-20T12:05:00Z'},
+    {kind: 'bill', title: 'Conta a vencer', body: 'Luz vence amanhã.', url: './#/lancamentos', fire_at: '2026-11-22T12:00:00Z', sent_at: '2026-11-22T12:03:00Z'},
+    {kind: 'bill', title: 'Atrasado', body: 'x', url: './#/inicio', fire_at: '2026-11-01T12:00:00Z', sent_at: '2026-11-10T12:00:00Z'},
+    {kind: 'bill', title: 'Ainda não enviado', body: 'x', url: './#/inicio', fire_at: '2026-11-25T12:00:00Z', sent_at: null},
+    {kind: 'custom', title: 'Golpe', body: 'x', url: 'https://golpe.exemplo.com', fire_at: '2026-11-21T12:00:00Z', sent_at: '2026-11-21T12:01:00Z'}
+  ];
+  const h = sentHistory(rows);
+  assert.deepEqual(h.map(x => x.title), ['Conta a vencer', 'Golpe', 'Seu salário'], 'do mais novo ao mais antigo; fora o atrasado demais e o que ainda não foi enviado');
+  assert.equal(h[1].url, './#/inicio', 'endereço de fora do app vira o início');
+  assert.equal(unseenCount(h, new Date('2026-11-21T12:30:00Z').getTime()), 1, 'só o que chegou depois da última abertura');
+  assert.equal(unseenCount(h, 0), 3, 'nunca abriu: todos são novos');
 });

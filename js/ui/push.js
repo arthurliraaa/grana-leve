@@ -72,6 +72,14 @@ export function pushCardHtml(){
     '<p class="tx-meta">Para isso o Grana Leve guarda o endereço de avisos deste aparelho e os próximos lembretes, só na sua conta. O texto de um aviso seu também vai para o servidor: não coloque valores nem dados sensíveis nele. Os seus avisos programados acompanham a sua conta entre aparelhos.</p>');
 }
 
+// O que o app avisaria nos próximos dias (para a central de avisos mostrar, mesmo sem os avisos ligados neste aparelho).
+export function upcomingReminders(horizon){
+  var r = rules(), today = todayKey();
+  return buildReminders({today: today, horizon: horizon || 14, kinds: r.kinds, lead: r.lead, hour: r.hour, custom: r.custom, forecasts: State.forecasts, cards: State.cards, transactions: State.transactions, bills: State.bills,
+    paidOk: function(b, paid){ return !!findById(State.transactions, paid.txId); }});
+}
+export function pushIsOn(){ return !pushBlocker() && prefs().on; }
+
 function reminderRows(){
   var p = prefs(), today = todayKey();
   var r = rules();

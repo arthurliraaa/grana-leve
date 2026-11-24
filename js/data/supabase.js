@@ -143,6 +143,10 @@ export function createSupabaseStore(client, collections){
     async pushSaveSubscription(sub){
       check(await client.rpc('save_push_subscription', {p_endpoint: sub.endpoint, p_p256dh: sub.keys.p256dh, p_auth: sub.keys.auth}));
     },
+    // Avisos que já foram enviados (o servidor guarda por 30 dias): para a central de avisos do app.
+    async pushListSent(){
+      return check(await client.from('push_reminders').select('kind, title, body, url, fire_at, sent_at').not('sent_at', 'is', null).order('sent_at', {ascending: false}).limit(60));
+    },
     async pushRemoveSubscription(endpoint){ check(await client.from('push_subscriptions').delete().eq('endpoint', endpoint)); },
     // Alinha os lembretes ainda não enviados com a lista desejada [{dedupe_key, kind, fire_at, title, body, url}]: o que não vale mais
     // (fatura paga, conta paga…) é apagado e o resto é gravado ou atualizado pela chave. O que já foi enviado não é mexido.

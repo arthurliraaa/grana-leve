@@ -10,6 +10,7 @@ import {isReversal, linkedToDelete} from '../domain/transactions.js';
 
 import {renderProfile} from './profile.js';
 import {pullSyncedPrefs} from './synced-prefs.js';
+import {noticesBtnHtml, openNotices, refreshNoticeBadge} from './notices.js';
 import {renderBills, fillBillForm, resetBillsView, runAutoBills, skipBillsOf, billNamesOf} from './bills.js';
 import {Store, COLLECTIONS} from '../data/store.js';
 import {buildBackup} from '../data/backup.js';
@@ -115,6 +116,7 @@ export function renderTopbar(){
     var cloud = Store.mode === 'cloud' || Store.mode === 'supabase';
     var where = Store.mode === 'supabase' ? 'Dados salvos na sua conta, em servidor no Brasil.' : cloud ? 'Dados salvos na nuvem do app.' : 'Dados salvos só neste navegador.';
     wrap.innerHTML =
+      noticesBtnHtml() +
       '<button type="button" class="sync-badge" id="storageBtn" title="' + where + ' Toque para ver detalhes e backup." aria-label="' + where + ' Ver detalhes e backup">' +
         '<span class="sync-dot ' + (cloud ? 'cloud' : 'local') + '" aria-hidden="true"></span><span class="sync-text">' + (Store.mode === 'supabase' ? 'Sincronizado' : cloud ? 'Na nuvem' : 'Só neste navegador') + '</span>' +
       '</button>' +
@@ -124,6 +126,8 @@ export function renderTopbar(){
         '<span class="user-name">Olá, <strong>' + escapeHtml(State.session.name.split(' ')[0]) + '</strong></span><span class="sr-only">: perfil e conta</span></button>' +
       '<button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Sair</button>';
     qs('#logoutBtn').addEventListener('click', logout);
+    qs('#noticesBtn').addEventListener('click', openNotices);
+    refreshNoticeBadge();
     qs('#storageBtn').addEventListener('click', dataModal);
     qs('#profileBtn').addEventListener('click', function(){ showTab('perfil'); });
   } else {

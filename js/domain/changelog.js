@@ -5,6 +5,9 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-26', title: 'Central de avisos', items: [
+    {title: 'O sininho no topo', go: 'dashboard', text: 'Toque no sino para ver os avisos que já chegaram (como o do salário) e os próximos que vêm por aí. Um número no sino conta os que chegaram desde a última vez que você olhou.'}
+  ]},
   {id: '2026-11-25', title: 'Seu salário no celular, 13º por valor e avisos programáveis', items: [
     {title: 'O que você preencheu no computador aparece no celular', go: 'lancamentos', text: 'Os empregos da calculadora do salário (salário, descontos e ganhos) agora acompanham a sua conta: preencha uma vez e use nos dois aparelhos.'},
     {title: '13º pelo valor', go: 'lancamentos', text: 'Não sabe a média de horas extras e adicionais? Na calculadora, informe o valor do 13º: ele vale no lugar do cálculo e os descontos saem dele.'},

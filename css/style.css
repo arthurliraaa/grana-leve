@@ -2349,3 +2349,16 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .rem-item .check span{ display:grid; gap:2px; }
 .rem-item small{ color: var(--text-secondary); }
 .rem-actions{ display:flex; gap:6px; }
+
+/* Central de avisos (sininho) */
+.bell-btn{ position:relative; }
+.bell-badge{ position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px; border-radius:999px; background: var(--critical); color:#fff; font-size:.68rem; font-weight:700; display:grid; place-items:center; line-height:1; border:2px solid var(--bg); box-sizing:content-box; }
+.bell-badge[hidden]{ display:none; }
+.notice-sec{ display:grid; gap:8px; }
+.notice-sec h4{ margin:0; }
+.notice-list{ display:grid; gap:8px; }
+.notice-item{ display:grid; gap:2px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background: var(--surface); color: var(--text-primary); text-decoration:none; }
+.notice-item:hover{ background: var(--brand-tint); }
+.notice-kind{ justify-self:start; font-size:.72rem; font-weight:700; color: var(--brand-strong); background: var(--brand-tint); border-radius:999px; padding:1px 8px; }
+.notice-body{ color: var(--text-secondary); font-size:.9rem; }
+.notice-item small{ color: var(--text-muted); }

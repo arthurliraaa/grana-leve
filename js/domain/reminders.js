@@ -119,3 +119,22 @@ export function buildReminders(ctx){
 
 // A URL que o servidor aceita (e o aviso abre): só rotas do próprio app.
 export function safeAppUrl(url){ return /^\.\/#\/[a-z-]{1,30}$/.test(String(url || '')) ? url : './#/inicio'; }
+
+// ---- Central de avisos (o sininho): textos e contas puras ----
+// “hoje às 9h”, “amanhã às 9h”, “dia 05/12 às 9h” (today: 'AAAA-MM-DD').
+export function whenLabel(dateKey, hour, today){
+  var h = ' às ' + (Number(hour) || 0) + 'h';
+  if (dateKey === today) return 'hoje' + h;
+  if (dateKey === addDaysKey(today, 1)) return 'amanhã' + h;
+  if (dateKey === addDaysKey(today, -1)) return 'ontem' + h;
+  return 'dia ' + dateKey.slice(8, 10) + '/' + dateKey.slice(5, 7) + h;
+}
+// Avisos que o servidor já enviou (linhas de push_reminders com sent_at), do mais novo ao mais antigo. Fora os que ele só deu por
+// tratados sem enviar (vencidos há mais de 24 h) e os que não são de rota do app.
+export function sentHistory(rows, limit){
+  return (rows || []).filter(function(r){ return r && r.sent_at && r.fire_at && (new Date(r.sent_at).getTime() - new Date(r.fire_at).getTime()) <= 24 * 3600 * 1000; })
+    .sort(function(a, b){ return String(b.sent_at).localeCompare(String(a.sent_at)); })
+    .slice(0, limit || 30)
+    .map(function(r){ return {title: r.title, body: r.body, url: safeAppUrl(r.url), kind: r.kind, sentAt: r.sent_at}; });
+}
+export function unseenCount(history, seenAt){ return history.filter(function(h){ return new Date(h.sentAt).getTime() > (Number(seenAt) || 0); }).length; }
