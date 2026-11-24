@@ -22,7 +22,7 @@ o aparelho e os lembretes pendentes. Excluir a conta apaga tudo (cascata no banc
 
 ## Ligar (uma vez, por quem administra o Supabase)
 1. **Migrações:** aplique, em ordem, `supabase/migrations/20261115000000_avisos_push.sql` e `supabase/migrations/20261124000000_configuracoes_e_avisos_programaveis.sql`
-   (SQL Editor ou `supabase db push`). A segunda libera os avisos programados (tipos `custom` e `statement`) e a coleção `settings`, que também faz a
+   (SQL Editor ou `supabase db push`). Se rodar só a segunda, ela libera a coleção `settings` e deixa os lembretes para depois (a tabela de lembretes vem da primeira, que já aceita os tipos novos). A segunda libera os avisos programados (tipos `custom` e `statement`) e a coleção `settings`, que também faz a
    calculadora do salário e as regras dos avisos acompanharem a conta entre celular e computador (sem ela, ficam só no aparelho onde foram preenchidas).
 2. **Chaves VAPID** (o par que identifica o seu servidor): `npx web-push generate-vapid-keys`. Guarde a privada só nos segredos.
 3. **Segredos da função** (`supabase secrets set ...`):

@@ -44,7 +44,7 @@ create table if not exists public.push_reminders (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   dedupe_key text not null check (char_length(dedupe_key) between 1 and 120),
-  kind text not null check (kind in ('salary', 'invoice', 'bill')),
+  kind text not null check (kind in ('salary', 'invoice', 'bill', 'custom', 'statement')),
   fire_at timestamptz not null,
   title text not null check (char_length(title) between 1 and 80),
   body text not null check (char_length(body) between 1 and 160),
