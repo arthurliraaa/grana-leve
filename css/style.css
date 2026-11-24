@@ -1500,7 +1500,7 @@ details.research-optin{ padding:0; gap:0; }
   .tx-filters input, .tx-filters select, input[type=search], select.select-sm, .stepper input{ min-height:44px; font-size:16px; }
   .field textarea{ font-size:16px; }
   .money-input{ min-height:44px; }
-  .segmented button, .chip, .month-switch button, .dash-nav-btn, .theme-toggle, #themeToggle, .sum-more, .details-toggle, .tx-del, .card-menu > summary,
+  .segmented button, .chip, .month-switch button, .dash-nav-btn, .theme-toggle, #themeToggle, .bell-btn, .sum-more, .details-toggle, .tx-del, .card-menu > summary,
   .modal-x, .stepper button, .auth-tabs button, .bank-look-toggle, #bankLookToggle, #forecastToggle{ min-height:44px; min-width:44px; }
   .month-switch button{ width:44px; height:44px; }
   .modal-x{ width:44px; height:44px; font-size:1.7rem; }
