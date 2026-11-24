@@ -6,7 +6,8 @@
  */
 export var CHANGELOG = [
   {id: '2026-11-26', title: 'Central de avisos', items: [
-    {title: 'O sininho no topo', go: 'dashboard', text: 'Toque no sino para ver os avisos que já chegaram (como o do salário) e os próximos que vêm por aí. Um número no sino conta os que chegaram desde a última vez que você olhou.'}
+    {title: 'O sininho no topo', go: 'dashboard', text: 'Toque no sino para ver os avisos que já chegaram (como o do salário) e os próximos que vêm por aí. Um número no sino conta os que chegaram desde a última vez que você olhou.'},
+    {title: 'As atualizações do app também ficam no sino', go: 'dashboard', text: 'Quando o app ganhar novidades, o sino mostra um número e elas ficam guardadas ali, em “Novidades do app”, para você rever quando quiser.'}
   ]},
   {id: '2026-11-25', title: 'Seu salário no celular, 13º por valor e avisos programáveis', items: [
     {title: 'O que você preencheu no computador aparece no celular', go: 'lancamentos', text: 'Os empregos da calculadora do salário (salário, descontos e ganhos) agora acompanham a sua conta: preencha uma vez e use nos dois aparelhos.'},

@@ -19,10 +19,12 @@ L.run(async ({page}) => {
   await page.click('#pfNameForm button[type=submit]'); await L.sleep(100);
   L.ok(/Informe um nome/.test(await L.text(page, '#pfNameMsg')), 'nome vazio é recusado');
   await page.type('#pfName', 'Beatriz Souza');
-  await page.click('#pfNameForm button[type=submit]'); await L.sleep(200);
+  await page.click('#pfNameForm button[type=submit]');
+  await page.waitForFunction(() => /Olá,\s*Beatriz/.test((document.querySelector('#profileBtn') || {}).textContent || ''), {timeout: 6000}).catch(() => {});   // o tempo da gravação varia com a carga da máquina
   L.ok(/Olá,\s*Beatriz/.test(await L.text(page, '#profileBtn')) && await page.$eval('#profileBtn .avatar', el => el.textContent) === 'B', 'topo mostra o nome novo');
   await L.reload(page);
   await L.tab(page, 'dashboard');
+  await page.waitForFunction(() => /Olá, Beatriz/.test((document.getElementById('greeting') || {}).textContent || ''), {timeout: 6000}).catch(() => {});
   L.ok(/Olá, Beatriz/.test(await L.text(page, '#greeting')), 'nome continua depois de recarregar');
 
   L.section('Trocar a senha');

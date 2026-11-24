@@ -2362,3 +2362,10 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .notice-kind{ justify-self:start; font-size:.72rem; font-weight:700; color: var(--brand-strong); background: var(--brand-tint); border-radius:999px; padding:1px 8px; }
 .notice-body{ color: var(--text-secondary); font-size:.9rem; }
 .notice-item small{ color: var(--text-muted); }
+
+.notice-rel{ border:1px solid var(--border); border-radius:12px; background: var(--surface); padding:0 12px; }
+.notice-rel > summary{ cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:10px 0; }
+.notice-rel > summary::-webkit-details-marker{ display:none; }
+.notice-rel > summary small{ color: var(--text-muted); }
+.notice-rel[open] > summary{ border-bottom:1px solid var(--border); margin-bottom:6px; }
+.notice-rel .wn-list{ padding-bottom:10px; }
