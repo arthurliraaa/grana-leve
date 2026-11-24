@@ -45,8 +45,7 @@ o aparelho e os lembretes pendentes. Excluir a conta apaga tudo (cascata no banc
        body := '{}'::jsonb, timeout_milliseconds := 20000);
    $$);
    ```
-6. **Chave pública no app:** coloque a chave pública em `VAPID_PUBLIC_KEY` de `js/config.js` e publique. Enquanto estiver vazia, o app diz
-   "Os avisos ainda não foram ligados" e não oferece nada.
+6. **Chave pública no app:** `VAPID_PUBLIC_KEY` em `js/config.js` (já preenchida). Se ficar vazia, o app diz "Os avisos ainda não foram ligados" e não oferece o botão de ligar.
 
 ## Testar
 - Ligue os avisos em Perfil e aceite a permissão. Veja o aparelho em `select * from push_subscriptions;`.

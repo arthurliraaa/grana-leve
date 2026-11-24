@@ -7,8 +7,8 @@ L.run(async ({page}) => {
 
   L.section('Perfil: o que avisar, antecedência e horário');
   await L.tab(page, 'perfil'); await L.sleep(300);
-  L.ok(!!(await page.$('[data-push-lead="invoice"]')) && !!(await page.$('[data-push-hour]')) && !!(await page.$('[data-rem-add]')), 'mesmo sem os avisos ligados no servidor, dá para programar');
-  L.ok(/ainda não foram ligados/.test(await L.text(page, '#tab-perfil')) && !(await page.$('#pfPushOn')), 'e o cartão explica que ligar ainda não é possível');
+  L.ok(!!(await page.$('[data-push-lead="invoice"]')) && !!(await page.$('[data-push-hour]')) && !!(await page.$('[data-rem-add]')), 'mesmo sem poder ligar os avisos neste aparelho, dá para programar');
+  L.ok(/precisam de uma conta online/.test(await L.text(page, '#tab-perfil')) && !(await page.$('#pfPushOn')), 'e, no modo do navegador (sem conta online), o cartão explica que ligar ainda não é possível');
   await L.setVal(page, '[data-push-lead="invoice"]', '3');
   await L.setVal(page, '[data-push-hour]', '18'); await L.sleep(200);
   let p = await prefs();

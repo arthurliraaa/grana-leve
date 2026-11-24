@@ -7,7 +7,7 @@ export var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ
 export var BACKEND_OVERRIDE_KEY = 'granaleve_backend';
 // Avisos no celular (Web Push): chave PÚBLICA do par VAPID (a privada fica só nos segredos do Supabase). Vazia = o app não oferece avisos.
 // Como gerar e ligar tudo: docs/avisos-push.md.
-export var VAPID_PUBLIC_KEY = '';
+export var VAPID_PUBLIC_KEY = 'BPWNFwArxjHGp6uOzr6Uy_vKgNvM42XOQEGbdwO04WjXD0eyfgy_RRYJtMDfs6JPUoXVaCPYsUCfNfs67gdWEkg';
 // E-mail de contato do projeto: dúvidas, sugestões e pedidos sobre dados pessoais (LGPD).
 // Use um e-mail do projeto (não precisa ser o pessoal); ele aparece na Política de privacidade.
 export var CONTACT_EMAIL = 'contato.granaleve@gmail.com';
