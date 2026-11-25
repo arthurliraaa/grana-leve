@@ -223,12 +223,14 @@ export function sumCard(n, iconName, title, value, valueCls, sub, extra, details
 export function detailRow(label, value, cls){ return '<div class="sum-row"><span>' + label + '</span><strong class="tabular ' + (cls || '') + '">' + value + '</strong></div>'; }
 export function goLink(tab, text){ return '<a class="sum-link" href="#/' + routeOf(tab) + '" data-go="' + tab + '">' + text + ' →</a>'; }
 
-// Primeiros passos (conta nova): banco, primeiro lançamento e limite por categoria. Some quando os três
-// estão feitos ou quando a pessoa esconde.
+// Primeiros passos (conta nova): bancos e cartões, salário, primeiro lançamento e limite por categoria. Some quando todos
+// estão feitos ou quando a pessoa esconde. “Configuração guiada” abre o assistente (js/ui/setup.js).
+// O salário conta como feito se a pessoa informou ou disse que não tem salário fixo.
 export function renderFirstSteps(){
   var el = document.getElementById('firstSteps');
   var steps = [
-    {done: State.accounts.length + State.cards.length > 0, title: 'Cadastre seu banco', text: 'O saldo da conta e, se tiver, o cartão de crédito.', label: 'Cadastrar banco', attr: 'data-go="cartoes"'},
+    {done: State.accounts.length + State.cards.length > 0, title: 'Cadastre seus bancos e cartões', text: 'O saldo da conta e, nos cartões, o limite e os dias da fatura.', label: 'Cadastrar banco', attr: 'data-go="cartoes"'},
+    {done: hasSalaryData() || !!getPrefs().noSalary, title: 'Informe o seu salário, se tiver', text: 'O líquido, o dia em que cai e o 13º. Sem salário fixo? Pule este passo.', label: 'Informar salário', attr: 'data-salary-open', skip: 'data-first-nosalary'},
     {done: State.transactions.length > 0, title: 'Lance o primeiro gasto ou ganho', text: 'Pelo botão +, ou escrevendo “gastei 30 no mercado”.', label: 'Lançar agora', attr: 'data-first-tx'},
     {done: plannedTotal(monthBounds(0).key) > 0, title: 'Defina quanto quer gastar', text: 'Um limite por categoria, para o app avisar antes de passar.', label: 'Planejar gastos', attr: 'data-go="limites"'}
   ];
@@ -236,12 +238,13 @@ export function renderFirstSteps(){
   el.hidden = done === steps.length || !!getPrefs().firstStepsOff;
   if (el.hidden){ el.innerHTML = ''; return; }
   el.innerHTML = '<div class="fs-head"><h3>Primeiros passos</h3><span class="fs-count">' + done + ' de ' + steps.length + '</span>' +
-      '<button type="button" class="linklike" data-first-hide>Esconder</button></div>' +
+      '<span class="fs-tools"><button type="button" class="linklike" data-setup>Configuração guiada</button><button type="button" class="linklike" data-first-hide>Esconder</button></span></div>' +
     '<span class="fs-bar" role="img" aria-label="' + done + ' de ' + steps.length + ' passos feitos"><span style="width:' + Math.round(100 * done / steps.length) + '%"></span></span>' +
     '<ol class="fs-list">' + steps.map(function(x, i){
       return '<li class="' + (x.done ? 'done' : x === next ? 'next' : '') + '"><span class="fs-dot" aria-hidden="true">' + (x.done ? icon('check') : i + 1) + '</span>' +
         '<span class="fs-txt"><strong>' + x.title + '</strong><small>' + (x.done ? 'Feito.' : x.text) + '</small></span>' +
-        (x.done ? '<span class="sr-only">Feito</span>' : '<button type="button" class="btn ' + (x === next ? 'btn-primary' : 'btn-ghost') + ' btn-sm" ' + x.attr + '>' + x.label + '</button>') + '</li>';
+        (x.done ? '<span class="sr-only">Feito</span>' : '<span class="fs-acts"><button type="button" class="btn ' + (x === next ? 'btn-primary' : 'btn-ghost') + ' btn-sm" ' + x.attr + '>' + x.label + '</button>' +
+          (x.skip ? '<button type="button" class="linklike" ' + x.skip + '>Não tenho</button>' : '') + '</span>') + '</li>';
     }).join('') + '</ol>';
 }
 export function renderSummary(){

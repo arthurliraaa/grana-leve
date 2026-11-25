@@ -35,14 +35,14 @@ function releaseHtml(r, open){
 }
 
 export function noticesBtnHtml(){
-  return '<button type="button" class="icon-btn bell-btn" id="noticesBtn" aria-label="Avisos" title="Avisos">' + icon('bell') + '<span class="bell-badge" id="noticesBadge" hidden></span></button>';
+  return '<button type="button" class="icon-btn bell-btn" id="noticesBtn" aria-label="Avisos" title="Avisos">' + icon('bell') + '<span class="bell-badge" id="noticesBadge" aria-hidden="true" hidden></span></button>';
 }
 function paintBadge(){
   var badge = document.getElementById('noticesBadge'), btn = document.getElementById('noticesBtn');
   if (!badge) return;
   var n = unseenCount(history, getPrefs().noticesSeenAt) + unseenNews().length;
   badge.hidden = n === 0; badge.textContent = n > 9 ? '9+' : String(n);
-  if (btn) btn.setAttribute('aria-label', n ? 'Avisos: ' + n + (n === 1 ? ' novo' : ' novos') : 'Avisos');
+  if (btn) btn.setAttribute('aria-label', n ? 'Avisos: ' + badge.textContent + (n === 1 ? ' novo' : ' novos') : 'Avisos');   // o nome acessível contém o texto visível do número
 }
 async function loadHistory(){
   if (Store.mode !== 'supabase' || !Store.pushListSent || !State.session) { history = []; return; }

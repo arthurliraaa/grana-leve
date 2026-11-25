@@ -59,6 +59,7 @@ export function renderProfile(){
       '<label class="check"><input type="checkbox" id="pfCorner"' + (getPrefs().cornerOff ? '' : ' checked') + '> Mostrar o Grana no cantinho da tela (animado, com dicas e para tirar dúvidas)</label>' +
       '<label class="check"><input type="checkbox" id="pfWelcome"' + (getPrefs().quickEntryOff ? '' : ' checked') + '> Perguntar se tive gastos ou ganhos ao entrar na conta (só logo depois do login)</label>' +
       '<div class="pref-row"><span>Tutorial de primeiros passos: as partes principais e por onde começar.</span><button class="btn btn-ghost btn-sm" type="button" data-tutorial>Ver o tutorial</button></div>' +
+      '<div class="pref-row"><span>Configuração rápida: bancos e cartões, salário e outras coisas úteis, passo a passo.</span><button class="btn btn-soft btn-sm" type="button" data-setup>Configurar o essencial</button></div>' +
       '<div class="pref-row"><span>Confirmações que você pediu para não mostrar mais: <strong>' + skipped + '</strong></span>' +
         '<button class="btn btn-ghost btn-sm" type="button" id="pfResetConfirm"' + (skipped ? '' : ' disabled') + '>Voltar a perguntar</button></div>') +
 

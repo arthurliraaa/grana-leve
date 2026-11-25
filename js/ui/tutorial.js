@@ -3,10 +3,10 @@
  * seguindo (Próximo / Voltar). Abre sozinho só em conta vazia, uma vez; depois, em “Perfil e conta”,
  * no “Mais” do celular e na janela de ajuda. localStorage granaleve_tutorial = 'off' desliga (testes).
  */
-import {qsa, autoFocus} from './dom.js';
+import {qsa} from './dom.js';
 import {getPrefs, setPref} from '../data/session.js';
 import {State} from './state.js';
-import {showTab} from './shell.js';
+import {showTab, withPart} from './shell.js';
 
 var TUTORIAL_KEY = 'granaleve_tutorial';
 function isMobile(){ return window.matchMedia('(max-width: 860px)').matches; }
@@ -15,21 +15,18 @@ function pick(){ for (var i = 0; i < arguments.length; i++){ var el = visible(do
 
 // target: função que devolve o elemento a destacar (ou null: cartão no centro).
 export var TUTORIAL_STEPS = [
-  {title: 'Bem-vindo(a) ao Grana Leve!', text: 'Em cerca de um minuto, o tutorial mostra as partes principais, as novidades mais úteis e por onde começar. Você pode seguir passo a passo ou pular quando quiser.', target: function(){ return null; }},
+  {title: 'Bem-vindo(a) ao Grana Leve!', text: 'Em cerca de um minuto, mostramos o que mais importa: lançar gastos, bancos e cartões, salário, extrato e avisos. No fim, você configura o essencial em poucos passos. Pode pular quando quiser.', target: function(){ return null; }},
   {title: 'Seu mês de relance', text: 'Aqui ficam quanto você tem, quanto gastou e o que vem para pagar. Toque no + de cada cartão para ver os detalhes, e em “Ver todos os detalhes do mês” para os gráficos.', target: function(){ return isMobile() ? pick('#summaryCards .sum-card') : pick('#summaryCards'); }, tab: 'dashboard'},
-  {title: 'Lançar um gasto ou ganho', text: 'O botão + abre o lançamento de qualquer tela. Dá para preencher o formulário ou só escrever do seu jeito, como “gastei 30 no mercado”: o app mostra o que entendeu e você confere antes de salvar.', target: function(){ return pick('#fabAdd'); }},
-  {title: 'Importar o extrato do banco', text: 'Em Ganhos e gastos, “Importar extrato” lê o arquivo do banco: o OFX ou o CSV (gerados no app ou no site do banco) dão a leitura mais exata, e o PDF também funciona. Você confere tudo antes de importar e o app evita lançar duas vezes.', target: function(){ return pick('#importStmtBtn'); }, tab: 'lancamentos'},
-  {title: 'Seu salário', text: 'Em “Previstas”, informe o salário: a calculadora estima o líquido (INSS, imposto, descontos, horas extras, 13º e férias). Depois o Início pergunta “já caiu?” no dia do pagamento e você acompanha a evolução do salário.', target: function(){ return pick('#forecastToggle'); }, tab: 'lancamentos'},
-  {title: 'Simular antes de gastar', text: 'Antes de uma compra grande, a guia “Simular” mostra como ficam as suas contas mês a mês, no cartão, à vista, financiando ou com o dinheiro de uma meta. Nada é registrado até você pedir.', target: function(){ return pick('#segbtn-simular'); }, tab: 'lancamentos'},
-  {title: 'Para onde ir', text: function(){ return isMobile() ? 'A barra de baixo leva ao Início, a Ganhos e gastos e a Contas e cartões. Planejar gastos, Metas, Compromissos e o resto ficam em “Mais”.' : 'O menu ao lado leva a cada área: Ganhos e gastos, Contas e cartões e, em “Planejar”, os gastos por categoria, as metas e os compromissos.'; },
-    target: function(){ return isMobile() ? pick('#bottomnav') : pick('.sidenav-links'); }},
-  {title: 'Por onde começar', text: 'Siga os “Primeiros passos”: cadastre o seu banco (o saldo da conta e, se tiver, o cartão), lance o primeiro gasto e defina quanto quer gastar. O app monta o resto: faturas, saldo e gráficos.',
-    target: function(){ return (isMobile() ? pick('#firstSteps li.next') : pick('#firstSteps')) || (isMobile() ? pick('#bottomnav [data-tab="cartoes"]') : pick('.sidenav [data-tab="cartoes"]')); }, tab: 'dashboard'},
-  {title: 'Planejar e guardar', text: function(){ return isMobile() ? 'Em “Mais” você encontra Planejar gastos (quanto quer gastar por categoria), Metas (para juntar dinheiro), Compromissos (dívidas e quem te deve) e Conselhos (ideias gentis feitas a partir dos seus gastos).' : 'Em “Planejar gastos” você define quanto quer gastar por categoria; em “Metas”, junta dinheiro para um objetivo; em “Compromissos”, acompanha dívidas e quem te deve; e em “Conselhos” o app dá ideias gentis a partir dos seus gastos.'; },
+  {title: 'Lançar um gasto ou ganho', text: 'O botão + abre o lançamento de qualquer tela. Preencha o formulário ou escreva do seu jeito, como “gastei 30 no mercado”: você confere antes de salvar. Pagou por outra pessoa ou dividiu a compra? Marque ali mesmo: só a sua parte conta como gasto seu.', target: function(){ return pick('#fabAdd'); }},
+  {title: 'Bancos e cartões', text: 'Em Contas e cartões, cadastre cada banco: o saldo da conta e, nos cartões, o limite e os dias de fechamento e vencimento. Daí o app monta as faturas sozinho e mostra quanto sobra depois de pagá-las.', target: function(){ return isMobile() ? pick('#bottomnav [data-tab="cartoes"]') : pick('.sidenav [data-tab="cartoes"]'); }},
+  {title: 'Seu salário', text: 'Em “Previstas”, a calculadora estima o líquido (INSS, imposto, descontos, horas extras, 13º e férias) e aceita mais de um emprego. No dia do pagamento, o Início pergunta “já caiu?”. O 13º tem botão próprio.', target: function(){ return pick('#forecastToggle'); }, tab: 'lancamentos'},
+  {title: 'Importar o extrato do banco', text: 'Em Ganhos e gastos, “Importar extrato” lê o arquivo do banco: o OFX ou o CSV dão a leitura mais exata, e o PDF também funciona. Você confere tudo antes de importar e o app evita lançar duas vezes.', target: function(){ return pick('#importStmtBtn'); }, tab: 'lancamentos'},
+  {title: 'Planejar e guardar', text: function(){ return isMobile() ? 'Em “Mais” ficam Planejar gastos (quanto quer gastar por categoria), Metas, Compromissos (dívidas e quem te deve) e Conselhos. Contas fixas e vale-alimentação estão em Ganhos e gastos e em Contas e cartões.' : 'Em “Planejar gastos” você define quanto quer gastar por categoria; em “Metas”, junta dinheiro; em “Compromissos”, acompanha dívidas e quem te deve. Contas fixas e vale-alimentação ficam em Ganhos e gastos e em Contas e cartões.'; },
     target: function(){ return isMobile() ? pick('#moreBtn') : pick('.sidenav [data-tab="limites"]'); }},
-  {title: 'Dúvidas e sugestões', text: function(){ return isMobile() ? 'Precisa de ajuda ou quer sugerir algo? Em “Mais” há o botão “Ajuda e sugestões”, e o tutorial pode ser revisto lá também.' : 'Precisa de ajuda ou quer sugerir algo? Este botão envia a mensagem para o Grana Leve. O tutorial pode ser revisto em “Perfil e conta”.'; },
+  {title: 'Avisos e novidades', text: 'O sino mostra os avisos que chegaram e as novidades do app. Em Perfil você escolhe o que avisar (fatura, conta fixa, salário, vale), com quantos dias de antecedência e a que horas, e ainda programa os seus.', target: function(){ return pick('#noticesBtn'); }, tab: 'dashboard'},
+  {title: 'Dúvidas e sugestões', text: function(){ return isMobile() ? 'O Grana, no cantinho da tela, tira dúvidas sobre o app (a conversa fica no seu aparelho). Para pedir ajuda ou sugerir algo, use “Ajuda e sugestões”, em “Mais”.' : 'O Grana, no cantinho da tela, tira dúvidas sobre o app (a conversa fica no seu aparelho). Para pedir ajuda ou sugerir algo, use este botão. O tutorial pode ser revisto em “Perfil e conta”.'; },
     target: function(){ return isMobile() ? pick('#moreBtn') : pick('.help-cta'); }},
-  {title: 'Tudo pronto!', text: 'Que tal começar cadastrando o seu banco? Você pode voltar a este tutorial quando quiser.', target: function(){ return null; }, last: true}
+  {title: 'Tudo pronto!', text: 'Falta só configurar o essencial: seus bancos e cartões, o salário (se tiver) e algumas coisas úteis. Leva poucos minutos e você pula o que não tiver. Dá para refazer em Perfil.', target: function(){ return null; }, last: true}
 ];
 
 var root = null;
@@ -65,7 +62,7 @@ export function startTutorial(){
       root.remove(); root = null;
       setPref('tutorialDone', true);
       if (prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus();
-      if (finishAction === 'start'){ showTab('cartoes'); setTimeout(function(){ autoFocus(document.getElementById('accName')); }, 250); }
+      if (finishAction === 'start'){ setTimeout(function(){ withPart('setup', function(m){ m.openSetup(); }); }, 200); }
       resolve(finishAction || 'done');
     }
     function stepOf(){ return TUTORIAL_STEPS[i]; }
@@ -105,7 +102,7 @@ export function startTutorial(){
       qsa('i', stepsEls.dots).forEach(function(d, n){ d.className = n === i ? 'on' : n < i ? 'done' : ''; });
       var back = root.querySelector('[data-tut="back"]'), next = root.querySelector('[data-tut="next"]'), skip = root.querySelector('[data-tut="skip"]');
       back.hidden = i === 0;
-      next.textContent = s.last ? 'Cadastrar meu banco' : i === 0 ? 'Começar' : 'Próximo';
+      next.textContent = s.last ? 'Configurar agora' : i === 0 ? 'Começar' : 'Próximo';
       next.setAttribute('data-tut', s.last ? 'start' : 'next');
       skip.textContent = s.last ? 'Concluir' : 'Pular tutorial';
       skip.setAttribute('data-tut', s.last ? 'done' : 'skip');

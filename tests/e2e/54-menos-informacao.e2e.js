@@ -6,12 +6,12 @@ L.run(async ({page}) => {
   await L.signup(page);
 
   L.section('Primeiros passos');
-  L.ok(!(await page.$eval('#firstSteps', el => el.hidden)) && /0 de 3/.test(await L.text(page, '#firstSteps .fs-count')), 'conta nova vê “Primeiros passos” (0 de 3)');
+  L.ok(!(await page.$eval('#firstSteps', el => el.hidden)) && /0 de 4/.test(await L.text(page, '#firstSteps .fs-count')), 'conta nova vê “Primeiros passos” (0 de 4)');
   await page.$eval('#firstSteps [data-first-tx]', el => el.click()); await L.sleep(250);
   L.ok(await L.modalTitle(page) === 'Novo lançamento', '“Lançar agora” abre o lançamento');
   await L.setVal(page, '#mAmount', 40); await L.setVal(page, '#mDesc', 'Mercado');
   await L.submitModal(page); await L.sleep(300);
-  L.ok(/1 de 3/.test(await L.text(page, '#firstSteps .fs-count')) && await page.$$eval('#firstSteps li.done', l => l.length) === 1, 'lançar marca o passo como feito');
+  L.ok(/1 de 4/.test(await L.text(page, '#firstSteps .fs-count')) && await page.$$eval('#firstSteps li.done', l => l.length) === 1, 'lançar marca o passo como feito');
 
   L.section('Aviso com Desfazer');
   const t = await page.$$eval('#toastWrap .toast-action', ts => ts.map(x => x.textContent).join(' | '));

@@ -59,14 +59,14 @@ L.run(async ({page}) => {
 
   L.section('Próximos pagamentos levam para a área certa');
   await L.tab(page, 'dashboard');
-  await page.click('[data-sum-more="3"]'); await L.sleep(150);
+  await page.$eval('[data-sum-more="3"]', el => el.click()); await L.sleep(150);   // pelo elemento: com os Primeiros passos mais altos, o botão fica sob o + flutuante
   const rows = await page.$$eval('#sumD3 a.sum-row-link', as => as.map(a => [a.getAttribute('data-go'), a.textContent.replace(/\s+/g, ' ')]));
   // A lista mostra os 5 mais urgentes (aqui, faturas atrasadas vêm antes); a conta fixa está na lista completa.
   const all = await page.evaluate(() => import('/js/ui/home-tab.js').then(m => m.upcomingCommitments().map(c => [c.go, c.title, c.note])));
   L.ok(all.some(r => r[0] === 'fixas' && r[1] === 'Internet' && r[2] === 'conta fixa'), 'conta fixa leva para Contas fixas');
   L.ok(rows.some(r => r[0] === 'dividas' && /Empréstimo · Tia Rosa/.test(r[1]) && /parcela 3 de 8/.test(r[1])), 'dívida diz a quem e qual parcela');
   L.ok(rows.some(r => r[0] === 'cartoes' && /Fatura Nubank/.test(r[1])), 'fatura leva para Contas e cartões');
-  await page.click('#sumD3 a.sum-row-link[data-go="cartoes"]'); await L.sleep(200);
+  await page.$eval('#sumD3 a.sum-row-link[data-go="cartoes"]', el => el.click()); await L.sleep(200);
   L.ok(!(await page.$eval('#tab-cartoes', el => el.hidden)), 'tocar no item abre a área dele');
 
   L.section('Áreas com o nome certo');

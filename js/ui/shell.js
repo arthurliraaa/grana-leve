@@ -808,6 +808,11 @@ async function clickCommitments(t, e){
     if ((el = t.closest('[data-recv-charge]'))){ chargeReceivable(el.getAttribute('data-recv-charge')); return true; }
     if ((el = t.closest('[data-recv-share]'))){ shareRecv(el.getAttribute('data-recv-share')); return true; }
     if (t.closest('[data-help]')){ openFeedback('ajuda'); return true; }
+    if (t.closest('[data-first-nosalary]')){ setPref('noSalary', true); renderAll(); return true; }
+    if (t.closest('[data-setup]')){
+      var sx = document.querySelector('#modalRoot:not([hidden]) .modal-x'); if (sx) sx.click();
+      setTimeout(function(){ withPart('setup', function(m){ m.openSetup(); }); }, 150); return true;
+    }
     if (t.closest('[data-tutorial]')){
       var mx = document.querySelector('#modalRoot:not([hidden]) .modal-x'); if (mx) mx.click();
       setTimeout(startTutorial, 150); return true;
@@ -852,6 +857,7 @@ var PARTS = {
   simulator: function(){ return import('./simulator.js').then(function(m){ m.wireSimulator(); return m; }); },
   statement: function(){ return import('./import-statement.js'); },
   mascotChat: function(){ return import('./mascot-chat.js'); },
+  setup: function(){ return import('./setup.js'); },
   salary: function(){ return import('./salary-plan.js').then(function(m){ return import('./salary-calc.js').then(function(c){ return Object.assign({}, m, c); }); }); }
 };
 var partLoads = {};

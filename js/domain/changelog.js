@@ -5,6 +5,10 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-28', title: 'Tutorial novo e configuração rápida', items: [
+    {title: 'Configuração rápida', go: 'perfil', text: 'Em poucos passos: seus bancos e cartões (saldo, limite e dias da fatura), o salário e extras como vale-alimentação, contas fixas, limites e avisos. Fica em Perfil e nos Primeiros passos do Início.'},
+    {title: 'Tutorial mais direto', go: 'perfil', text: 'Revisamos o tutorial para mostrar só o que importa: lançar gastos, bancos e cartões, salário, extrato, avisos e a ajuda.'}
+  ]},
   {id: '2026-11-27', title: 'O dia em que o vale cai', items: [
     {title: 'Data do vale-alimentação', go: 'cartoes', text: 'No cadastro do vale, informe o dia do mês em que ele cai. O cartão mostra o próximo crédito, o calendário marca o dia e, se quiser, o app avisa quando o vale cair.'}
   ]},

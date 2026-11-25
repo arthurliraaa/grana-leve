@@ -10,7 +10,7 @@ import * as Cards from '../domain/cards.js';
 import {invoiceLabel} from '../domain/cards.js';
 
 import {badgeHtml, pickerHtml, readPicker, wirePicker} from './brand-picker.js';
-import {lookOf} from '../domain/brands.js';
+import {lookOf, detectBank} from '../domain/brands.js';
 import {Store} from '../data/store.js';
 import {escapeHtml, icon, optionsHtml, qs, qsa, toast} from './dom.js';
 import {confirmAction, openModal} from './modal.js';
@@ -412,6 +412,26 @@ function feeTxs(card, key, c){
       description: c.mode === 'parcelado' ? 'Juros do parcelamento da fatura de ' + label + ' (' + (i + 1) + '/' + n + ')' : 'Juros do rotativo da fatura de ' + label,
       createdAt: now + i};
   });
+}
+
+// Cadastra um banco (conta com saldo e/ou cartão), pelo assistente de configuração. Devolve {acc, card} ou {error}.
+export async function addBank(o){
+  var name = String(o.name || '').trim();
+  if (!name) return {error: 'Dê um nome para o banco.'};
+  if (!o.hasAcc && !o.hasCard) return {error: 'Marque o que você tem nesse banco: conta, cartão ou os dois.'};
+  var cardV = null;
+  if (o.hasCard){ cardV = readCardFields(name, o.limit, o.closing, o.due); if (cardV.error) return cardV; }
+  var det = detectBank(name), look = {bank: det ? det.id : null, color: null, mark: null}, acc = null, card = null;
+  if (o.hasAcc){
+    acc = await Store.add(k(), 'accounts', Object.assign({name: name, initialBalance: o.balance === '' || o.balance == null ? 0 : money(o.balance), baseDate: todayKey(), baseAt: Date.now(), createdAt: Date.now()}, look));
+    State.accounts.push(acc);
+  }
+  if (cardV){
+    card = await Store.add(k(), 'cards', Object.assign(cardV, look, {accountId: acc ? acc.id : null, paidInvoices: [], createdAt: Date.now()}));
+    State.cards.push(card);
+  }
+  renderAll();
+  return {acc: acc, card: card};
 }
 
 /* ---------- Vale-alimentação / refeição ---------- */
