@@ -1007,7 +1007,7 @@ button.user-chip:hover{ background: var(--surface-2); border-color: var(--border
 .cal-out{ color: var(--critical); font-weight:600; }
 .cal-dots{ display:flex; gap:3px; margin-top:auto; }
 .cal-dots i, .cal-legend i, .cal-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; }
-.ev-in{ background: var(--good); } .ev-out{ background: var(--warning); } .ev-card{ background: var(--brand); } .ev-recv{ background: #8e6cc2; }
+.ev-in{ background: var(--good); } .ev-out{ background: var(--warning); } .ev-card{ background: var(--brand); } .ev-recv{ background: #8e6cc2; } .ev-vale{ background: #d0a43a; }
 .cal-legend{ display:flex; flex-wrap:wrap; gap:4px 14px; font-size:.75rem; color: var(--text-secondary); margin:4px 0 12px; }
 .cal-legend span{ display:inline-flex; align-items:center; gap:5px; }
 .cal-events{ margin-top:10px; }
@@ -2369,3 +2369,6 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .notice-rel > summary small{ color: var(--text-muted); }
 .notice-rel[open] > summary{ border-bottom:1px solid var(--border); margin-bottom:6px; }
 .notice-rel .wn-list{ padding-bottom:10px; }
+
+.voucher-credit{ display:flex; align-items:center; gap:8px; margin:6px 0 0; font-size:.9rem; color: var(--text-secondary); }
+.voucher-credit .ico{ width:16px; height:16px; color: var(--brand); flex:none; }

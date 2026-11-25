@@ -16,7 +16,7 @@ import {openModal, confirmAction} from './modal.js';
 import {markSynced} from './synced-prefs.js';
 import {State} from './state.js';
 
-var KIND_LABEL = {salary: 'Salário: no dia em que deveria cair', invoice: 'Fatura do cartão: um dia antes de vencer', bill: 'Conta fixa: um dia antes de vencer'};
+var KIND_LABEL = {salary: 'Salário: no dia em que deveria cair', invoice: 'Fatura do cartão: um dia antes de vencer', bill: 'Conta fixa: um dia antes de vencer', voucher: 'Vale-alimentação: no dia em que cai'};
 
 function isIos(){ return /iphone|ipad|ipod/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
 function isInstalled(){ return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
@@ -75,7 +75,7 @@ export function pushCardHtml(){
 // O que o app avisaria nos próximos dias (para a central de avisos mostrar, mesmo sem os avisos ligados neste aparelho).
 export function upcomingReminders(horizon){
   var r = rules(), today = todayKey();
-  return buildReminders({today: today, horizon: horizon || 14, kinds: r.kinds, lead: r.lead, hour: r.hour, custom: r.custom, forecasts: State.forecasts, cards: State.cards, transactions: State.transactions, bills: State.bills,
+  return buildReminders({today: today, horizon: horizon || 14, kinds: r.kinds, lead: r.lead, hour: r.hour, custom: r.custom, forecasts: State.forecasts, cards: State.cards, transactions: State.transactions, bills: State.bills, vouchers: State.vouchers,
     paidOk: function(b, paid){ return !!findById(State.transactions, paid.txId); }});
 }
 export function pushIsOn(){ return !pushBlocker() && prefs().on; }
@@ -83,11 +83,11 @@ export function pushIsOn(){ return !pushBlocker() && prefs().on; }
 function reminderRows(){
   var p = prefs(), today = todayKey();
   var r = rules();
-  var list = buildReminders({today: today, horizon: 10, kinds: p.kinds, lead: r.lead, hour: r.hour, custom: r.custom, forecasts: State.forecasts, cards: State.cards, transactions: State.transactions, bills: State.bills,
+  var list = buildReminders({today: today, horizon: 10, kinds: p.kinds, lead: r.lead, hour: r.hour, custom: r.custom, forecasts: State.forecasts, cards: State.cards, transactions: State.transactions, bills: State.bills, vouchers: State.vouchers,
     paidOk: function(b, paid){ return !!findById(State.transactions, paid.txId); }});
   return list.map(function(r){
     var d = r.date.split('-');
-    return {dedupe_key: r.key, kind: r.kind, fire_at: new Date(Number(d[0]), Number(d[1]) - 1, Number(d[2]), r.hour || DEFAULT_HOUR, 0, 0).toISOString(), title: r.title, body: r.body, url: r.url};
+    return {dedupe_key: r.key, kind: r.kind === 'voucher' ? 'custom' : r.kind, fire_at: new Date(Number(d[0]), Number(d[1]) - 1, Number(d[2]), r.hour || DEFAULT_HOUR, 0, 0).toISOString(), title: r.title, body: r.body, url: r.url};
   });
 }
 // Agenda os próximos lembretes no servidor (e apaga os que não valem mais).

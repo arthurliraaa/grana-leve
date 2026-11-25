@@ -576,6 +576,7 @@
           <form id="voucherForm" class="new-item-form">
             <div class="field"><label for="vName">Nome</label><input id="vName" type="text" maxlength="30" placeholder="Ex: VR, Alelo" required></div>
             <div class="field"><label for="vAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="vAmount" type="text" data-money autocomplete="off" inputmode="decimal" required></span></div>
+            <div class="field"><label for="vDay">Dia em que o vale cai <span class="opt">(opcional)</span></label><input id="vDay" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Ex: 5"><span class="field-hint">Todo mês. Aparece no calendário e pode avisar.</span></div>
             <div class="field"><label for="vBalance">Saldo atual (opcional)</label><span class="money-input"><span>R$</span><input id="vBalance" type="text" data-money autocomplete="off" inputmode="decimal" placeholder="Se já tiver saldo"></span></div>
             <div class="field"><label class="check" style="margin-top:22px"><input type="checkbox" id="vCarry" checked> Saldo acumula de um mês para o outro</label></div>
             <div class="f-submit"><button class="btn btn-primary" type="submit">Adicionar vale</button></div>

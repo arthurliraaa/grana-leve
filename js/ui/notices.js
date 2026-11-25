@@ -16,7 +16,7 @@ import {upcomingReminders, pushIsOn} from './push.js';
 import {State} from './state.js';
 import {showTab} from './shell.js';
 
-var KIND_LABEL = {salary: 'Salário', invoice: 'Fatura', bill: 'Conta fixa', custom: 'Lembrete', statement: 'Extrato'};
+var KIND_LABEL = {salary: 'Salário', invoice: 'Fatura', bill: 'Conta fixa', voucher: 'Vale', custom: 'Lembrete', statement: 'Extrato'};
 var history = [];
 
 // Novidades do app que a pessoa ainda não viu. Quem já viu o aviso de novidades (popup) não é avisado de novo; conta nova e vazia não tem o que “atualizar”.

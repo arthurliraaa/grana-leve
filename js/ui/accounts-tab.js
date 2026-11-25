@@ -2,7 +2,8 @@
  * Contas bancárias, transferências e vale-alimentação.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, monthKeyOf, formatDateBr, validDateStr, monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
+import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
+import {creditDay, nextCredit} from '../domain/vouchers.js';
 import {money, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import * as Cards from '../domain/cards.js';
@@ -415,6 +416,12 @@ function feeTxs(card, key, c){
 
 /* ---------- Vale-alimentação / refeição ---------- */
 
+// “Cai todo dia 5 · próximo em 05/12/2026 (em 12 dias)”; vazio se a pessoa não informou o dia.
+function creditLine(v){
+  var next = nextCredit(v, todayKey());
+  if (!next) return '';
+  return '<p class="voucher-credit">' + icon('calendar') + '<span>Cai todo dia ' + creditDay(v) + ' · ' + (next.days === 0 ? '<strong>cai hoje</strong>' : 'próximo em ' + formatDateFull(next.date) + ' (' + (next.days === 1 ? 'amanhã' : 'em ' + next.days + ' dias') + ')') + '</span></p>';
+}
 export function renderVouchers(){
   var wrap = document.getElementById('voucherList');
   if (!State.vouchers.length){ wrap.innerHTML = ''; return; }
@@ -429,6 +436,7 @@ export function renderVouchers(){
       '<div class="goal-figs"><span>Saldo disponível</span><strong class="tabular ' + (bal < 0 ? 'neg-text' : '') + '">' + fmtMoney(bal) + '</strong></div>' +
       '<div class="progress" title="Gasto do crédito deste mês"><span style="width:' + (pct*100) + '%; background:' + (pct >= 1 ? 'var(--critical)' : pct >= 0.8 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
       '<div class="meta-line"><span>Cai por mês: ' + fmtMoney(v.amount) + '</span><span>Gasto em ' + monthLabelOf(cur) + ': ' + fmtMoney(spent) + '</span></div>' +
+      creditLine(v) +
       (monthTx.length ? '<details class="budget-details"><summary>Ver ' + monthTx.length + ' gasto(s) deste mês</summary>' + monthTx.map(txRowHtml).join('') + '</details>' : '') +
       '<div class="card-actions">' +
         '<button class="btn btn-ghost btn-sm" type="button" data-voucher-edit="' + v.id + '">Editar</button>' +
@@ -443,12 +451,15 @@ export async function editVoucher(id){
     title: 'Editar vale',
     body: '<div class="field"><label for="evName">Nome</label><input id="evName" name="name" type="text" maxlength="30" value="' + escapeHtml(v.name) + '"></div>' +
       '<div class="field"><label for="evAmount">Valor que cai por mês</label><span class="money-input"><span>R$</span><input id="evAmount" name="amount" type="text" data-money autocomplete="off" inputmode="decimal" value="' + v.amount + '"></span></div>' +
+      '<div class="field"><label for="evDay">Dia em que o vale cai <span class="opt">(opcional)</span></label><input id="evDay" name="day" type="number" min="1" max="31" step="1" inputmode="numeric" value="' + (creditDay(v) || '') + '" placeholder="Ex: 5"><span class="field-hint">Todo mês. Aparece no calendário e pode avisar.</span></div>' +
       '<div class="field"><label for="evBalance">Saldo atual</label><span class="money-input"><span>R$</span><input id="evBalance" name="balance" type="text" data-money autocomplete="off" inputmode="decimal" value="' + voucherBalance(v) + '"></span><span class="field-hint">Corrija aqui se o saldo do app estiver diferente do saldo real do cartão.</span></div>' +
       '<label class="check"><input type="checkbox" name="carry"' + (v.carryOver ? ' checked' : '') + '> Saldo acumula de um mês para o outro</label>',
     onSubmit: async function(form){
       var name = form.name.value.trim(), amount = money(form.amount.value);
       if (!name || !(amount > 0)) return {error:'Informe o nome e o valor mensal do vale.'};
-      var patch = {name:name, amount:amount, carryOver: form.carry.checked};
+      var dayRaw = String(form.day.value || '').trim(), day = Math.floor(Number(dayRaw));
+      if (dayRaw !== '' && !(day >= 1 && day <= 31)) return {error:'O dia em que o vale cai vai de 1 a 31.'};
+      var patch = {name:name, amount:amount, carryOver: form.carry.checked, creditDay: dayRaw === '' ? null : day};
       var bal = money(form.balance.value);
       if (form.carry.checked && bal !== voucherBalance(v)){ patch.initialBalance = bal; patch.startDate = todayKey(); patch.adjustedAt = Date.now(); }
       // Ao reajustar o saldo, gastos de hoje já lançados não podem descontar de novo.
@@ -515,7 +526,10 @@ export function wireWallet(){
     var amount = money(document.getElementById('vAmount').value);
     var balRaw = document.getElementById('vBalance').value;
     if (!name || !(amount > 0)){ toast('Informe o nome e quanto cai por mês no vale.'); return; }
+    var dayRaw = String(document.getElementById('vDay').value || '').trim(), day = Math.floor(Number(dayRaw));
+    if (dayRaw !== '' && !(day >= 1 && day <= 31)){ toast('O dia em que o vale cai vai de 1 a 31.'); return; }
     var v = {name:name, amount:amount, carryOver: document.getElementById('vCarry').checked, initialBalance: balRaw === '' ? null : money(balRaw), startDate: todayKey(), createdAt: Date.now()};
+    if (dayRaw !== '') v.creditDay = day;
     var saved = await Store.add(k(), 'vouchers', v);
     State.vouchers.push(saved);
     e.target.reset();

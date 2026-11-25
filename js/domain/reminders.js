@@ -5,19 +5,21 @@
  *   salário   → no dia em que deveria cair ("já caiu?")
  *   fatura    → um dia antes do vencimento, se ainda há o que pagar
  *   conta fixa → um dia antes do vencimento, se ainda não foi paga nem pulada
+ *   vale       → no dia em que o vale cai (se a pessoa informou o dia no cadastro do vale)
  * A pessoa programa: quantos dias antes cada um avisa (lead), a hora (hour) e avisos próprios (custom): “lançar os gastos”, “importar o
  * extrato” ou um lembrete com o texto dela, repetindo todo mês (dia), toda semana (dia da semana) ou uma vez (data).
  */
 import {forecastOccurrences} from './forecasts.js';
 import {invoiceDates, invoiceLeft, invoiceStatus} from './cards.js';
 import {billOccurrences} from './bills.js';
+import {creditDate} from './vouchers.js';
 import {shiftMonthKey, daysInMonth, pad2} from './dates.js';
 
-export var REMINDER_KINDS = ['salary', 'invoice', 'bill'];
+export var REMINDER_KINDS = ['salary', 'invoice', 'bill', 'voucher'];
 export var DEFAULT_HOUR = 9;
 export var MAX_CUSTOM = 10;
 export var CUSTOM_TYPES = ['expense', 'statement', 'custom'];
-export var DEFAULT_LEAD = {salary: 0, invoice: 1, bill: 1};
+export var DEFAULT_LEAD = {salary: 0, invoice: 1, bill: 1, voucher: 0};
 export var MAX_LEAD = 7;
 
 function int(v, lo, hi, dflt){ var n = Math.round(Number(v)); return isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt; }
@@ -37,7 +39,7 @@ export function cleanCustom(c){
 // legacyKinds: o formato antigo (prefs.push.kinds), usado enquanto a pessoa ainda não mexeu nas regras novas.
 export function normalizeRules(raw, legacyKinds){
   var r = raw && typeof raw === 'object' ? raw : {};
-  var kinds = Object.assign({salary: true, invoice: true, bill: true}, legacyKinds || {}, r.kinds || {});
+  var kinds = Object.assign({salary: true, invoice: true, bill: true, voucher: true}, legacyKinds || {}, r.kinds || {});
   var lead = {};
   REMINDER_KINDS.forEach(function(k){ lead[k] = int(r.lead && r.lead[k], 0, MAX_LEAD, DEFAULT_LEAD[k]); });
   var custom = (Array.isArray(r.custom) ? r.custom : []).map(cleanCustom).filter(Boolean).slice(0, MAX_CUSTOM);
@@ -61,7 +63,7 @@ export function addDaysKey(dateKey, n){
 function dueIn(n){ n = Number(n) || 0; return n === 0 ? 'hoje' : n === 1 ? 'amanhã' : 'em ' + n + ' dias'; }
 function clip(s, n){ s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 
-// ctx: {today: 'AAAA-MM-DD', horizon (dias, padrão 10), kinds: {salary, invoice, bill} (true liga), lead: {salary, invoice, bill} (dias de antecedência),
+// ctx: {today: 'AAAA-MM-DD', horizon (dias, padrão 10), kinds: {salary, invoice, bill, voucher} (true liga), lead: {salary, invoice, bill, voucher} (dias de antecedência), vouchers,
 //       hour (hora dos avisos do app), custom: [avisos da pessoa], forecasts, cards, transactions, bills, paidOk}
 export function buildReminders(ctx){
   var today = ctx.today, last = addDaysKey(today, ctx.horizon || 10), kinds = ctx.kinds || {}, out = [], curKey = today.slice(0, 7);
@@ -97,6 +99,17 @@ export function buildReminders(ctx){
         var skipped = !!((o.b.paid || {})[key] || {}).skipped;
         if (o.paid || skipped) return;
         add({key: 'bill:' + o.b.id + ':' + key, kind: 'bill', date: addDaysKey(o.date, -(Number(lead.bill) || 0)), title: 'Conta a vencer', body: 'A conta ' + o.b.name + ' vence ' + dueIn(lead.bill) + '.', url: './#/lancamentos'});
+      });
+    });
+  }
+  if (kinds.voucher){
+    (ctx.vouchers || []).forEach(function(v){
+      keys.forEach(function(key){
+        var d = creditDate(v, key);
+        if (!d) return;
+        var n = Number(lead.voucher) || 0;
+        add({key: 'voucher:' + v.id + ':' + key, kind: 'voucher', date: addDaysKey(d, -n), title: 'Vale-alimentação',
+          body: n > 0 ? 'O vale ' + v.name + ' cai ' + (n === 1 ? 'amanhã' : 'em ' + n + ' dias') + '.' : 'O vale ' + v.name + ' cai hoje.', url: './#/contas'});
       });
     });
   }

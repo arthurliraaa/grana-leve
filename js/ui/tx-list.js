@@ -3,6 +3,7 @@
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
 import {todayKey, formatDateBr, formatDateFull, validDateStr, monthBounds, shiftMonthKey, monthsBetween} from '../domain/dates.js';
+import {creditDate} from '../domain/vouchers.js';
 import {money, sumMoney, fmtMoney} from '../domain/money.js';
 import {findById, sum} from '../domain/util.js';
 import * as Cats from '../domain/categories.js';
@@ -291,6 +292,10 @@ export function monthEvents(key){
       if (dts.due.slice(0, 7) === key && total > 0 && invoiceStatus(c, ik) !== 'paga') out.push({date: dts.due, kind: 'fatura', label: 'Fatura ' + c.name, amount: total});
     });
   });
+  State.vouchers.forEach(function(v){
+    var d = creditDate(v, key);
+    if (d) out.push({date: d, kind: 'vale', label: v.name, amount: Number(v.amount) || 0});
+  });
   State.receivables.forEach(function(r){
     var left = recvRemaining(r), due = recvNextDue(r);
     if (left > 0 && due && due.slice(0, 7) === key) out.push({date: due, kind: 'receber', label: r.person + (r.description ? ' · ' + r.description : ''), amount: recvNextAmount(r)});
@@ -299,7 +304,7 @@ export function monthEvents(key){
   var other = !!document.getElementById('txSearch').value.trim() || document.getElementById('txFilterCat').value !== 'all' || document.getElementById('txFilterPay').value !== 'all';
   return out.filter(function(e){
     if (other || type === 'others') return false;
-    if (type === 'income') return e.kind === 'previsto' || e.kind === 'receber';
+    if (type === 'income') return e.kind === 'previsto' || e.kind === 'receber' || e.kind === 'vale';
     if (type === 'expense') return e.kind === 'fixa' || e.kind === 'fatura';
     return true;
   });

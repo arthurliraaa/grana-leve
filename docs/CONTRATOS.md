@@ -290,3 +290,8 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - Sem conta online não há histórico (só os próximos). O número no sino conta os enviados depois de `prefs.noticesSeenAt` (por aparelho). Tocar num aviso leva à tela dele (`safeAppUrl`).
 - **Novidades do app** (`CHANGELOG` de `js/domain/changelog.js`) também aparecem na central, as 5 últimas, com a nova aberta e o botão “Ver” (leva à tela). O número do sino soma avisos novos e novidades ainda não vistas (`prefs.noticesNewsSeen`; quem já viu o popup de novidades, `whatsNewSeen`, não é avisado de novo; conta nova e vazia não tem o que “atualizar”). Toda entrega visível acrescenta uma entrada no changelog (regra do CLAUDE.md), então ela vira aviso no sino sozinha.
 - Teste: `tests/e2e/81-central-de-avisos.e2e.js`; contas puras em `tests/unit/reminders.test.js` (`whenLabel`, `sentHistory`, `unseenCount`).
+
+## Dia em que o vale cai (`voucher.creditDay`)
+- Campo opcional (1 a 31) no cadastro e na edição do vale-alimentação/refeição (Contas e cartões). `creditDay`, `creditDate` (mês curto cai no último dia) e `nextCredit` ficam em `js/domain/vouchers.js`. É **informativo**: não muda o saldo do vale (o crédito mensal continua contado como antes); vale antigo sem o dia segue igual.
+- Aparece no cartão do vale (“Cai todo dia 5 · próximo em 05/12/2026 (em 18 dias)”), no calendário de Ganhos e gastos (tipo `vale`, ponto dourado, conta como entrada no filtro) e nos avisos: tipo `voucher` (liga/desliga e antecedência em Perfil, no dia por padrão). No banco o aviso do vale vai como tipo `custom` (`reminderRows` converte), então não precisa de migração nova.
+- Teste: `tests/unit/vale-dia.test.js` e `tests/e2e/82-vale-dia.e2e.js`.

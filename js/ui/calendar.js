@@ -12,7 +12,8 @@ export var EVENT_KINDS = {
   previsto: {label: 'Entrada prevista', cls: 'ev-in'},
   fixa: {label: 'Conta fixa', cls: 'ev-out'},
   fatura: {label: 'Vencimento de fatura', cls: 'ev-card'},
-  receber: {label: 'A receber', cls: 'ev-recv'}
+  receber: {label: 'A receber', cls: 'ev-recv'},
+  vale: {label: 'Vale cai', cls: 'ev-vale'}
 };
 
 // Valor curto para caber na célula do dia: 85, 1,2 mil.

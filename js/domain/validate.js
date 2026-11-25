@@ -58,7 +58,10 @@ var RULES = {
     if (!optText(c.emoji, 16) || !optText(c.color, 40)) return 'emoji ou cor inválidos';
     return '';
   },
-  vouchers: function(v){ return isText(v.name, 60) && isNum(Number(v.amount)) ? '' : 'vale inválido'; },
+  vouchers: function(v){
+    if (v.creditDay !== undefined && v.creditDay !== null && v.creditDay !== '' && !(Number(v.creditDay) >= 1 && Number(v.creditDay) <= 31)) return 'dia em que o vale cai inválido';
+    return isText(v.name, 60) && isNum(Number(v.amount)) ? '' : 'vale inválido';
+  },
   bills: function(b){ return isText(b.name, 60) && isNum(Number(b.amount)) && /^\d{4}-\d{2}$/.test(String(b.startMonth)) ? '' : 'conta fixa inválida'; }
 };
 

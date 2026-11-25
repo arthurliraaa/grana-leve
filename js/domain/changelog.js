@@ -5,6 +5,9 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-27', title: 'O dia em que o vale cai', items: [
+    {title: 'Data do vale-alimentação', go: 'cartoes', text: 'No cadastro do vale, informe o dia do mês em que ele cai. O cartão mostra o próximo crédito, o calendário marca o dia e, se quiser, o app avisa quando o vale cair.'}
+  ]},
   {id: '2026-11-26', title: 'Central de avisos', items: [
     {title: 'O sininho no topo', go: 'dashboard', text: 'Toque no sino para ver os avisos que já chegaram (como o do salário) e os próximos que vêm por aí. Um número no sino conta os que chegaram desde a última vez que você olhou.'},
     {title: 'As atualizações do app também ficam no sino', go: 'dashboard', text: 'Quando o app ganhar novidades, o sino mostra um número e elas ficam guardadas ali, em “Novidades do app”, para você rever quando quiser.'}
