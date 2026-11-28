@@ -2392,3 +2392,6 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .salary-benefits{ display:grid; gap:6px; margin-top:8px; }
 .salary-benefit{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; font-size:.9rem; }
 @media (max-width: 620px){ .sc-d-day{ min-height:44px; } }
+
+.salary-got{ margin-left:8px; vertical-align:middle; }
+.salary-benefit-acts{ display:inline-flex; align-items:center; gap:8px; }

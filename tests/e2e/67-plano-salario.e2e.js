@@ -43,7 +43,7 @@ L.run(async ({page}) => {
 
   L.section('Próximo salário');
   L.ok(/próximo no 5º dia útil · 05\/12\/2026/.test(await L.text(page, '#salaryCard')), 'o Início mostra o próximo salário (05/12/2026)');
-  L.ok(await page.$eval('#salaryCard', e => !/Já caiu/.test(e.textContent)), 'não pergunta de novo: já foi confirmado');
+  L.ok(await page.$eval('#salaryCard', e => !/Já caiu|deveria ter caído/.test(e.textContent)), 'não pergunta de novo: já foi confirmado (o de dezembro ainda está longe)');
 
   L.section('Reajuste e evolução');
   await page.$eval('[data-salary-open]', e => e.click()); await L.sleep(300);
