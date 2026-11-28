@@ -311,5 +311,6 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 
 ## “Já caiu” à mão (salário e benefícios)
 - O cartão do salário (cada previsão) e “Meu salário” têm **Já caiu** / **Registrar que caiu** mesmo antes da data: registra a primeira vez ainda não recebida a partir do mês atual (`nextPending`, olha até 3 meses). Se a pendente é de outro mês, o botão diz qual: “Já caiu (dezembro)”; no cartão do Início o do mês que vem só aparece a partir de 10 dias antes da data (`EARLY_DAYS`, para ninguém registrar por engano), e em “Meu salário” está sempre disponível. O dia em que caiu vem preenchido com hoje (se a data prevista não chegou).
+- **Pergunta automática** (`salary.ask`, padrão ligada): a caixa “Perguntar já caiu? sozinho” em “Meu salário” desliga o popup ao abrir o app (`salaryDue(true)`); o cartão e o botão continuam. Vale por previsão e sincroniza com a conta.
 - Os benefícios separados têm “Recebi” (e “Recebi (dezembro)” depois que o do mês foi registrado). O app continua perguntando sozinho quando a data chega.
 - Teste: `tests/e2e/85-caiu-manual.e2e.js`.

@@ -55,6 +55,28 @@ L.run(async ({page}) => {
   const perto = await L.text(page, '#salaryCard');
   L.ok(/Já caiu \(dezembro\)/.test(perto), 'a 6 dias do salário de dezembro, o cartão mostra “Já caiu (dezembro)”');
 
+  L.section('Desligar a pergunta automática');
+  await L.patchDb(page, `u.forecasts.forEach(function(f){ if (f.salary){ f.salary.rule = {type: 'day', day: 5}; f.date = '2026-11-05'; f.received = {}; } });`, {});
+  await page.evaluate(key => { const k = 'granaleve_prefs_' + key; const c = JSON.parse(localStorage.getItem(k) || '{}'); delete c.salaryAskedOn; localStorage.setItem(k, JSON.stringify(c)); }, email.toLowerCase());
+  await L.reload(page); await L.sleep(900);
+  L.ok(await L.modalOpen(page) && /caiu\?/.test(await L.modalTitle(page)), 'ligada (padrão): o app pergunta sozinho quando a data passou');
+  await L.closeModal(page); await L.sleep(200);
+  await L.tab(page, 'dashboard'); await L.sleep(300);
+  await page.$eval('#salaryCard [data-salary-open]', e => e.click()); await L.sleep(500);
+  L.ok(await page.$eval('input[name=autoask]', e => e.checked), '“Meu salário” mostra a opção marcada');
+  await page.$eval('input[name=autoask]', e => e.click());
+  await L.submitModal(page); await L.sleep(900);
+  if (await L.modalOpen(page)) await L.closeModal(page);
+  L.ok((await L.db(page)).forecasts.find(f => f.salary).salary.ask === false, 'desmarcar fica guardado na previsão (vale em todos os aparelhos)');
+  await page.evaluate(key => { const k = 'granaleve_prefs_' + key; const c = JSON.parse(localStorage.getItem(k) || '{}'); delete c.salaryAskedOn; localStorage.setItem(k, JSON.stringify(c)); }, email.toLowerCase());
+  await L.reload(page); await L.sleep(1200);
+  L.ok(!(await L.modalOpen(page)), 'desligada: não abre a pergunta');
+  await L.tab(page, 'dashboard'); await L.sleep(300);
+  L.ok(!!(await page.$('#salaryCard [data-salary-confirm]')), 'mas o cartão continua com o botão “Já caiu”');
+  await page.$eval('#salaryCard [data-salary-confirm]', e => e.click()); await L.sleep(500);
+  L.ok(/caiu\?/.test(await L.modalTitle(page)), 'e o botão abre a confirmação quando a pessoa quiser');
+  await L.closeModal(page); await L.sleep(300);
+
   L.section('Celular');
   await page.setViewport({width: 375, height: 800, isMobile: true, hasTouch: true});
   await L.tab(page, 'dashboard'); await L.sleep(300);

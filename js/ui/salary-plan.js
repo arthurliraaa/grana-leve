@@ -38,9 +38,10 @@ export function hydrateSalaryProfile(){
 function withProfile(plan, jobId){ return Object.assign({}, plan, {jobId: jobId, jobName: jobName(jobId), profile: getWorkProfile(jobId)}); }
 
 // Próximo salário a confirmar (de qualquer emprego): o mês mais antigo (anterior ou atual) cuja data já chegou e que ainda não foi recebido.
-export function salaryDue(){
+// autoOnly: só os que a pessoa deixou perguntar sozinho (a caixa em “Meu salário”).
+export function salaryDue(autoOnly){
   var cur = monthBounds(0).key, today = todayKey(), found = null;
-  salaryForecasts().forEach(function(f){
+  salaryForecasts().filter(function(f){ return !autoOnly || f.salary.ask !== false; }).forEach(function(f){
     [shiftMonthKey(cur, -1), cur].forEach(function(key){
       if (key < monthKeyOf(f.date)) return;
       var occ = forecastOccurrences(key).filter(function(o){ return o.f.id === f.id; })[0];
@@ -127,7 +128,7 @@ export function confirmSalaryById(forecastId){
 // Ao abrir o app: se o salário deveria ter caído e ainda não foi confirmado, pergunta (uma vez por dia).
 export function askSalaryIfDue(){
   if (getPrefs().salaryAskedOn === todayKey()) return;
-  var due = salaryDue();
+  var due = salaryDue(true);
   if (due) setTimeout(function(){ if (!document.querySelector('#modalRoot .modal')) confirmSalary(due); }, 400);
 }
 
@@ -301,7 +302,9 @@ export async function openSalaryPlan(presetRule, jobId){
   var r = await openModal({
     title: multi ? 'Meu salário · ' + jobName(myJob) : 'Meu salário', wide: true, submitLabel: f ? 'Salvar alterações' : 'Prever meu salário todo mês', cancelLabel: 'Fechar',
     body: '<div class="sc-body">' + jobSel + '<div id="spCalc">' + calcHtml(calc) + '<button type="button" class="btn btn-ghost btn-sm" data-sp-calc>' + (calc ? 'Recalcular o líquido' : 'Calcular o líquido do salário') + '</button></div>' +
-      ruleHtml(presetRule || (f && f.salary.rule)) + skipHtml +
+      ruleHtml(presetRule || (f && f.salary.rule)) +
+      '<label class="check sp-ask"><input type="checkbox" name="autoask"' + (!f || f.salary.ask !== false ? ' checked' : '') + '> Perguntar “já caiu?” sozinho quando a data chegar</label>' +
+      '<p class="field-hint sp-ask-hint">Desmarcado, o app não abre a pergunta: você registra pelo botão “Já caiu” quando o dinheiro entrar.</p>' + skipHtml +
       (f && nextPending(f) ? '<section class="sp-13"><h4>Caiu antes da data?</h4><p class="field-hint">Registre quando o dinheiro entrar, sem esperar o app perguntar.</p><button type="button" class="btn btn-soft btn-sm" data-sp-got>Registrar que caiu' + monthSuffix(nextPending(f).key) + '</button></section>' : '') +
       '<section class="sp-13"><h4>13º salário</h4><p class="field-hint">Pode ser registrado antes do salário do mês: a 1ª parcela costuma cair até 30/11 e a 2ª até 20/12.</p>' +
         '<button type="button" class="btn btn-soft btn-sm" data-sp-13>Registrar o 13º salário</button></section>' +
@@ -319,7 +322,7 @@ export async function openSalaryPlan(presetRule, jobId){
     },
     onSubmit: function(form){
       if (!activeSalary()) return {error: 'Calcule o líquido do salário primeiro.'};
-      return {rule: readRule(form), skipNow: !!(form.skipNow && form.skipNow.checked)};
+      return {rule: readRule(form), skipNow: !!(form.skipNow && form.skipNow.checked), ask: !!(form.autoask && form.autoask.checked)};
     }
   });
   if (!r || r === true) return;
@@ -342,20 +345,20 @@ export async function openSalaryPlan(presetRule, jobId){
     // Mudou o salário ou o líquido: vale a partir deste mês, ou do próximo se o deste mês já foi recebido (o recebido não muda).
     if (r.skipNow && !(f.received && f.received[cur] !== undefined)) await skipMonth(f, cur, c.fixedNet);
     var from = f.received && f.received[cur] !== undefined ? shiftMonthKey(cur, 1) : cur;
-    var plan = withProfile(withStep(Object.assign({}, f.salary, {rule: r.rule}), from, c.gross, c.fixedNet), jid);
+    var plan = withProfile(withStep(Object.assign({}, f.salary, {rule: r.rule, ask: r.ask}), from, c.gross, c.fixedNet), jid);
     await Store.update(k(), 'forecasts', f.id, {salary: plan, date: payDate(r.rule, monthKeyOf(f.date))});
     f.salary = plan; f.date = payDate(r.rule, monthKeyOf(f.date));
     await syncBenefits(jid, r.skipNow);
   } else {
     var many = getJobs().list.length > 1;
     var doc = {description: many ? 'Salário · ' + jobName(jid) : 'Salário', amount: c.fixedNet, date: payDate(r.rule, cur), recurring: true, category: 'salario', received: {}, createdAt: Date.now(),
-      salary: {rule: r.rule, steps: [{from: cur, gross: c.gross, net: c.fixedNet}], months: {}, jobId: jid, jobName: jobName(jid), profile: getWorkProfile(jid)}};
+      salary: {rule: r.rule, ask: r.ask, steps: [{from: cur, gross: c.gross, net: c.fixedNet}], months: {}, jobId: jid, jobName: jobName(jid), profile: getWorkProfile(jid)}};
     var saved = await Store.add(k(), 'forecasts', doc);
     State.forecasts.push(saved);
     if (r.skipNow) await skipMonth(saved, cur, c.fixedNet);
     await syncBenefits(jid, r.skipNow);
   }
   renderDashboard(); renderTransactionsTab();
-  toast('Salário previsto ' + ruleLabel(r.rule) + '.' + (r.skipNow ? ' O deste mês não conta: vale a partir do mês que vem.' : ''));
+  toast('Salário previsto ' + ruleLabel(r.rule) + '.' + (r.skipNow ? ' O deste mês não conta: vale a partir do mês que vem.' : '') + (r.ask ? '' : ' O app não vai perguntar sozinho: use “Já caiu”.'));
   askSalaryIfDue();
 }

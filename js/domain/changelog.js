@@ -6,7 +6,8 @@
  */
 export var CHANGELOG = [
   {id: '2026-11-30', title: 'Registrar quando o dinheiro cair', items: [
-    {title: 'Botão “Já caiu” a qualquer momento', go: 'dashboard', text: 'No cartão do salário e em “Meu salário”, registre o salário ou um benefício assim que entrar, mesmo antes da data prevista. O do mês seguinte aparece perto da data.'}
+    {title: 'Botão “Já caiu” a qualquer momento', go: 'dashboard', text: 'No cartão do salário e em “Meu salário”, registre o salário ou um benefício assim que entrar, mesmo antes da data prevista. O do mês seguinte aparece perto da data.'},
+    {title: 'Sem pergunta automática, se preferir', go: 'dashboard', text: 'Em “Meu salário”, desmarque “Perguntar já caiu? sozinho” para o app não abrir a pergunta: você registra pelo botão quando quiser.'}
   ]},
   {id: '2026-11-29', title: 'Benefícios que caem antes do salário', items: [
     {title: 'Auxílio home office e outros, em outro dia', go: 'lancamentos', text: 'Na calculadora do salário, marque “Cai separado do salário” e o dia: o benefício vira uma previsão própria, com “Recebi” no cartão do salário, e o salário não o conta de novo.'}
