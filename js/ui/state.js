@@ -114,7 +114,17 @@ export function installmentGroups(){ return Tx.installmentGroups(State.transacti
 export function invoiceItems(card, key){ return Cards.invoiceItems(State.transactions, card, key); }
 export function invoiceStatus(card, key){ return Cards.invoiceStatus(card, key, todayKey(), State.transactions); }
 export function cardUsed(card){ return Cards.cardUsed(State.transactions, card, todayKey()); }
-export function forecastOccurrences(key){ return Fc.forecastOccurrences(State.forecasts, key); }
+// Previsões como valem hoje: um ganho “recebido antes” cujo lançamento foi apagado deixa de abater o salário previsto.
+function liveForecasts(){
+  return State.forecasts.map(function(f){
+    var paid = f.salary && f.salary.paid;
+    if (!paid) return f;
+    var live = {};
+    Object.keys(paid).forEach(function(m){ live[m] = paid[m].filter(function(p){ return !p.txId || !!findById(State.transactions, p.txId); }); });
+    return Object.assign({}, f, {salary: Object.assign({}, f.salary, {paid: live})});
+  });
+}
+export function forecastOccurrences(key){ return Fc.forecastOccurrences(liveForecasts(), key); }
 export function voucherOf(t){ return Vouchers.voucherOf(t, State.vouchers); }
 export function voucherTx(v){ return Vouchers.voucherTx(v, State.transactions, State.vouchers); }
 export function voucherBalance(v){ return Vouchers.voucherBalance(v, State.transactions, State.vouchers, todayKey()); }

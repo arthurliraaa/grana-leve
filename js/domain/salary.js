@@ -134,6 +134,16 @@ export var BONUS_TYPES = [
   {id: 'outro', label: 'Outro ganho', taxable: true}
 ];
 export function bonusAmount(b, base){ return discountAmount(b, base); }
+function bonusLabel(b){
+  /** @type {any} */
+  var meta = BONUS_TYPES.filter(function(t){ return t.id === b.type; })[0] || {};
+  return b.label || meta.label || 'Ganho extra';
+}
+// Ganhos que vêm JUNTO do salário (os não separados), com o valor do mês: [{type, label, amount, varies}].
+export function monthBonuses(opts, gross){
+  return (opts.bonuses || []).filter(function(b){ return !b.separate; }).map(function(b){ return {type: b.type || 'outro', label: bonusLabel(b), amount: bonusAmount(b, gross), varies: !!b.varies}; })
+    .filter(function(x){ return x.amount > 0; });
+}
 // Dia do mês (1 a 31) em que um ganho que cai separado do salário é pago; sem dia informado, o dia 1.
 export function bonusDay(b){ var d = Math.floor(Number(b && b.day)); return d >= 1 && d <= 31 ? d : 1; }
 // Ganhos que caem SEPARADOS do salário (auxílio home office antes do dia do pagamento, por exemplo): [{type, label, amount, day, varies}].
@@ -147,7 +157,8 @@ function separateBonuses(opts, base, withVariable){
 
 // Líquido estimado. opts: {regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps,
 // meiKind, inssKind, simplesRate, otherPct, bonuses, sobreaviso}. fgts: o que a empresa deposita (8%, só CLT), fora do líquido. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}];
-// bonuses: [{type, label?, mode, value, varies?, taxable?}] (ganhos extras: ver BONUS_TYPES).
+// bonuses: [{type, label?, mode, value, varies?, taxable?, separate?, day?}] (ganhos extras: ver BONUS_TYPES). paid: [{type, label, amount}] ganhos que
+// a pessoa já recebeu antes, neste mês: saem do líquido DESTE MÊS (não do fixo), para não contar duas vezes.
 // Só o salário (e os descontos que não variam) é fixo: horas extras e descontos “que variam” entram só no líquido
 // DESTE MÊS (net); o líquido para registrar todo mês é fixedNet.
 export function netSalary(opts, tables){
@@ -165,6 +176,16 @@ export function netSalary(opts, tables){
   full.fixedTotalNet = full.fixedNet;
   full.net = money(Math.max(0, full.net - full.separateTotal));
   full.fixedNet = money(Math.max(0, full.fixedNet - sumMoney(sepFixed, function(x){ return x.amount; })));
+  // O que já foi recebido antes (do que normalmente vem junto do salário): sai só deste mês. Nunca mais do que o próprio ganho calculado.
+  var left = monthBonuses(opts, full.gross);
+  full.paidBefore = (opts.paid || []).map(function(p){
+    var found = left.filter(function(b){ return !b.used && b.type === (p.type || 'outro') && b.label === p.label; })[0];
+    if (!found) return null;
+    found.used = true;
+    return {type: found.type, label: found.label, amount: money(Math.min(found.amount, Math.max(0, Number(p.amount) || 0)))};
+  }).filter(function(x){ return x && x.amount > 0; });
+  full.paidBeforeTotal = sumMoney(full.paidBefore, function(x){ return x.amount; });
+  full.net = money(Math.max(0, full.net - full.paidBeforeTotal));
   return full;
 }
 function runNet(opts, tables, withVariable){

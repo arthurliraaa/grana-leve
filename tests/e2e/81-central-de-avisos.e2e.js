@@ -18,7 +18,7 @@ L.run(async ({page}) => {
   L.ok(/Seu salário/.test(t) && /dia 20\/11 às 9h/.test(t), 'e o aviso do salário (dia 20/11, 9h)');
   L.ok(!/R\$/.test(t), 'sem valores em reais');
 
-  L.ok(/Novidades do app/.test(t) && /Central de avisos/.test(t), 'e a seção “Novidades do app”, com a atualização mais recente');
+  L.ok(/Novidades do app/.test(t) && await page.$$eval('.notice-rel', e => e.length) === 5, 'e a seção “Novidades do app”, com as 5 atualizações mais recentes');
 
   L.section('Novidades do app: o sino avisa quando há atualização');
   await L.closeModal(page);

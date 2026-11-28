@@ -314,3 +314,10 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - **Pergunta automática** (`salary.ask`, padrão ligada): a caixa “Perguntar já caiu? sozinho” em “Meu salário” desliga o popup ao abrir o app (`salaryDue(true)`); o cartão e o botão continuam. Vale por previsão e sincroniza com a conta.
 - Os benefícios separados têm “Recebi” (e “Recebi (dezembro)” depois que o do mês foi registrado). O app continua perguntando sozinho quando a data chega.
 - Teste: `tests/e2e/85-caiu-manual.e2e.js`.
+
+## Ganho que vem junto do salário, recebido antes (“Recebi antes”)
+- No cartão do salário e em “Meu salário”, cada ganho extra **não separado** tem **Recebi antes** (para o mês ainda pendente). Registra um ganho em **Outros** e guarda em `forecast.salary.paid[mês] = [{type, label, amount, varies, received, txId, date}]`.
+- O “já caiu?” daquele mês recebe `paid` na calculadora: `netSalary` o tira só do líquido do **mês** (`paidBefore`, nunca mais que o próprio ganho; o fixo não muda). A previsão do mês também fica menor, mas só pelos ganhos fixos (`forecasts.js`).
+- Se a pessoa apagar o lançamento, o ganho volta a somar, tanto na confirmação (`paidOf`) quanto na previsão (`forecastOccurrences` de `js/ui/state.js` ignora os “recebidos antes” sem lançamento).
+- Ganhos marcados “cai separado” continuam com a própria previsão e “Recebi”.
+- Teste: `tests/unit/salario.test.js`, `salary-plan.test.js`, `tests/e2e/86-ganho-recebido-antes.e2e.js`.

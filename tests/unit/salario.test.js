@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, discountAmount, workdaysInMonth, onCallPay, thirteenth, vacation, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
+import {inssEmployee, irrfMonthly, hourlyRate, overtimePay, netSalary, monthBonuses, discountAmount, workdaysInMonth, onCallPay, thirteenth, vacation, DISCOUNT_TYPES, BONUS_TYPES, TABLES} from '../../js/domain/salary.js';
 
 test('INSS do empregado: progressivo por faixa e limitado ao teto', () => {
   assert.equal(inssEmployee(1621), 121.58, '7,5% sobre o salário mínimo');
@@ -214,4 +214,19 @@ test('benefício separado tributável e variável: o imposto não muda; o variá
   assert.equal(r.separate[0].day, 20);
   assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'fixed', value: 0, separate: true}]}).separate.length, 0, 'sem valor, não entra');
   assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'fixed', value: 100, separate: true, day: 99}]}).separate[0].day, 1, 'dia inválido vira 1');
+});
+
+test('ganho recebido antes sai do líquido do mês (não do fixo) e não passa do próprio ganho', () => {
+  const base = {regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150}, {type: 'ajuda', mode: 'fixed', value: 100}]};
+  const normal = netSalary(base);
+  assert.equal(normal.net, 3001.4);
+  const r = netSalary({...base, paid: [{type: 'homeoffice', label: 'Auxílio home office', amount: 150}]});
+  assert.equal(r.net, 2851.4, 'o que já recebeu não soma no salário');
+  assert.equal(r.fixedNet, normal.fixedNet, 'o fixo (o que vira previsão todo mês) não muda');
+  assert.equal(r.totalNet, normal.totalNet, 'o total do mês é o mesmo');
+  assert.deepEqual(r.paidBefore.map(x => [x.label, x.amount]), [['Auxílio home office', 150]]);
+  assert.equal(netSalary({...base, paid: [{type: 'homeoffice', label: 'Auxílio home office', amount: 999}]}).paidBeforeTotal, 150, 'nunca mais que o próprio ganho');
+  assert.equal(netSalary({...base, paid: [{type: 'comissao', label: 'Comissão', amount: 50}]}).paidBeforeTotal, 0, 'ganho que não está na calculadora não tira nada');
+  assert.equal(netSalary({...base, paid: [{type: 'ajuda', label: 'Ajuda de custo', amount: 100}, {type: 'ajuda', label: 'Ajuda de custo', amount: 100}]}).paidBeforeTotal, 100, 'o mesmo ganho não conta duas vezes');
+  assert.deepEqual(monthBonuses({...base, bonuses: [...base.bonuses, {type: 'ajuda', mode: 'fixed', value: 40, separate: true}]}, 3000).map(x => x.amount), [150, 100], 'o que cai separado não entra na lista');
 });

@@ -877,6 +877,8 @@ function wireLazyEntries(){
     var sSkip = e.target.closest('[data-salary-skip]'), s13 = e.target.closest('[data-salary-13]');
     if (sSkip){ var sid = sSkip.getAttribute('data-salary-skip') || ''; withPart('salary', function(m){ m.skipSalaryById(sid); }); return; }
     if (s13){ withPart('salary', function(m){ m.registerThirteenth(); }); return; }
+    var sExtra = e.target.closest('[data-extra-got]');
+    if (sExtra && !e.target.closest('#modalRoot')){ var ei = [sExtra.getAttribute('data-extra-got'), sExtra.getAttribute('data-extra-type'), sExtra.getAttribute('data-extra-label')]; withPart('salary', function(m){ m.receiveExtra(ei[0], ei[1], ei[2]); }); return; }
     var sOpen = e.target.closest('[data-salary-open]'), sConf = e.target.closest('[data-salary-confirm]');
     if (sOpen){ var jid = sOpen.getAttribute('data-salary-open') || ''; withPart('salary', function(m){ m.openSalaryPlan(null, jid); }); }
     else if (sConf){ var fid = sConf.getAttribute('data-salary-confirm') || ''; withPart('salary', function(m){ m.confirmSalaryById(fid); }); }

@@ -5,6 +5,9 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-12-01', title: 'Recebeu um auxílio antes do salário?', items: [
+    {title: 'Botão “Recebi antes”', go: 'dashboard', text: 'No cartão do salário, registre o auxílio home office ou outro ganho assim que cair. Quando você tocar em “Já caiu” no salário, ele não é contado de novo.'}
+  ]},
   {id: '2026-11-30', title: 'Registrar quando o dinheiro cair', items: [
     {title: 'Botão “Já caiu” a qualquer momento', go: 'dashboard', text: 'No cartão do salário e em “Meu salário”, registre o salário ou um benefício assim que entrar, mesmo antes da data prevista. O do mês seguinte aparece perto da data.'},
     {title: 'Sem pergunta automática, se preferir', go: 'dashboard', text: 'Em “Meu salário”, desmarque “Perguntar já caiu? sozinho” para o app não abrir a pergunta: você registra pelo botão quando quiser.'}

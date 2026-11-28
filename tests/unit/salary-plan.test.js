@@ -60,3 +60,11 @@ test('a previsão do salário usa a regra e os reajustes em cada mês; previsõe
   assert.equal(jan.date, '2027-01-06', 'janeiro de 2027: 2 (sábado conta) → 1 é feriado ignorado: 1(sex),2(sáb),4,5,6 → dia 6');
   assert.equal(sal.amount, 2751.4, 'a previsão original não é alterada');
 });
+
+test('previsão do salário fica menor no mês em que um ganho fixo já foi recebido antes', () => {
+  const f = {id: 'f1', description: 'Salário', amount: 3001.4, date: '2026-11-06', recurring: true, received: {},
+    salary: {rule: {type: 'workday', n: 5, saturday: true}, steps: [{from: '2026-11', gross: 3000, net: 3001.4}], months: {},
+      paid: {'2026-11': [{type: 'homeoffice', label: 'Auxílio home office', amount: 150, varies: false}, {type: 'comissao', label: 'Comissão', amount: 500, varies: true}]}}};
+  assert.equal(forecastOccurrences([f], '2026-11')[0].f.amount, 2851.4, 'só o que é fixo abate a previsão (o variável nunca entrou nela)');
+  assert.equal(forecastOccurrences([f], '2026-12')[0].f.amount, 3001.4, 'no mês seguinte volta ao normal');
+});

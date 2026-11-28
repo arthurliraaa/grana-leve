@@ -181,7 +181,8 @@ function resultHtml(r, regime){
   if (!(r.gross > 0)) return '<p class="tx-meta">Informe o valor para ver o líquido.</p>';
   return '<table class="data-table sc-table"><tbody>' + r.lines.map(function(l){
     return '<tr class="' + l.kind + '"><td>' + escapeHtml(l.label) + '</td><td class="tabular">' + (l.kind === 'minus' ? '− ' : l.kind === 'plus' ? '+ ' : '') + fmtMoney(l.amount) + '</td></tr>'; }).join('') +
-    '<tr class="net"><td><strong>' + (r.separateTotal > 0 ? (r.hasVariable ? 'Líquido do salário neste mês' : 'Líquido do salário') : (r.hasVariable ? 'Líquido deste mês' : 'Líquido estimado')) + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr>' +
+    (r.paidBefore || []).map(function(x){ return '<tr class="minus"><td>' + escapeHtml(x.label) + ' <small class="tx-meta">já recebido antes: não soma no salário</small></td><td class="tabular">− ' + fmtMoney(x.amount) + '</td></tr>'; }).join('') +
+    '<tr class="net"><td><strong>' + (r.separateTotal > 0 || r.paidBeforeTotal > 0 ? (r.hasVariable ? 'Líquido do salário neste mês' : 'Líquido do salário') : (r.hasVariable ? 'Líquido deste mês' : 'Líquido estimado')) + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr>' +
     (r.separate || []).map(function(x){ return '<tr class="info"><td>' + escapeHtml(x.label) + ' <small class="tx-meta">cai separado, no dia ' + x.day + '</small></td><td class="tabular">' + fmtMoney(x.amount) + '</td></tr>'; }).join('') +
     (r.separateTotal > 0 ? '<tr class="info"><td>Total do mês (salário + o que cai separado)</td><td class="tabular">' + fmtMoney(r.totalNet) + '</td></tr>' : '') +
     (r.hasVariable ? '<tr class="net fixed"><td><strong>Líquido fixo (todo mês)</strong><br><small class="tx-meta">só o salário e os descontos que não variam</small></td><td class="tabular"><strong>' + fmtMoney(r.fixedNet) + '</strong></td></tr>' : '') +
@@ -292,6 +293,7 @@ async function openCalculatorOnce(config){
         qs('#scGrossLbl', modal).textContent = GROSS_LABEL[o.regime];
         var gross = Number(o.gross) || 0;
         qsa('.sc-disc-row', modal).forEach(function(row){ applyRow(row, gross); });
+        if (config.paid) o.paid = config.paid;   // o que já foi recebido antes neste mês não soma no salário
         var res = netSalary(o);
         qs('#scResult', modal).innerHTML = resultHtml(res, o.regime);
         qs('[data-use=month]', modal).hidden = config.confirm || !res.hasVariable;
@@ -351,7 +353,7 @@ async function openCalculatorOnce(config){
       sync();
     },
     onSubmit: function(form){
-      var res = form._res || netSalary(readOpts(form));
+      var res = form._res || netSalary(Object.assign(readOpts(form), {paid: config.paid}));
       if (!(res.gross > 0)) return {error: 'Informe o salário bruto.'};
       if (config.confirm) return {net: res.net, kind: 'month', res: res, opts: form._opts || readOpts(form), accountId: form.acc ? (form.acc.value || null) : null, date: form.caiuDate ? form.caiuDate.value : ''};
       return {net: res.fixedNet, kind: 'fixed', res: res, opts: form._opts || readOpts(form)};
