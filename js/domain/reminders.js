@@ -116,7 +116,7 @@ export function buildReminders(ctx){
     (ctx.vouchers || []).forEach(function(v){
       keys.forEach(function(key){
         var d = creditDate(v, key);
-        if (!d) return;
+        if (!d || typeof (v.credited || {})[key] === 'string') return;   // já caiu (marcado): não avisa
         var n = Number(lead.voucher) || 0;
         add({key: 'voucher:' + v.id + ':' + key, kind: 'voucher', date: addDaysKey(d, -n), title: 'Vale-alimentação',
           body: n > 0 ? 'O vale ' + v.name + ' cai ' + (n === 1 ? 'amanhã' : 'em ' + n + ' dias') + '.' : 'O vale ' + v.name + ' cai hoje.', url: './#/contas'});

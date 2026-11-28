@@ -2409,3 +2409,10 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 @media (max-width: 620px){ .sc-d-day{ min-height:44px; } }
 
 .salary-card .btn-ghost{ background: var(--surface); }
+
+.voucher-status{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; margin-top:8px; padding:8px 12px; border:1px solid var(--border); border-radius:10px; font-size:.9rem; }
+
+/* Confirmação do salário: o que já foi recebido antes, em destaque */
+.sc-paid-notice{ display:grid; gap:6px; padding:12px 14px; border:2px solid var(--warning); border-radius:12px; background: var(--surface-2); color: var(--text-primary); font-size:.93rem; }
+.sc-paid-notice ul{ margin:0; padding-left:18px; color: var(--text-primary); }
+.sc-paid-notice p{ margin:0; color: var(--text-primary); font-size:.88rem; line-height:1.45; }

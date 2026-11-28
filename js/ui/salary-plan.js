@@ -5,7 +5,7 @@
  * A previsão é uma entrada de “Previstas” (forecasts) com o campo salary; o líquido vem da calculadora (salary-calc.js).
  */
 import {todayKey, monthBounds, monthKeyOf, formatDateFull, formatDateBr, monthLabelOf, shiftMonthKey, validDateStr, parseDate} from '../domain/dates.js';
-import {money, fmtMoney} from '../domain/money.js';
+import {money, fmtMoney, sumMoney} from '../domain/money.js';
 import {payDate, ruleLabel, evolution, raises, withStep, monthName} from '../domain/salary-plan.js';
 import {Store} from '../data/store.js';
 import {getPrefs, setPref} from '../data/session.js';
@@ -94,7 +94,8 @@ async function registerSalary(due, res){
   await syncBenefits(jobIdOf(f));
   renderDashboard(); renderTransactionsTab();
   var rs = raises(next).filter(function(x){ return x.from === key; })[0];
-  toast('Salário de ' + fmtMoney(res.net) + ' registrado.' + (rs && next.steps.length > before.length ? ' Reajuste anotado: de ' + fmtMoney(rs.before) + ' para ' + fmtMoney(rs.after) + ' brutos (' + (rs.pct > 0 ? '+' : '') + String(rs.pct).replace('.', ',') + '%).' : ''));
+  var kept = (res.res.paidBefore || []).length ? ' O que você já tinha recebido antes (' + fmtMoney(res.res.paidBeforeTotal) + ') não foi contado de novo.' : '';
+  toast('Salário de ' + fmtMoney(res.net) + ' registrado.' + kept + (rs && next.steps.length > before.length ? ' Reajuste anotado: de ' + fmtMoney(rs.before) + ' para ' + fmtMoney(rs.after) + ' brutos (' + (rs.pct > 0 ? '+' : '') + String(rs.pct).replace('.', ',') + '%).' : ''));
 }
 
 // Pergunta se o salário já caiu: abre a calculadora com os valores guardados, para a pessoa acrescentar o que mudou no mês.
@@ -106,7 +107,7 @@ export async function confirmSalary(due){
   useJob(jobIdOf(f));   // a calculadora abre com o perfil do emprego desta previsão
   var res = await openSalaryCalculator({
     confirm: true, paid: paidOf(f, key), title: 'O salário de ' + monthLabelOf(key) + (labelOf(f) ? ' (' + labelOf(f) + ')' : '') + ' caiu?', submitLabel: 'Caiu: registrar', cancelLabel: 'Ainda não caiu',
-    introHtml: '<p class="field-hint sc-confirm-intro">Previsto ' + ruleLabel(f.salary.rule) + ' (' + formatDateFull(due.occ.date) + '). Confira os valores deste mês: acrescente sobreaviso, horas extras ou ganhos, e ajuste descontos que mudaram, como a parte usada do plano de saúde.</p>',
+    introHtml: paidNotice(paidOf(f, key)) + '<p class="field-hint sc-confirm-intro">Previsto ' + ruleLabel(f.salary.rule) + ' (' + formatDateFull(due.occ.date) + '). Confira os valores deste mês: acrescente sobreaviso, horas extras ou ganhos, e ajuste descontos que mudaram, como a parte usada do plano de saúde.</p>',
     extraHtml: '<div class="sc-confirm">' + accountSelectHtml('scAcc', 'acc', 'Entrou em') +
       '<div class="field"><label for="scCaiu">Dia em que caiu</label><input id="scCaiu" name="caiuDate" type="date" min="1900-01-01" max="3000-12-31" value="' + (due.occ.date > today ? today : due.occ.date) + '"></div></div>'
   });
@@ -244,6 +245,14 @@ function paidOf(f, key){
   var list = (f.salary.paid || {})[key] || [];
   return list.filter(function(p){ return !p.txId || State.transactions.some(function(t){ return t.id === p.txId; }); });
 }
+function paidTotal(list){ return sumMoney(list, function(p){ return p.received; }); }
+// Aviso em destaque na confirmação do salário: o que a pessoa já disse que recebeu não entra de novo.
+function paidNotice(list){
+  if (!list.length) return '';
+  return '<div class="sc-paid-notice" role="note"><strong>Você já disse que recebeu antes:</strong><ul>' +
+    list.map(function(p){ return '<li>' + escapeHtml(p.label) + ' · <strong>' + fmtMoney(p.received) + '</strong>' + (p.date ? ' em ' + formatDateBr(p.date) : '') + '</li>'; }).join('') +
+    '</ul><p>' + (list.length === 1 ? 'Esse valor <strong>não entra de novo</strong>' : 'Esses valores (' + fmtMoney(paidTotal(list)) + ') <strong>não entram de novo</strong>') + ' neste salário: o valor a registrar abaixo já está sem ' + (list.length === 1 ? 'ele' : 'eles') + '. Marcou por engano? Apague o lançamento em “Ganhos e gastos” e o valor volta a somar.</p></div>';
+}
 // Os ganhos extras que normalmente entram no salário do mês (os que não caem separado), com a situação no mês key.
 function extraItems(f, key){
   var profile = getWorkProfile(jobIdOf(f)), paid = paidOf(f, key).slice();
@@ -306,7 +315,8 @@ export function renderSalaryCard(){
     html = '<h3 class="sal-title">' + (plans.length > 1 ? 'Meus salários' : 'Meu salário') + '</h3><div class="sal-group">' + plans.map(function(f){
       var nx = salaryNext(f), who = labelOf(f), pend = cardPending(f), name = who ? escapeHtml(who) : 'Salário';
       var action = pend ? '<button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(f.id) + '">Já caiu' + monthSuffix(pend.key) + '</button>' : '';
-      return nx ? row(name, 'próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date), nx.occ.f.amount, action) : '<div class="sal-row"><div class="sal-main"><span>' + name + '</span><small>sem próximo salário previsto</small></div></div>';
+      var early = nx ? paidOf(f, monthKeyOf(nx.occ.date)) : [];
+      return nx ? row(name, 'próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date) + (early.length ? '<br>' + fmtMoney(paidTotal(early)) + ' já recebido antes: não entra de novo' : ''), nx.occ.f.amount, action) : '<div class="sal-row"><div class="sal-main"><span>' + name + '</span><small>sem próximo salário previsto</small></div></div>';
     }).join('') + '</div>' +
       '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(plans[0])) + '">Ver evolução e ajustar</button>' + thirteenBtn() + '</div>';
   } else if (calc){

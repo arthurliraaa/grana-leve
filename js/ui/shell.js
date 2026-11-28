@@ -19,7 +19,7 @@ import {loadSession, clearSession, getPrefs, setPref, setPrefsOwner} from '../da
 import {captchaEnabled, getCaptchaToken, mountCaptcha} from './captcha.js';
 import {qs, qsa, escapeHtml, icon, saveFile, toast, autoFocus} from './dom.js';
 import {openModal, confirmAction, attachCounters, enableSwipeClose} from './modal.js';
-import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid, undoBalanceAdjust, undoInvoiceAdvance} from './accounts-tab.js';
+import {editAccount, editVoucher, openTransfer, renderAccounts, renderVouchers, toggleInvoicePaid, undoBalanceAdjust, undoInvoiceAdvance, voucherNotYet, voucherReceived} from './accounts-tab.js';
 import {cardReport, editCard, renderCards} from './cards-tab.js';
 import {maybeWelcome, openQuickEntry} from './chat.js';
 import {openFeedback} from './feedback.js';
@@ -720,6 +720,8 @@ async function clickWallet(t, e){
     if ((el = t.closest('[data-card-report]'))){ cardReport(el.getAttribute('data-card-report')); return true; }
     if ((el = t.closest('[data-adv-group]'))){ advanceInstallments(el.getAttribute('data-adv-group')); return true; }
     if ((el = t.closest('[data-voucher-edit]'))){ editVoucher(el.getAttribute('data-voucher-edit')); return true; }
+    if ((el = t.closest('[data-voucher-got]'))){ voucherReceived(el.getAttribute('data-voucher-got'), el.getAttribute('data-voucher-month')); return true; }
+    if ((el = t.closest('[data-voucher-notyet]'))){ voucherNotYet(el.getAttribute('data-voucher-notyet'), el.getAttribute('data-voucher-month')); return true; }
     if ((el = t.closest('[data-voucher-del]'))){
       var vd = findById(State.vouchers, el.getAttribute('data-voucher-del'));
       if (!(await confirmAction({title:'Excluir vale?', message:'Excluir o vale “' + vd.name + '”? Os gastos feitos com ele continuam nos seus lançamentos.'}))) return true;

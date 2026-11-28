@@ -2,8 +2,8 @@
  * Contas bancárias, transferências e vale-alimentação.
  * Parte da interface separada do app.js (veja o comentário no topo do app.js).
  */
-import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, monthLabelOf, shiftMonthKey} from '../domain/dates.js';
-import {creditDay, nextCredit} from '../domain/vouchers.js';
+import {todayKey, monthKeyOf, formatDateBr, formatDateFull, validDateStr, monthBounds, monthLabelOf, shiftMonthKey, parseDate} from '../domain/dates.js';
+import {creditDay, nextCredit, creditedOn, creditDate} from '../domain/vouchers.js';
 import {money, fmtMoney, splitAmount} from '../domain/money.js';
 import {findById, sum, uid} from '../domain/util.js';
 import * as Cards from '../domain/cards.js';
@@ -442,6 +442,55 @@ function creditLine(v){
   if (!next) return '';
   return '<p class="voucher-credit">' + icon('calendar') + '<span>Cai todo dia ' + creditDay(v) + ' · ' + (next.days === 0 ? '<strong>cai hoje</strong>' : 'próximo em ' + formatDateFull(next.date) + ' (' + (next.days === 1 ? 'amanhã' : 'em ' + next.days + ' dias') + ')') + '</span></p>';
 }
+// Situação do crédito do mês: “Caiu em 05/11” (com “Ainda não caiu”, se na verdade não caiu) ou “Ainda não caiu em novembro” (com “Já caiu”, se
+// cair antes). Perto da data do mês que vem (10 dias), aparece o botão para marcar que ele já caiu.
+function creditStatus(v){
+  var today = todayKey(), cur = monthKeyOf(today), on = creditedOn(v, cur, today), name = function(m){ return monthLabelOf(m).split(' ')[0]; };
+  var next = shiftMonthKey(cur, 1), nextOn = creditedOn(v, next, today), nextDate = creditDate(v, next);
+  var line = function(text, button){ return '<div class="voucher-status"><span>' + text + '</span>' + button + '</div>'; };
+  var got = function(m, label){ return '<button type="button" class="btn btn-primary btn-sm" data-voucher-got="' + escapeHtml(v.id) + '" data-voucher-month="' + m + '">' + label + '</button>'; };
+  var not = function(m){ return '<button type="button" class="btn btn-ghost btn-sm" data-voucher-notyet="' + escapeHtml(v.id) + '" data-voucher-month="' + m + '">Ainda não caiu</button>'; };
+  // Sem dia informado (e sem marcação), o crédito conta desde o dia 1: dá para dizer que ainda não caiu e informar o dia em “Editar”.
+  if (!creditDay(v) && (v.credited || {})[cur] === undefined) return line('Crédito de ' + name(cur) + ': contado desde o dia 1 <small class="tx-meta">(informe o dia em que cai em “Editar”)</small>', not(cur));
+  var out = on ? line('Crédito de ' + name(cur) + ': <strong>caiu em ' + formatDateBr(on) + '</strong>', not(cur))
+    : line('Crédito de ' + name(cur) + ': <strong>ainda não caiu</strong>', got(cur, 'Já caiu'));
+  if (nextOn) out += line('Crédito de ' + name(next) + ': <strong>caiu antes, em ' + formatDateBr(nextOn) + '</strong>', not(next));
+  else if (on && nextDate && (parseDate(nextDate).getTime() - parseDate(today).getTime()) / 86400000 <= 10) out += line('Crédito de ' + name(next) + ': previsto para ' + formatDateBr(nextDate), got(next, 'Caiu antes'));
+  return out;
+}
+export async function voucherReceived(id, month){
+  var v = findById(State.vouchers, id);
+  if (!v) return;
+  var today = todayKey();
+  var r = await openModal({
+    title: 'O vale ' + v.name + ' caiu',
+    body: '<p>O crédito de ' + fmtMoney(v.amount) + ' (' + monthLabelOf(month) + ') passa a contar no saldo a partir do dia informado.</p>' +
+      '<div class="field"><label for="vgDate">Dia em que caiu</label><input id="vgDate" name="date" type="date" min="1900-01-01" max="' + today + '" value="' + today + '"></div>',
+    submitLabel: 'Confirmar que caiu',
+    onSubmit: function(form){
+      var date = form.date.value;
+      if (!validDateStr(date) || date > today) return {error: 'Escolha um dia até hoje.'};
+      return {date: date};
+    }
+  });
+  if (!r || !r.date) return;
+  await saveCredit(v, month, r.date);
+  toast('Crédito do vale registrado. Saldo atualizado: ' + fmtMoney(voucherBalance(v)) + '.');
+}
+export async function voucherNotYet(id, month){
+  var v = findById(State.vouchers, id);
+  if (!v) return;
+  await saveCredit(v, month, false);
+  toast('Marcado como ainda não caiu. Saldo atualizado: ' + fmtMoney(voucherBalance(v)) + '. Quando cair, toque em “Já caiu”.');
+}
+async function saveCredit(v, month, value){
+  var credited = Object.assign({}, v.credited || {});
+  credited[month] = value;
+  await Store.update(k(), 'vouchers', v.id, {credited: credited});
+  v.credited = credited;
+  renderAll();
+}
+
 export function renderVouchers(){
   var wrap = document.getElementById('voucherList');
   if (!State.vouchers.length){ wrap.innerHTML = ''; return; }
@@ -457,6 +506,7 @@ export function renderVouchers(){
       '<div class="progress" title="Gasto do crédito deste mês"><span style="width:' + (pct*100) + '%; background:' + (pct >= 1 ? 'var(--critical)' : pct >= 0.8 ? 'var(--warning)' : 'var(--brand)') + '"></span></div>' +
       '<div class="meta-line"><span>Cai por mês: ' + fmtMoney(v.amount) + '</span><span>Gasto em ' + monthLabelOf(cur) + ': ' + fmtMoney(spent) + '</span></div>' +
       creditLine(v) +
+      creditStatus(v) +
       (monthTx.length ? '<details class="budget-details"><summary>Ver ' + monthTx.length + ' gasto(s) deste mês</summary>' + monthTx.map(txRowHtml).join('') + '</details>' : '') +
       '<div class="card-actions">' +
         '<button class="btn btn-ghost btn-sm" type="button" data-voucher-edit="' + v.id + '">Editar</button>' +

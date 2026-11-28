@@ -5,6 +5,11 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-12-02', title: 'O saldo do vale segue o dia em que ele cai', items: [
+    {title: 'Só conta o crédito depois que cai', go: 'cartoes', text: 'Com o dia informado, o saldo do vale espera o crédito. Caiu antes? Toque em “Já caiu”. Não caiu no dia? Toque em “Ainda não caiu”.'},
+    {title: 'Recebeu antes? Não entra de novo', go: 'dashboard', text: 'No “Já caiu” do salário, um aviso lista o que você já recebeu e deixa claro que não será contado outra vez.'},
+    {title: 'Cartão do salário arrumado', go: 'dashboard', text: 'Nome, valor e botão de cada ganho agora ficam alinhados, no computador e no celular.'}
+  ]},
   {id: '2026-12-01', title: 'Recebeu um auxílio antes do salário?', items: [
     {title: 'Botão “Recebi antes”', go: 'dashboard', text: 'No cartão do salário, registre o auxílio home office ou outro ganho assim que cair. Quando você tocar em “Já caiu” no salário, ele não é contado de novo.'}
   ]},

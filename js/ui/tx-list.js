@@ -293,8 +293,8 @@ export function monthEvents(key){
     });
   });
   State.vouchers.forEach(function(v){
-    var d = creditDate(v, key);
-    if (d) out.push({date: d, kind: 'vale', label: v.name, amount: Number(v.amount) || 0});
+    var mark = (v.credited || {})[key], d = typeof mark === 'string' && mark ? mark : creditDate(v, key);
+    if (d && d.slice(0, 7) === key) out.push({date: d, kind: 'vale', label: v.name, amount: Number(v.amount) || 0});
   });
   State.receivables.forEach(function(r){
     var left = recvRemaining(r), due = recvNextDue(r);

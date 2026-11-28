@@ -292,7 +292,7 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - Teste: `tests/e2e/81-central-de-avisos.e2e.js`; contas puras em `tests/unit/reminders.test.js` (`whenLabel`, `sentHistory`, `unseenCount`).
 
 ## Dia em que o vale cai (`voucher.creditDay`)
-- Campo opcional (1 a 31) no cadastro e na edição do vale-alimentação/refeição (Contas e cartões). `creditDay`, `creditDate` (mês curto cai no último dia) e `nextCredit` ficam em `js/domain/vouchers.js`. É **informativo**: não muda o saldo do vale (o crédito mensal continua contado como antes); vale antigo sem o dia segue igual.
+- Campo opcional (1 a 31) no cadastro e na edição do vale-alimentação/refeição (Contas e cartões). `creditDay`, `creditDate` (mês curto cai no último dia) e `nextCredit` ficam em `js/domain/vouchers.js`. **Muda o saldo** (ver abaixo); vale sem o dia e sem marcação segue como antes (crédito desde o dia 1).
 - Aparece no cartão do vale (“Cai todo dia 5 · próximo em 05/12/2026 (em 18 dias)”), no calendário de Ganhos e gastos (tipo `vale`, ponto dourado, conta como entrada no filtro) e nos avisos: tipo `voucher` (liga/desliga e antecedência em Perfil, no dia por padrão). No banco o aviso do vale vai como tipo `custom` (`reminderRows` converte), então não precisa de migração nova.
 - Teste: `tests/unit/vale-dia.test.js` e `tests/e2e/82-vale-dia.e2e.js`.
 
@@ -319,5 +319,12 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - No cartão do salário e em “Meu salário”, cada ganho extra **não separado** tem **Recebi antes** (para o mês ainda pendente). Registra um ganho em **Outros** e guarda em `forecast.salary.paid[mês] = [{type, label, amount, varies, received, txId, date}]`.
 - O “já caiu?” daquele mês recebe `paid` na calculadora: `netSalary` o tira só do líquido do **mês** (`paidBefore`, nunca mais que o próprio ganho; o fixo não muda). A previsão do mês também fica menor, mas só pelos ganhos fixos (`forecasts.js`).
 - Se a pessoa apagar o lançamento, o ganho volta a somar, tanto na confirmação (`paidOf`) quanto na previsão (`forecastOccurrences` de `js/ui/state.js` ignora os “recebidos antes” sem lançamento).
+- A confirmação do salário abre com um aviso em destaque (`.sc-paid-notice`) listando o que já foi recebido, o valor em destaque diz “Líquido a registrar”, o cartão avisa “já recebido antes: não entra de novo” e a mensagem final repete.
 - Ganhos marcados “cai separado” continuam com a própria previsão e “Recebi”.
 - Teste: `tests/unit/salario.test.js`, `salary-plan.test.js`, `tests/e2e/86-ganho-recebido-antes.e2e.js`.
+
+## Saldo do vale e “Já caiu” / “Ainda não caiu”
+- Com dia informado (ou alguma marcação, `tracksCredit`), o crédito de cada mês só conta **depois que cai**: pelo dia, ou pela marcação `voucher.credited[mês]` (data: a pessoa disse que caiu nesse dia; `false`: disse que ainda não caiu). `creditedOn` e `voucherBalance` (`js/domain/vouchers.js`).
+- Acumulando: soma um crédito por mês que caiu (com saldo informado, só o que caiu depois dele). Sem acumular: vale o último crédito que caiu, menos o gasto desde então (antes do próximo, ainda é o anterior).
+- Cartão do vale: “Já caiu” (confirma o dia, até hoje), “Ainda não caiu” e, a 10 dias do mês que vem, “Caiu antes”. Vale marcado como caído não gera aviso; o calendário usa o dia marcado.
+- Teste: `tests/unit/vale-dia.test.js`, `tests/e2e/87-vale-caiu.e2e.js`.

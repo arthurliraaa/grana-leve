@@ -226,6 +226,7 @@ function sectionSummaries(o, res){
 }
 function headlineHtml(res){
   if (!(res.gross > 0)) return 'Informe o salário bruto para ver o líquido.';
+  if (res.paidBeforeTotal > 0) return 'Líquido a registrar: <strong>' + fmtMoney(res.net) + '</strong> · já sem ' + fmtMoney(res.paidBeforeTotal) + ' recebidos antes';
   return (res.separateTotal > 0 ? 'Líquido do salário: ' : res.hasVariable ? 'Líquido deste mês: ' : 'Líquido estimado: ') + '<strong>' + fmtMoney(res.net) + '</strong>' + (res.hasVariable ? ' · fixo todo mês: <strong>' + fmtMoney(res.fixedNet) + '</strong>' : '') + (res.separateTotal > 0 ? ' · cai separado: <strong>' + fmtMoney(res.separateTotal) + '</strong>' : '');
 }
 

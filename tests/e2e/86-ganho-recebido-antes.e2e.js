@@ -25,15 +25,21 @@ L.run(async ({page}) => {
   L.ok(inc.length === 1 && inc[0].amount === 150 && inc[0].category === 'outros_receita' && inc[0].description === 'Auxílio home office', 'registra o ganho de R$ 150');
   card = await L.text(page, '#salaryCard');
   L.ok(/2\.751,40/.test(card) && /recebido antes: fora deste salário/.test(card) && !(await page.$('#salaryCard [data-extra-got]')), 'o salário previsto cai para 2.751,40 e o auxílio fica como recebido');
+  L.ok(/150,00 já recebido antes: não entra de novo/.test(card), 'o cartão também avisa que ele não entra de novo');
 
   L.section('“Já caiu” não conta o auxílio de novo');
   await page.$eval('#salaryCard [data-salary-confirm]', e => e.click()); await L.sleep(600);
   const res = await L.text(page, '#scResult');
   L.ok(/já recebido antes: não soma no salário[^]*150,00/.test(res) && /Líquido do salário[^]*2\.751,40/.test(res), 'a confirmação mostra o auxílio descontado e o líquido de 2.751,40');
+  const aviso = await L.text(page, '#modalRoot .sc-paid-notice');
+  L.ok(/Você já disse que recebeu antes/.test(aviso) && /Auxílio home office[^]*150,00[^]*em 17\/11/.test(aviso) && /não entra de novo/.test(aviso), 'um aviso em destaque diz o que já foi recebido e que não entra de novo');
+  L.ok(await page.$eval('#modalRoot .modal-body', e => e.firstElementChild.classList.contains('sc-paid-notice')), 'no alto da janela, antes de tudo');
+  L.ok(/Líquido a registrar: R\$\s?2\.751,40 · já sem R\$\s?150,00 recebidos antes/.test(await L.text(page, '#scHeadline')), 'o valor em destaque diz o que vai ser registrado, já sem o recebido');
   await L.submitModal(page); await L.sleep(900);
   d = await L.db(page);
   inc = d.transactions.filter(t => t.type === 'income');
   L.ok(inc.length === 2 && inc.some(t => t.category === 'salario' && t.amount === 2751.4) && Math.round(inc.reduce((s, t) => s + t.amount, 0) * 100) / 100 === 2901.4, 'salário 2.751,40 + auxílio 150 = 2.901,40, sem duplicar');
+  L.ok(/150,00\) não foi contado de novo/.test(await L.allToasts(page)), 'e a mensagem final confirma que não foi contado de novo');
 
   L.section('Apagar o lançamento volta a somar');
   await L.patchDb(page, `u.forecasts.forEach(function(f){ if (f.salary){ f.received = {}; f.salary.months = {}; } }); u.transactions = u.transactions.filter(function(t){ return false; });`, {});
