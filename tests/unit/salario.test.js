@@ -190,3 +190,28 @@ test('férias: dias gozados + 1/3, abono pecuniário isento e FGTS sobre o que �
   assert.equal(vacation({regime: 'clt', gross: 3000, vacSell: true, vacDays: 30}).days, 20, 'o máximo continua 20 com o abono');
   assert.equal(vacation({regime: 'autonomo', gross: 3000}), null);
 });
+
+test('benefício que cai separado: fica fora do líquido do salário e não muda os descontos', () => {
+  const base = {regime: 'clt', gross: 3000, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150}]};
+  const junto = netSalary(base);
+  const sep = netSalary({...base, bonuses: [{type: 'homeoffice', mode: 'fixed', value: 150, separate: true, day: 1}]});
+  assert.equal(junto.net, 2901.4, 'junto: o salário líquido já inclui o auxílio (2.751,40 + 150)');
+  assert.equal(sep.net, 2751.4, 'separado: o líquido do salário não inclui o auxílio');
+  assert.equal(sep.fixedNet, 2751.4);
+  assert.equal(sep.totalNet, 2901.4, 'o total do mês continua o mesmo');
+  assert.equal(sep.discounts, junto.discounts, 'os descontos são os mesmos');
+  assert.deepEqual(sep.separate, [{type: 'homeoffice', label: 'Auxílio home office', amount: 150, day: 1, varies: false}]);
+  assert.equal(sep.separateTotal, 150);
+});
+
+test('benefício separado tributável e variável: o imposto não muda; o variável sai só do líquido do mês', () => {
+  const o = {regime: 'clt', gross: 5000, bonuses: [{type: 'comissao', mode: 'fixed', value: 800, varies: true, separate: true, day: 20}]};
+  const r = netSalary(o);
+  const junto = netSalary({...o, bonuses: [{type: 'comissao', mode: 'fixed', value: 800, varies: true}]});
+  assert.equal(r.totalNet, junto.net, 'tributa igual: só muda onde o valor aparece');
+  assert.equal(r.net, Math.round((junto.net - 800) * 100) / 100);
+  assert.equal(r.fixedNet, junto.fixedNet, 'o que varia não entra no fixo de nenhum jeito');
+  assert.equal(r.separate[0].day, 20);
+  assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'fixed', value: 0, separate: true}]}).separate.length, 0, 'sem valor, não entra');
+  assert.equal(netSalary({regime: 'clt', gross: 3000, bonuses: [{type: 'ajuda', mode: 'fixed', value: 100, separate: true, day: 99}]}).separate[0].day, 1, 'dia inválido vira 1');
+});

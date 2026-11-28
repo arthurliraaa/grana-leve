@@ -5,6 +5,9 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-11-29', title: 'Benefícios que caem antes do salário', items: [
+    {title: 'Auxílio home office e outros, em outro dia', go: 'lancamentos', text: 'Na calculadora do salário, marque “Cai separado do salário” e o dia: o benefício vira uma previsão própria, com “Recebi” no cartão do salário, e o salário não o conta de novo.'}
+  ]},
   {id: '2026-11-28', title: 'Tutorial novo e configuração rápida', items: [
     {title: 'Configuração rápida', go: 'perfil', text: 'Em poucos passos: seus bancos e cartões (saldo, limite e dias da fatura), o salário e extras como vale-alimentação, contas fixas, limites e avisos. Fica em Perfil e nos Primeiros passos do Início.'},
     {title: 'Tutorial mais direto', go: 'perfil', text: 'Revisamos o tutorial para mostrar só o que importa: lançar gastos, bancos e cartões, salário, extrato, avisos e a ajuda.'}

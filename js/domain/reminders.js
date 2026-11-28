@@ -72,6 +72,16 @@ export function buildReminders(ctx){
 
   if (kinds.salary){
     var plans = (ctx.forecasts || []).filter(function(f){ return f.salary && f.salary.rule; });
+    (ctx.forecasts || []).filter(function(f){ return f.benefit; }).forEach(function(f){
+      keys.forEach(function(key){
+        forecastOccurrences([f], key).forEach(function(o){
+          if (o.received !== undefined) return;
+          var n = Number(lead.salary) || 0;
+          add({key: 'benefit:' + f.id + ':' + o.date, kind: 'salary', date: addDaysKey(o.date, -n), title: 'Benefício',
+            body: n > 0 ? f.description + ' cai ' + (n === 1 ? 'amanhã' : 'em ' + n + ' dias') + '. Toque para ver.' : 'Hoje é o dia previsto para ' + f.description + ' cair. Toque para confirmar.', url: './#/inicio'});
+        });
+      });
+    });
     plans.forEach(function(f){
       keys.forEach(function(key){
         forecastOccurrences([f], key).forEach(function(o){

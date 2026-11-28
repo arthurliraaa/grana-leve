@@ -128,3 +128,14 @@ test('central de avisos: quando, histórico dos enviados e contagem dos não vis
   assert.equal(unseenCount(h, new Date('2026-11-21T12:30:00Z').getTime()), 1, 'só o que chegou depois da última abertura');
   assert.equal(unseenCount(h, 0), 3, 'nunca abriu: todos são novos');
 });
+
+test('benefício que cai separado também avisa (como o salário), sem valores', () => {
+  const benefit = {id: 'b1', description: 'Auxílio home office', amount: 150, date: '2026-11-01', recurring: true, received: {}, benefit: {jobId: 'j1', type: 'homeoffice', label: 'Auxílio home office', day: 1}};
+  const r = buildReminders({today: '2026-11-28', horizon: 10, kinds: {salary: true}, forecasts: [benefit]});
+  assert.equal(r.length, 1);
+  assert.equal(r[0].date, '2026-12-01');
+  assert.equal(r[0].kind, 'salary');
+  assert.match(r[0].body, /Auxílio home office/);
+  assert.ok(!/R\$|150/.test(r[0].body));
+  assert.equal(buildReminders({today: '2026-11-28', horizon: 10, kinds: {salary: false}, forecasts: [benefit]}).length, 0);
+});

@@ -134,6 +134,16 @@ export var BONUS_TYPES = [
   {id: 'outro', label: 'Outro ganho', taxable: true}
 ];
 export function bonusAmount(b, base){ return discountAmount(b, base); }
+// Dia do mês (1 a 31) em que um ganho que cai separado do salário é pago; sem dia informado, o dia 1.
+export function bonusDay(b){ var d = Math.floor(Number(b && b.day)); return d >= 1 && d <= 31 ? d : 1; }
+// Ganhos que caem SEPARADOS do salário (auxílio home office antes do dia do pagamento, por exemplo): [{type, label, amount, day, varies}].
+function separateBonuses(opts, base, withVariable){
+  return (opts.bonuses || []).filter(function(b){ return b.separate && (withVariable || !b.varies); }).map(function(b){
+    /** @type {any} */
+    var meta = BONUS_TYPES.filter(function(t){ return t.id === b.type; })[0] || {};
+    return {type: b.type || 'outro', label: b.label || meta.label || 'Ganho extra', amount: bonusAmount(b, base), day: bonusDay(b), varies: !!b.varies};
+  }).filter(function(x){ return x.amount > 0; });
+}
 
 // Líquido estimado. opts: {regime, gross, weeklyHours, h50, h100, dsr, workDays, restDays, dependents, discounts, rpps,
 // meiKind, inssKind, simplesRate, otherPct, bonuses, sobreaviso}. fgts: o que a empresa deposita (8%, só CLT), fora do líquido. discounts: [{type, label?, mode: 'pct'|'fixed', value, varies?}];
@@ -147,6 +157,14 @@ export function netSalary(opts, tables){
   var fixed = hasVariable ? runNet(opts, tables, false) : full;
   full.fixedNet = fixed.net; full.fixedFgts = fixed.fgts;
   full.hasVariable = hasVariable;
+  // O que cai separado fica FORA do líquido do salário (é lançado à parte, no dia dele); os descontos continuam calculados sobre tudo.
+  var sep = separateBonuses(opts, full.gross, true), sepFixed = separateBonuses(opts, full.gross, false);
+  full.separate = sep;
+  full.separateTotal = sumMoney(sep, function(x){ return x.amount; });
+  full.totalNet = full.net;
+  full.fixedTotalNet = full.fixedNet;
+  full.net = money(Math.max(0, full.net - full.separateTotal));
+  full.fixedNet = money(Math.max(0, full.fixedNet - sumMoney(sepFixed, function(x){ return x.amount; })));
   return full;
 }
 function runNet(opts, tables, withVariable){

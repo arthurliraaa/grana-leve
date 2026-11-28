@@ -301,3 +301,10 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - **Configuração rápida** (`js/ui/setup.js`, parte sob demanda `withPart('setup')`): passo 1 bancos e cartões (vários; `addBank` em `js/ui/accounts-tab.js` cria conta com saldo e/ou cartão com limite, fechamento e vencimento, ligados), passo 2 salário (calculadora e previsão, ou “Não tenho salário fixo” = `prefs.noSalary`), passo 3 atalhos (vale, contas fixas, limites, metas, importar extrato, avisos). Todos os passos são pulavéis; `prefs.setupDone` marca que foi aberta. Abre depois do tutorial, em Perfil (“Configurar o essencial”) e pelos Primeiros passos (“Configuração guiada”).
 - **Primeiros passos** (Início): 4 passos (bancos e cartões, salário ou “Não tenho”, primeiro lançamento, limite por categoria).
 - Testes: `tests/e2e/53-tutorial.e2e.js`, `54-menos-informacao.e2e.js`, `83-configuracao-rapida.e2e.js`.
+
+## Benefícios que caem separado do salário (`bonus.separate`, `bonus.day`)
+- Na calculadora, cada ganho extra tem “Cai separado do salário” e “no dia” (1 a 31; mês curto cai no último). Em `netSalary`, o separado sai do `net`/`fixedNet` (o líquido do **salário**) e aparece em `separate`, `separateTotal` e `totalNet`; **os descontos são calculados sobre tudo**, como antes (só muda onde o valor aparece).
+- Ao salvar “Meu salário” (e ao confirmar um mês) `syncBenefits(jobId)` (`js/ui/salary-plan.js`) cria/atualiza/apaga uma previsão por benefício (`forecast.benefit = {jobId, type, label, day}`, categoria **Outros**, recorrente). Parar de prever o salário apaga as previsões dos benefícios; ganhos já registrados ficam. “Já recebi o deste mês” marca também os benefícios.
+- No Início, o cartão do salário lista os benefícios do mês com “Recebi” (o mesmo de “Previstas”); dá para registrá-los antes do salário, sem contar duas vezes. Os avisos do salário também valem para eles (tipo `salary`, sem valores).
+- Usar só a calculadora (sem criar a previsão) não cria previsões de benefícios.
+- Teste: `tests/unit/salario.test.js`, `reminders.test.js`, `tests/e2e/84-beneficios-separados.e2e.js`.

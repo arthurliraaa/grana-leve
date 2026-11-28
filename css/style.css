@@ -2385,3 +2385,10 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 @media (max-width: 520px){ .setup-grid{ grid-template-columns: 1fr; } }
 .fs-tools .linklike{ margin-left:0; }
 .fs-acts .linklike{ margin:0; }
+
+.sc-d-dayl{ display:inline-flex; align-items:center; gap:6px; font-size:.9rem; color: var(--text-secondary); }
+.sc-d-dayl[hidden]{ display:none; }
+.sc-d-day{ width:4.5em; padding:8px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); font-size:16px; }
+.salary-benefits{ display:grid; gap:6px; margin-top:8px; }
+.salary-benefit{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; font-size:.9rem; }
+@media (max-width: 620px){ .sc-d-day{ min-height:44px; } }

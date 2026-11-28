@@ -67,7 +67,9 @@ function rowHtml(kind, d){
     (bonus ? '' : benefitPanelHtml(d)) +
     '<p class="sc-d-eq" aria-live="polite"></p>' +
     '<div class="sc-d-foot"><label class="check sc-d-varies"><input class="sc-d-var" type="checkbox"' + ((d.varies || meta.varies) ? ' checked' : '') + '> Varia todo mês</label>' +
-    (bonus ? '<label class="check sc-d-taxl"><input class="sc-d-tax" type="checkbox"' + (taxable ? ' checked' : '') + '> Paga imposto</label>' : '') +
+    (bonus ? '<label class="check sc-d-taxl"><input class="sc-d-tax" type="checkbox"' + (taxable ? ' checked' : '') + '> Paga imposto</label>' +
+      '<label class="check sc-d-sepl"><input class="sc-d-sep" type="checkbox"' + (d.separate ? ' checked' : '') + '> Cai separado do salário</label>' +
+      '<label class="sc-d-dayl"' + (d.separate ? '' : ' hidden') + '>no dia <input class="sc-d-day" type="number" min="1" max="31" step="1" inputmode="numeric" aria-label="Dia do mês em que cai" value="' + (d.day || 1) + '"></label>' : '') +
     '<button type="button" class="linklike sc-d-del" aria-label="Remover">Remover</button></div></div>';
 }
 // Barra de empregos: com um só, um link para adicionar outro; com mais, o seletor, o nome e remover. (Na confirmação mensal não aparece.)
@@ -127,7 +129,7 @@ function bodyHtml(config){
 function readRows(form, kind){
   return qsa('.sc-disc-row[data-kind="' + kind + '"]', form).map(function(row){
     var o = {type: qs('.sc-d-type', row).value, mode: qs('.sc-d-mode', row).value, value: num(qs('.sc-d-value', row).value), varies: qs('.sc-d-var', row).checked};
-    if (kind === 'bonus') o.taxable = qs('.sc-d-tax', row).checked;
+    if (kind === 'bonus'){ o.taxable = qs('.sc-d-tax', row).checked; if (qs('.sc-d-sep', row).checked){ o.separate = true; o.day = Math.min(31, Math.max(1, Math.floor(Number(qs('.sc-d-day', row).value) || 1))); } }
     else if (o.mode === 'perday'){ o.charged = num(qs('.sc-p-charged', row).value); o.refDays = Number(qs('.sc-p-ref', row).value) || 0; o.days = Number(qs('.sc-p-days', row).value) || 0; }
     else if (o.mode === 'benefit'){
       if (o.type === 'vt'){ o.daily = num(qs('.sc-b-daily', row).value); o.days = Number(qs('.sc-b-days', row).value) || 0; o.benefit = Math.round(o.daily * o.days * 100) / 100; o.pct = Number(qs('.sc-b-pct-vt', row).value) || 0; }
@@ -142,7 +144,7 @@ function applyRow(row, gross){
   var mode0 = qs('.sc-d-mode', row).value, v0 = num(qs('.sc-d-value', row).value), eq = qs('.sc-d-eq', row);
   if (mode0 === 'benefit' || mode0 === 'perday' || !(v0 > 0) || !(gross > 0)) eq.textContent = '';
   else eq.textContent = mode0 === 'pct' ? 'Equivale a ' + fmtMoney(gross * v0 / 100) + ' neste salário.' : 'Equivale a ' + String(Math.round(v0 / gross * 10000) / 100).replace('.', ',') + '% do salário.';
-  if (row.getAttribute('data-kind') !== 'disc') return;
+  if (row.getAttribute('data-kind') !== 'disc'){ var sepOn = qs('.sc-d-sep', row), dayL = qs('.sc-d-dayl', row); if (sepOn && dayL) dayL.hidden = !sepOn.checked; return; }
   var type = qs('.sc-d-type', row).value, meta = metaOf('disc', type), mode = qs('.sc-d-mode', row);
   qsa('option[value=benefit], option[value=perday]', mode).forEach(function(opt){ opt.hidden = opt.disabled = !meta.benefit; });
   if (!meta.benefit && (mode.value === 'benefit' || mode.value === 'perday')) mode.value = 'fixed';
@@ -179,7 +181,9 @@ function resultHtml(r, regime){
   if (!(r.gross > 0)) return '<p class="tx-meta">Informe o valor para ver o líquido.</p>';
   return '<table class="data-table sc-table"><tbody>' + r.lines.map(function(l){
     return '<tr class="' + l.kind + '"><td>' + escapeHtml(l.label) + '</td><td class="tabular">' + (l.kind === 'minus' ? '− ' : l.kind === 'plus' ? '+ ' : '') + fmtMoney(l.amount) + '</td></tr>'; }).join('') +
-    '<tr class="net"><td><strong>' + (r.hasVariable ? 'Líquido deste mês' : 'Líquido estimado') + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr>' +
+    '<tr class="net"><td><strong>' + (r.separateTotal > 0 ? (r.hasVariable ? 'Líquido do salário neste mês' : 'Líquido do salário') : (r.hasVariable ? 'Líquido deste mês' : 'Líquido estimado')) + '</strong></td><td class="tabular"><strong>' + fmtMoney(r.net) + '</strong></td></tr>' +
+    (r.separate || []).map(function(x){ return '<tr class="info"><td>' + escapeHtml(x.label) + ' <small class="tx-meta">cai separado, no dia ' + x.day + '</small></td><td class="tabular">' + fmtMoney(x.amount) + '</td></tr>'; }).join('') +
+    (r.separateTotal > 0 ? '<tr class="info"><td>Total do mês (salário + o que cai separado)</td><td class="tabular">' + fmtMoney(r.totalNet) + '</td></tr>' : '') +
     (r.hasVariable ? '<tr class="net fixed"><td><strong>Líquido fixo (todo mês)</strong><br><small class="tx-meta">só o salário e os descontos que não variam</small></td><td class="tabular"><strong>' + fmtMoney(r.fixedNet) + '</strong></td></tr>' : '') +
     (r.fgts > 0 ? '<tr class="info"><td>FGTS que a empresa deposita (8%)<br><small class="tx-meta">não sai do seu salário: vai para a sua conta do FGTS' + (r.hasVariable ? '; no fixo seria ' + fmtMoney(r.fixedFgts) : '') + '</small></td><td class="tabular">' + fmtMoney(r.fgts) + '</td></tr>' : '') +
     '</tbody></table>' +
@@ -221,7 +225,7 @@ function sectionSummaries(o, res){
 }
 function headlineHtml(res){
   if (!(res.gross > 0)) return 'Informe o salário bruto para ver o líquido.';
-  return (res.hasVariable ? 'Líquido deste mês: ' : 'Líquido estimado: ') + '<strong>' + fmtMoney(res.net) + '</strong>' + (res.hasVariable ? ' · fixo todo mês: <strong>' + fmtMoney(res.fixedNet) + '</strong>' : '');
+  return (res.separateTotal > 0 ? 'Líquido do salário: ' : res.hasVariable ? 'Líquido deste mês: ' : 'Líquido estimado: ') + '<strong>' + fmtMoney(res.net) + '</strong>' + (res.hasVariable ? ' · fixo todo mês: <strong>' + fmtMoney(res.fixedNet) + '</strong>' : '') + (res.separateTotal > 0 ? ' · cai separado: <strong>' + fmtMoney(res.separateTotal) + '</strong>' : '');
 }
 
 // O que a pessoa já informou fica guardado (salário, descontos e ganhos): nos meses seguintes já vem preenchido, mesmo se ela
