@@ -2389,25 +2389,42 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .sc-d-dayl{ display:inline-flex; align-items:center; gap:6px; font-size:.9rem; color: var(--text-secondary); }
 .sc-d-dayl[hidden]{ display:none; }
 .sc-d-day{ width:4.5em; padding:8px; border-radius:9px; border:1px solid var(--border); background: var(--bg); color: var(--text-primary); font-size:16px; }
-/* Linhas do cartão do salário (e de “Meu salário”): nome e detalhe | valor | ação, alinhados em colunas */
-.sal-title{ margin:0; font-size:1.02rem; color: var(--brand-strong); }
-.sal-group{ display:grid; }
-.sal-group-title{ margin:0 0 2px; font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color: var(--text-secondary); }
-.sal-row{ display:grid; grid-template-columns: minmax(0,1fr) auto 11.5rem; align-items:center; gap:4px 16px; padding:9px 0; border-top:1px solid color-mix(in srgb, var(--brand) 22%, transparent); }
-.sal-main{ display:grid; gap:1px; min-width:0; color: var(--text-primary); font-size:.93rem; overflow-wrap:anywhere; }
-.sal-main small{ color: var(--text-secondary); font-size:.8rem; }
-.sal-value{ white-space:nowrap; color: var(--text-primary); font-size:.98rem; text-align:right; }
+/* Cartão do salário compacto: linha(s) do salário, lista de ganhos que abre e fecha, e atalhos */
+.sal-title{ margin:0; font-size:1rem; color: var(--brand-strong); }
+.sal-top{ display:grid; grid-template-columns: minmax(0,1fr) auto auto; align-items:center; gap:4px 14px; }
+.sal-main{ display:grid; gap:1px; min-width:0; color: var(--text-primary); font-size:.9rem; overflow-wrap:anywhere; }
+.sal-main small{ color: var(--text-secondary); font-size:.78rem; line-height:1.4; }
+.sal-value{ white-space:nowrap; color: var(--text-primary); font-size:1rem; text-align:right; }
+.sal-top > .sal-value{ font-size:1.12rem; }
 .sal-act{ display:flex; justify-content:flex-end; }
-.sal-act .btn{ width:100%; justify-content:center; }
-.salary-card .card-actions{ border-top:1px solid color-mix(in srgb, var(--brand) 22%, transparent); padding-top:12px; margin:0; }
+.sal-details{ border-top:1px solid color-mix(in srgb, var(--brand) 22%, transparent); }
+.sal-details > summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:8px; padding:8px 0 0; font-size:.86rem; font-weight:700; color: var(--brand-strong); }
+.sal-details > summary::-webkit-details-marker{ display:none; }
+.sal-details > summary::before{ content:'▸'; transition: transform .15s; display:inline-block; }
+.sal-details[open] > summary::before{ transform: rotate(90deg); }
+.sal-count{ font-weight:500; color: var(--text-secondary); font-size:.8rem; }
+.sal-group{ display:grid; margin-top:6px; }
+.sal-group-title{ margin:0; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color: var(--text-secondary); }
+.sal-row{ display:grid; grid-template-columns: minmax(0,1fr) auto 8.5rem; align-items:center; gap:2px 12px; padding:4px 0; border-top:1px solid color-mix(in srgb, var(--brand) 16%, transparent); }
+.sal-row .sal-value{ font-size:.92rem; }
+.sal-row .sal-act .btn{ min-height:32px; padding:4px 10px; font-size:.8rem; width:100%; justify-content:center; }
+.salary-card .card-actions{ margin:0; }
+.sal-foot{ align-items:center; gap:6px 16px; }
+.sal-foot .btn{ min-height:32px; padding:4px 10px; font-size:.8rem; }
+.sal-foot .linklike{ font-size:.84rem; }
 @media (max-width: 620px){
+  .sal-top{ grid-template-columns: minmax(0,1fr) auto; }
+  .sal-top .sal-act{ grid-column: 1 / -1; }
+  .sal-top .sal-act:empty{ display:none; }
+  .sal-top .sal-act .btn{ width:100%; justify-content:center; }
   .sal-row{ grid-template-columns: minmax(0,1fr) auto; }
-  .sal-act{ grid-column: 1 / -1; }
-  .sal-act:empty{ display:none; }
-  .sal-act .status-pill{ margin-right:auto; }
+  .sal-row .sal-main{ grid-column:1; }
+  .sal-row .sal-value{ grid-column:1; grid-row:2; text-align:left; }
+  .sal-row .sal-act{ grid-column:2; grid-row: 1 / span 2; }
+  .sal-row .sal-act .btn{ width:auto; min-height:44px; }
+  .sal-details > summary{ min-height:44px; padding:0; flex-wrap:wrap; }
+  .sal-foot .btn, .sal-foot .linklike{ min-height:44px; }
 }
-@media (max-width: 620px){ .sc-d-day{ min-height:44px; } }
-
 .salary-card .btn-ghost{ background: var(--surface); }
 
 .voucher-status{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; margin-top:8px; padding:8px 12px; border:1px solid var(--border); border-radius:10px; font-size:.9rem; }
@@ -2416,3 +2433,4 @@ body.modal-open .gr-corner, body.tut-open .gr-corner, body:has(#viewAuth:not([hi
 .sc-paid-notice{ display:grid; gap:6px; padding:12px 14px; border:2px solid var(--warning); border-radius:12px; background: var(--surface-2); color: var(--text-primary); font-size:.93rem; }
 .sc-paid-notice ul{ margin:0; padding-left:18px; color: var(--text-primary); }
 .sc-paid-notice p{ margin:0; color: var(--text-primary); font-size:.88rem; line-height:1.45; }
+@media (max-width: 620px){ .sc-d-day{ min-height:44px; } }

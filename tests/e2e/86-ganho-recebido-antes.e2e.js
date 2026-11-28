@@ -13,6 +13,20 @@ L.run(async ({page}) => {
   await L.submitModal(page); await L.sleep(900);
   await L.tab(page, 'dashboard'); await L.sleep(400);
 
+  L.section('Cartão compacto com a lista que abre e fecha');
+  const altura = () => page.$eval('#salaryCard', e => Math.round(e.getBoundingClientRect().height));
+  L.ok(await page.$eval('#salaryCard .sal-details', e => !e.open) && /Ganhos além do salário/.test(await L.text(page, '#salaryCard summary')) && /1 para registrar/.test(await L.text(page, '#salaryCard summary')), 'a lista começa fechada e diz quantos há para registrar');
+  const fechado = await altura();
+  L.ok(fechado < 170, 'fechado, o cartão é baixo (' + fechado + ' px)');
+  await page.click('#salaryCard .sal-details > summary'); await L.sleep(300);
+  L.ok(await page.$eval('#salaryCard .sal-details', e => e.open) && (await altura()) > fechado, 'tocar abre a lista');
+  await L.reload(page); await L.tab(page, 'dashboard'); await L.sleep(400);
+  L.ok(await page.$eval('#salaryCard .sal-details', e => e.open), 'e a escolha é lembrada ao reabrir o app');
+  await page.click('#salaryCard .sal-details > summary'); await L.sleep(300);
+  await L.reload(page); await L.tab(page, 'dashboard'); await L.sleep(400);
+  L.ok(await page.$eval('#salaryCard .sal-details', e => !e.open), 'fechar também é lembrado');
+  await page.click('#salaryCard .sal-details > summary'); await L.sleep(300);
+
   L.section('“Recebi antes” no cartão do salário');
   let card = await L.text(page, '#salaryCard');
   L.ok(/2\.901,40/.test(card) && /Auxílio home office/.test(card) && /junto do salário de novembro/i.test(card), 'o cartão lista o auxílio que vem junto do salário de novembro');

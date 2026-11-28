@@ -5,6 +5,9 @@
  * item.go (opcional) = tela para onde o botão “Ver” leva (nome aceito por showTab: 'lancamentos', 'simular', 'dashboard', 'perfil'…).
  */
 export var CHANGELOG = [
+  {id: '2026-12-03', title: 'Salário em menos espaço', items: [
+    {title: 'Lista que abre e fecha', go: 'dashboard', text: 'O cartão do salário ficou compacto. Os ganhos além do salário ficam numa lista que você abre ou fecha, e o app lembra a sua escolha.'}
+  ]},
   {id: '2026-12-02', title: 'O saldo do vale segue o dia em que ele cai', items: [
     {title: 'Só conta o crédito depois que cai', go: 'cartoes', text: 'Com o dia informado, o saldo do vale espera o crédito. Caiu antes? Toque em “Já caiu”. Não caiu no dia? Toque em “Ainda não caiu”.'},
     {title: 'Recebeu antes? Não entra de novo', go: 'dashboard', text: 'No “Já caiu” do salário, um aviso lista o que você já recebeu e deixa claro que não será contado outra vez.'},

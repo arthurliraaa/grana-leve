@@ -302,30 +302,48 @@ function extraLines(f){
 
 // O botão do 13º aparece de outubro a dezembro, quando ele costuma cair.
 function thirteenBtn(){ var m = Number(monthBounds(0).key.slice(5, 7)); return m >= 10 ? '<button type="button" class="btn btn-soft btn-sm" data-salary-13>Registrar o 13º</button>' : ''; }
+// Cartão compacto: uma linha por salário (quando cai, valor e “Já caiu”) e, fechada por padrão, a lista dos ganhos (“Recebi antes” e o que
+// cai separado). A pessoa abre ou fecha, e a escolha é lembrada (prefs.salaryListOpen).
+function topRow(title, details, amount, action){
+  return '<div class="sal-top"><div class="sal-main">' + title + details.map(function(d){ return '<small>' + d + '</small>'; }).join('') + '</div><strong class="sal-value tabular">' + fmtMoney(amount) + '</strong><div class="sal-act">' + action + '</div></div>';
+}
+function listBlock(plans){
+  var list = plans.map(extraLines).join('') + benefitLines();
+  if (!list) return '';
+  var total = (list.match(/class="sal-row"/g) || []).length, pending = (list.match(/data-extra-got|data-fc-receive/g) || []).length;
+  return '<details class="sal-details"' + (getPrefs().salaryListOpen ? ' open' : '') + '><summary><span>Ganhos além do salário</span><span class="sal-count">' + total + (total === 1 ? ' item' : ' itens') + (pending ? ' · ' + pending + ' para registrar' : ' · tudo registrado') + '</span></summary>' + list + '</details>';
+}
 export function renderSalaryCard(){
   var el = document.getElementById('salaryCard');
   if (!el) return;
   hydrateSalaryProfile();
   var plans = salaryForecasts(), calc = savedSalary(), due = salaryDue(), html = '';
+  var linkOpen = function(jid, text){ return '<button type="button" class="linklike" data-salary-open="' + escapeHtml(jid) + '">' + text + '</button>'; };
   if (due){
-    var who = labelOf(due.f);
-    html = '<div class="salary-card-text"><strong>Seu salário' + (who ? ' (' + escapeHtml(who) + ')' : '') + ' deveria ter caído ' + (due.occ.date === todayKey() ? 'hoje' : 'em ' + formatDateBr(due.occ.date)) + '.</strong> Previsto ' + fmtMoney(due.occ.f.amount) + '. Já caiu? Confirme os valores do mês, com o que variou.</div>' +
-      '<div class="card-actions"><button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(due.f.id) + '">Já caiu</button><button type="button" class="btn btn-ghost btn-sm" data-salary-skip="' + escapeHtml(due.f.id) + '">Pular este mês</button><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(due.f)) + '">Meu salário</button>' + thirteenBtn() + '</div>';
+    var who = labelOf(due.f), early0 = paidOf(due.f, due.key);
+    html = topRow('<strong class="sal-title">Seu salário' + (who ? ' (' + escapeHtml(who) + ')' : '') + ' deveria ter caído ' + (due.occ.date === todayKey() ? 'hoje' : 'em ' + formatDateBr(due.occ.date)) + '.</strong>',
+        ['Já caiu? Confirme os valores do mês, com o que variou.'].concat(early0.length ? [fmtMoney(paidTotal(early0)) + ' já recebido antes: não entra de novo'] : []), due.occ.f.amount,
+        '<button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(due.f.id) + '">Já caiu</button>') +
+      listBlock(plans) +
+      '<div class="card-actions sal-foot"><button type="button" class="linklike" data-salary-skip="' + escapeHtml(due.f.id) + '">Pular este mês</button>' + linkOpen(jobIdOf(due.f), 'Meu salário') + thirteenBtn() + '</div>';
   } else if (plans.length){
-    html = '<h3 class="sal-title">' + (plans.length > 1 ? 'Meus salários' : 'Meu salário') + '</h3><div class="sal-group">' + plans.map(function(f){
-      var nx = salaryNext(f), who = labelOf(f), pend = cardPending(f), name = who ? escapeHtml(who) : 'Salário';
-      var action = pend ? '<button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(f.id) + '">Já caiu' + monthSuffix(pend.key) + '</button>' : '';
-      var early = nx ? paidOf(f, monthKeyOf(nx.occ.date)) : [];
-      return nx ? row(name, 'próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date) + (early.length ? '<br>' + fmtMoney(paidTotal(early)) + ' já recebido antes: não entra de novo' : ''), nx.occ.f.amount, action) : '<div class="sal-row"><div class="sal-main"><span>' + name + '</span><small>sem próximo salário previsto</small></div></div>';
-    }).join('') + '</div>' +
-      '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(plans[0])) + '">Ver evolução e ajustar</button>' + thirteenBtn() + '</div>';
+    var many = plans.length > 1;
+    html = (many ? '<h3 class="sal-title">Meus salários</h3>' : '') + plans.map(function(f){
+      var nx = salaryNext(f), name = labelOf(f), pend = cardPending(f), title = many ? '<span>' + escapeHtml(name) + '</span>' : '<h3 class="sal-title">Meu salário</h3>';
+      if (!nx) return '<div class="sal-top"><div class="sal-main">' + title + '<small>sem próximo salário previsto</small></div></div>';
+      var early = paidOf(f, monthKeyOf(nx.occ.date));
+      return topRow(title, ['próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date)].concat(early.length ? [fmtMoney(paidTotal(early)) + ' já recebido antes: não entra de novo'] : []), nx.occ.f.amount,
+        pend ? '<button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(f.id) + '">Já caiu' + monthSuffix(pend.key) + '</button>' : '');
+    }).join('') + listBlock(plans) +
+      '<div class="card-actions sal-foot">' + linkOpen(jobIdOf(plans[0]), 'Ver evolução e ajustar') + thirteenBtn() + '</div>';
   } else if (calc){
     html = '<div class="salary-card-text"><strong>Você calculou o seu salário líquido: ' + fmtMoney(calc.fixedNet) + ' por mês' + (calc.count > 1 ? ' (' + calc.count + ' empregos somados)' : '') + '.</strong> Quer que ele apareça como previsão todo mês, com o dia em que cai?</div>' +
       '<div class="card-actions"><button type="button" class="btn btn-primary btn-sm" data-salary-open>Prever meu salário</button></div>';
   }
-  if (html) html = html.replace('<div class="card-actions">', plans.map(extraLines).join('') + benefitLines() + '<div class="card-actions">');
   el.hidden = !html;
   el.innerHTML = html;
+  var det = el.querySelector('.sal-details');
+  if (det) det.addEventListener('toggle', function(){ if (det.open !== !!getPrefs().salaryListOpen) setPref('salaryListOpen', det.open); });
 }
 
 /* ---------- Meu salário (configuração e evolução) ---------- */

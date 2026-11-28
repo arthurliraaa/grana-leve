@@ -315,6 +315,9 @@ deste mês” preenche `net` uma vez só (e desmarca “Repete todo mês” em P
 - Os benefícios separados têm “Recebi” (e “Recebi (dezembro)” depois que o do mês foi registrado). O app continua perguntando sozinho quando a data chega.
 - Teste: `tests/e2e/85-caiu-manual.e2e.js`.
 
+## Cartão do salário compacto (Início)
+- Uma linha por salário (quando cai, valor, “Já caiu”), depois a lista **Ganhos além do salário** (`<details class="sal-details">`, começa fechada, resumo “N itens · M para registrar”, aberta/fechada guardada em `prefs.salaryListOpen`) com “Recebi antes” e o que cai separado, e uma linha de atalhos. Não aumente a altura fechada (teste 86: menos de 170 px no computador).
+
 ## Ganho que vem junto do salário, recebido antes (“Recebi antes”)
 - No cartão do salário e em “Meu salário”, cada ganho extra **não separado** tem **Recebi antes** (para o mês ainda pendente). Registra um ganho em **Outros** e guarda em `forecast.salary.paid[mês] = [{type, label, amount, varies, received, txId, date}]`.
 - O “já caiu?” daquele mês recebe `paid` na calculadora: `netSalary` o tira só do líquido do **mês** (`paidBefore`, nunca mais que o próprio ganho; o fixo não muda). A previsão do mês também fica menor, mas só pelos ganhos fixos (`forecasts.js`).
