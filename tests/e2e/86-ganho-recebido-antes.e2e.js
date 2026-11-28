@@ -15,7 +15,7 @@ L.run(async ({page}) => {
 
   L.section('“Recebi antes” no cartão do salário');
   let card = await L.text(page, '#salaryCard');
-  L.ok(/2\.901,40/.test(card) && /Auxílio home office/.test(card) && /vem junto do salário de novembro/.test(card), 'o cartão lista o auxílio que vem junto do salário de novembro');
+  L.ok(/2\.901,40/.test(card) && /Auxílio home office/.test(card) && /junto do salário de novembro/i.test(card), 'o cartão lista o auxílio que vem junto do salário de novembro');
   L.ok(!!(await page.$('#salaryCard [data-extra-got]')), 'com o botão “Recebi antes”');
   await page.$eval('#salaryCard [data-extra-got]', e => e.click()); await L.sleep(500);
   L.ok(/Recebi: Auxílio home office/.test(await L.modalTitle(page)) && Number(await page.$eval('#askAmount', e => e.value.replace(',', '.'))) === 150, 'pede a confirmação com o valor do auxílio');
@@ -24,7 +24,7 @@ L.run(async ({page}) => {
   let inc = d.transactions.filter(t => t.type === 'income');
   L.ok(inc.length === 1 && inc[0].amount === 150 && inc[0].category === 'outros_receita' && inc[0].description === 'Auxílio home office', 'registra o ganho de R$ 150');
   card = await L.text(page, '#salaryCard');
-  L.ok(/2\.751,40/.test(card) && /fora do salário de novembro/.test(card) && !(await page.$('#salaryCard [data-extra-got]')), 'o salário previsto cai para 2.751,40 e o auxílio fica como recebido');
+  L.ok(/2\.751,40/.test(card) && /recebido antes: fora deste salário/.test(card) && !(await page.$('#salaryCard [data-extra-got]')), 'o salário previsto cai para 2.751,40 e o auxílio fica como recebido');
 
   L.section('“Já caiu” não conta o auxílio de novo');
   await page.$eval('#salaryCard [data-salary-confirm]', e => e.click()); await L.sleep(600);

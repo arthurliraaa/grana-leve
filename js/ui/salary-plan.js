@@ -188,6 +188,12 @@ export async function salaryIntoPopup(draft){
   openTxModal(d);
 }
 
+// Uma linha do cartão: nome (e um detalhe), valor à direita e a ação na ponta. Um grupo é um título com as linhas.
+function row(title, detail, amount, action){
+  return '<div class="sal-row"><div class="sal-main"><span>' + title + '</span>' + (detail ? '<small>' + detail + '</small>' : '') + '</div><strong class="sal-value tabular">' + fmtMoney(amount) + '</strong>' + (action ? '<div class="sal-act">' + action + '</div>' : '<div class="sal-act"></div>') + '</div>';
+}
+function group(title, rows){ return '<div class="sal-group"><p class="sal-group-title">' + title + '</p>' + rows + '</div>'; }
+
 /* ---------- Benefícios que caem separado do salário ---------- */
 
 function benefitsOf(jobId){ return State.forecasts.filter(function(f){ return f.benefit && f.benefit.jobId === jobId; }); }
@@ -217,7 +223,6 @@ export async function syncBenefits(jobId, skipNow){
     State.forecasts = State.forecasts.filter(function(x){ return x.id !== have[j].id; });
   }
 }
-// No cartão do salário: o que cai separado neste mês, com “Recebi” (antes ou depois do salário).
 function benefitLines(){
   var cur = monthBounds(0).key;
   var list = State.forecasts.filter(function(f){ return f.benefit; }).map(function(f){
@@ -225,12 +230,11 @@ function benefitLines(){
     return now ? {o: now, pend: cardPending(f)} : null;
   }).filter(Boolean).sort(function(a, b){ return a.o.date.localeCompare(b.o.date); });
   if (!list.length) return '';
-  return '<div class="salary-benefits">' + list.map(function(item){
+  return group('Cai separado', list.map(function(item){
     var o = item.o, done = o.received !== undefined, pend = item.pend;
-    return '<div class="salary-benefit"><span>' + escapeHtml(o.f.description) + ' · ' + formatDateBr(o.date) + ' · ' + fmtMoney(done ? o.received : o.f.amount) + '</span><span class="salary-benefit-acts">' +
-      (done ? '<span class="status-pill good">recebido</span>' : '') +
-      (pend ? '<button type="button" class="btn btn-ghost btn-sm" data-fc-receive="' + escapeHtml(o.f.id) + '" data-fc-date="' + escapeHtml(pend.occ.date) + '">Recebi' + monthSuffix(pend.key) + '</button>' : '') + '</span></div>';
-  }).join('') + '</div>';
+    return row(escapeHtml(o.f.description), (done ? 'recebido neste mês' : 'previsto para ' + formatDateBr(o.date)), done ? o.received : o.f.amount,
+      (pend ? '<button type="button" class="btn btn-ghost btn-sm" data-fc-receive="' + escapeHtml(o.f.id) + '" data-fc-date="' + escapeHtml(pend.occ.date) + '">Recebi' + monthSuffix(pend.key) + '</button>' : '<span class="status-pill good">recebido</span>'));
+  }).join(''));
 }
 
 /* ---------- Ganhos que vêm junto do salário, recebidos antes ---------- */
@@ -278,12 +282,11 @@ function extraLines(f){
   if (!pend) return '';
   var items = extraItems(f, pend.key);
   if (!items.length) return '';
-  var many = salaryForecasts().length > 1;
-  return '<div class="salary-benefits">' + items.map(function(x){
-    return '<div class="salary-benefit"><span>' + escapeHtml(x.label) + (many ? ' · ' + escapeHtml(f.salary.jobName || jobName(jobIdOf(f))) : '') + ' · ' + fmtMoney(x.got ? x.got.received : x.amount) +
-      ' <small class="tx-meta">' + (x.got ? 'recebido antes: fora do salário de ' + monthLabelOf(pend.key).split(' ')[0] : 'vem junto do salário de ' + monthLabelOf(pend.key).split(' ')[0]) + '</small></span><span class="salary-benefit-acts">' +
-      (x.got ? '<span class="status-pill good">recebido</span>' : '<button type="button" class="btn btn-ghost btn-sm" data-extra-got="' + escapeHtml(f.id) + '" data-extra-type="' + escapeHtml(x.type) + '" data-extra-label="' + escapeHtml(x.label) + '">Recebi antes</button>') + '</span></div>';
-  }).join('') + '</div>';
+  var month = monthLabelOf(pend.key).split(' ')[0], many = salaryForecasts().length > 1;
+  return group('Vem junto do salário de ' + month + (many ? ' · ' + escapeHtml(f.salary.jobName || jobName(jobIdOf(f))) : ''), items.map(function(x){
+    return row(escapeHtml(x.label), x.got ? 'recebido antes: fora deste salário' : '', x.got ? x.got.received : x.amount,
+      x.got ? '<span class="status-pill good">recebido</span>' : '<button type="button" class="btn btn-ghost btn-sm" data-extra-got="' + escapeHtml(f.id) + '" data-extra-type="' + escapeHtml(x.type) + '" data-extra-label="' + escapeHtml(x.label) + '">Recebi antes</button>');
+  }).join(''));
 }
 
 /* ---------- Cartão no Início ---------- */
@@ -300,10 +303,10 @@ export function renderSalaryCard(){
     html = '<div class="salary-card-text"><strong>Seu salário' + (who ? ' (' + escapeHtml(who) + ')' : '') + ' deveria ter caído ' + (due.occ.date === todayKey() ? 'hoje' : 'em ' + formatDateBr(due.occ.date)) + '.</strong> Previsto ' + fmtMoney(due.occ.f.amount) + '. Já caiu? Confirme os valores do mês, com o que variou.</div>' +
       '<div class="card-actions"><button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(due.f.id) + '">Já caiu</button><button type="button" class="btn btn-ghost btn-sm" data-salary-skip="' + escapeHtml(due.f.id) + '">Pular este mês</button><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(due.f)) + '">Meu salário</button>' + thirteenBtn() + '</div>';
   } else if (plans.length){
-    html = '<div class="salary-card-text"><strong>' + (plans.length > 1 ? 'Meus salários' : 'Meu salário') + '</strong>' + plans.map(function(f){
-      var nx = salaryNext(f), who = labelOf(f), pend = cardPending(f);
-      return '<span class="salary-line">' + (who ? escapeHtml(who) + ': ' : '') + (nx ? 'próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date) + ' · ' + fmtMoney(nx.occ.f.amount) : 'sem próximo salário previsto') +
-        (pend ? ' <button type="button" class="btn btn-ghost btn-sm salary-got" data-salary-confirm="' + escapeHtml(f.id) + '">Já caiu' + monthSuffix(pend.key) + '</button>' : '') + '</span>';
+    html = '<h3 class="sal-title">' + (plans.length > 1 ? 'Meus salários' : 'Meu salário') + '</h3><div class="sal-group">' + plans.map(function(f){
+      var nx = salaryNext(f), who = labelOf(f), pend = cardPending(f), name = who ? escapeHtml(who) : 'Salário';
+      var action = pend ? '<button type="button" class="btn btn-primary btn-sm" data-salary-confirm="' + escapeHtml(f.id) + '">Já caiu' + monthSuffix(pend.key) + '</button>' : '';
+      return nx ? row(name, 'próximo ' + ruleLabel(f.salary.rule) + ' · ' + formatDateFull(nx.occ.date), nx.occ.f.amount, action) : '<div class="sal-row"><div class="sal-main"><span>' + name + '</span><small>sem próximo salário previsto</small></div></div>';
     }).join('') + '</div>' +
       '<div class="card-actions"><button type="button" class="btn btn-ghost btn-sm" data-salary-open="' + escapeHtml(jobIdOf(plans[0])) + '">Ver evolução e ajustar</button>' + thirteenBtn() + '</div>';
   } else if (calc){
